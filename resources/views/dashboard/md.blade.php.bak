@@ -1,0 +1,2619 @@
+<head>
+    <meta charset="utf-8">
+    <script src="https://www.google.com/jsapi"></script>
+        <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.min.js"></script> -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+
+    <style>
+        .pie-chart {
+            width: 600px;
+            height: 400px;
+            margin: 0 auto;
+        }
+        .text-center{
+            text-align: center; 
+        }
+
+        .list-horizontal-2 li:first-child:before {
+            content: '';
+            background-color: #4a72a8;
+        }
+
+        #sec_2 li:first-child:before {
+            content: '';
+            background-color: #b04833 !important;
+        }
+
+        .list-horizontal li:nth-child(4):before {
+            content: '';
+            background-color: #b24e40 !important;
+        }
+
+        .list-horizontal li:nth-child(3):before {
+            content: '';
+            background-color: #ddad46 !important;
+        }
+
+
+
+       
+
+    </style>
+</head>
+
+
+  
+     @if(count(\Auth::user()->getRoleNames()) == 1)
+
+                    <div class="page-bar">
+                        <div class="page-title-breadcrumb">
+                            <div class=" pull-left">
+                                <div class="page-title">Managing Director - Dashboard</div>
+                            </div>
+                            <ol class="breadcrumb page-breadcrumb pull-right">
+                                <li><i class="fa fa-home"></i>&nbsp;<a class="parent-item" href="index.html">Home</a>&nbsp;<i class="fa fa-angle-right"></i></li>
+                                <li><i class="fa fa-home"></i>&nbsp;<a class="parent-item" href="index.html">Dashboard</a>&nbsp;<i class="fa fa-angle-right"></i></li>
+                                <li class="active">Managing Director</li>
+                            </ol>
+                        </div>
+                    </div>
+                     @endif
+         <div class="state-overview">
+           <div class="page-title">Sales</div>
+             <!-- <div class="row">  
+                    <div class="col-md-12 col-sm-12 col-12"> -->
+          </div>         
+          <div class="state-overview">
+            <div class="row">
+
+                <!-- 26-12-2020 starts new updations-->
+                 <!-- /.col -->
+                  <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-purple">
+                      <a  href="{{ url('building') }}" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+                                    
+                                        
+                        <span class="info-box-text">Total count of buildings</span>
+                        <span class="info-box-number">{{$managingDirector['totalBuildings']}}</span>
+                         
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                                    
+                        </span>
+                      </div>
+                                
+                      <!-- /.info-box-content -->
+                    </div>
+                    <!-- /.info-box -->
+                  </div>
+
+                  <!-- /.col -->
+                   <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-success">
+                      <a  href="{{ route('normalUnits') }}" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+                                    
+                                        
+                        <span class="info-box-text">Number Of Units(Normal)</span>
+                        <span class="info-box-number">{{$managingDirector['normalUnitsBuilding']}}</span>
+                         
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                                    
+                        </span>
+                      </div>
+                                
+                      <!-- /.info-box-content -->
+                    </div>
+                    <!-- /.info-box -->
+                  </div>
+
+                  <!-- /.col -->
+                   <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-b-purple">
+                      <a  href="{{ route('comprehensiveUnits') }}" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+                                    
+                                        
+                        <span class="info-box-text">Number Of Units(Comprehensive)</span>
+                        <span class="info-box-number">{{$managingDirector['comprehensiveUnitsBuilding']}}</span>
+                         
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                                    
+                        </span>
+                      </div>
+                                
+                      <!-- /.info-box-content -->
+                    </div>
+                    <!-- /.info-box -->
+                  </div>
+
+                   <!-- /.col -->
+
+                  
+
+                  <div class="col-xl-4 col-md-4 col-12">
+  
+                  <div class="info-box bg-danger">
+                      <!-- <a class="unassignedEnquiry_sc_href" href="{{route('leadAssign.index').'?count_by_day=1'}}" > -->
+                      <a class="unassignedEnquiry_sc_href" href="{{ route('unassignedEnquiry') }}" >
+                        <span class="info-box-icon push-bottom"><i class="material-icons">remove_circle_outline</i></span>
+                      </a>
+                    <div class="info-box-content">  
+                     <a class="unassignedEnquiry_sc_href" href="{{route('leadAssign.index').'?count_by_day=1'}}" >   <span class="info-box-text">Unassigned Enquiry</span>                           
+                      <span class="info-box-number unassignedEnquiry_sc_count">{{$managingDirector['unassigned_list']}}</span>
+                     
+                     </a>
+                      <div class="progress">
+                        <div class="progress-bar width-60"></div>
+                      </div>
+                       <span class="progress-description">
+                      Last 
+                      <input type="hidden" value="unattend" class="enitity_count">
+                      <select name="unassigned_enquiry"  id="unassignedEnquiry_sc" class="select_count">
+                          <option value="1"> 1 </option>
+                          <option value="3"> 3 </option>
+                          <option value="5"> 5 </option>
+                          <option value="all"> All </option>
+                      </select>        
+                       Days.
+                      </span>          
+                    </div>
+                    <!-- /.info-box-content -->
+                  </div>
+               
+
+                  <!-- /.info-box -->
+                </div>
+
+
+                  <!-- /.col -->
+              <div class="col-xl-4 col-md-4 col-12">
+               
+                <div class="info-box bg-orange">
+                  <a class="assignedEnquiry_sc_href" href="{{route('leadAssign.assignedList',['count_by_assignday'=>3,'type'=>'md'])}}">
+                  <span class="info-box-icon push-bottom"><i class="material-icons">person_pin</i></span>
+                 </a>
+                  <div class="info-box-content">
+                    <a class="assignedEnquiry_sc_href" href="{{route('leadAssign.assignedList',['count_by_assignday'=>3,'type'=>'md'])}}">
+                      <span class="info-box-text">Assigned Enquiry</span>
+                     <span class="info-box-number  assignedEnquiry_sc_count">{{$managingDirector['assigned_lists']}}</span>
+                     
+                    </a>
+                    <div class="progress">
+                      <div class="progress-bar width-60"></div>
+                    </div>
+                     <span class="progress-description">
+                        Last 
+                      <input type="hidden" value="unattend" class="enitity_count">
+                      <select name="assigned_enquiry"  id="assignedEnquiry_sc" class="select_count">               
+                          <option value="3"> 3 </option>
+                          <option value="5"> 5 </option>
+                          <option value="7"> 7 </option>
+                          <option value="all"> All </option>
+                      </select>        
+                       Days.
+                    </span>          
+                  </div>
+                 
+                </div>
+               
+               
+              </div>
+              <!-- <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-blue">
+                      <a  href="" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+                                    
+                                        
+                        <span class="info-box-text">Total Hit Ratio</span>
+                        <span class="info-box-number">{{$managingDirector['wonEnquiries']}} / {{$managingDirector['assignedEnquiries']}}  ({{$managingDirector['hitRatio']}}%)</span>
+                         
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                                    
+                        </span>
+                      </div> -->
+                                
+                      <!-- /.info-box-content -->
+                    <!-- </div> -->
+                    <!-- /.info-box -->
+                  <!-- </div> -->
+
+              
+              </div>
+              <div class="state-overview">
+               <div class="page-title">Legal</div>
+                 
+              </div>         
+              </div>         
+              <div class="state-overview">
+                <div class="row">
+
+                  <div class="col-md-6 col-sm-6 col-6">
+                      <div class="card  card-box img-alin">
+                          <div class="card-head">
+                              <header>Leagal Case Movement</header>
+                          </div> 
+                            <div class="card-body">
+                              <div class="graph_container" >
+                                <canvas id="pieChart_leagal1"></canvas>
+                              </div>
+                            </div>
+                            <div class="card-footer text-black">
+                            
+                                <div class="row text-center">
+                                  <div class="col-md-4" style="color:#4e9584;font-weight: bold; ">Open - {!! $managingDirector['open_leagalcase_movement']!!}</div>
+                                  <div class="col-md-4" style="color:#4136b1;font-weight: bold; ">Closed - {!! $managingDirector['close_leagalcase_movement'] !!}</div>
+                                  <div class="col-md-4" style="color:#36a2eb;font-weight: bold; ">Rejected - {!! $managingDirector['reject_leagalcase_movement'] !!}</div>
+                                </div> 
+                                                    
+                          </div> 
+                       </div>
+                                             
+                  </div>
+
+                  <div class="col-md-6 col-sm-6 col-6">
+                      <div class="card  card-box img-alin">
+                          <div class="card-head">
+                              <header>Legal cases status according to lawyer</header>
+                          </div> 
+                            <div class="card-body">
+                              <div class="graph_container" >
+                                <canvas id="pieChart_leagal2"></canvas>
+                              </div>
+                            </div>
+                            <div class="card-footer text-black">
+                            
+                                <div class="row text-center">
+                                  <div class="col-md-3" style="color:#12e242;font-weight: bold; ">Won - {!! $managingDirector['leagalcase_won']!!}</div>
+                                  <div class="col-md-3" style="color:#e24212;font-weight: bold; ">Lost - {!! $managingDirector['leagalcase_lost'] !!}</div>
+                                  <div class="col-md-3" style="color:#e212b1;font-weight: bold; ">Rejected - {!! $managingDirector['leagalcase_reject'] !!}</div>
+                                  <div class="col-md-3" style="color:#275cb9;font-weight: bold; ">Progress - {!! $managingDirector['leagalcase_inprogress'] !!}</div>
+                                </div> 
+                                                    
+                          </div>
+                            <!-- <div class="card-head">
+                              <footer> Vacancy Loss Sum : {{ number_format(round($managingDirector['vacancyLossSum']['normal'],3),3)}} </footer>                         
+                          </div>  -->
+                       </div>
+                                             
+                  </div>
+
+
+
+              <!-- <div class="col-xl-4 col-md-4 col-12">
+                 <div class="info-box bg-warning">
+                   <a class="plmsApprovalMd" href="{{route('plmsApprovalMd')}}/open">
+                     <span class="info-box-icon push-bottom"><i class="material-icons extra">card_travel</i></span>
+                   </a>
+                   <div class="info-box-content">
+                    <span class="info-box-text">Legal Cases movement</span>
+                     <span class="info-box-number" id="legalMovCount">{{$managingDirector['plmsApprovalCount']}}</span>
+                     
+                     <div class="progress">
+                      <div class="progress-bar width-60"></div>
+                    </div>
+                    <span class="progress-description"> Cases
+                     <select name="legalCaseMovement" id="legalCaseMovement" class="legalCaseMovement">  
+                        <option value="open"> Open </option>
+                        <option value="close"> Close </option>
+                        <option value="reject"> Reject </option>
+                      </select>  
+                   </span>
+                 </div>
+                
+               </div>
+              
+              </div> -->
+              <!-- <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-mint">
+                      <a class="lawyerApprovalMd" href="{{ route('lawyerApprovalMd') }}/won" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+                                    
+                                        
+                        <span class="info-box-text">Legal Cases Status according to lawyer</span>
+                        <span class="info-box-number" id="legalStatusCount">{{$managingDirector['plmsLegalStatus']}}</span>
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                             Cases
+                          <select name="legalCaseStatus" id="legalCaseStatus" class="legalCaseStatus">  
+                            <option value="won"> Won </option>
+                            <option value="loss"> Loss </option>
+                            <option value="reject"> Reject </option>
+                            <option value="inprogress"> Inprogress </option>
+                          </select>         
+                        </span>
+                      </div>
+                                
+                     
+                    </div>
+                    
+                  </div> -->
+                </div>
+              </div>
+              <div class="state-overview">
+               <div class="page-title">Maintenance</div>
+                 
+              </div>         
+              <div class="state-overview">
+                <div class="row">
+               <div class="col-xl-4 col-md-4 col-12">
+                 <div class="info-box bg-b-danger">
+                   <a class="link" href="{{route('complaint.index',['days'=>'7'])}}">
+                     <span class="info-box-icon push-bottom"><i class="material-icons extra">card_travel</i></span>
+                   </a>
+                   <div class="info-box-content">
+                    <span class="info-box-text">Maintenance Pending beyond 7 days</span>
+                     <span class="info-box-number">{{$managingDirector['maintenancePendingCount']}}</span>
+                     
+                     <div class="progress">
+                      <div class="progress-bar width-60"></div>
+                    </div>
+                    <span class="progress-description">
+                     <!-- ARE's To Take To Legal -->
+                   </span>
+                 </div>
+                 <!-- /.info-box-content -->
+               </div>
+               <!-- /.info-box -->
+              </div>
+                  </div>
+              </div>
+              <div class="state-overview">
+               <div class="page-title">Back Office</div>
+                 
+              </div>         
+              <div class="state-overview">
+                <div class="row">
+
+                  <div class="col-md-12 col-sm-12 col-12">
+                    <div class="card  card-box img-alin">
+                                <div class="card-head">
+                                    <header>Bouce Cheque YTD</header>
+                                </div> 
+                                  <div class="card-body">
+                                    <!-- <ul class="list-horizontal-3">
+                                        <li style="">Sources</li>
+                                    </ul> -->
+                                    <div class="graph_container">
+                                      <canvas id="ChartCheque"></canvas>
+                                    </div>
+                                  </div>
+                    </div>
+                                           
+                </div>
+                <!--  <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-blue">
+                      <a  href="{{route('getBouncedChequesMTD').'?not_won_loss=1'}}" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+                                    
+                                        
+                        <span class="info-box-text">Bounced Cheques MTD</span>
+                        <span class="info-box-number">{{$managingDirector['bouncedChequeCount']}}</span>
+                         
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                                    
+                        </span>
+                      </div>
+                                
+                     
+                    </div>
+                    
+                  </div> -->
+                <div class="col-xl-4 col-md-4 col-12">
+                 <div class="info-box bg-purple">
+                   <a class="link" href="{{route('tenantRedirect').'?expiredContracts=true'}}" id="tenantAreLink">
+                     <span class="info-box-icon push-bottom"><i class="material-icons extra">card_travel</i></span>
+                   </a>
+                   <div class="info-box-content">
+                    <span class="info-box-text">Tenant Contracts Expired</span>
+                    <span class="info-box-number tenant_count">{{$managingDirector['gracePeriodCount']}}</span>
+                     
+                     <div class="progress">
+                      <div class="progress-bar width-60"></div>
+                    </div>
+                    <span class="progress-description">
+                     <!-- ARE's To Take To Legal -->
+                   </span>
+                   <span class="progress-description"> 
+                      <select style="width: 62px;" name="tenantARE"  id="tenantARE" class="tenantARE">
+                        <option value="">All</option>
+                        @foreach($areUsers as $areUser)
+                        <option value="{{$areUser->user_id}}">{{$areUser->areUser->employee->employee_name}}</option>
+                        @endforeach
+                      </select> 
+
+                   
+                     
+                    </span> 
+                 </div>
+                 <!-- /.info-box-content -->
+               </div>
+               <!-- /.info-box -->
+              </div>
+
+                <div class="col-xl-4 col-md-4 col-12">
+                 <div class="info-box bg-pink">
+                   <a class="link" href="{{route('landlord-contract.index').'?expiredContracts=true'}}">
+                     <span class="info-box-icon push-bottom"><i class="material-icons extra">card_travel</i></span>
+                   </a>
+                   <div class="info-box-content">
+                    <span class="info-box-text">Expired Landlord Contracts(Comprehensive)</span>
+                     <span class="info-box-number">{{$managingDirector['landlordContractsExpired']}}</span>
+                     
+                     <div class="progress">
+                      <div class="progress-bar width-60"></div>
+                    </div>
+                    <span class="progress-description">
+                     <!-- ARE's To Take To Legal -->
+                   </span>
+                 </div>
+                 <!-- /.info-box-content -->
+               </div>
+               <!-- /.info-box -->
+              </div>
+
+
+               
+
+                <!-- /.col -->
+                  <div class="col-xl-4 col-md-4 col-12">
+                   
+                    <div class="info-box bg-success">
+                       <a class="receivables_ceo_href" href="{{route('unit.index').'?unit_vaccant_status=0'}}">
+                      <span class="info-box-icon push-bottom infoBoxSmall"><i class="material-icons">hourglass_empty</i></span>
+                    </a>
+                      <div class="info-box-content" style="margin-left: 80px">
+                      <span class="info-box-text">Receivables</span>
+                      <span class="info-box-number  receivables_ceo_count">{{ number_format(round($managingDirector['receivables'],3),3)}}</span>
+                          
+         
+                    <div class="progress">
+                      <div class="progress-bar width-40"></div>
+                    </div>
+
+                    <span class="progress-description"> 
+                      <select style="width: 62px;" name="receivables_ceo"  id="receivables_ceo" class="ceo_select_count">
+                        <option value="">All</option>
+                        @foreach($areUsers as $areUser)
+                        <option value="{{$areUser->user_id}}">{{$areUser->areUser->employee->employee_name}}</option>
+                        @endforeach
+                      </select> 
+
+                    <input type="hidden" style="" class="receivable_date" id="receivable_date" value="{{date('Y-m-d')}}">
+                     
+                    </span> 
+
+                     </div>
+                     
+                    </div>
+                   </a>
+                  </div>
+                  <!-- /.col -->
+
+
+                  <div class="col-xl-4 col-md-4 col-12">
+                   
+                    <div class="info-box bg-danger">
+                       <a class="collection_MTD__href" href="{{ url('receiptsTabViewList/rentReceiptGeneration/rent') }}">
+                      <span class="info-box-icon push-bottom infoBoxSmall"><i class="material-icons">hourglass_empty</i></span>
+                    </a>
+                      <div class="info-box-content" style="margin-left: 80px">
+                      <span class="info-box-text">Collection MTD</span>
+                      <span class="info-box-number  collection_MTD_count">
+
+                      {{ number_format(round($managingDirector['collectionMTD'],3),3) }}
+
+                      
+
+                    </span>
+                          
+         
+                    <div class="progress">
+                      <div class="progress-bar width-40"></div>
+                    </div>
+
+                    <span class="progress-description"> 
+                      <select style="width: 62px;" name="collection_MTD"  id="collection_MTD">
+                        <option value="0">All</option>
+                        @foreach($areUsers as $areUser)
+                        <option value="{{$areUser->user_id}}">{{$areUser->areUser->employee->employee_name}}</option>
+                        @endforeach
+                      </select> 
+
+                    <input type="date" class="collection_MTD_date" id="collection_MTD_date" value="{{date('Y-m-d')}}">
+                     
+                    </span> 
+
+                     </div>
+                     
+                    </div>
+                 
+                  </div>
+
+
+                  <!-- <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-success">
+                      <a  href="" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+                                    
+                                        
+                        <span class="info-box-text">Vacant Normal Units</span>
+                        <span class="info-box-number">{{$managingDirector['vacantNormalUnits']}} / {{$managingDirector['normalUnits']}}</span>
+                         
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                                    
+                        </span>
+                      </div>
+                                
+                     
+                    </div>
+                   
+                  </div> -->
+
+                  <!-- <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-watermelon">
+                      <a  href="" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+                                    
+                                        
+                        <span class="info-box-text">Vacant Comprehensive Units</span>
+                        <span class="info-box-number">{{$managingDirector['vacantComprehensiveUnits']}} / {{$managingDirector['comprehensiveUnits']}}</span>
+                         
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                                    
+                        </span>
+                      </div> -->
+                                
+                      <!-- /.info-box-content -->
+                    <!-- </div> -->
+                    <!-- /.info-box -->
+                  <!-- </div> -->
+
+
+                  
+
+
+                  <!-- <div class="col-xl-4 col-md-4 col-12">
+                   
+                    <div class="info-box bg-orange">
+                       <a href="{{route('wonList').'?count_by_month='.date('m')}}" >
+                      <span class="info-box-icon push-bottom infoBoxSmall"><i class="material-icons">hourglass_empty</i></span>
+                    </a>
+                      <div class="info-box-content" style="margin-left: 80px">
+                      <span class="info-box-text">Number of units rented MTD</span>
+                      <span class="info-box-number"></span>
+                          
+         
+                    <div class="progress">
+                      <div class="progress-bar width-40"></div>
+                    </div> -->
+
+                  <!--   <span class="progress-description"> 
+                      <select style="width: 62px;" name=""  id="" class="collection_MTD_count">
+                        @foreach($areUsers as $areUser)
+                        <option value="{{$areUser->user_id}}">{{$areUser->areUser->employee->employee_name}}</option>
+                        @endforeach
+                      </select> 
+
+                    <input type="date" class="" id="" value="{{date('Y-m-d')}}">
+                     
+                    </span>  -->
+
+                     <!-- </div>
+                     
+                    </div>
+                 
+                  </div> -->
+
+
+               <!--  <div class="col-xl-4 col-md-6 col-12">
+                    <div class="info-box bg-b-danger">
+                      <a  href="" > 
+                      <span class="info-box-icon push-bottom"><i class="material-icons">local_activity</i></span>
+                      </a>          
+                      <div class="info-box-content">
+
+                        <span class="info-box-text">Number of early termination requests</span>
+                        <span class="info-box-number"></span>
+                         
+                        <div class="progress">
+                          <div class="progress-bar width-80"></div>
+                        </div>
+                                  
+                        <span class="progress-description">
+                                    
+                        </span>
+                      </div>
+                       -->          
+                      <!-- /.info-box-content -->
+                    <!-- </div> -->
+                    <!-- /.info-box -->
+                <!-- </div> -->
+
+
+                  <!-- 26-12-2020 ends new updations-->
+              <!-- New card in dashbaord :2021-08-12 -->
+              <div class="col-xl-4 col-md-4 col-12" style="display: none;">
+               <div class="info-box bg-info">
+                 <a class="vacantUnit_sc_href">
+                 <span class="info-box-icon push-bottom"><i class="material-icons">person_pin</i></span>
+                </a>
+                 <div class="info-box-content">
+                   <a class="vacantUnit_sc_href">
+                     <span class="info-box-text">Vacant Unit Movement</span>
+                     <span class="info-box-number  vacantUnit_sc_count">{{$managingDirector['vacantBuildingsSc']}} / {{$managingDirector['vacantUnitsSc']}}</span>
+                   </a>
+                   <div class="progress">
+                     <div class="progress-bar width-60"></div>
+                   </div>
+                    <span class="progress-description"> 
+                     <!-- <input type="hidden" value="unattend" class="enitity_count"> -->
+                     <select name="vacantUnit"  id="vacantUnit_scs" class="vacantUnit">               
+                         <option value="M"> Monthly </option>
+                         <option value="Y"> Yearly </option>
+                     </select> 
+                     <select name="vacantUnitCalc"  id="vacantUnitCalc" class="vacantUnitCalc">               
+                         <option value="OB"> Opening Balance </option>
+                         <option value="A"> Addition </option>
+                         <option value="D"> Deletion </option>
+                         <option value="C"> Closing Balance </option>
+                     </select>        
+                   </span>          
+                 </div> 
+               </div> 
+             </div>
+
+             <div class="col-xl-4 col-md-4 col-12">
+               <div class="table-responsive">
+                 <table class="table text-center">
+                    <thead>
+                      <tr>
+                        <td colspan="4" style="background-color: #fba80a;font-size: large;/* font-weight: bold; */color: white !important;">Vacant unit movement  
+
+                          <select name="vacantUnit"  id="vacantUnit_sc" class="vacantUnit pull-right">               
+                             <option value="M"> Monthly </option>
+                             <option value="Y"> Yearly </option>
+                          </select> 
+                        </td>
+                      </tr>
+                    </thead>
+                    <tr>
+                      <th style=" color: black; font-weight: bold; ">Opening Bal</th>
+                      <th style=" color: black; font-weight: bold; ">Rented</th>
+                      <th style=" color: black; font-weight: bold; ">Vacated</th>
+                      <th style=" color: black; font-weight: bold; ">Closing Bal</th>
+                    </tr>
+                    <tr>
+                      <td id="ob_count"></td>
+                      <td id="add_count"></td>
+                      <td id="del_count"></td>
+                      <td id="cl_count"></td>
+                    </tr>
+                 </table>
+               </div>
+             </div>
+                <!-- card ends -->
+
+                <div class="col-xl-4 col-md-4 col-12">
+                        <div class="info-box bg-mint">
+                         
+                            <span class="info-box-icon push-bottom"><i class="material-icons extra">monetization_on</i></span>
+                          <!-- </a> -->
+
+                          <div class="info-box-content">
+                            <span class="info-box-text">Vacated units in last 365 days</span>
+                            <span class="info-box-number"><p class="tenant_vacating" id="tenant_vacating"></p></span>
+                             
+                            <div class="progress">
+                             <div class="progress-bar width-60"></div>
+
+                             
+                           </div>
+                           <select style="width: 62px;display: none;" name="tenant_vacatingARE"  id="tenant_vacatingARE" class="tenant_vacatingARE">
+                                  @foreach($areUsers as $areUser)
+                                  <option value="{{$areUser->user_id}}">{{$areUser->areUser->employee->employee_name}}</option>
+                                  @endforeach
+                              </select> 
+                       
+                         </div>
+                      
+                       </div>
+                  
+                </div>
+
+                <div class="col-xl-6 col-md-6 col-12">
+                    
+
+                    <div class="card  card-box img-alin">
+                      <div class="card-head">
+                          <header>Vacated units</header>
+                      </div> 
+                        <div class="card-body">
+                          <!-- <ul class="list-horizontal-3">
+                              <li style="">Sources</li>
+                          </ul> -->
+                          <div class="graph_container">
+                            <canvas id="ChartVUnit"></canvas>
+                          </div>
+                        </div>
+                    </div>
+                    
+                  </div>
+            
+
+                  <div class="col-xl-6 col-md-6 col-12"style="display:none;">
+                    
+
+                    <div class="card  card-box img-alin">
+                      <div class="card-head">
+                          <header>Rent Reduction Requests</header>
+                      </div> 
+                        <div class="card-body">
+                          <!-- <ul class="list-horizontal-3">
+                              <li style="">Sources</li>
+                          </ul> -->
+                          <div class="graph_container">
+                            <canvas id="ChartRent"></canvas>
+                          </div>
+                        </div>
+                    </div>
+                    
+                  </div>
+
+
+                <!-- card ends -->
+                  </div>
+            </div>
+                          <!-- </div> -->
+          <!--  </div>
+                                 </div> -->
+          <!-- end widget -->
+<!-- sales lead window-->
+
+
+
+<div class="state-overview">
+<div class="row">                       
+<!-- activities -->
+
+<div class="col-md-12 col-sm-12 col-12" style="display:none;">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Hit Ratio Per Sales person</header>
+
+                </div> 
+                <div class="card-body">
+                    <ul class="list-horizontal">
+                        <li class="text-dark">Assigned</li>
+                        <li class="text-dark">Won</li>
+                        <li class="text-dark" style="background-color: '#ddad46'">In-progress</li>
+                        <li class="text-dark" style="background-color: '#b24e40'">Closed</li>
+                    </ul>
+                    <div class="graph_container"> Sales Person
+                      <select name="are_select" class="float-right" onchange="updateData(event,this)">
+                          <option value="">All</option>
+                        @foreach($managingDirector['sales_person_user_list'] as $are)
+                          @if($are->employee->employee_status == 1)
+                            <option value="{{$are->id}}">{{$are->employee->employee_name}}</option>
+                          @endif
+                        @endforeach
+                      </select>
+                      <canvas id="Chart1"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div>
+<div class="col-md-12 col-sm-12 col-12" style="display:none;">
+    <div class="card  card-box img-alin">
+                <!-- <div class="card-head">
+                    
+                </div>  -->
+                  <div class="card-body">
+                    
+                    <div class="graph_container">
+                      <select name="vacantUnitLoc"  id="vacantUnitLoc" class="vacantUnitLoc">
+                        <option value="">Select Location</option>
+                         @foreach($managingDirector['location_list']['locationId'] as $key => $location)
+                         <option value="{{$location}}">{{$location}}</option>
+                         @endforeach
+                      </select> 
+                      <canvas id="Chart2"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div>
+<!-- <div class="col-md-12 col-sm-12 col-12">
+  <div class="row">
+      <div class="col-md-12 col-sm-12 col-12">
+            <div class="graph_container">
+              <select name="vacantUnitLoc"  id="vacantUnitLoc" class="vacantUnitLoc">
+                 @foreach($managingDirector['location_list']['location'] as $location)
+                 <option value="{{$location}}">{{$location}}</option>
+                 @endforeach
+              </select> 
+              <canvas id="Chart2"></canvas>
+            </div>          
+      </div> 
+  </div>
+                           
+</div>  
+ -->
+<!-- Number Of Units In Each Location -->
+<!-- <div class="col-md-12 col-sm-12 col-12">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Number Of Units In Each Location</header>
+                </div> 
+                  <div class="card-body">
+                    <ul class="list-horizontal-new">
+                        <li style="">Number Of Units</li>
+                    </ul>
+                    <div class="graph_container">
+                      <canvas id="Chart3"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div> -->
+<!-- Number Of Units In Each Location -->
+<div class="col-md-12 col-sm-12 col-12">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Number Of Units In Each Location</header>
+                </div> 
+                  <div class="card-body">
+                    <div class="graph_container">
+                      <canvas id="Chart3Pie" ></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div>
+<!-- <div class="col-md-6 col-sm-6 col-6">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Total Hit Ratio</header>
+                </div> 
+                  <div class="card-body">
+                    <div class="graph_container">
+                      <canvas id="pieChartHitRatio"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div> -->
+<!-- Unit Rented MTD -->
+<div class="col-md-6 col-sm-6 col-6">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Number of Unit Rented MTD</header>
+                </div> 
+                  <div class="card-body">
+                    
+                    <div class="graph_container">
+                      <canvas id="Chart7"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div> 
+
+<!--Number of vacant normal units piechart -->
+<div class="col-md-6 col-sm-6 col-6">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>No. of Vacant Units - Normal</header>
+                </div> 
+                  <div class="card-body">
+                    <!-- <ul class="list-horizontal-2">
+                        <li style="">No. of Vacant Units - Normal</li>
+                    </ul> -->
+                    <div class="graph_container" >
+                      <canvas id="pieChart"></canvas>
+                    </div>
+                  </div>
+                  <div class="card-head">
+                    <footer> Vacancy Loss Sum : {{ number_format(round($managingDirector['vacancyLossSum']['normal'],3),3)}} </footer>                         
+                </div> 
+</div>
+                           
+</div>
+<!--Number of vacant comprehensive units piechart  -->
+<div class="col-md-6 col-sm-6 col-6">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>No. of Vacant Units - Comprehensive </header>
+
+                </div> 
+
+                  <div class="card-body">
+                    
+                    <div class="graph_container">
+                      <canvas id="pieChart2"></canvas>
+                    </div>
+                  </div>
+                   <div class="card-head">
+                    <footer> Vacancy Loss Sum : {{number_format(round($managingDirector['vacancyLossSum']['comprehensive'],3),3)}} </footer>                         
+                </div> 
+    </div>
+                         
+</div>
+
+<!-- Buildings Per ARE -->
+<div class="col-md-12 col-sm-12 col-12">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Age Distribution of Buildings</header>
+                </div> 
+                  <div class="card-body">
+                    
+                    <div class="graph_container">
+                      <canvas id="ChartAgeDist"></canvas>
+                    </div>
+                  </div>
+    </div>
+  </div>
+
+  
+
+  <div class="col-md-12 col-sm-12 col-12">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>ARE - Buildings & Units</header>
+                </div> 
+                  <canvas id="densityChart"></canvas>
+    </div>
+                           
+</div>
+                      
+<!-- Buildings Per ARE -->
+<div class="col-md-12 col-sm-12 col-12" style="display: none;">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Buildings Per ARE</header>
+                </div> 
+                  <div class="card-body">
+                    <ul class="list-horizontal-2">
+                        <li style="color: black;">Number Of Buildings</li>
+                    </ul>
+                    <div class="graph_container">
+                      <canvas id="Chart4"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div>
+<!-- Buildings Per ARE -->
+
+
+<!-- Units Per ARE -->
+<div class="col-md-12 col-sm-12 col-12" style="display: none;">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Units Per ARE</header>
+                </div> 
+                  <div class="card-body">
+                    <ul class="list-horizontal-2" id="sec_2">
+                        <li style="color: black;">Number Of Units</li>
+                    </ul>
+                    <div class="graph_container">
+                      <canvas id="Chart4a"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div>
+
+<!-- Units Per ARE -->
+
+
+
+
+
+<div class="col-md-12 col-sm-12 col-12">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Sources Of Enquiry</header>
+                </div> 
+                  <div class="card-body">
+                    <!-- <ul class="list-horizontal-3">
+                        <li style="">Sources</li>
+                    </ul> -->
+                    <div class="graph_container">
+                      <canvas id="Chart5"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div>
+
+<!-- Tenant Early terminations monthly -->
+<div class="col-md-12 col-sm-12 col-12">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Tenant Early Terminations</header>
+                </div> 
+                  <div class="card-body">
+                   <!--  <ul class="list-horizontal-3">
+                        <li style="">Tenant Early Terminations</li>
+                    </ul> -->
+                    <div class="graph_container">
+                      <canvas id="ChartT"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div>
+
+<!-- Average Rent in Geographical area -->
+
+<div class="col-md-12 col-sm-12 col-12">
+    <div class="card  card-box img-alin">
+                <div class="card-head">
+                    <header>Average Rent in Geographical area</header>
+                </div> 
+                  <div class="card-body">
+                    <ul class="list-horizontal-4">
+                        <li style="">Areas</li>
+                    </ul>
+                    <div class="graph_container">
+                      <select name="unitType_select" id="unitType_select" class="float-right">
+                          <option value="">Select Unit Type</option>
+                        @foreach($managingDirector['unitTypes'] as $unitTypes)
+                          <option value="{{$unitTypes}}">{{$unitTypes}}</option>
+                        @endforeach
+                      </select>
+                      <select name="unitTypeDate_select" id="unitTypeDate_select" class="float-right">
+                          <option value="">Select Year</option>
+                       
+                          <option value="2018">2018</option>
+                          <option value="2019">2019</option>
+                          <option value="2020">2020</option>
+                          <option value="2021">2021</option>
+                          <option value="2022">2022</option>
+                          <option value="2023">2023</option>
+                          <option value="2024">2024</option>
+                          <option value="2025">2025</option>
+                       
+                      </select>
+                      <canvas id="Chart6"></canvas>
+                    </div>
+                  </div>
+    </div>
+                           
+</div> 
+
+<!-- listing -->
+    <!-- graph -->          
+    
+    
+    <!-- graph -->
+<!-- </div> -->
+</div>
+
+ @push('dashboard_scripts')
+
+<script> 
+  //var myBarChartVacant;
+  /******************** Legal Movement ***********************/
+     $('#legalCaseMovement').change(function (event) {
+        var selected_status = $(this).val();
+        var tmpLink =  '{{route("lawyerApprovalMd")}}'+'/'+selected_status;
+        $(".plmsApprovalMd").attr('href',tmpLink);
+        $.ajax({
+                type: "POST",
+                url: "{{route('md-dashboard')}}",
+                data:{"_token":"{{ csrf_token() }}","count_type":"legalCaseMovement","selected_status": selected_status},
+                success: function(data){        
+                console.log(data.count);            
+                    $("#legalMovCount").html(data.count)            
+                }
+         }); 
+        
+     }); 
+    /******************** End Legal Movement ***********************/    
+    /******************** Legal Status ***********************/
+     $('#legalCaseStatus').change(function (event) {
+        var selected_status = $(this).val();
+        
+         var tmpLink =  '{{route("lawyerApprovalMd")}}'+'/'+selected_status;
+       //console.log(tmpLink)
+        $(".lawyerApprovalMd").attr('href',tmpLink); 
+        $.ajax({
+                type: "POST",
+                url: "{{route('md-dashboard')}}",
+                data:{"_token":"{{ csrf_token() }}","count_type":"legalCaseStatus","selected_status": selected_status},
+                success: function(data){                    
+                    $("#legalStatusCount").html(data.count)            
+                }
+         }); 
+        
+     }); 
+    /******************** End Legal Status ***********************/  
+
+     $('.select_count').change(function (event) {
+  
+            var id = $(this).attr('id');
+            var select_value = $(this).val();
+
+            var  data_details = {};
+             
+            data_details['count_type'] = id;
+ 
+            if(select_value != 'YTD')
+              data_details['count_val'] = select_value;
+            else
+              data_details['count_val'] = select_value;
+
+            data_details['_token'] =  "{{ csrf_token() }}";
+            
+             $.ajax({
+                   type: "POST",
+                   url: "{{route('sales-head-dashboard')}}",
+                //   data: {count_type :id ,  count_val : select_value},
+                   data: data_details,
+                   success: function(data){
+
+                    
+                    $('.'+id+'_count').html(data.count)
+                    $("."+id+"_href").attr('href', data.href);      
+                   
+                  }
+                });
+        });
+
+       
+
+
+   
+    var barOptions_stacked = {
+    tooltips: {
+        enabled: false
+    },
+    hover :{
+        animationDuration:0
+    },
+    scales: {
+        xAxes: [{
+            ticks: {
+                beginAtZero:true,
+                fontFamily: "'Open Sans Bold', sans-serif",
+                fontSize:11
+            },
+            scaleLabel:{
+                display:false
+            },
+            gridLines: {
+            }, 
+            stacked: true
+        }],
+        yAxes: [{
+            gridLines: {
+                display:false,
+                color: "#fff",
+                zeroLineColor: "#fff",
+                zeroLineWidth: 0
+            },
+            ticks: {
+                fontFamily: "'Open Sans Bold', sans-serif",
+                fontSize:11
+            },
+            stacked: true
+        }]
+    },
+    legend:{
+        display:false
+    },
+    
+    animation: {
+        onComplete: function () {
+            var chartInstance = this.chart;
+            var ctx = chartInstance.ctx;
+            ctx.textAlign = "left";
+            ctx.font = "9px Open Sans";
+            ctx.fillStyle = "#fff";
+
+            Chart.helpers.each(this.data.datasets.forEach(function (dataset, i) {
+                var meta = chartInstance.controller.getDatasetMeta(i);
+                Chart.helpers.each(meta.data.forEach(function (bar, index) {
+                    data = dataset.data[index];
+                    if(i==0){
+                        ctx.fillText(data, 50, bar._model.y+4);
+                    } else {
+                        ctx.fillText(data, bar._model.x-25, bar._model.y+4);
+                    }
+                }),this)
+            }),this);
+        }
+    },
+    pointLabelFontFamily : "Quadon Extra Bold",
+    scaleFontFamily : "Quadon Extra Bold",
+};
+@php 
+  $saleList = "'" .implode("', '", $managingDirector['sales_person_list']['name'])."'";
+  $assigned = implode(", ", $managingDirector['sales_person_list']['value']['assigned']);
+  $inprogress = implode(", ", $managingDirector['sales_person_list']['value']['pgrs']);
+  $won = implode(", ", $managingDirector['sales_person_list']['value']['won']);
+  $closed = implode(", ", $managingDirector['sales_person_list']['value']['clsd']);
+  $null_value = implode(", ", $managingDirector['sales_person_list']['value']['null_value']);
+@endphp
+var ctx = document.getElementById("Chart1");
+
+const myChart_sale = new Chart(ctx, {
+    type: 'horizontalBar',
+    data: {
+        labels: [{!! $saleList!!}],  
+
+        datasets: [{
+            data: [{!!$null_value!!}],
+            backgroundColor: "rgba(91,156,214,1)",
+            hoverBackgroundColor: "rgba(91,156,214,1)"
+        },{
+           data: [{!!$assigned!!}],
+           backgroundColor: "rgba(91,156,214,1)",
+            hoverBackgroundColor: "rgba(91,156,214,1)"
+        },{
+           data: [{!!$won!!}],
+             backgroundColor: "rgba(112,173,70,1)",
+            hoverBackgroundColor: "rgba(112,173,70,1)"
+        },{
+           data: [{!!$inprogress!!}],
+             backgroundColor: "rgba(221,173,70,1)",
+            hoverBackgroundColor: "rgba(221,173,70,1)"
+        },{
+           data: [{!!$closed!!}],
+             backgroundColor: "rgba(178,78,64,1)",
+            hoverBackgroundColor: "rgba(178,78,64,1)"
+        }]
+
+
+    },
+
+    options: barOptions_stacked,
+});
+
+/*
+// chart3(NUmber of Units In Each Location)
+@php 
+  $locationList = "'" .implode("', '", $managingDirector['location_list']['location'])."'";
+  $unit_count = implode(", ", $managingDirector['location_list']['value']['unit_count']);
+  $null_value = implode(", ", $managingDirector['location_list']['value']['null_value']);
+@endphp
+var ctx = document.getElementById("Chart3");
+var myChart = new Chart(ctx, {
+    type: 'horizontalBar',
+    data: {
+        labels: [{!! $locationList!!}],  
+
+        datasets: [{
+            data: [{!!$null_value!!}],
+            backgroundColor: "rgba(91,156,214,1)",
+            hoverBackgroundColor: "rgba(62,133,197,1)"
+        },{
+           data: [{!!$unit_count!!}],
+             backgroundColor: "rgba(237,125,49,1)",
+            hoverBackgroundColor: "rgba(213,103,28,1)"
+        }]
+
+
+    },
+
+    options: barOptions_stacked,
+});
+*/
+ function getRandomColor() {
+    var letters = '0123456789ABCDEF'.split('');
+    var color = '#';
+    for (var i = 0; i < 6; i++ ) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+ }
+ 
+ //console.log(getRandomColor());
+ var unitCountJs = @json($managingDirector['location_list']['value']['unit_count']);
+ //console.log('the count is'+unitCountJs.length);
+ var colorsArray = [];
+ for(var i =0;i<unitCountJs.length; i++){
+  var colorList = getRandomColor();
+  colorsArray.push(colorList);
+ }
+ //console.log(colorsArray);
+// chart3Pie(NUmber of Units In Each Location)
+@php 
+  $locationList = "'" .implode("', '", $managingDirector['location_list']['location'])."'";
+  $unit_count = implode(", ", $managingDirector['location_list']['value']['unit_count']);
+  $null_value = implode(", ", $managingDirector['location_list']['value']['null_value']);
+@endphp
+var ctxUnit = document.getElementById("Chart3Pie").getContext('2d');
+var myChart = new Chart(ctxUnit, {
+    type: 'pie',
+   data: {
+        datasets: [{
+          data: [{!! $unit_count !!}],
+          backgroundColor:colorsArray,
+          label: 'No of Units in each Lcoation'
+        }],
+         labels: [{!! $locationList!!}],  
+      },
+
+    options: {
+      responsive:true,
+      animation:false,parsing:false,
+    },
+});
+
+//leagal case 1
+
+
+var ctx2 = document.getElementById("pieChart_leagal1").getContext('2d');
+  var pieChart = new Chart(ctx2, {
+    type: 'pie',
+    data: {
+        datasets: [{
+          data: [{!! $managingDirector['open_leagalcase_movement']!!},{!! $managingDirector['close_leagalcase_movement'] !!},{!! $managingDirector['reject_leagalcase_movement'] !!}],
+          backgroundColor: [
+            'rgba(78,149,132,1)',
+            'rgba(65,54,177,1)',
+            'rgba(54, 162, 235, 1)'
+            
+          ],
+          label: 'Legal cases movement  - Normal'
+        }],
+        labels: [
+          "Open",
+          "Closed",
+          "Rejected"
+        ]
+      },
+      options: {
+        responsive: true
+      }
+   
+  });
+
+//leagal case 1
+
+
+var ctx2 = document.getElementById("pieChart_leagal2").getContext('2d');
+  var pieChart = new Chart(ctx2, {
+    type: 'pie',
+    data: {
+        datasets: [{
+          data: [{!! $managingDirector['leagalcase_won']!!},{!! $managingDirector['leagalcase_lost'] !!},{!! $managingDirector['leagalcase_reject'] !!},{!! $managingDirector['leagalcase_inprogress'] !!}],
+          backgroundColor: [
+            '#12E242',
+            '#E24212',
+            '#E212B1',
+            '#275CB9'
+            
+          ],
+          label: 'Legal cases status lawyer '
+        }],
+        labels: [
+          "Won",
+          "Loss",
+          "Rejected",
+          "InProgress"
+        ]
+      },
+      options: {
+        responsive: true
+      }
+   
+  });
+
+
+
+//piechart
+@php 
+  $vacantNormalTotal = $managingDirector['vacantNormalUnits'] + $managingDirector['normalUnits'];
+ // $vacantNormalTotal = $managingDirector['vacantNormalUnits'] + $managingDirector['normalUnits'];
+@endphp
+
+var ctx2 = document.getElementById("pieChart").getContext('2d');
+  var pieChart = new Chart(ctx2, {
+    type: 'pie',
+    data: {
+        datasets: [{
+          data: [{!! $managingDirector['vacantNormalUnits']!!},{!! $managingDirector['normalUnits'] !!}],
+          backgroundColor: [
+            'rgba(255,99,132,1)',
+            'rgba(54, 162, 235, 1)'
+            
+          ],
+          label: 'Vacant Units - Normal'
+        }],
+        labels: [
+          "Vacant Units - Normal",
+          "Total Normal Units"
+        ]
+      },
+      options: {
+        responsive: true
+      }
+   
+  });
+//piechart2
+@php 
+  $vacantCompTotal = $managingDirector['vacantComprehensiveUnits'] + $managingDirector['comprehensiveUnits'];
+ // $vacantNormalTotal = $managingDirector['vacantNormalUnits'] + $managingDirector['normalUnits'];
+@endphp
+
+var ctx2ap = document.getElementById("pieChart2").getContext('2d');
+  var pieChart2 = new Chart(ctx2ap, {
+    type: 'pie',
+    data: {
+        datasets: [{
+          data: [{!!  $managingDirector['vacantComprehensiveUnits']!!},{!! $managingDirector['comprehensiveUnits']!!}],
+          backgroundColor: [
+            'rgba(255,99,132,1)',
+            'rgba(54, 162, 235, 1)'
+            
+          ],
+          label: 'Vacant Units - Comprehensive'
+        }],
+        labels: [
+          "Vacant Units - Comprehensive",
+          "Total Comprehensive Units"
+        ]
+      },
+      options: {
+        responsive: true
+      }
+   
+  });
+//
+//piechartHitratio
+@php 
+  $vacantCompTotal = $managingDirector['vacantComprehensiveUnits'] + $managingDirector['comprehensiveUnits'];
+  $assigned = array_sum( $managingDirector['sales_person_list']['value']['assigned']);
+  $won = array_sum($managingDirector['sales_person_list']['value']['won']);
+  // {!!  $managingDirector['wonEnquiries']!!},{!! $managingDirector['assignedEnquiries']!!}
+ // $vacantNormalTotal = $managingDirector['vacantNormalUnits'] + $managingDirector['normalUnits'];
+@endphp
+
+// var ctx2Hr = document.getElementById("pieChartHitRatio").getContext('2d');
+//   var pieChartHitRatio = new Chart(ctx2Hr, {
+//     type: 'pie',
+//     data: {
+//         datasets: [{
+//           data: [{!!  $won!!},{!! $assigned!!}],
+//           backgroundColor: [
+//             'rgba(255,99,132,1)',
+//             'rgba(54, 162, 235, 1)'
+            
+//           ],
+//           label: 'Won Enquiry'
+//         }],
+//         labels: [
+//           "Won Enquiry",
+//           "Assigned Enquiry"
+//         ]
+//       },
+//       options: {
+//         responsive: true
+//       }
+   
+//   });
+
+
+//---------------------------------------------------------------------------
+
+
+@php 
+  $areList = "'" .implode("', '", $managingDirector['buildingsPerARE']['are'])."'";
+  $building_count = implode(", ", $managingDirector['buildingsPerARE']['value']['building_count']);
+  // $null_value = implode(", ", $managingDirector['buildingsPerARE']['value']['null_value']);
+  $null_value_are = implode(", ", $managingDirector['unitsPerARE']['value']['unit_count']);
+  // $null_value_are = implode(", ", $managingDirector['unitsPerARE']['value']['null_value']);
+@endphp
+
+
+var densityCanvas = document.getElementById("densityChart");
+
+var densityData = {
+  label: 'Unit',
+  data: [{!!$null_value_are!!}],
+  backgroundColor: 'rgba(0, 99, 132, 0.6)',
+  borderColor: 'rgba(0, 99, 132, 1)',
+  yAxisID: "y-axis-density"
+};
+ 
+var gravityData = {
+  label: 'Building',
+  data: [{!!$building_count!!}],
+  backgroundColor: 'rgba(99, 132, 0, 0.6)',
+  borderColor: 'rgba(99, 132, 0, 1)',
+  yAxisID: "y-axis-gravity"
+};
+
+
+var planetData = {
+  labels: [{!! $areList!!}],
+  datasets:[gravityData, densityData]
+};
+ 
+var chartOptions = {
+  scales: {
+    xAxes: [{
+      barPercentage: 1,
+      categoryPercentage: 0.6
+    }],
+    yAxes: [{
+      id: "y-axis-density"
+    }, {
+      id: "y-axis-gravity"
+    }]
+  }
+};
+ 
+var barChart = new Chart(densityCanvas, {
+  type: 'bar',
+  data: planetData,
+  options: chartOptions
+});
+
+
+
+
+
+//----------------------------------------------------------------------------
+
+
+
+
+
+//
+// chart4(Buildings Per ARE)
+@php 
+  $areList = "'" .implode("', '", $managingDirector['buildingsPerARE']['are'])."'";
+  $building_count = implode(", ", $managingDirector['buildingsPerARE']['value']['building_count']);
+  $null_value = implode(", ", $managingDirector['buildingsPerARE']['value']['null_value']);
+@endphp
+var ctx = document.getElementById("Chart4");
+var myChart = new Chart(ctx, {
+    type: 'horizontalBar',
+    data: {
+        labels: [{!! $areList!!}],  
+
+        datasets: [{
+            data: [{!!$null_value!!}],
+            backgroundColor: "rgba(91,156,214,1)",
+            hoverBackgroundColor: "rgba(62,133,197,1)"
+        },{
+           data: [{!!$building_count!!}],
+             backgroundColor: "#305e9cde",
+            hoverBackgroundColor: "#305e9cde"
+        }]
+
+
+    },
+
+    options: barOptions_stacked,
+});
+// chart7(Unit Rented mtd)
+@php 
+  $unitTypes = implode(", ", $managingDirector['wonDealsData']['unitType']);
+  $unitRentedCount = implode(", ", $managingDirector['wonDealsData']['count']);
+ $null_value = 0;
+@endphp
+var unitRent = @json(array_values($managingDirector['wonDealsData']['count']));
+var unitTypes = @json($managingDirector['wonDealsData']['unitType']);
+console.log(unitRent)
+var ctx = document.getElementById("Chart7");
+var myChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels:unitTypes,  
+
+        datasets: [{
+           data: unitRent,
+             backgroundColor: "#B04833",
+            hoverBackgroundColor: "#9C341F"
+        }]
+
+
+    },
+
+    options: barOptions_stacked,
+});
+
+// chart4aUnits(Buildings Per ARE)
+@php 
+  $areList_c4a = "'" .implode("', '", $managingDirector['unitsPerARE']['are'])."'";
+  $unit_count_are = implode(", ", $managingDirector['unitsPerARE']['value']['unit_count']);
+  $null_value_are = implode(", ", $managingDirector['unitsPerARE']['value']['null_value']);
+@endphp
+var ctx_c4n = document.getElementById("Chart4a");
+var myChart_c4a = new Chart(ctx_c4n, {
+    type: 'horizontalBar',
+    data: {
+        labels: [{!! $areList_c4a!!}],  
+
+        datasets: [{
+            data: [{!!$null_value_are!!}],
+            backgroundColor: "rgba(91,156,214,1)",
+            hoverBackgroundColor: "rgba(62,133,197,1)"
+        },{
+           data: [{!!$unit_count_are!!}],
+             backgroundColor: "#B04833",
+            hoverBackgroundColor: "#9C341F"
+        }]
+
+
+    },
+
+    options: barOptions_stacked,
+});
+
+// 
+// AGe districution of buildings
+  var barChartDataAge = {
+         labels: ["0-5", "5-10", "10","15","20","25+"],
+         datasets: [{
+             label: 'Age Distribution of Buildings',
+             backgroundColor: 'rgb(255, 99, 132)',
+             borderColor: 'rgb(255, 99, 132)',
+             borderWidth: 1,
+             data: [
+              @foreach($managingDirector['ageBuilding'] as $buildings)
+              '{{count($buildings)}}' ,
+              @endforeach
+             ]
+         }]
+
+     };
+
+         var ctxAd = document.getElementById("ChartAgeDist").getContext("2d");
+         var myBarChart   = new Chart(ctxAd, {
+             type: 'bar',
+             data: barChartDataAge,
+             options: {
+                 responsive: true,
+                 legend: {
+                     position: 'top',
+                 },
+                 title: {
+                     display: true,
+                     text: 'Buildings'
+                 },
+                 scales: {
+                  yAxes: [{
+                      ticks: {
+                          beginAtZero: true
+                      }
+                  }]
+                 }
+                 //onClick : clickHandler()
+             },
+             
+         });
+  
+
+
+// chart5(Sources Of Enquiry)
+@php 
+  $enquiry_sourceList = "'" .implode("', '", $managingDirector['enquirySource']['enquiry_source'])."'";
+  $enquiry_count = implode(", ", $managingDirector['enquirySource']['value']['enquiry_source_count']);
+  $null_value = implode(", ", $managingDirector['enquirySource']['value']['null_value']);
+@endphp
+
+
+//bargraph4
+ var bargraph4 = {
+         labels: [{!! $enquiry_sourceList!!}],
+         datasets: [{
+             label: 'Source of enquiries',
+             backgroundColor: 'rgb(122, 23, 62)',
+             borderColor: 'rgb(255, 99, 132)',
+             borderWidth: 1,
+             data: [{!!$enquiry_count!!}],
+         }]
+
+     };
+
+         var ctxAd = document.getElementById("Chart5").getContext("2d");
+         var myBarChart   = new Chart(ctxAd, {
+             type: 'bar',
+             data: bargraph4,
+             options: {
+                 responsive: true,
+                 legend: {
+                     position: 'top',
+                 },
+                 title: {
+                     display: true,
+                     text: ''
+                 },
+                 scales: {
+                  yAxes: [{
+                      ticks: {
+                          beginAtZero: true
+                      }
+                  }]
+                 }
+                 //onClick : clickHandler()
+             },
+             
+         });
+
+
+// chart6(Average Rent in Geographical area)
+
+   @php 
+
+  $area_List = "'" .implode("', '", $managingDirector['rent']['area'])."'";
+  $avg_rent = implode(", ", $managingDirector['rent']['value']['averageReceivables']);
+  //Temp Commented by Anoop RM
+ // $null_value = implode(", ", $managingDirector['rent']['value']['null_value']);
+  $null_value = "";
+@endphp
+var ctx = document.getElementById("Chart6");
+var myChart_Chart6 = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: [{!! $area_List!!}],  
+
+      datasets: [{
+            data: [{!!$null_value!!}],
+            backgroundColor: "rgba(199, 0, 57 ,1)",
+            hoverBackgroundColor: "rgba(62,133,197,1)"
+        }, 
+        
+        {
+           data: [{!!$avg_rent!!}],
+             backgroundColor: "#808000",
+            hoverBackgroundColor: "#444400"
+        }]
+
+
+    },
+
+    options: barOptions_stacked,
+}); 
+
+//ChartT - tenant termiantions
+@php 
+  $months = "'" .implode("', '", $managingDirector['monthsFilterData'])."'";
+  $ttsCount = implode(", ", $managingDirector['rentReductionCount']);
+  $null_value = '';
+@endphp
+
+//bargraph4
+ var bargraphrent = {
+         labels: [{!! $months!!}],
+         datasets: [{
+             label: 'Requests recieved',
+             backgroundColor: 'rgb(122, 23, 62)',
+             borderColor: 'rgb(255, 99, 132)',
+             borderWidth: 1,
+             data: [{!!$ttsCount!!}],
+         }]
+
+     };
+
+         var ctxAd = document.getElementById("ChartRent").getContext("2d");
+         var myBarChart   = new Chart(ctxAd, {
+             type: 'bar',
+             data: bargraphrent,
+             options: {
+                 responsive: true,
+                 legend: {
+                     position: 'top',
+                 },
+                 title: {
+                     display: true,
+                     text: ''
+                 },
+                 scales: {
+                  yAxes: [{
+                      ticks: {
+                          beginAtZero: true
+                      }
+                  }]
+                 }
+                 //onClick : clickHandler()
+             },
+             
+         });
+
+
+
+// chart5(Sources Of Enquiry)
+@php 
+  $months = "'" .implode("', '", $managingDirector['monthsFilterData'])."'";
+  $ttCount = implode(", ", $managingDirector['tenantTerminationsMonthly']);
+  $null_value = '';
+@endphp
+var ctxT = document.getElementById("ChartT");
+var myChart = new Chart(ctxT, {
+    type: 'line',
+    data: {
+        labels: [{!! $months!!}],  
+        
+
+        datasets: [
+        // {
+        //     data: [{!!$null_value!!}],
+        //     hoverBackgroundColor: "rgba(62,133,197,1)",
+        //     fill:false,
+        //     tension: 0.1,
+        // },
+        {
+           data: [{!!$ttCount!!}],
+           label:'',
+            hoverBackgroundColor: "#D00357   ",
+            fill:false,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1,
+        }]
+
+
+    },
+
+    options:{ tooltips:{
+      mode:'index',
+      intersect:false
+    },
+    hover:{
+      mode:'index',
+      intersect:false
+    }
+    },barOptions_stacked,
+});
+
+
+// chart_cheque(Cheque Bounce)
+@php 
+  $months = "'" .implode("', '", $managingDirector['monthsFilterData'])."'";
+  $ttCount = implode(", ", $managingDirector['bouncedChequeCountMonthly']);
+  $null_value = '';
+@endphp
+
+//bargraph4
+var ctxT = document.getElementById("ChartCheque");
+var myChart = new Chart(ctxT, {
+    type: 'line',
+    data: {
+        labels: [{!! $months!!}],  
+        
+
+        datasets: [
+        // {
+        //     data: [{!!$null_value!!}],
+        //     hoverBackgroundColor: "rgba(62,133,197,1)",
+        //     fill:false,
+        //     tension: 0.1,
+        // },
+        {
+           data: [{!!$ttCount!!}],
+           label:'',
+            hoverBackgroundColor: "#D00357   ",
+            fill:false,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1,
+        }]
+
+
+    },
+
+    options:{ tooltips:{
+      mode:'index',
+      intersect:false
+    },
+    hover:{
+      mode:'index',
+      intersect:false
+    }
+    },barOptions_stacked,
+});
+
+
+$(document).ready(function() {  
+
+  var barChartData = {
+         labels: ["30", "60", "90","120+"],
+         datasets: [{
+             label: 'Comprehensive',
+             backgroundColor: 'rgb(100,149,237)',
+             borderColor: 'rgb(100,149,237)',
+             borderWidth: 1,
+             data: [
+             @foreach($managingDirector['vacantUnits']['comprehensive'] as $comprehensive)
+              '{{$comprehensive}}' ,
+             @endforeach
+             ]
+         }, {
+             label: 'Normal',
+             backgroundColor: 'rgb(255, 99, 132)',
+             borderColor: 'rgb(255, 99, 132)',
+             borderWidth: 1,
+             data: [
+              @foreach($managingDirector['vacantUnits']['normal'] as $normal)
+              '{{$normal}}' ,
+             @endforeach
+             ]
+         }]
+
+     };
+     
+
+$("#Chart2").click(function(evt) {
+    var firstPoint = myBarChart.getElementAtEvent(evt)[0];
+
+       if (firstPoint) {
+        var label = myBarChart.data.labels[firstPoint._index];
+        var management_id = firstPoint._datasetIndex + 1;
+        var vacant_days =  label;
+
+        window.location = '{{route("unit.index")}}'+'?building__management_id='+management_id+'&vacantUnits_byDays='+vacant_days;
+        
+
+
+
+       // var value = myBarChart.data.datasets[firstPoint._datasetIndex].data[firstPoint._index];      
+      //   alert(management_id);         
+       //   alert(vacant_days);
+       //  alert(label+' '+value+ ' '+firstPoint._datasetIndex)
+      }
+      
+     }
+    );
+
+  });
+
+
+     $(document).ready(function() {
+       /***********Contracts Expiring starts**************/
+       var vaccatingdays = 30;
+       // var href1 =   "{{ route('vacatedUnitsMTDList')}}";
+       $.ajax({
+         type: "GET",
+         url: "{!!URL::route('vacatedUnitsMTDCount')!!}",
+       
+         success: function(data){
+          var result = $.parseJSON(data);
+
+
+
+          @php 
+            $months = "'" .implode("', '", $managingDirector['monthsFilterData'])."'";
+            $ttsCount = implode(", ", $managingDirector['vacatedunitMonthly']);
+            $null_value = '';
+          @endphp
+
+          // console.log({!! $ttsCount!!});
+          // console.log(result_set);
+
+          //bargraph4
+           var bargraphrent = {
+                   labels: [{!! $months!!}],
+                   datasets: [{
+                       label: 'Units Vacated',
+                       backgroundColor: 'rgb(122, 23, 62)',
+                       borderColor: 'rgb(255, 99, 132)',
+                       borderWidth: 1,
+                       data: [{!! $ttsCount!!}],
+                   }]
+
+               };
+
+                   var ctxAd = document.getElementById("ChartVUnit").getContext("2d");
+                   var myBarChart   = new Chart(ctxAd, {
+                       type: 'bar',
+                       data: bargraphrent,
+                       options: {
+                           responsive: true,
+                           legend: {
+                               position: 'top',
+                           },
+                           title: {
+                               display: true,
+                               text: ''
+                           },
+                           scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true
+                                }
+                            }]
+                           }
+                           //onClick : clickHandler()
+                       },
+                       
+                   });
+
+
+
+          // //$('#tenant_vacating').text(result[0].count);
+          //  console.log('Monthly vacated units');
+          //  console.log(result);
+          // // href1 = href1;
+          // // $(".link1").attr('href', href1);
+        }
+      });
+       /***********Contracts Expiring ends**************/  
+     }); 
+
+
+     $(document).ready(function(){
+       //$( "#receivables_ceo" ).trigger( "change" );
+       $( "#collection_MTD" ).trigger( "change" );
+       $( "#tenantARE" ).trigger( "change" );
+       $( "#tenant_vacatingARE" ).trigger( "change" );
+       $( "#vacantUnit_sc" ).trigger( "change" );
+       //$( "#unitType_select" ).trigger( "change" );
+      });
+
+      $('#receivable_date').change(function (event) {
+        $( "#receivables_ceo" ).trigger( "change" );
+      });
+      $('#collection_MTD_date').change(function (event) {
+        $( "#collection_MTD" ).trigger( "change" );
+      });
+       $('#vacantUnitCalc').change(function (event) {
+        $( "#vacantUnit_sc" ).trigger( "change" );
+      });
+      $('#unitTypeDate_select').change(function (event) {
+       $( "#unitType_select" ).trigger( "change" );
+      });
+
+
+
+     // $('#receivable_date').attr('min','{{date("Y-m-d")}}');
+     $('#vacantUnit_sc').change(function (event) {
+             
+              var id = $(this).attr('id');
+              var select_value = $(this).val();
+
+              var  data_details = {};
+               
+              data_details['count_type'] = id;
+
+              if(select_value != 'all')
+              data_details['filterTime'] = select_value;
+
+              data_details['_token'] =  "{{ csrf_token() }}";
+
+              //if(id == 'receivables_ceo'){
+               if($('#vacantUnitCalc').val() != '') 
+               data_details['filterType'] = $('#vacantUnitCalc').val();
+              console.log(data_details)  
+            //}
+               $.ajax({
+                     type: "POST",
+                     url: "{{route('vacantUnitMov')}}",
+                    data: data_details,
+                     success: function(data){  
+                      var data = JSON.parse(data);
+
+                      console.log('yuhooooo');
+                      console.log(data);
+                      var frameVacContent = data.vacantUnitsSc;
+                      $('.vacantUnit_sc_count').html(frameVacContent)
+
+                      $("#ob_count").html(data.resultNew.ob_vacantUnitsSc);
+
+                      $("#add_count").html(data.resultNew.add_vacantUnitsSc);
+                      $("#del_count").html(data.resultNew.del_vacantUnitsSc);
+                      $("#cl_count").html(data.resultNew.cl_vacantUnitsSc);
+
+
+                    }
+                  });
+          });
+
+    $('.ceo_select_count').change(function (event) {
+     
+        var id = $(this).attr('id');
+        var select_value = $(this).val();
+
+        var  data_details = {};
+         
+        data_details['count_type'] = id;
+
+        if(select_value != 'all')
+        data_details['count_val'] = select_value;
+
+        data_details['_token'] =  "{{ csrf_token() }}";
+
+        if(id == 'receivables_ceo'){
+         if($('#receivable_date').val() != '') 
+         data_details['receivable_date'] = $('#receivable_date').val();  
+      }
+
+     
+
+        console.log(data_details)
+         $.ajax({
+               type: "POST",
+               url: "{{route('md-dashboard')}}",        
+               data: data_details,
+               success: function(data){      
+
+               console.log("Receivable href change to");      
+               console.log(data);      
+                var resultdata = data.count;
+
+                 const formatToCurrency = amount => {
+                  return  amount.toFixed(3).replace(/\d(?=(\d{3})+\.)/g, "$&,");
+                };
+
+                formatdata = formatToCurrency(Number(resultdata));
+
+                //var formatdata = 
+                $('.'+id+'_count').html(formatdata);
+                $("."+id+"_href").attr('href', data.href); 
+              }
+            });
+       
+    });
+    
+    var compData = @json($managingDirector['vacantUnitWithUnitType']['comprehensive']);
+    var normalData = @json($managingDirector['vacantUnitWithUnitType']['normal']);
+  
+  window.myBarChartVacant;
+  loadVacantUnitChart(compData,normalData);
+
+ function loadVacantUnitChart(compData,normalData){
+
+ 
+  window.myBarChartVacant = undefined;
+  window.dataG = undefined;
+  window.tempVal = undefined;
+  window.tempArr = undefined;
+
+  var tempVal = [];
+  for(const[unitType,value] of Object.entries(compData)){
+
+     
+    var tempArr = [];
+
+    var tempArr = {
+
+      label:unitType,
+      stack:1,
+      categoryPercentage: 1,
+      backgroundColor:getRandomColor(),
+      data:[value[30],
+      value[60],
+      value[90],
+      value[120],
+      value[121]]
+    };
+            tempVal.push(tempArr);
+  }
+  for(const[unitType,value] of Object.entries(normalData)){
+    var tempArrNormal = [];
+    var tempValsNormal = [];
+    var tempValsNormal = {label:unitType,stack:2,categoryPercentage: 1,backgroundColor:getRandomColor(),data:[value[30],value[60],value[90],value[120],value[121]]};
+          tempVal.push(tempValsNormal);
+  }
+
+  let dataG = {
+    labels: ["0-30", "30-60", "60-90","90-120","120+"],
+    datasets: tempVal      
+  };
+         var ctx = document.getElementById("Chart2").getContext("2d");
+         if(window.myBarChartVacant){
+            window.myBarChartVacant.destroy();
+         }
+       // myBarChartVacant ='';
+         window.myBarChartVacant   = new Chart(ctx, {
+             type: 'bar',
+             data: dataG,
+             options: {
+                 responsive: true,
+                 legend: {
+                     position: 'top',
+                 },
+                 title: {
+                     display: true,
+                     text: 'Vacant Unit'
+                 },
+                 scales: {
+                  yAxes: [{
+                      ticks: {
+                          beginAtZero: true,
+                          maxRotation: 0,
+                          minRotation: 0,
+                          //max :1500
+                      },
+                      stacked:true
+                  }],
+                  xAxes: [{
+                      ticks: {
+                        display: false
+                      }
+                      },
+                      {
+                        type: 'category',
+                        offset: true,
+                        labels: [ 'Comprehensive', 'Normal', 'Comprehensive','Normal', 'Comprehensive','Normal', 'Comprehensive','Normal'],
+                        gridLines: {
+                          display: false
+                        }
+                      },
+                      {
+                        offset: true,
+                        gridLines: {
+                          display: false
+                        }
+                      }]
+                 }
+                 //onClick : clickHandler()
+             },
+             
+         });
+ }     
+
+    $('.vacantUnitLoc').change(function (event) {
+     
+       // var id = $(this).attr('id');
+        var select_value = $(this).val();
+
+        var  data_details = {};
+         
+        data_details['count_type'] = 'vacantUnitsAge';
+
+        if(select_value != 'all')
+        data_details['count_val'] = select_value;
+
+        data_details['_token'] =  "{{ csrf_token() }}";
+
+        console.log(data_details)
+         $.ajax({
+               type: "POST",
+               url: "{{route('md-dashboard')}}",        
+               data: data_details,
+               success: function(response){
+                console.log('location change here')
+                console.log(response)
+                if(window.myBarChartVacant){
+                  window.myBarChartVacant.destroy();
+                }
+                // var myBarChartVacant = undefined;
+                loadVacantUnitChart(response.vacantUnitWithUnitType.comprehensive,response.vacantUnitWithUnitType.normal);
+              }
+
+            });
+       
+    });
+    $('.tenantARE').change(function (event) {
+     
+        //var id = $(this).attr('id');
+        var select_value = $(this).val();
+          console.log(select_value)
+        var  data_details = {};
+        var  tenantUrl = "{{route('tenantRedirect')}}"+"/"+select_value;
+          //tenantUrl = tenantUrl.replace(':user_id',select_value);
+        //console.log(tenantUrl)
+        //data_details['user_id'] = id;
+
+        //if(select_value != 'all')
+        data_details['user_id'] = select_value;
+        $("#tenantAreLink").attr('href', tenantUrl); 
+        data_details['_token'] =  "{{ csrf_token() }}";
+        //$('.tenant_count').html(100)
+          
+        
+         $.ajax({
+               type: "POST",
+               url: "{{route('tenant_are')}}",        
+               data: data_details,
+               success: function(data){
+                console.log("all value");
+               console.log(data);           
+                           
+               $('.tenant_count').html(data.count)
+               
+              }
+            });
+       
+    });
+    $('.tenant_vacatingARE').change(function (event) {
+     
+        //var id = $(this).attr('id');
+        var select_value = $(this).val();
+          console.log(select_value)
+        var  data_details = {};
+        //var  tenantUrl = "{{route('tenantRedirect')}}"+"/"+select_value;
+          //tenantUrl = tenantUrl.replace(':user_id',select_value);
+        //console.log(select_value)
+        //data_details['user_id'] = id;
+        var  vacatingUrl = "{{route('vacatedUnitsMTDList')}}"+"/"+select_value;
+        
+        $(".vacatedMTDLink").attr('href', vacatingUrl);
+        //if(select_value != 'all')
+        data_details['user_id'] = select_value;
+        //$("#tenantAreLink").attr('href', tenantUrl); 
+        data_details['_token'] =  "{{ csrf_token() }}";
+        //$('.tenant_count').html(100)
+          
+        
+         $.ajax({
+               type: "POST",
+               url: "{{route('tenant_vacating')}}",        
+               data: data_details,
+               success: function(data){
+               console.log('vacting tenants');            
+               console.log(data);            
+                     
+               $('.tenant_vacating').html(data)
+               
+              }
+            });
+       
+    });
+    $('#collection_MTD').change(function (event) {
+     
+        var id = $(this).attr('id');
+        var select_value = $(this).val();
+
+        var  data_details = {};
+        
+        var  collection_MTD__href = "{{url('receiptsTabViewList/rentReceiptGeneration/rent')}}"+"?are_id="+select_value +"&date="+$('#collection_MTD_date').val();
+        
+        $(".collection_MTD__href").attr('href', collection_MTD__href);
+        data_details['count_type'] = id;
+
+        if(select_value != 'all')
+        data_details['count_val'] = select_value;
+
+        data_details['_token'] =  "{{ csrf_token() }}";
+
+        if(id == 'collection_MTD'){
+         if($('#collection_MTD_date').val() != '') 
+         data_details['collection_MTD_date'] = $('#collection_MTD_date').val();  
+      }
+        console.log(data_details)
+         $.ajax({
+               type: "POST",
+             url: "{{route('collectionMTD')}}",         
+               data: data_details,
+               success: function(data){     
+
+               const formatToCurrency = amount => {
+                  return  amount.toFixed(3).replace(/\d(?=(\d{3})+\.)/g, "$&,");
+                };
+
+                formatdata = formatToCurrency(Number(data));
+
+                       
+               $('.collection_MTD_count').html(formatdata)
+              }
+            });
+         
+       
+    });
+     $('#unitType_select').change(function (event) {
+      
+        var id = $(this).attr('id');
+        var select_value = $(this).val();
+
+        var  data_details = {};
+        
+        if(select_value != '')
+        data_details['unitType'] = select_value;
+
+
+        data_details['_token'] =  "{{ csrf_token() }}";
+
+        //if(id == 'collection_MTD'){
+         if($('#unitTypeDate_select').val() != '')
+         data_details['unitTypeDate_select'] = $('#unitTypeDate_select').val();  
+      //}
+     // console.log(data_details); return false;
+         $.ajax({
+           type: "POST",
+           url: "{{route('md-dashboard')}}",
+           data: data_details,
+           success: function(data){
+          
+            var areaRent = Object.values(data.rent.value.averageReceivables);
+            var area = Object.values(data.rent.area);
+            
+            myChart_Chart6.data.labels = area;
+            myChart_Chart6.data.datasets[1].data = areaRent;
+            myChart_Chart6.update();
+          }
+        });
+    
+         
+       
+    });
+    function updateData(event,e){
+      
+      var are_id = e.value;
+
+      if(are_id){
+         $.ajax({
+           type: "POST",
+           url: "{{route('md-dashboard')}}",
+           data: {"_token":"{{ csrf_token() }}","count_type":'areSalepersonHitRatio',"selected_are":are_id},
+           success: function(data){
+            var result = $.parseJSON(data);
+            
+            console.log( result);
+            var sal = result.saleList;
+            var salesperson =[];
+            var won =[];
+            var assign =[];
+            var inprogress =[];
+            var closed = [];
+            result.saleList.forEach(function(item, index){
+                    
+                    salesperson.push(item);
+             });
+            result.assigned.forEach(function(item, index){
+                    
+                    assign.push(item);
+             });
+            result.won.forEach(function(item, index){
+                    
+                    won.push(item);
+             });
+            result.pgrs.forEach(function(item, index){
+                    
+                    inprogress.push(item);
+             });
+            result.clsd.forEach(function(item, index){
+                    
+                    closed.push(item);
+             });
+
+            data = { "salesperson" :salesperson,
+                     "assigned":assign,
+                      "won": won,
+                      "inprogress":inprogress,
+                      "closed": closed,
+                      "null_value": ["'"+
+                        result.null_value+"'"       
+                      ]
+                  };
+               console.log(myChart_sale.data);
+
+            myChart_sale.data.labels = data.salesperson;
+            myChart_sale.data.datasets[1].data = data.assigned;
+            myChart_sale.data.datasets[2].data = data.won;
+            myChart_sale.data.datasets[3].data = data.inprogress;
+            myChart_sale.data.datasets[4].data = data.closed;
+            //myChart_sale.data.datasets[3].data = data.null_value;
+            myChart_sale.update();
+          }
+        });
+      }
+      else{
+
+        $.ajax({
+           type: "POST",
+           url: "{{route('md-dashboard')}}",
+           data: {"_token":"{{ csrf_token() }}","count_type":'areSalepersonHitRatioDefault'},
+           success: function(data){
+            var result = $.parseJSON(data);
+            //console.log( result);
+          
+            var salesperson =[];
+            var won =[];
+            var assign =[];
+            var inprogress =[];
+            var closed = [];
+            result.name.forEach(function(item, index){
+                    
+                    salesperson.push(item);
+             });
+
+            result.value.assigned.forEach(function(item, index){
+                    
+                    assign.push(item);
+             });
+            result.value.won.forEach(function(item, index){
+                    
+                    won.push(item);
+             });
+
+            result.value.pgrs.forEach(function(item, index){
+                    
+                    inprogress.push(item);
+             });
+            result.value.clsd.forEach(function(item, index){
+                    
+                    closed.push(item);
+             });
+
+            data = { "salesperson" :salesperson,
+                     "assigned":assign,
+                     "won": won,
+                     "inprogress":inprogress,
+                      "closed": closed,
+                     "null_value": ["'"+
+                        result.null_value+"'"       
+                      ]
+                  };
+             
+            myChart_sale.data.labels = data.salesperson;
+            myChart_sale.data.datasets[1].data = data.assigned;
+            myChart_sale.data.datasets[2].data = data.won;
+            myChart_sale.data.datasets[3].data = data.inprogress;
+            myChart_sale.data.datasets[4].data = data.closed;
+            //myChart_sale.data.datasets[3].data = data.null_value;
+            myChart_sale.update();
+          }
+        });
+
+  }   
+  }
+  function updateDataChart6(event,e){
+    var unitType = e.value;
+    console.log(unitType)
+      if(unitType){
+         $.ajax({
+           type: "POST",
+           url: "{{route('md-dashboard')}}",
+           data: {"_token":"{{ csrf_token() }}","count_type":'avg_rent',"unitType":unitType},
+           success: function(data){
+          
+            var areaRent = Object.values(data.rent.value.averageReceivables);
+            var area = Object.values(data.rent.area);
+            
+            myChart_Chart6.data.labels = area;
+            myChart_Chart6.data.datasets[1].data = areaRent;
+            myChart_Chart6.update();
+          }
+        });
+      }
+  } 
+</script>
+
+@endpush  
+

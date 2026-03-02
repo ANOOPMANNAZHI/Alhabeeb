@@ -1,0 +1,1588 @@
+<?php
+
+namespace Modules\Masters\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use App\Http\Controllers\Controller;
+use Modules\Masters\Entities\Legal;
+use Modules\Masters\Entities\LegalUser;
+use Modules\Masters\Entities\LegalNotes;
+use Modules\Masters\Entities\LegalDocuments;
+use Modules\BackOffice\Entities\Pdc;
+use Modules\Sales\Entities\TenantContract;
+use Modules\General\Entities\WorkFlowProcess;
+use Illuminate\Http\File;
+use Illuminate\Support\Facades\Storage;
+use Modules\General\Http\Controllers\GeneralController as General;
+use Modules\BackOffice\Http\Controllers\TenantContractEditController as Tenant;
+use App\Setting;
+use DB;
+use Session;
+use URL;
+use Route;
+use App\User;
+use Illuminate\Support\Facades\Mail;
+use Modules\Masters\Events\LegalApprove;
+use Modules\Masters\Events\LegalReferBack;
+use Modules\Masters\Emails\LegalEmail;
+
+class LegalController extends Controller
+{
+  public  $datas = [];
+  public function __construct()
+  {
+    $this->middleware('auth'); 
+    $this->noOfRecord  = prefixData('no_of_records_in_list_grid')->configuration_value; 
+    
+  }
+    /**
+     * Display a listing of the resource.
+     * @return Response
+     */
+    public function index(Request $request)
+    {
+      $name = Route::currentRouteName();
+      $enquiry_fields = [
+      'tenantContract__tenant_contract_no' => 'Agreement No',
+      'tenantContract__tenant__tenant_name' => 'Name',
+      'building__building_name' => 'Building',
+      'unit__unit_code' => 'Unit',
+      ];
+
+      
+      $operations = [
+      'ilike' => ' Is Equal To '  ,
+      '!=' => ' Is Not Equal To '  ,
+      '>' => ' Is Greater Than '  ,
+      '>=' => ' Is Greater Than Or Equal To '  ,
+      '<' => ' Is Less Than '  ,
+      '<=' => ' Is Less Than Or Equal To'  ,
+      'ilike%...%' => ' Like%...% ',
+      ];    
+      
+      $request->flash(); 
+      
+      $roles = \Auth::user()->getRoles();
+      $rolesNames = \Auth::user()->getRoleNames()->toArray(); 
+
+      $legalCases = Legal::areLegalBuilding()
+                           ->filter($request)
+                           ->lawyerReferBack($request)
+                           ->whereHas('legalUsers', function ($query) {
+                               $query->where('status','=',1);
+                             }) 
+                           ->sortable()->paginate($this->noOfRecord);
+	
+
+/*
+      if (in_array('are', $rolesNames) === true) {
+        $legalCases = Legal::whereHas('building', function ($query) use($rolesNames) {
+          $query->whereHas('areBuildings', function ($query)use($rolesNames) {
+            if (in_array('are', $rolesNames) === true) {
+              $query->where('user_id','=', \Auth::user()->id);
+            }
+          });
+        })->closure($result)->whereHas('legalUsers', function ($query) {
+         $query->where('status','=',1);
+       })->sortable()->paginate(10);
+      }
+      else{
+        $legalCases = Legal::closure($result)->whereHas('legalUsers', function ($query) {
+         $query->where('status','=',1);
+       })->sortable()->paginate(10);
+      }
+*/
+      
+   // dd($legalCases);
+      
+      $quick_url =   $route   =  route('legalCase.index');
+
+      if(isset($request->ajax))
+        return view('masters::Legal.legal_case_list_ajax',compact('legalCases','request','route'));
+
+      return view('masters::Legal.legal_case_list',compact('legalCases','request','enquiry_fields','operations','name','quick_url'));
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     * @return Response
+     */
+    public function create()
+    {
+      return view('masters::create');
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     * @param  Request $request
+     * @return Response
+     */
+    public function store(Request $request)
+    {
+    }
+
+    /**
+     * Show the specified resource.
+     * @return Response
+     */
+    public function show(Legal $legalCase)
+    {
+      clearNotification('Modules\Masters\Notifications\LegalNotification',$legalCase->id);
+      readNotification('Modules\Masters\Notifications\LegalNotification',$legalCase->id); 
+      $tenant_contract_id=$legalCase->tenant_contract_id;
+      $notes=Legal::where('tenant_contract_id',$tenant_contract_id)->get();
+      return view('masters::Legal.legal_case_view',compact('legalCase','notes'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     * @return Response
+     */
+    public function edit()
+    {
+      return view('masters::edit');
+    }
+
+    /**
+     * Update the specified resource in storage.
+     * @param  Request $request
+     * @return Response
+     */
+    public function update(Request $request)
+    {
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     * @return Response
+     */
+    public function destroy($id)
+    {
+      $LegalDocuments = LegalDocuments::find($id);
+      Storage::delete($LegalDocuments->legal_documents_file_name);
+      $LegalDocuments->delete();
+    }
+    //Advance search
+    public function legalCaseSearch(Request $request){
+
+      $closure = array();
+      $closure_or = array();
+      $building = array();
+      $building_or = array(); 
+      $unit = array();
+      $unit_or = array();
+      $tenant = array();
+      $tenant_or = array(); 
+      $tenantname = array();
+      $tenantname_or = array();  
+      $workflow = array();
+      $workflow_or = array();  
+        //dd($request->fieldName);
+      if(isset($request->fieldName)){
+       if(count($request->fieldName) > 0){
+        foreach ($request->fieldName as $key => $value) {
+
+          if( !empty($request->fieldValue[$key]) && !empty($request->fieldValue[$key]) && !empty($value) ) {
+
+           $operation = $request->operation[$key];
+           $fieldValue = $request->fieldValue[$key];
+
+           if($request->operation[$key] == 'ilike%...%' ){
+            $fieldValue = '%'.$request->fieldValue[$key].'%';
+            $operation = 'ilike';
+          }elseif($value == 'building_name'){
+
+            if($key != 0 && $request->logic[$key -1 ] == 'or' )
+              $building_or[] = array( $value , $operation ,$fieldValue);
+            else
+              $building[] = array( $value , $operation ,$fieldValue);
+
+          }elseif($value == 'unit_code'){
+
+            if($key != 0 && $request->logic[$key -1 ] == 'or' )
+              $unit_or[] = array( $value , $operation ,$fieldValue);
+            else
+              $unit[] = array( $value , $operation ,$fieldValue);
+
+          }elseif($value == 'tenant_contract_no'){
+
+            if($key != 0 && $request->logic[$key -1 ] == 'or' )
+              $tenant_or[] = array( $value , $operation ,$fieldValue);
+            else
+              $tenant[] = array( $value , $operation ,$fieldValue);
+
+          }elseif($value == 'tenant_name'){
+
+            if($key != 0 && $request->logic[$key -1 ] == 'or' )
+              $tenantname_or[] = array( $value , $operation ,$fieldValue);
+            else
+              $tenantname[] = array( $value , $operation ,$fieldValue);
+
+          }else{                
+            $fieldValue = $request->fieldValue[$key];
+            $operation = $request->operation[$key];
+          }
+
+          if($value != 'building_name' &&  $value != 'unit_code' &&  $value != 'tenant_contract_no' &&  $value != 'tenant_name' &&   (array_search($request->operation[$key],['>','<','>=','<=']) === FALSE ) ) {
+           if($key != 0 && $request->logic[$key -1 ] == 'or' )
+             $closure_or[] = array( $value , $operation ,$fieldValue);
+           else
+             $closure[] = array( $value , $operation ,$fieldValue);
+         }
+
+       }
+
+
+     }
+
+
+     if($request->ajax != true){
+       if(count($building_or) == 0 && count($closure) == 0 &&  count($building) == 0 && count($unit) == 0 && count($unit_or) == 0  && count($tenant) == 0  && count($tenant_or) == 0 && count($tenantname) == 0  && count($tenantname_or) == 0 && count($workflow) == 0  && count($workflow_or) == 0 )
+        $closure[] = array( 'id' , '=' ,0);
+    }
+
+  }
+
+}
+   //  dd($closure_date);
+
+
+$tenant_contract_no = (isset($request->tenant_contract_no)) ? $request->tenant_contract_no : null;
+$tenant_id = (isset($request->tenant_id)) ? $request->tenant_id : null;    
+$building_id = (isset($request->building_id)) ? $request->building_id : null;
+$unit_id = (isset($request->unit_id)) ? $request->unit_id : null;
+$tenant_contract_valid_to_date = (isset($request->tenant_contract_valid_to_date)) ? $request->tenant_contract_valid_to_date : null; 
+$tenant_contract_status = (isset($request->tenant_contract_status)) ? $request->tenant_contract_status : null;   
+$tenant_contract_rent = (isset($request->tenant_contract_rent)) ? $request->tenant_contract_rent : null;  
+$work_flow_processes_id = (isset($request->work_flow_processes_id)) ? $request->work_flow_processes_id : null;  
+
+$qiuck_search = array($tenant_contract_no,$tenant_id, $building_id , $unit_id, $tenant_contract_valid_to_date,$tenant_contract_status,$tenant_contract_rent,$work_flow_processes_id);
+if($request->ajax != true){
+
+  $qiuck_search = array();
+}
+$result = array(
+ $closure,$closure_or,$building, $building_or,$unit, $unit_or, $tenant, $tenant_or,$tenantname, $tenantname_or,$workflow, $workflow_or,$qiuck_search
+ ); 
+     //dd($result);
+
+return $result;       
+
+
+}
+public function legalSearch(Request $request,$result = array())
+{
+  $name = Route::currentRouteName();
+  $enquiry_fields = [
+  'tenant_contract_no' => 'Agreement No',
+  'tenant_name' => 'Name',
+  'building_name' => 'Building',
+  'unit_code' => 'Unit',
+  ];
+
+
+  $operations = [
+  'ilike' => ' Is Equal To '  ,
+  '!=' => ' Is Not Equal To '  ,
+  '>' => ' Is Greater Than '  ,
+  '>=' => ' Is Greater Than Or Equal To '  ,
+  '<' => ' Is Less Than '  ,
+  '<=' => ' Is Less Than Or Equal To'  ,
+  'ilike%...%' => ' Like%...% ',
+  ];
+  $result = array();
+
+  if(isset($request)){
+
+    $legalCase =   new LegalController;       
+    $result =     $legalCase->legalCaseSearch($request); 
+    $request->flash(); 
+
+  }
+
+  $legalCases = Legal::closure($result)->whereHas('legalUsers', function ($query) {
+   $query->where('status','=',1);
+ })->sortable()->paginate(10);
+   // dd($legalCases);
+  if(isset($request->route))
+    $route   =  $request->route;
+
+  if(isset($request->ajax))
+    return view('masters::Legal.legal_case_list_ajax',compact('legalCases','request','route'));
+
+  return view('masters::Legal.legal_case_list',compact('legalCases','request','enquiry_fields','operations','name'));
+}
+public function enquiryFilter(){
+
+
+ $enquiry_fields = [
+ 'tenant_contract_no' => 'Agreement No',
+ 'tenant_name' => 'Name',
+ 'building_name' => 'Building',
+ 'unit_code' => 'Unit',
+ ];
+
+
+ $operations = [
+ 'ilike' => ' Is Equal To '  ,
+ '!=' => ' Is Not Equal To '  ,
+ '>' => ' Is Greater Than '  ,
+ '>=' => ' Is Greater Than Or Equal To '  ,
+ '<' => ' Is Less Than '  ,
+ '<=' => ' Is Less Than Or Equal To'  ,
+ 'ilike%...%' => ' Like%...% ',
+ ];
+
+ return view('masters::Legal.legal_filter',compact('enquiry_fields','operations'));
+
+
+}
+public function plmsApproval(Request $request){
+
+ $name = Route::currentRouteName();
+
+ $enquiry_fields = [
+ 'tenantContract__tenant_contract_no' => 'Agreement No',
+ 'tenantContract__tenant__tenant_name' => 'Name',
+ 'building__building_name' => 'Building',
+ 'unit__unit_code' => 'Unit',
+ ];
+
+
+ $operations = [
+ 'ilike' => ' Is Equal To '  ,
+ '!=' => ' Is Not Equal To '  ,
+ '>' => ' Is Greater Than '  ,
+ '>=' => ' Is Greater Than Or Equal To '  ,
+ '<' => ' Is Less Than '  ,
+ '<=' => ' Is Less Than Or Equal To'  ,
+ 'ilike%...%' => ' Like%...% ',
+ ];
+
+ $roles = \Auth::user()->getRoles();
+ $user = \Auth::user();
+ $rolesNames = \Auth::user()->getRoleNames()->toArray();
+
+ $request->flash(); 
+
+$user_id =  \Auth::user()->id;
+$status = 801;
+if(isset($request->md)){
+  $roles=array(1);
+  $user_id = 1;
+  if(isset($request->selected_status)){
+   $status = (trim($request->selected_status)=='close')?802:(($request->selected_status=='reject')?804:801);
+   } 
+}
+
+$plmsApprovals = Legal::filter($request)
+                      ->whereHas('legalUsers', function ($query) use($user,$roles,$user_id) {
+                         $query->when( !($user->hasRole('super_admin','md')),function($query)use($user,$roles,$user_id){
+                             $query->where(function ($query) use($user,$roles,$user_id){
+                                $query->where('user_id',null)
+                                      ->whereIn('role_id', $roles)
+									  ->where('status','=',1);
+                                    })
+                                      ->orWhere(function ($query) use($user,$roles,$user_id){
+                                          $query->where('user_id','>',0)
+                                                ->whereIn('role_id', $roles)
+                                                ->where('user_id','=', $user_id)
+												->where('status','=',1);
+                                  });   
+                          })
+                         ->where('status','=',1);
+                      })                  
+                      ->where('legal.work_flow_processes_code', '=', $status) 
+                      ->sortable()
+                      ->paginate($this->noOfRecord);
+                      
+/*
+if (in_array('super_admin', $rolesNames) === false) {
+  $plmsApproval->whereHas('legalUsers', function ($query) use($roles) {
+    $query->where(function ($query) use($roles){
+      $query->where('user_id',null)
+      ->whereIn('role_id', $roles);
+    })
+    ->orWhere(function ($query) use($roles){
+      $query->where('user_id','>',0)
+      ->whereIn('role_id', $roles)
+      ->where('user_id','=', \Auth::user()->id);
+    })                      
+    ->where('status','=',1);                       
+  });
+}
+$plmsApprovals = $plmsApproval->paginate(10);*/
+
+$quick_url =  $route =  route('plmsApproval');
+
+if(isset($request->ajax))
+  return view('masters::Legal.plms_approval_list_ajax',compact('plmsApprovals','request','route'));
+
+return view('masters::Legal.plms_approval_list',compact('plmsApprovals','request','enquiry_fields','operations','name','quick_url'));
+
+}
+public function plmsSearch(Request $request,$result = array()){
+ $name = Route::currentRouteName();
+ $enquiry_fields = [
+ 'tenant_contract_no' => 'Agreement No',
+ 'tenant_name' => 'Name',
+ 'building_name' => 'Building',
+ 'unit_code' => 'Unit',
+ ];
+
+
+ $operations = [
+ 'ilike' => ' Is Equal To '  ,
+ '!=' => ' Is Not Equal To '  ,
+ '>' => ' Is Greater Than '  ,
+ '>=' => ' Is Greater Than Or Equal To '  ,
+ '<' => ' Is Less Than '  ,
+ '<=' => ' Is Less Than Or Equal To'  ,
+ 'ilike%...%' => ' Like%...% ',
+ ];
+ $roles = \Auth::user()->getRoles();
+ $rolesNames = \Auth::user()->getRoleNames()->toArray();
+ $result = array();
+
+ if(isset($request)){
+
+  $plmsApproval =   new LegalController;       
+  $result =     $plmsApproval->legalCaseSearch($request); 
+  $request->flash(); 
+}
+$plmsApproval = Legal::closure($result)->whereHas('legalUsers', function ($query) {
+ $query->where('status','=',1);
+})                  
+->where('work_flow_processes_code', '=', 801);
+
+if (in_array('super_admin', $rolesNames) === false) {
+  $plmsApproval->whereHas('legalUsers', function ($query) use($roles) {
+    $query->where(function ($query) use($roles){
+      $query->where('user_id',null)
+      ->whereIn('role_id', $roles);
+    })
+    ->orWhere(function ($query) use($roles){
+      $query->where('user_id','>',0)
+      ->whereIn('role_id', $roles)
+      ->where('user_id','=', \Auth::user()->id);
+    })                      
+    ->where('status','=',1);                       
+  });
+}
+$plmsApprovals = $plmsApproval->paginate(10);
+if(isset($request->route))
+  $route   =  $request->route;
+
+if(isset($request->ajax))
+  return view('masters::Legal.plms_approval_list_ajax',compact('plmsApprovals','request','route'));
+
+return view('masters::Legal.plms_approval_list',compact('plmsApprovals','request','enquiry_fields','operations','name'));
+
+}
+public function plmsApprovalShow($id){
+  clearNotification('Modules\Masters\Notifications\LegalNotification',$id);
+  readNotification('Modules\Masters\Notifications\LegalNotification',$id);
+  $plmsApproval=Legal::where('id',$id)->first();
+  $tenant_contract_id=$plmsApproval->tenant_contract_id;
+  $notes=Legal::where('tenant_contract_id',$tenant_contract_id)->get();
+  return view('masters::Legal.plms_approval_view',compact('plmsApproval','notes'));
+
+}
+//approve refer back modal
+public function plmsApproveReferBack(Request $request){
+  $legal_id = $request->legal_id;
+  $process_flow = $request->process_flow;
+  $action_key = $request->action_key;
+  $are_status = $request->are_status;
+  
+  $isLawyerApproved = false;
+  if($process_flow==802 && $action_key=='APRV'){
+	    if (Legal::where('id', '=', $request->legal_id)->where('legal_is_closed','=',2)->exists()) {
+		   return json_encode('error');
+		}
+  }
+  
+  //dd($action_key);
+  return view('masters::Legal.plms_approval_model',compact('legal_id','process_flow','action_key','are_status'));
+}
+public function plmsApproveReferBackStore(Request $request)
+{
+  $legal_id = $request->legal_id;
+  $process_flow = $request->process_flow;
+  $action_key = $request->action_key;
+  $legal_note = $request->legal_note;
+  $are_status = $request->are_status;
+  
+  
+
+  $legal = Legal::where('id',$legal_id)->first();
+
+  $general =  new General;
+  $next_process_id = $general->nextProcessFromAction($process_flow,$action_key);
+  /*$work_flow_process=WorkFlowProcess::where('work_flow_processes_code',$next_process_id)->first();
+  $work_flow_process_id=$work_flow_process->id;*/
+
+  // current stage update 
+  $stageLegal = Legal::where('work_flow_processes_code',$legal->work_flow_processes_code)->orderBy('id','desc')->limit(1)->first();
+  if(!empty($stageLegal))
+    $stageLegal->legalUser()->update(['status' => 0]);
+
+  $processAssign = $general->roleUsersFromProcess($next_process_id,$location_id=null,$pricerange_id=null,$tenant_status=null);
+	
+	$legalCase = Legal::where('id',$legal_id)->first();
+	
+	Legal::where('id',$request->legal_id)->update(['work_flow_processes_code'=>$next_process_id,'are_status' => $are_status,'note' => $legal_note]);
+	
+	// if($process_flow==801){
+		// $legalCase=Legal::create([ 
+			   // 'building_id' => $legal->building_id,
+			   // 'unit_id' => $legal->unit_id,
+			   // 'tenant_id'=> $legal->tenant_id,
+			   // 'tenant_contract_id' => $legal->tenant_contract_id,
+			   // 'note' => $legal_note,
+			   // 'work_flow_processes_code' => $next_process_id,
+			   // 'are_status' => $are_status,
+			   // 'created_by' => \Auth::user()->id
+			   // ]); 
+	// }
+
+
+			
+
+	  if($processAssign != false) {
+
+    foreach($processAssign->assign as $val){
+     $legalCase->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
+     $legalCase->save();
+   }
+   $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
+   $legalCase->save();
+
+ }else{
+
+  $previousProcess = $general->getPreviousOrder($next_process_id);
+  if($previousProcess !=0){
+
+    $previousAssign = $general->roleUsersFromProcess($previousProcess,$location_id=0,$pricerange_id=0,$tenant_status); 
+
+    foreach($previousAssign->assign as $val){
+      $legalCase->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
+      $legalCase->save();
+    }
+    $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
+    $legalCase->save();
+
+  }else{
+
+    $workFlowProcess = $general->workFlowProcess($next_process_id);
+    $legalCase->legalUsers()->attach($workFlowProcess->default_role, ['user_id' => $workFlowProcess->default_user_id]);
+    $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]); 
+    $legalCase->save();
+
+
+  }
+}
+	
+
+  
+/*Notification Of users*/
+$users = User::role(['legal_advisor'])->get(); 
+$users = array_flatten($users); 
+
+$are = User::role(['are'])->get(); 
+$are = array_flatten($are);
+
+$legalUsers = User::role(['legal_advisor'])->get(); 
+// $legalUsers = User::role(['are','legal_advisor'])->get(); 
+$legalUsers = array_flatten($legalUsers);
+
+
+$otherUsers = User::role(['are','backoffice_manager'])->get(); 
+$otherUsers = array_flatten($otherUsers);
+
+
+ $legalCase->content = "Approved";
+if($process_flow==801 && $action_key=='APRV'){
+  
+  $legalCase->href = url('lawyerApproval/'.$legalCase->id);
+  event(new LegalApprove($legalCase,$users)); 
+
+
+  $legalCase->subject = "Legal Case Approved ";
+  $legalCase->textContent = "Legal Case Approved ";
+  //Notifications starts Legal Advisor and ARE
+  foreach($legalUsers as $legalUser){
+    $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
+
+    $msg = "Legal Case Approved !";
+    $params = 'optional data';
+    if(!empty($legalUser->email)){
+      Mail::to($legalUser->email)->send(new LegalEmail($legalCase,$legalUser)); //Email Notification
+    }else{
+       sendSms($mobile,$msg,$params); //SMS Notification
+     }
+
+   }
+  //Notifications ends
+  //update status as leagal approved
+  
+
+  session()->flash('success', 'Legal Case Approved Successfully');
+  return redirect()->route('plmsApproval');
+
+}elseif($process_flow==801 && $action_key=='RFRBK' && $are_status==0){
+
+  $legalCase->href = url('legalCase/'.$legalCase->id);
+  event(new LegalReferBack($legalCase,$are));
+
+  $legalCase->subject = "Legal Case RefferBack ";
+  $legalCase->textContent = "Legal Case RefferBack ";
+  //Notifications starts  ARE
+  $are = User::role(['are'])->get(); 
+  $are = array_flatten($are);
+  // foreach($are as $ar){
+    // $mobile = $ar->employee->employee_contact_no ?? $ar->employee->employee_secondary_no;
+
+    // $msg = "Legal Case RefferBack !";
+    // $params = 'optional data';
+    // if(!empty($ar->email)){
+      // Mail::to($ar->email)->send(new LegalEmail($legalCase,$ar)); //Email Notification
+    // }else{
+       // sendSms($mobile,$msg,$params); //SMS Notification
+     // }
+
+   // }
+  //Notifications ends
+
+  session()->flash('success', 'Legal Case Refer Back Successfully');
+  return redirect()->route('plmsApproval');
+}elseif($process_flow==802 && $action_key=='APRV'){
+	Legal::where('id',$request->legal_id)->update(['legal_is_closed'=>2]);
+    $legalCase->subject = "Legal Advisor Approved ";
+  $legalCase->textContent = "Legal Advisor Approved ";
+  //Notifications starts BO and ARE
+  // foreach($otherUsers as $otherUser){
+    // $mobile = $otherUser->employee->employee_contact_no ?? $otherUser->employee->employee_secondary_no;
+
+    // $msg = "Legal Advisor Approved !";
+    // $params = 'optional data';
+    // if(!empty($otherUser->email)){
+      // Mail::to($otherUser->email)->send(new LegalEmail($legalCase,$otherUser)); //Email Notification
+    // }else{
+       // sendSms($mobile,$msg,$params); //SMS Notification
+     // }
+
+   // }
+  //Notifications ends
+
+	
+
+  session()->flash('success', 'Lawyer Approved Legal Case Successfully');
+  return redirect()->route('lawyerApproval');
+}elseif($process_flow==801 && $action_key=='RFRBK' && $are_status==1){
+  $legalCase->href = url('legalCase/'.$legalCase->id);
+  event(new LegalReferBack($legalCase,$are));
+
+   $legalCase->subject = "Legal Advisor RefferBack ";
+  $legalCase->textContent = "Legal Advisor RefferBack ";
+  //Notifications starts  ARE
+  foreach($are as $ar){
+    $mobile = $ar->employee->employee_contact_no ?? $ar->employee->employee_secondary_no;
+
+    $msg = "Legal Advisor RefferBack !";
+    $params = 'optional data';
+    if(!empty($ar->email)){
+      Mail::to($ar->email)->send(new LegalEmail($legalCase,$ar)); //Email Notification
+    }else{
+       sendSms($mobile,$msg,$params); //SMS Notification
+     }
+
+   }
+  //Notifications ends
+
+
+  session()->flash('success', 'Lawyer Refer Back Legal Case Successfully');
+  return redirect()->route('lawyerApproval');
+}else{
+  session()->flash('success', 'Lawyer Approved Legal Case Successfully');
+  return redirect()->route('lawyerApproval');
+}
+
+}
+
+
+
+
+public function lawyerApproval(Request $request){
+
+
+ $name = Route::currentRouteName();
+ $enquiry_fields = [
+ 'tenantContract__tenant_contract_no' => 'Agreement No',
+ 'tenantContract__tenant__tenant_name' => 'Name',
+ 'building__building_name' => 'Building',
+ 'unit__unit_code' => 'Unit',
+ ];
+
+
+ $operations = [
+ 'ilike' => ' Is Equal To '  ,
+ '!=' => ' Is Not Equal To '  ,
+ '>' => ' Is Greater Than '  ,
+ '>=' => ' Is Greater Than Or Equal To '  ,
+ '<' => ' Is Less Than '  ,
+ '<=' => ' Is Less Than Or Equal To'  ,
+ 'ilike%...%' => ' Like%...% ',
+ ];
+
+$user =  \Auth::user();
+//$user_id =  \Auth::user()->id;
+//dd($user_id);
+$roles = $user->getRoles();
+//dd($roles);
+$rolesNames = $user->getRoleNames()->toArray();
+//dd($rolesNames);
+
+$request->flash();
+$status = 803;
+//print_r($user_id);exit; 
+$user_id =  \Auth::user()->id;
+
+if(isset($request->md)){
+  $roles=array(1);
+  $user_id = 1;
+  if(isset($request->selected_status)){
+    switch ($request->selected_status){
+      case 'won':
+        $status = 803;
+        break;
+      case 'loss':
+        $status = 801;
+        break;  
+      case 'reject':
+        $status = 804;
+        break;  
+      case 'inprogress':
+        $status = 802;
+        break;
+      default:
+        $status = 803;
+        break;
+    } 
+  }
+}
+
+
+// $plmsLegalStatus = DB::table('legal as l')->select('l.tenant_contract_id')
+//             ->join('tenant_contracts as tc', function($join) {
+//                             $join->on('tc.id', '=', 'l.tenant_contract_id')
+//                             ->where('status',5);
+//                         })
+//             ->where('l.work_flow_processes_code', '=', $status);
+$tenantStatus = 5;
+$lawyerApprovals = Legal::filter($request)
+                   ->where('legal_is_closed','!=',2)
+                      ->whereHas('tenantContract', function ($query) use($tenantStatus){             
+                         $query->where('status','=',5);
+                      })                  
+                      ->where('legal.work_flow_processes_code', '=', 802) 
+                      ->sortable()
+                      ->paginate($this->noOfRecord);
+            
+//print_r($plmsLegalStatus);exit();
+
+//print_r(\Auth::user()->id);exit;
+$lawyerApprovalss = Legal::filter($request)
+						->where('legal_is_closed','!=',2)
+                        ->whereHas('legalUsers', function ($query)use($roles,$user,$user_id) {                          
+                           $query->when(!($user->hasRole('super_admin','md')) ,  function($query)use($roles,$user_id){
+                             $query->where(function ($query) use($roles){
+                                $query->where('user_id',null)
+                                      ->whereIn('role_id', $roles)
+									                    ->where('status','=',1);
+                              })
+                            ->orWhere(function ($query) use($roles,$user_id){
+                                $query->where('user_id','>',0)
+                                      ->whereIn('role_id', $roles)
+                                      ->where('user_id','=', $user_id)
+									  ->where('status','=',5);
+                              });
+                          })
+                          ->where('status','=',1);
+                          })                  
+                        ->where('legal.work_flow_processes_code', '=', $status)
+                        ->sortable()
+                        ->paginate($this->noOfRecord);
+/*
+if (in_array('super_admin', $rolesNames) === false) {
+  $lawyerApproval->whereHas('legalUsers', function ($query) use($roles) {
+    $query->where(function ($query) use($roles){
+      $query->where('user_id',null)
+      ->whereIn('role_id', $roles);
+    })
+    ->orWhere(function ($query) use($roles){
+      $query->where('user_id','>',0)
+      ->whereIn('role_id', $roles)
+      ->where('user_id','=', \Auth::user()->id);
+    })                      
+    ->where('status','=',1);                       
+  });
+}
+$lawyerApprovals = $lawyerApproval->paginate(10);*/
+//dd($lawyerApprovals);
+
+$quick_url = $route = route('lawyerApproval');
+
+if(isset($request->ajax))
+  return view('masters::Legal.lawyer_approval_list_ajax',compact('lawyerApprovals','request','route'));
+
+return view('masters::Legal.lawyer_approval_list',compact('lawyerApprovals','request','enquiry_fields','operations','name','quick_url'));
+
+}
+
+
+
+
+
+public function lawyerSearch(Request $request,$result = array()){
+ $name = Route::currentRouteName();
+ $enquiry_fields = [
+ 'tenant_contract_no' => 'Agreement No',
+ 'tenant_name' => 'Name',
+ 'building_name' => 'Building',
+ 'unit_code' => 'Unit',
+ ];
+ $operations = [
+ 'ilike' => ' Is Equal To '  ,
+ '!=' => ' Is Not Equal To '  ,
+ '>' => ' Is Greater Than '  ,
+ '>=' => ' Is Greater Than Or Equal To '  ,
+ '<' => ' Is Less Than '  ,
+ '<=' => ' Is Less Than Or Equal To'  ,
+ 'ilike%...%' => ' Like%...% ',
+ ];
+ $roles = \Auth::user()->getRoles();
+ $rolesNames = \Auth::user()->getRoleNames()->toArray();
+ $result = array();
+
+ if(isset($request)){
+
+  $lawyerApproval =   new LegalController;       
+  $result =     $lawyerApproval->legalCaseSearch($request); 
+  $request->flash(); 
+}
+$lawyerApproval = Legal::closure($result)->whereHas('legalUsers', function ($query) {
+ $query->where('status','=',1);
+})                  
+->where('work_flow_processes_code', '=', 802);
+
+if (in_array('super_admin', $rolesNames) === false) {
+  $lawyerApproval->whereHas('legalUsers', function ($query) use($roles) {
+    $query->where(function ($query) use($roles){
+      $query->where('user_id',null)
+      ->whereIn('role_id', $roles);
+    })
+    ->orWhere(function ($query) use($roles){
+      $query->where('user_id','>',0)
+      ->whereIn('role_id', $roles)
+      ->where('user_id','=', \Auth::user()->id);
+    })                      
+    ->where('status','=',1);                       
+  });
+}
+$lawyerApprovals = $lawyerApproval->paginate(10);
+if(isset($request->route))
+  $route   =  $request->route;
+
+if(isset($request->ajax))
+  return view('masters::Legal.lawyer_approval_list_ajax',compact('lawyerApprovals','request','route'));
+
+return view('masters::Legal.lawyer_approval_list',compact('lawyerApprovals','request','enquiry_fields','operations','name'));
+
+}
+public function lawyerApprovalShow($id){
+  clearNotification('Modules\Masters\Notifications\LegalNotification',$id);
+  readNotification('Modules\Masters\Notifications\LegalNotification',$id); 
+  $lawyerApproval=Legal::where('id',$id)->first();
+  $tenant_contract_id=$lawyerApproval->tenant_contract_id;
+  $notes=Legal::where('tenant_contract_id',$tenant_contract_id)->get();
+
+  $currentContract=TenantContract::where('id',$tenant_contract_id)->first();
+  $rent = $currentContract->tenant_contract_rent;
+  $oldContracts=$this->oldContracts($currentContract->tenant_contract_no);
+  $oldContractList = TenantContract::whereIn('id',$oldContracts)->get();
+  $nodays = 0;
+ if(!empty($oldContracts)){
+  foreach ($oldContractList as $oldContractLists) {
+   $fromDate =strtotime($oldContractLists->tenant_contract_start_date);
+   $toDate = strtotime($oldContractLists->tenant_contract_valid_to_date);
+   $datediff = $toDate - $fromDate; 
+   $days = intval($datediff/86400);
+   $nodays+= $days;
+ }
+ $currentFrom=strtotime($currentContract->tenant_contract_start_date);
+ $currentTo=strtotime("now");
+ $currentdatediff = $currentTo - $currentFrom; 
+ $currentdays = intval($currentdatediff/86400);
+ $rentedFrom = $nodays + $currentdays;
+ $dmy=$this->dateMonthYear($rentedFrom);
+}else{
+ $currentFrom=strtotime($currentContract->tenant_contract_start_date);
+  //dd($currentFrom);
+ $currentTo=strtotime("now");
+ $currentdatediff = $currentTo - $currentFrom; 
+ $currentdays = intval($currentdatediff/86400);
+ $rentedFrom = $currentdays;
+ $dmy=$this->dateMonthYear($rentedFrom);
+}
+
+if(!empty($currentContract->tenant_contract_last_paid_date)){
+  $overDueFrom = $currentContract->tenant_contract_last_paid_date;
+  $paidFromDate = strtotime($currentContract->tenant_contract_last_paid_date);
+  $paidToDate = strtotime("now");
+  $paidDatediff = $paidToDate - $paidFromDate; 
+  $paidDays = intval($paidDatediff/86400);
+}else{
+  $overDueFrom = $currentContract->tenant_contract_effective_date;
+  $paidFromDate = strtotime($currentContract->tenant_contract_effective_date);
+  $paidToDate = strtotime("now");
+  $paidDatediff = $paidToDate - $paidFromDate; 
+  $paidDays = intval($paidDatediff/86400);
+}
+//dd($overDueFrom);
+$tenant =  new Tenant;
+ $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
+  return view('masters::Legal.lawyer_approval_view',compact('lawyerApproval','notes','oldContractList','dmy','paidDays','overDueFrom','rentAmount'));
+
+}
+public function activeCases(Request $request){
+
+  $name = Route::currentRouteName();
+
+  $enquiry_fields = [
+  'tenantContract__tenant_contract_no' => 'Agreement No',
+  'tenantContract__tenant__tenant_name' => 'Name',
+  'building__building_name' => 'Building',
+  'unit__unit_code' => 'Unit',
+  ];
+
+  $operations = [
+  'ilike' => ' Is Equal To '  ,
+  '!=' => ' Is Not Equal To '  ,
+  '>' => ' Is Greater Than '  ,
+  '>=' => ' Is Greater Than Or Equal To '  ,
+  '<' => ' Is Less Than '  ,
+  '<=' => ' Is Less Than Or Equal To'  ,
+  'ilike%...%' => ' Like%...% ',
+  ];
+ 
+  $user  = \Auth::user();
+  $roles = $user->getRoles();
+
+  $rolesNames = $user->getRoleNames()->toArray();
+
+  $request->flash();  
+
+  $activeCases = Legal::filter($request)
+  ->where('legal_is_closed',2)
+  ->noteStatus($request)
+  ->exceptEndStatus($request)
+                      ->legalUsers()              
+                      ->where('legal.work_flow_processes_code', '=', 803)
+                      ->sortable()
+                      ->paginate($this->noOfRecord);
+
+  $quick_url =    $route   =  route('activeCases');
+
+  if(isset($request->ajax))
+    return view('masters::Legal.active_cases_list_ajax',compact('activeCases','request','route'));
+
+  return view('masters::Legal.active_cases_list',compact('activeCases','request','enquiry_fields','operations','name','quick_url'));
+
+}
+
+public function casesSearch(Request $request,$result = array()){
+  $name = Route::currentRouteName();
+  $enquiry_fields = [
+  'tenant_contract_no' => 'Agreement No',
+  'tenant_name' => 'Name',
+  'building_name' => 'Building',
+  'unit_code' => 'Unit',
+  ];
+  $operations = [
+  'ilike' => ' Is Equal To '  ,
+  '!=' => ' Is Not Equal To '  ,
+  '>' => ' Is Greater Than '  ,
+  '>=' => ' Is Greater Than Or Equal To '  ,
+  '<' => ' Is Less Than '  ,
+  '<=' => ' Is Less Than Or Equal To'  ,
+  'ilike%...%' => ' Like%...% ',
+  ];
+  $roles = \Auth::user()->getRoles();
+  $rolesNames = \Auth::user()->getRoleNames()->toArray();
+  $result = array();
+
+  if(isset($request)){
+
+    $activeCase =   new LegalController;       
+    $result =     $activeCase->legalCaseSearch($request); 
+    $request->flash(); 
+  }
+  $activeCase = Legal::closure($result)->whereHas('legalUsers', function ($query) {
+   $query->where('status','=',1);
+ })                  
+  ->where('work_flow_processes_code', '=', 803);
+
+  if (in_array('super_admin', $rolesNames) === false) {
+    $activeCase->whereHas('legalUsers', function ($query) use($roles) {
+      $query->where(function ($query) use($roles){
+        $query->where('user_id',null)
+        ->whereIn('role_id', $roles);
+      })
+      ->orWhere(function ($query) use($roles){
+        $query->where('user_id','>',0)
+        ->whereIn('role_id', $roles)
+        ->where('user_id','=', \Auth::user()->id);
+      })                      
+      ->where('status','=',1);                       
+    });
+  }
+  $activeCases = $activeCase->paginate(10);
+  //dd($activeCases);
+  if(isset($request->route))
+    $route   =  $request->route;
+
+  if(isset($request->ajax))
+    return view('masters::Legal.active_cases_list_ajax',compact('activeCases','request','route'));
+
+  return view('masters::Legal.active_cases_list',compact('activeCases','request','enquiry_fields','operations','name'));
+
+}
+public function activeCasesShow($id){
+ $activeCase=Legal::where('id',$id)->first();
+ $tenant_contract_id=$activeCase->tenant_contract_id;
+ $notes=Legal::where('tenant_contract_id',$tenant_contract_id)->get();
+ $legalNotes=LegalNotes::where('legal_id',$id)->orderBy('legal_notes_status','ASC')->get();
+
+ $currentContract=TenantContract::where('id',$tenant_contract_id)->first();
+ $rent = $currentContract->tenant_contract_rent; 
+ //dd($rent);
+ $oldContracts=$this->oldContracts($currentContract->tenant_contract_no);
+
+ $oldContractList = TenantContract::whereIn('id',$oldContracts)->get(); 
+  $nodays = 0;
+ if(!empty($oldContracts)){
+  foreach ($oldContractList as $oldContractLists) {
+   $fromDate =strtotime($oldContractLists->tenant_contract_start_date);
+   $toDate = strtotime($oldContractLists->tenant_contract_valid_to_date);
+   $datediff = $toDate - $fromDate; 
+   $days = intval($datediff/86400);
+   $nodays+= $days;
+ }
+ $currentFrom=strtotime($currentContract->tenant_contract_start_date);
+ $currentTo=strtotime("now");
+ $currentdatediff = $currentTo - $currentFrom; 
+ $currentdays = intval($currentdatediff/86400);
+ $rentedFrom = $nodays + $currentdays;
+ $dmy=$this->dateMonthYear($rentedFrom);
+}else{
+ $currentFrom=strtotime($currentContract->tenant_contract_start_date);
+ $currentTo=strtotime("now");
+ $currentdatediff = $currentTo - $currentFrom; 
+ $currentdays = intval($currentdatediff/86400);
+ $rentedFrom = $currentdays;
+ $dmy=$this->dateMonthYear($rentedFrom);
+}
+
+if(!empty($currentContract->tenant_contract_last_paid_date)){
+  $overDueFrom = $currentContract->tenant_contract_last_paid_date;
+  $paidFromDate = strtotime($currentContract->tenant_contract_last_paid_date);
+  $paidToDate = strtotime("now");
+  $paidDatediff = $paidToDate - $paidFromDate; 
+  $paidDays = intval($paidDatediff/86400);
+}else{
+  $overDueFrom = $currentContract->tenant_contract_effective_date;
+  $paidFromDate = strtotime($currentContract->tenant_contract_effective_date);
+  $paidToDate = strtotime("now");
+  $paidDatediff = $paidToDate - $paidFromDate; 
+  $paidDays = intval($paidDatediff/86400);
+}
+ $tenant =  new Tenant;
+ $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
+return view('masters::Legal.active_cases_view',compact('activeCase','notes','legalNotes','oldContractList','dmy','paidDays','overDueFrom','rentAmount'));
+}
+public function dateMonthYear($rentedFrom){
+    $years = floor($rentedFrom / 365);
+    $months = floor(($rentedFrom - ($years * 365))/30);
+    $days = ($rentedFrom - ($years * 365) - ($months * 30));
+    $total = $years.' Years - '.$months.' Months - '.$days.' Days';
+    return $total;
+}
+public  function oldContracts($tenant_contract_no){
+
+  $currentContract=TenantContract::where('tenant_contract_no',$tenant_contract_no)->first();
+  $oldContractId =0;	
+  if(!empty($currentContract->tenant_contract_old_no))
+  {
+    $oldContractinfo=TenantContract::where('tenant_contract_no',$currentContract->tenant_contract_old_no)->first();
+    if(isset($oldContractinfo->id)){
+			
+			$oldContractId =$oldContractinfo->id;
+	}
+	
+    array_push($this->datas,$oldContractId);
+    
+    $oldContract=TenantContract::where('id',$oldContractId)->first();
+    if(!empty($oldContract->tenant_contract_old_no))
+    {
+      $oldContracts = $this->oldContracts($oldContract->tenant_contract_no);
+    } 
+    return $this->datas;
+  }else{
+  
+    return $this->datas;
+  }
+}
+public function legalCaseClose(Request $request){
+  $process_flow=$request->process_flow;
+  $legal_id=$request->legal_id;
+
+  $legal=Legal::where('id',$legal_id)->first();
+
+  $tenant_contract_id=$legal->tenant_contract_id;
+  TenantContract::where('id',$tenant_contract_id)->update(['status'=>0]);
+
+  $otherUsers = User::role(['are','backoffice_manager'])->get(); 
+  $otherUsers = array_flatten($otherUsers);
+
+  $stageLegal = Legal::where('work_flow_processes_code',$legal->work_flow_processes_code)->orderBy('id','desc')->first();
+  if(!empty($stageLegal))
+    $stageLegal->legalUser()->update(['status' => 0]);
+
+  if($process_flow==801){
+
+    $are = User::role(['are'])->get(); 
+    $are = array_flatten($are);
+
+
+   $legal->subject = "Legal Case Closed ";
+   $legal->textContent = "Legal Case Closed ";
+
+  //Notifications starts  ARE
+   foreach($are as $ar){
+    $mobile = $ar->employee->employee_contact_no ?? $ar->employee->employee_secondary_no;
+
+    $msg = "Legal Case Closed !";
+    $params = 'optional data';
+    if(!empty($ar->email)){
+      Mail::to($ar->email)->send(new LegalEmail($legal,$ar)); //Email Notification
+    }else{
+       sendSms($mobile,$msg,$params); //SMS Notification
+     }
+
+   }
+  //Notifications ends
+
+
+   session()->flash('success', 'Legal Case Closed Successfully');
+   return redirect()->route('plmsApproval');
+ }else{
+
+  $legal->subject = "Legal Advisor Closed ";
+  $legal->textContent = "Legal Advisor Closed ";
+  //Notifications starts BO and ARE
+  foreach($otherUsers as $otherUser){
+    $mobile = $otherUser->employee->employee_contact_no ?? $otherUser->employee->employee_secondary_no;
+
+    $msg = "Legal Advisor Closed !";
+    $params = 'optional data';
+    if(!empty($otherUser->email)){
+      Mail::to($otherUser->email)->send(new LegalEmail($legal,$otherUser)); //Email Notification
+    }else{
+       sendSms($mobile,$msg,$params); //SMS Notification
+     }
+
+   }
+  //Notifications ends
+
+
+  session()->flash('success', 'Lawyer Closed Legal Case Successfully');
+  return redirect()->route('lawyerApproval');
+}
+}
+public function legalAreStage(Request $request){
+  $legal_id = $request->legal_id;
+  $process_flow = $request->process_flow;
+  $are_status = $request->are_status;
+  return view('masters::Legal.are_stage_model',compact('legal_id','process_flow','are_status'));
+}
+public function areStageStore(Request $request)
+{
+  $legal_id = $request->legal_id;
+  $process_flow = $request->process_flow;
+  $legal_note = $request->legal_note;
+  $are_status = $request->are_status;
+  $are_note = $request->are_note;
+
+  $legal=Legal::where('id',$legal_id)->first();
+
+  /*$work_flow_process=WorkFlowProcess::where('work_flow_processes_code',$process_flow)->first();
+  $work_flow_process_id=$work_flow_process->id;*/
+
+  $legalCase=Legal::create([ 
+   'building_id' => $legal->building_id,
+   'unit_id' => $legal->unit_id,
+   'tenant_contract_id' => $legal->tenant_contract_id,
+   'note' => $are_note,
+   'work_flow_processes_code' => $process_flow,
+   'created_by' => \Auth::user()->id
+   ]); 
+  $next_process_id=$process_flow;
+  $general =  new General;
+  $processAssign = $general->roleUsersFromProcess($next_process_id,$location_id=null,$pricerange_id=null,$tenant_status=null);
+  if($processAssign != false) {
+
+    foreach($processAssign->assign as $val){
+     $legalCase->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
+     $legalCase->save();
+   }
+   $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
+   $legalCase->save();
+
+ }else{
+
+  $previousProcess = $general->getPreviousOrder($next_process_id);
+  if($previousProcess !=0){
+
+    $previousAssign = $general->roleUsersFromProcess($previousProcess,$location_id=0,$pricerange_id=0,$tenant_status); 
+
+    foreach($previousAssign->assign as $val){
+      $legalCase->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
+      $legalCase->save();
+    }
+    $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
+    $legalCase->save();
+
+  }else{
+
+    $workFlowProcess = $general->workFlowProcess($next_process_id);
+    $legalCase->legalUsers()->attach($workFlowProcess->default_role, ['user_id' => $workFlowProcess->default_user_id]);
+    $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]); 
+    $legalCase->save();
+
+
+  }
+}
+
+ /* $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
+ $legalCase->save();*/
+
+ $stageLegal = Legal::where('work_flow_processes_code',$legal->work_flow_processes_code)->orderBy('id','desc')->first();
+ if(!empty($stageLegal))
+  $stageLegal->legalUser()->update(['status' => 0]);
+
+/*Notification Of users*/
+$users = User::role(['legal_advisor'])->get(); 
+$users = array_flatten($users); 
+
+$plmusers = User::role(['backoffice_manager'])->get(); 
+$plmusers = array_flatten($plmusers); 
+
+if($process_flow==801){
+ $legalCase->href = url('plmsApproval/'.$legalCase->id);
+ event(new LegalApprove($legalCase,$plmusers)); 
+
+ session()->flash('success', 'Legal Case Moved To PLM Approval');
+ return redirect()->route('legalCase.index');
+}else{
+  $legalCase->href = url('lawyerApproval/'.$legalCase->id);
+  event(new LegalApprove($legalCase,$users)); 
+  session()->flash('success', 'Legal Case Moved To Lawyer Approval');
+  return redirect()->route('legalCase.index');
+}
+}
+public function legalNoteStore(Request $request){
+
+  $url = $request['current_url'];
+  LegalNotes::create([
+    'user_id' => \Auth::user()->id,
+    'legal_id' =>$request->legal_id,
+    'legal_notes_status' =>$request->legal_notes_status,
+    'legal_notes_note' =>$request->legal_notes_note,
+    'created_by' =>\Auth::user()->id,
+    ]);
+  if($request->legal_notes_status == 0)
+  {
+    Legal::where('id',$request->legal_id)->update(['legal_is_closed'=>1]);
+  }
+  $otherUsers = User::role(['are','backoffice_manager'])->get(); 
+  $otherUsers = array_flatten($otherUsers);
+  $legal      = Legal::where('id',$request->legal_id)->first();
+
+  $legal->subject = "Legal Advisor Added Status";
+  $legal->textContent = "Legal Advisor Added Status Note "."-".$request->legal_notes_status_name;
+  //Notifications starts BO and ARE
+  foreach($otherUsers as $otherUser){
+    $mobile = $otherUser->employee->employee_contact_no ?? $otherUser->employee->employee_secondary_no;
+
+    $msg = "Legal Advisor Added Status Note !"."-".$request->legal_notes_status_name;
+    $params = 'optional data';
+    if(!empty($otherUser->email)){
+      Mail::to($otherUser->email)->send(new LegalEmail($legal,$otherUser)); //Email Notification
+    }else{
+       sendSms($mobile,$msg,$params); //SMS Notification
+     }
+
+   }
+  //Notifications ends
+
+   
+  session()->flash('success', 'Status Note added Successfully');
+  return redirect($url);
+}
+public function legalDocumentStore(Request $request){
+  $url = $request['current_url'];
+  $documents = $request->file('legal_documents_file_name');
+ // dd($documents);
+  if(!empty($documents)) {
+    foreach($documents as $document){
+      $uniqueFileName = $document->getClientOriginalName();
+      $img_path =    Storage::putFile('public/LegalDocs', $document);
+      $legalDocuments =  LegalDocuments::create([
+        'legal_documents_name' =>  $uniqueFileName,
+        'legal_documents_file_name' => $img_path,
+        'legal_id'=>$request->legal_id,
+        'created_by' => \Auth::user()->id,
+        ]);
+    }
+  }
+  session()->flash('success', 'Legal Document Uploaded Successfully');
+  return redirect($url);
+
+}
+public function legalPdcShow($id){
+  $pdc=Pdc::where('tenant_contract_id',$id)->get();
+//dd($pdc);
+  return view('masters::Legal.pdc_view',compact('pdc'));
+}
+public function legaltenantContractShow($id){
+  $tenantContract = TenantContract::where('id',$id)->first();
+  $contract       = TenantContract::where('unit_id',$tenantContract->unit_id)->where('work_flow_processes_code',108)->where('tenant_contract_status',0)->orderBy('id', 'desc')->first();
+
+  if(isset($contract->tenant_contract_valid_to_date) || isset($contract->tenant_contract_rent))     {
+    $vaccant_date               =   date('Y-m-d', strtotime($contract->tenant_contract_valid_to_date.' +1 day'));
+    $last_rent                  =   $contract->tenant_contract_rent;
+    $tenantContract->vaccant_date   =   $vaccant_date;
+    $tenantContract->last_rent      =   $last_rent;
+  }
+  //dd($tenantContract);
+  return view('masters::Legal.legal_tenant_contract_view',compact('tenantContract'));
+}
+public function referBackCases(Request $request){
+
+
+  $name = Route::currentRouteName();
+
+  $enquiry_fields = [
+  'tenantContract__tenant_contract_no' => 'Agreement No',
+  'tenantContract__tenant__tenant_name' => 'Name',
+  'building__building_name' => 'Building',
+  'unit__unit_code' => 'Unit',
+  ];
+
+  $operations = [
+  'ilike' => ' Is Equal To '  ,
+  '!=' => ' Is Not Equal To '  ,
+  '>' => ' Is Greater Than '  ,
+  '>=' => ' Is Greater Than Or Equal To '  ,
+  '<' => ' Is Less Than '  ,
+  '<=' => ' Is Less Than Or Equal To'  ,
+  'ilike%...%' => ' Like%...% ',
+  ];
+ 
+  $user  = \Auth::user();
+  $roles = $user->getRoles();
+  $rolesNames = $user->getRoleNames()->toArray();
+
+  $request->flash();  
+
+  $closedLegalCases = Legal::filter($request)                
+                      ->where('legal.work_flow_processes_code', '=', 804)
+                      ->sortable()
+                      ->paginate($this->noOfRecord);
+  $quick_url =    $route   =  route('referBackCases');
+
+  if(isset($request->ajax))
+    return view('masters::Legal.referback_cases_list_ajax',compact('closedLegalCases','request','route'));
+
+  return view('masters::Legal.referback_cases_list',compact('closedLegalCases','request','enquiry_fields','operations','name','quick_url'));
+
+}
+public function closedLegalCases(Request $request){
+
+
+  $name = Route::currentRouteName();
+
+  $enquiry_fields = [
+  'tenantContract__tenant_contract_no' => 'Agreement No',
+  'tenantContract__tenant__tenant_name' => 'Name',
+  'building__building_name' => 'Building',
+  'unit__unit_code' => 'Unit',
+  ];
+
+  $operations = [
+  'ilike' => ' Is Equal To '  ,
+  '!=' => ' Is Not Equal To '  ,
+  '>' => ' Is Greater Than '  ,
+  '>=' => ' Is Greater Than Or Equal To '  ,
+  '<' => ' Is Less Than '  ,
+  '<=' => ' Is Less Than Or Equal To'  ,
+  'ilike%...%' => ' Like%...% ',
+  ];
+ 
+  $user  = \Auth::user();
+  $roles = $user->getRoles();
+  $rolesNames = $user->getRoleNames()->toArray();
+
+  $request->flash();  
+
+  $closedLegalCases = Legal::filter($request)
+  ->where('legal_is_closed',1)
+                      // ->whereHas('legalUsers', function ($query) use($roles,$user) {
+                      //    $query->when( !($user->hasRole('super_admin')), function($query) use($roles){
+                      //         $query->where(function ($query) use($roles){
+                      //             $query->where('user_id',null)
+                      //             ->whereIn('role_id', $roles);
+                      //           })
+                      //           ->orWhere(function ($query) use($roles){
+                      //             $query->where('user_id','>',0)
+                      //             ->whereIn('role_id', $roles)
+                      //             ->where('user_id','=', \Auth::user()->id);
+                      //           });      
+                      //     })
+                      //     ->where('status','=',1);
+                      //    })                  
+                      ->where('legal.work_flow_processes_code', '=', 803)
+                      ->sortable()
+                      ->paginate($this->noOfRecord);
+  $quick_url =    $route   =  route('closedLegalCases');
+
+  if(isset($request->ajax))
+    return view('masters::Legal.closed_cases_list_ajax',compact('closedLegalCases','request','route'));
+
+  return view('masters::Legal.closed_cases_list',compact('closedLegalCases','request','enquiry_fields','operations','name','quick_url'));
+
+}
+public function closedLegalCasesShow($id){
+    $closedLegalCase=Legal::where('id',$id)->first();
+    $tenant_contract_id=$closedLegalCase->tenant_contract_id;
+    $notes=Legal::where('tenant_contract_id',$tenant_contract_id)->get();
+    $legalNotes=LegalNotes::where('legal_id',$id)->get();
+    //dd($legalNotes);
+
+
+    $currentContract=TenantContract::where('id',$tenant_contract_id)->first();
+    $rent = $currentContract->tenant_contract_rent;
+    //dd($rent);
+    $oldContracts=$this->oldContracts($currentContract->tenant_contract_no);
+
+    $oldContractList = TenantContract::whereIn('id',$oldContracts)->get();
+    $nodays = 0;
+    if(!empty($oldContracts)){
+    foreach ($oldContractList as $oldContractLists) {
+    $fromDate =strtotime($oldContractLists->tenant_contract_start_date);
+    $toDate = strtotime($oldContractLists->tenant_contract_valid_to_date);
+    $datediff = $toDate - $fromDate;
+    $days = intval($datediff/86400);
+    $nodays+= $days;
+    }
+    $currentFrom=strtotime($currentContract->tenant_contract_start_date);
+    $currentTo=strtotime("now");
+    $currentdatediff = $currentTo - $currentFrom;
+    $currentdays = intval($currentdatediff/86400);
+    $rentedFrom = $nodays + $currentdays;
+    $dmy=$this->dateMonthYear($rentedFrom);
+    }else{
+    $currentFrom=strtotime($currentContract->tenant_contract_start_date);
+    $currentTo=strtotime("now");
+    $currentdatediff = $currentTo - $currentFrom;
+    $currentdays = intval($currentdatediff/86400);
+    $rentedFrom = $currentdays;
+    $dmy=$this->dateMonthYear($rentedFrom);
+    }
+
+    if(!empty($currentContract->tenant_contract_last_paid_date)){
+    $overDueFrom = $currentContract->tenant_contract_last_paid_date;
+    $paidFromDate = strtotime($currentContract->tenant_contract_last_paid_date);
+    $paidToDate = strtotime("now");
+    $paidDatediff = $paidToDate - $paidFromDate;
+    $paidDays = intval($paidDatediff/86400);
+    }else{
+    $overDueFrom = $currentContract->tenant_contract_effective_date;
+    $paidFromDate = strtotime($currentContract->tenant_contract_effective_date);
+    $paidToDate = strtotime("now");
+    $paidDatediff = $paidToDate - $paidFromDate;
+    $paidDays = intval($paidDatediff/86400);
+    }
+    $tenant =  new Tenant;
+    $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
+    return view('masters::Legal.closed_cases_view',compact('closedLegalCase','notes','legalNotes','oldContractList','dmy','paidDays','overDueFrom','rentAmount'));
+    }
+    public function referBackCasesShow($id){
+    $closedLegalCase=Legal::where('id',$id)->first();
+    $tenant_contract_id=$closedLegalCase->tenant_contract_id;
+    $notes=Legal::where('tenant_contract_id',$tenant_contract_id)->get();
+    $legalNotes=LegalNotes::where('legal_id',$id)->get();
+    //dd($legalNotes);
+
+
+    $currentContract=TenantContract::where('id',$tenant_contract_id)->first();
+    $rent = $currentContract->tenant_contract_rent;
+    //dd($rent);
+    $oldContracts=$this->oldContracts($currentContract->tenant_contract_no);
+
+    $oldContractList = TenantContract::whereIn('id',$oldContracts)->get();
+    $nodays = 0;
+    if(!empty($oldContracts)){
+    foreach ($oldContractList as $oldContractLists) {
+    $fromDate =strtotime($oldContractLists->tenant_contract_start_date);
+    $toDate = strtotime($oldContractLists->tenant_contract_valid_to_date);
+    $datediff = $toDate - $fromDate;
+    $days = intval($datediff/86400);
+    $nodays+= $days;
+    }
+    $currentFrom=strtotime($currentContract->tenant_contract_start_date);
+    $currentTo=strtotime("now");
+    $currentdatediff = $currentTo - $currentFrom;
+    $currentdays = intval($currentdatediff/86400);
+    $rentedFrom = $nodays + $currentdays;
+    $dmy=$this->dateMonthYear($rentedFrom);
+    }else{
+    $currentFrom=strtotime($currentContract->tenant_contract_start_date);
+    $currentTo=strtotime("now");
+    $currentdatediff = $currentTo - $currentFrom;
+    $currentdays = intval($currentdatediff/86400);
+    $rentedFrom = $currentdays;
+    $dmy=$this->dateMonthYear($rentedFrom);
+    }
+
+    if(!empty($currentContract->tenant_contract_last_paid_date)){
+    $overDueFrom = $currentContract->tenant_contract_last_paid_date;
+    $paidFromDate = strtotime($currentContract->tenant_contract_last_paid_date);
+    $paidToDate = strtotime("now");
+    $paidDatediff = $paidToDate - $paidFromDate;
+    $paidDays = intval($paidDatediff/86400);
+    }else{
+    $overDueFrom = $currentContract->tenant_contract_effective_date;
+    $paidFromDate = strtotime($currentContract->tenant_contract_effective_date);
+    $paidToDate = strtotime("now");
+    $paidDatediff = $paidToDate - $paidFromDate;
+    $paidDays = intval($paidDatediff/86400);
+    }
+    $tenant =  new Tenant;
+    $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
+    return view('masters::Legal.referback_cases_view',compact('closedLegalCase','notes','legalNotes','oldContractList','dmy','paidDays','overDueFrom','rentAmount'));
+    }
+}
+

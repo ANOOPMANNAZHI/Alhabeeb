@@ -1,0 +1,743 @@
+@extends('layouts.plms-app')
+<link href="{{asset('public/css/custom.css')}}" rel="stylesheet">
+
+<?php $credit = 0;?>
+
+@section('content')
+<!-- start widget -->
+<div class="page-bar">
+  <div class="page-title-breadcrumb">
+    <div class=" pull-left">
+       @if($rentReceiptInfo->receipts_generation_type == 1)
+       <div class="page-title">View General Receipt</div>
+       @elseif($rentReceiptInfo->receipts_generation_type == 2)
+       <div class="page-title">View Deposit Receipt</div>
+       @else
+       <div class="page-title">View Rent Receipt</div>
+       @endif
+   </div>
+   @if($rentReceiptInfo->receipts_generation_type == 1)
+   @if($rentReceiptInfo->receipts_generation_approval_status == 2  && auth()->user()->can('request_approval_receipt'))
+   {{ Breadcrumbs::render('viewGeneralReceipts',$rentReceiptInfo,'View General Receipt') }} 
+   @else
+   {{ Breadcrumbs::render('viewGeneralReceipt',$rentReceiptInfo,'View General Receipt') }} 
+   @endif
+
+   @elseif($rentReceiptInfo->receipts_generation_type == 2)
+
+   @if($rentReceiptInfo->receipts_generation_approval_status == 2 && auth()->user()->can('request_approval_receipt'))
+   {{ Breadcrumbs::render('viewDepositReceipts',$rentReceiptInfo,'View Deposit Receipt') }} 
+   @else
+   {{ Breadcrumbs::render('viewDepositReceipt',$rentReceiptInfo,'View Deposit Receipt') }} 
+   @endif 
+
+   @else
+
+   @if($rentReceiptInfo->receipts_generation_approval_status == 2 && auth()->user()->can('request_approval_receipt'))
+   {{ Breadcrumbs::render('viewReceipts',$rentReceiptInfo, 'View Rent Receipt') }}
+   @else
+   {{ Breadcrumbs::render('viewReceipt',$rentReceiptInfo, 'View Rent Receipt') }} 
+   @endif 
+   @endif
+   
+</div>
+</div>
+<div class="row">
+  <div class="col-sm-12">
+
+
+
+   <!--Agreement Section starts -->
+   <div class="card card-box salesSearchBox">
+      @if(auth()->user()->can('request_approval_receipt')) 
+        <form action="{{route('receiptApprovalStatus')}}" method="POST">
+          {{csrf_field()}}
+          
+          <input type="hidden" name="receipt_id" value="{{$rentReceiptInfo->id}}"> 
+          @if(auth()->user()->can('request_approval_receipt') && in_array($rentReceiptInfo->receipts_generation_approval_status, [1,3]))
+          
+              <button title="{{($rentReceiptInfo->receipts_generation_approval_status==1)?'Approve':'UnApprove'}}" onclick="return confirm('Do you want to Continue?')" type="submit" class="btn btn-circle btn-info  align-right" value="{{($rentReceiptInfo->receipts_generation_approval_status==1)?3:1}}"   name="approve_btn" >{{($rentReceiptInfo->receipts_generation_approval_status==1)?'Approve':'UnApprove'}}
+                </button>
+          @endif
+          @if($rentReceiptInfo->receipts_generation_approval_status==1)
+            @can('delete_tenant_receipt')
+            @if($rentReceiptInfo->receipts_generation_approval_status == 1  && $rentReceiptInfo->receipts_generation_status === 0) 
+            <a href="{{route('rentReceiptGeneration.destroy',$rentReceiptInfo->id)}}" title="Delete" class="btn btn-circle btn-custom_delete delete_type align-right ">Delete</a> 
+            @endif
+            @endcan 
+            @else
+            @can('post_tenant_receipt')
+
+             @if($rentReceiptInfo->receipts_generation_approval_status == 3 && $rentReceiptInfo->receipts_generation_status != 3)    
+             <a href="{{route('receiptAsPosted')}}" id="{{$rentReceiptInfo->id}}" class="btn btn-circle btn-success align-right post_type">Post</a>
+            @endif
+             @endcan
+            @endif
+            @can('edit_tenant_receipt')
+            @if($rentReceiptInfo->receipts_generation_approval_status == 1 || $rentReceiptInfo->receipts_generation_approval_status == 4)  
+              @if($rentReceiptInfo->receipts_generation_type === 0)
+              <a class="btn btn-circle btn-primary align-right" title="Edit" href="{{route('rentReceiptGeneration.edit',$rentReceiptInfo->id)}}">
+                Edit
+              </a>  
+              @elseif($rentReceiptInfo->receipts_generation_type === 1)
+              <a class="btn btn-circle btn-primary align-right" title="Edit" href="{{route('updateGeneralReceipt',$rentReceiptInfo->id)}}">
+                Edit
+              </a>
+              @elseif($rentReceiptInfo->receipts_generation_type === 2)
+              <a class="btn btn-circle btn-primary align-right" title="Edit" href="{{route('updateDepositReceipt',$rentReceiptInfo->id)}}">
+                Edit
+              </a>
+              @endif
+        
+          @endif
+      @endcan
+    <a class="btn btn-circle btn-default align-right btnprn" title="Print" href="{{route('printPreview',$rentReceiptInfo->id)}}">Print</a>
+        </form> 
+     @else   
+     
+     <h4 class="mar-top">
+        <form action="{{route('receiptApprovalStatus')}}" method="POST">
+         {{csrf_field()}}
+         <input type="hidden" name="action_url" value="{{route('receiptApprovalStatus')}}" id="action_url">
+         <input type="hidden" name="receipt_id" value="{{$rentReceiptInfo->id}}" id="receiptIdForSendApproval">
+         <input type="hidden" name="redirect_url" value="{{$rentReceiptInfo->receipts_generation_type}}" id="process_id">
+         <input type="hidden" name="process_id" value="2" id="process_id">
+         @if(in_array($rentReceiptInfo->receipts_generation_approval_status, [1,4]) && $rentReceiptInfo->receipts_generation_status == 0 )
+         <input class="btn btn-circle btn-primary  align-right send_request_receipt" type="submit" id="{{$rentReceiptInfo->id}}" name="Approval" value="Send for Approval">
+         @endif
+         @if(in_array($rentReceiptInfo->receipts_generation_approval_status, [3]) && $rentReceiptInfo->receipts_generation_status == 1 )
+         <input class="btn btn-circle btn-primary  align-right send_request_unapprove" type="submit" id="{{$rentReceiptInfo->id}}" name="UnApprove" value="Request for Draft">
+         @endif
+         <!-- 4 - rejected, - UnaPPROVED -->
+        @if(in_array($rentReceiptInfo->receipts_generation_approval_status, [1,4]) && $rentReceiptInfo->receipts_generation_status == 0 )
+        @can('delete_tenant_receipt')
+        @if(in_array($rentReceiptInfo->receipts_generation_approval_status, [1,4]) && $rentReceiptInfo->receipts_generation_status === 0) 
+        <a href="{{route('rentReceiptGeneration.destroy',$rentReceiptInfo->id)}}" title="Delete" class="btn btn-circle btn-custom_delete delete_type align-right ">Delete</a> 
+        @endif
+        @endcan 
+        @can('edit_tenant_receipt')
+        @if($rentReceiptInfo->receipts_generation_approval_status == 1 || $rentReceiptInfo->receipts_generation_approval_status == 4)  
+        @if($rentReceiptInfo->receipts_generation_type === 0)
+          <a class="btn btn-circle btn-primary align-right" title="Edit" href="{{route('rentReceiptGeneration.edit',$rentReceiptInfo->id)}}">
+                Edit
+          </a>  
+        @elseif($rentReceiptInfo->receipts_generation_type === 1)
+          <a class="btn btn-circle btn-primary align-right" title="Edit" href="{{route('updateGeneralReceipt',$rentReceiptInfo->id)}}">
+                Edit
+          </a>
+        @elseif($rentReceiptInfo->receipts_generation_type === 2)
+          <a class="btn btn-circle btn-primary align-right" title="Edit" href="{{route('updateDepositReceipt',$rentReceiptInfo->id)}}">
+                Edit
+          </a>
+        @endif
+        @endif 
+      @endcan
+    
+    <a class="btn btn-circle btn-default align-right btnprn" title="Print" href="{{route('printPreview',$rentReceiptInfo->id)}}">Print</a>
+        </form>
+    
+     <!--      <a href="#" class="btn btn-circle btn-primary  align-right">Send for Approval</a> -->
+        @endif
+    
+     @endif
+     
+     @if($rentReceiptInfo->receipts_generation_approval_status == 2 ||  $rentReceiptInfo->receipts_generation_approval_status == 5)  
+     <form action="{{route('receiptApprovalStatus')}}" method="POST">
+      {{csrf_field()}}
+      <input type="hidden" name="receipt_id" value="{{$rentReceiptInfo->id}}"> 
+      @can('request_approval_receipt')
+      <button title="Approve" type="submit" class="btn btn-circle btn-primary  align-right" value="3"   name="approve_btn" >
+        Approve
+    </button>
+    <button title="Reject" type="submit" class="btn btn-circle btn-danger  align-right" value="4"   name="approve_btn" >
+        Reject
+    </button>
+    @endcan
+  <a class="btn btn-circle btn-default align-right btnprn" title="Print" href="{{route('printPreview',$rentReceiptInfo->id)}}">Print</a>
+</form>       
+
+@endif
+<div class="clr"></div>
+</h4>
+<div class="dataSearchBox">
+    <div class="card-body row">
+
+        <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Mobile No <small class="textRed">*</small> :  </b>
+                    <span>{{                                $rentReceiptInfo->tenantContractInfo->tenant->tenant_contact_no??''}}
+                    </span></h5>
+                </div>
+            </div>
+            <div class="col-lg-6 p-t-20"> 
+                <div class = "txt-full-width">
+                    <h5 class="details"><b class="frame">Resident ID<small class="textRed">*</small>  :  </b>
+                        <span>
+                            {{$rentReceiptInfo->tenantContractInfo->tenant->resident_id??''}}
+                        </span>
+                    </h5>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="sub-head">Tenant Details</div>
+    <div class="dataSearchBox">    
+        <div class="card-body row">
+           
+        <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Building Name :  </b><span>{{$rentReceiptInfo->tenantContractInfo->building->building_name??''}}</span></h5>
+            </div>
+        </div>
+        <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Building Code :  </b><span>{{$rentReceiptInfo->tenantContractInfo->building->building_code??''}}</span></h5>
+            </div>
+        </div>
+        <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame"> Unit No :  </b><span>
+                    {{$rentReceiptInfo->tenantContractInfo->unit->unit_no??''}}
+                </span></h5>
+            </div>
+        </div>
+        <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Unit Code :  </b><span>{{$rentReceiptInfo->tenantContractInfo->unit->unit_code??''}}
+                </span></h5>
+            </div>
+        </div>
+		 <div class="col-lg-6 p-t-20"> 
+                <div class = "txt-full-width">
+                    <h5 class="details"><b class="frame">Agreement No :  </b><span>
+                     {{$rentReceiptInfo->tenantContractInfo->tenant_contract_no??''}}
+                 </span></h5>
+             </div>
+         </div>
+         <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Agreement Date :  </b><span>
+                    {{$rentReceiptInfo->tenantContractInfo->created_at->format('d/m/Y')??''}} 
+                </span></h5>
+            </div>
+        </div>
+        <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Tenant Name :  </b><span>
+                    {{$rentReceiptInfo->tenantContractInfo->tenant->tenant_name??''}}</span></h5>
+                </div>
+            </div>
+            <div class="col-lg-6 p-t-20"> 
+                <div class = "txt-full-width">
+                    <h5 class="details"><b class="frame">Tenant Code :  </b><span>
+                        {{$rentReceiptInfo->tenantContractInfo->tenant->tenant_code??''}}</span></h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="sub-head">Payment Details</div>
+        <div class="dataSearchBox">    
+            <div class="card-body row">
+
+                <div class="col-lg-6 p-t-20"> 
+                    <div class = "txt-full-width">
+                        <h5 class="details"><b class="frame">Receipt No :  </b><span>
+                            {{$rentReceiptInfo->receipts_generation_receipt_no??''}}
+                        </span></h5>
+                    </div>
+                </div>
+                  <div class="col-lg-6 p-t-20">
+                <div class = "txt-full-width">
+                  <h5 class="details"><b class="frame">Receipt Date :  </b><span>
+				   {{ $rentReceiptInfo->receipts_generation_receipt_date->format('d/m/Y') }}
+				   
+				  
+                  </span></h5>
+                </div>
+              </div>
+                    <!--  0 - Rent receipt-->
+                    @if(isset($rentReceiptInfo->receipts_generation_eff_from) && $rentReceiptInfo->receipts_generation_type == 0)
+                    <div class="col-lg-6 p-t-20"> 
+                        <div class = "txt-full-width">
+                            <h5 class="details"><b class="frame">Date Eff From :  </b><span>{{$rentReceiptInfo->receipts_generation_eff_from->format('d/m/Y')}}</span></h5>
+                        </div>
+                    </div>
+                    @endif
+                    <!--  0 - Rent receipt-->
+                    @if(isset($rentReceiptInfo->receipts_generation_eff_to) && $rentReceiptInfo->receipts_generation_type == 0)
+                    <div class="col-lg-6 p-t-20"> 
+                        <div class = "txt-full-width">
+                            <h5 class="details"><b class="frame">Date Eff To:  </b><span>{{$rentReceiptInfo->receipts_generation_eff_to->format('d/m/Y')}}</span></h5>
+                        </div>
+                    </div>
+                    @endif
+          
+                    <div class="col-lg-6 p-t-20"> 
+                        <div class = "txt-full-width">
+                            <h5 class="details"><b class="frame">Payment Method :  </b>
+                               <?php if($rentReceiptInfo->receipts_generation_payment_method == 1){?>
+                                  <span>
+                                    Cheque
+                                  </span>
+                                <?php }?>
+
+                                  <?php if($rentReceiptInfo->receipts_generation_payment_method == 2){?>
+                                     <span>
+                                      Cash
+                                    </span>
+                                  <?php }?>
+
+                                   <?php if($rentReceiptInfo->receipts_generation_payment_method == 3){?>
+                                     <span>
+                                      Bank Transfer
+                                    </span>
+                                  <?php }?>
+                              </h5>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 p-t-20"> 
+                            <div class = "txt-full-width">
+                                <h5 class="details"><b class="frame">Bank :  </b><span>
+                                    @foreach($bankMaster as $name)
+                                    {{($rentReceiptInfo->bank_id == $name->id)?$name->bank_name:''}}
+                                    @endforeach
+                                </select>      
+                            </span></h5>
+                        </div>
+                    </div>
+           @if($rentReceiptInfo->receipts_generation_payment_method==1)
+                    <div class="col-lg-6 p-t-20">
+                        <div class = "txt-full-width">
+                            <h5 class="details"><b class="frame">Cheque No :  </b><span>
+                            @php
+                            $explArray = explode('__',$rentReceiptInfo->receipts_generation_cheque_no)
+                             @endphp
+                            
+                              @if(count($explArray) == 1)
+                                 @foreach($bankMaster as $name)
+                                {{($rentReceiptInfo->bank_id == $name->id)?$name->bank_code.'-':''}}
+                                @endforeach
+                                {{$rentReceiptInfo->receipts_generation_cheque_no??''}}
+                             @else 
+                              {{$explArray[0].'-'.$explArray[1]}}
+                             @endif
+                            </span></h5>
+                        </div>
+                    </div>
+                    @endif
+					@if($rentReceiptInfo->receipts_generation_payment_method==3)
+                    <div class="col-lg-6 p-t-20">
+                        <div class = "txt-full-width">
+                            <h5 class="details"><b class="frame">Transaction No :  </b><span>
+                            @php
+                            $explArray = explode('__',$rentReceiptInfo->receipts_generation_cheque_no)
+                             @endphp
+                            
+                              @if(count($explArray) == 1)
+                                 @foreach($bankMaster as $name)
+                                {{($rentReceiptInfo->bank_id == $name->id)?$name->bank_code.'-':''}}
+                                @endforeach
+                                {{$rentReceiptInfo->receipts_generation_cheque_no??''}}
+                             @else 
+                              {{$explArray[0].'-'.$explArray[1]}}
+                             @endif
+                            </span></h5>
+                        </div>
+                    </div>
+                    @endif
+                    
+                    <div class="col-lg-6 p-t-20"> 
+                        <div class = "txt-full-width">
+                            <h5 class="details"><b class="frame">Amount :  </b><span>
+                                {{numberFormat($rentReceiptInfo->receipts_generation_amt)}} 
+                                OMR
+                            </span></h5>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 p-t-20"> 
+                        <div class = "txt-full-width">
+                            <h5 class="details"><b class="frame">Status :  </b><span>
+                             @if($rentReceiptInfo->receipts_generation_status == 3 )
+                             Posted
+                             @elseif($rentReceiptInfo->receipts_generation_status == 2)
+                             Cancel
+                             @else
+                             @php $status = explode('|',$rentReceiptInfo->ReceiptsGenerationApprovalStatusName) @endphp
+                             {{end($status)}}</a></td>
+                             @endif
+                         </span></h5>
+                     </div>
+                 </div>
+                 @if(isset($rentReceiptInfo->receipts_generation_reason_cancel))
+                 <div class="col-lg-6 p-t-20"> 
+                    <div class = "txt-full-width"> 
+                        <h5 class="details"><b class="frame">Reason :  </b><span>
+                         {{$rentReceiptInfo->receipts_generation_reason_cancel}}
+                     </span></h5>
+                 </div>
+             </div>
+             @endif
+             @if(isset($rentReceiptInfo->receipts_generation_cancel_date))
+             <div class="col-lg-6 p-t-20"> 
+                <div class = "txt-full-width">
+                    <h5 class="details"><b class="frame">Cancel Date :  </b><span>
+                     {{$rentReceiptInfo->receipts_generation_cancel_date->format('d/m/Y')}}
+                 </span></h5>
+             </div>
+         </div>
+         @endif
+         @if(isset($rentReceiptInfo->receipts_generation_cancel_by))
+         <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Cancel By : </b><span>
+                 {{$rentReceiptInfo->cancelBy->employee->employee_name?$rentReceiptInfo->cancelBy->employee->employee_name:$rentReceiptInfo->cancelBy->username}}
+             </span></h5>
+         </div>
+     </div>
+     @endif
+     <div class="col-lg-6 p-t-20"> 
+        <div class = "txt-full-width">
+            <h5 class="details"><b class="frame">Comment :  </b><span>
+                {{$rentReceiptInfo->receipts_generation_description??''}}
+            </span></h5>
+        </div>
+    </div>
+    <div class="col-lg-6 p-t-20"> 
+        <div class = "txt-full-width">
+            <h5 class="details"><b class="frame">Remark :  </b><span class="h-length">
+                {{$rentReceiptInfo->receipts_generation_remark??''}}</span></h5>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+<div class="sub-head">Financial Documentaion</div>
+<div class="dataSearchBox">    
+    <div class="card-body row">
+        <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Division:  </b>
+
+                 <span>@if($rentReceiptInfo->tenantContractInfo->building->ax_division) 
+                  {{($rentReceiptInfo->tenantContractInfo->building->ax_division==02)?'PLM':'HO'}}
+                @endif</span>
+                </h5>
+            </div>
+        </div>
+
+        <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">Building :  </b>
+                 <span> {{$rentReceiptInfo->tenantContractInfo->building->building_name??''}}</span>
+             </h5>
+         </div>
+     </div>
+     <div class="col-lg-6 p-t-20"> 
+            <div class = "txt-full-width">
+                <h5 class="details"><b class="frame">AX-Batch :  </b>
+                 <span> {{$rentReceiptInfo->receipt_journal_no??''}}</span>
+             </h5>
+         </div>
+     </div>
+
+
+ </div>
+</div>
+@if($rentReceiptInfo->receipts_generation_type == 1 ||
+$rentReceiptInfo->receipts_generation_type == 2 )
+<div class="sub-head">Distribution Details</div>
+<div class="dataSearchBox">    
+
+
+    <div class="card-body">
+      <div class="table-wrap">
+        <div class="table-responsive">
+
+            <table class="table display product-overview mb-30" id="dtBasicExample">
+                <thead>
+                    <tr>
+
+                      <th>Account Code</th>
+                      <th>Description</th>
+                      <th>Type</th>
+                      <th>Dr. Amt</th>
+                      <th>Cr. Amt</th>
+                      @if($rentReceiptInfo->receipts_generation_type ==1)
+                      <th>Narration</th>
+                      @endif
+                      
+                  </tr> 
+              </thead>
+              <tbody>
+			  @php $debit = $credit = 0; @endphp
+               @foreach($rentReceiptInfo->getReceiptsDimensionAccount as $receipt)
+               <tr >      
+                  <td>
+                    <!-- Deposit --> 
+                     @if($rentReceiptInfo->receipts_generation_type == 2 && trim($receipt->dim_type) =='BANK')        
+                          @foreach($bankMaster as $name)
+                                {{($rentReceiptInfo->bank_id == $name->id)?$name->bank_code:''}}
+                          @endforeach
+                     @else
+                     
+                     {{isset($receipt->account_code)?$receipt->account_code:''}}
+                     @endif
+                 </td>
+                 </td>
+                 <td>{{isset($receipt->description)?$receipt->description:''}}
+                 </td>
+                 <td>{{isset($receipt->dim_type)?$receipt->dim_type:''}}
+                 </td>
+                 <td>
+                    {{ isset($receipt->debit_amount)?numberFormat($receipt->debit_amount):''}} 
+                    @php 
+                    if($receipt->debit_amount)
+                    $debit += numberFormat($receipt->debit_amount);
+                    @endphp
+                </td>
+                <td>
+                   {{ isset($receipt->credit_amount)?numberFormat($receipt->credit_amount):''}} 
+                   @php 
+				
+                   if($receipt->credit_amount)
+                    $credit = $credit + $receipt->credit_amount;
+
+                   @endphp
+               </td>
+               @if($rentReceiptInfo->receipts_generation_type ==1)
+               <td>
+
+                {{isset($receipt->narration)?$receipt->narration:''}}
+            </td>
+            @endif
+        </tr>
+
+        @endforeach
+        <tr >  
+            <td align="right" colspan="3"><b>Total :</b> </td>
+            <td > 
+                {{ isset($debit)?numberFormat($debit):0}}
+            </td>
+            <td >
+                {{ isset($credit)?numberFormat($credit):0}}
+            </td>
+            <td ></td>
+        </tr> 
+
+    </tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+@endif
+<!--Payment ends -->
+<div class="clearfix"></div>
+@if($rentReceiptInfo->receipts_generation_type == 0)
+
+@if($rentReceiptInfo->tenantContractInfo->building->management_id == 1)
+<div class="sub-head">Distribution Details</div>
+<div class="dataSearchBox">    
+
+
+  <div class="card-body">
+    <div class="table-wrap">
+      <div class="table-responsive">
+
+        <table class="table display product-overview mb-30" id="dtBasicExample">
+          <thead>
+            <tr>
+
+              <th>Account Code</th>
+              <th>Type</th>
+              <th>Dr. Amt</th>
+              <th>Cr. Amt</th>
+
+            </tr>
+          </thead>
+          <tbody>
+
+           <tr>      
+            <td>{{ $rentReceiptInfo->tenantContractInfo->tenant->tenant_code }}</td>
+            <td>Cust</td>
+            <td>0.000</td>
+            <td>{{ isset($rentReceiptInfo->receipts_generation_amt)? numberFormat($rentReceiptInfo->receipts_generation_amt):'' }}</td>
+          </tr>
+          <tr>      
+            <td>{{ $rentReceiptInfo->bankInfo->bank_code }}</td>
+            <td>{{ AX_BANK }}</td>
+            <td>{{ isset($rentReceiptInfo->receipts_generation_amt)? numberFormat($rentReceiptInfo->receipts_generation_amt):'' }}</td>
+            <td>0.000</td>
+          </tr>
+
+
+          <tr >  
+            <td align="right" colspan="2"><b>Total :</b> </td>
+            <td >
+              {{ isset($rentReceiptInfo->receipts_generation_amt)?numberFormat($rentReceiptInfo->receipts_generation_amt):0.000}}
+            </td>
+            <td >
+              {{ isset($rentReceiptInfo->receipts_generation_amt)?numberFormat($rentReceiptInfo->receipts_generation_amt):0.000}}
+            </td>
+
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+@else
+<div class="sub-head">Distribution Details</div>
+<div class="dataSearchBox">    
+
+
+  <div class="card-body">
+    <div class="table-wrap">
+      <div class="table-responsive">
+
+        <table class="table display product-overview mb-30" id="dtBasicExample">
+          <thead>
+            <tr>
+
+              <th>Account Code</th>
+              <th>Type</th>
+              <th>Dr. Amt</th>
+              <th>Cr. Amt</th>
+
+            </tr>
+          </thead>
+          <tbody>
+
+           <tr>      
+            <td>{{ $acc_parameter->acc_params_cr_acc }}</td>
+            <td>{{ AX_GL }}</td>
+            <td>0.000</td>
+            <td>{{ isset($rentReceiptInfo->receipts_generation_amt)? numberFormat($rentReceiptInfo->receipts_generation_amt):'' }}</td>
+          </tr>
+          <!--<tr>      
+            <td>{{ $rentReceiptInfo->bankInfo->bank_code }}</td>
+            <td>{{ AX_BANK }}</td>
+            <td>{{ isset($rentReceiptInfo->receipts_generation_amt)? numberFormat($rentReceiptInfo->receipts_generation_amt):'' }}</td>
+            <td>0.000</td>
+          </tr> -->
+
+
+          <tr >  
+            <td align="right" colspan="2"><b>Total :</b> </td>
+            <td >
+              {{ isset($rentReceiptInfo->receipts_generation_amt)?numberFormat($rentReceiptInfo->receipts_generation_amt):0.000}}
+            </td>
+            <td >
+              {{ isset($rentReceiptInfo->receipts_generation_amt)?numberFormat($rentReceiptInfo->receipts_generation_amt):0.000}}
+            </td>
+
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+@endif
+
+
+
+@endif
+<!--Remaining Invoices ends -->
+</div>
+</div>
+<form id="delete-form" action="" method="POST">
+    {{ method_field('DELETE') }}  {{csrf_field()}}
+    <input value="delete" style="display: none;" type="submit">
+</form>
+<form id="post-form" action="" method="POST">
+   {{csrf_field()}}
+   <input type="hidden" name="receipt_id" value="" id="receiptId">
+    <input value="post" style="display: none;" type="submit">
+</form>
+<form id="send-approve-form" action="" method="POST">
+   {{csrf_field()}}
+   <input type="hidden" name="receipt_id" value="" id="receiptIdForSendApprovalForm">
+   <input type="hidden" name="process_id" value="" id="process_id_approve">
+   <input value="post" style="display: none;" type="submit">
+</form>
+<form id="send-unapprove-form" action="" method="POST">
+   {{csrf_field()}}
+   <input type="hidden" name="receipt_id" value="" id="receiptIdForSendUnApproval">
+   <input type="hidden" name="process_id" value="" id="process_id_unapprove">
+   <input value="post" style="display: none;" type="submit">
+</form>
+@endsection
+@section('scripts')
+<script type="text/javascript" src="{{asset('public/js/jquery.printPage.js')}}"></script>
+<script>
+$(document).ready(function() {
+  //Print function
+  $('.btnprn').printPage();
+  
+    $(document).on('click','.delete_type',function(){  
+    
+        var action = $(this).attr("href");
+        event.preventDefault();
+        if (confirm('Do you want to Delete this Receipt ?')) {
+            jQuery("#delete-form").attr('action', action);
+            jQuery("#delete-form").submit();
+        } else {
+            return false;
+        }
+    });
+    $(document).on('click','.post_type',function(){  
+    
+        var action = $(this).attr("href");
+        var receiptId = $(this).attr("id"); 
+
+        event.preventDefault();
+        if (confirm('Do you want to Post this Receipt ?')) {
+            jQuery("#receiptId").val(receiptId);
+            jQuery("#post-form").attr('action', action);
+
+            jQuery("#post-form").submit();
+        } else {
+            return false;
+        }
+    });
+    $(document).on('click','.send_request_receipt',function(){  
+    
+        var action      = $("#action_url").val();
+        
+        var receiptId   = $(this).attr("id"); 
+       
+        if(receiptId){
+            event.preventDefault();
+            jQuery("#process_id_approve").val(2);    
+            jQuery("#receiptIdForSendApprovalForm").val(receiptId);
+            jQuery("#send-approve-form").attr('action', action);
+
+            jQuery("#send-approve-form").submit();
+        }
+        else
+            return false;
+    });
+    $(document).on('click','.send_request_unapprove',function(){  
+     
+        var action      = $("#action_url").val();
+        var receiptId   = $(this).attr("id"); 
+        
+        if(action && receiptId){
+            event.preventDefault();
+            jQuery("#process_id_unapprove").val(5);
+            jQuery("#receiptIdForSendUnApproval").val(receiptId);
+            jQuery("#send-unapprove-form").attr('action', action);
+            jQuery("#send-unapprove-form").submit();
+        }
+        else
+            return false;
+    });
+});
+</script>
+@endsection

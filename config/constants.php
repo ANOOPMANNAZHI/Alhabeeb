@@ -1,0 +1,58 @@
+<?php
+define("PUBLIC_PATH", "public/");
+// Maintenance Invoice Purpose Make technican as group create  invoice
+define("INHOUSE", "SUB CONTRACTOR BILLS");
+define("AUTO_INV_DESC", "Generate Maintenance Invoice");
+define("DIM_1", "2");
+/************** AX CONSTANTS*********************/
+// 1 -  Enable , 0 - Disble Status
+define("AX_ENABLE_DISABLE", 1);
+define("AX_URL", "http://alh-ax01:8018/Wrapper.asmx?wsdl");
+define("VENDOR_GROUP_CONST", "TRADE-PSD");
+define("TENANT_GROUP_RENTAL_CONST", "RENTAL-PSD");
+define("LANDLORD_INV_JOURNAL_NAME", "PLM-INV");
+define("MAINTENANCE_INV_JOURNAL_NAME", "PLM-INV");
+define("GENERAL_LEDGER_JOURNAL_NAME", "PLM-GL");
+define("PAYMENT_JOURNAL_NAME", "PLM-PAY");
+define("AR_PAYMENT_JOURNAL_NAME", "PLM-RCPT");
+define("CURRENCY", "OMR");
+define("TENANT_GROUP_CIT_CONST", "CIT");
+define("ACC_CODE", 41110);
+define("AX_CODE_DEPOSIT_REFUND_DEBT", 22311);
+define("AX_CODE_DEPOSIT_REFUND_DEBT_LEDGER", "LEDGER");
+define("AX_CODE_DEPOSIT_REFUND_CREDIT_BANK", "BANK");
+// DataAreaId , company , DirpartyType
+define("DATA_AREA_ID", "HAB");
+define("COMPANY", "HAB");
+define("DIRTY_PARTY_TYPE", "HAB");
+// General Ledger, Bank payment, Landlord Invoice, Bank receipt
+define("AX_GL", "LEDGER");
+define("AX_LINV", "Ledger");
+define("AX_DIVISION_PLMS", "02");
+define("AX_DIVISION_HO", "01");
+define("AX_BANK", "Bank");
+// General Ledger generate through Maintenance Invoice
+define("AX_GEN_LDGR_VIA_MAINT_INV_COMP", "maint_invoice_general_ledger_comp");
+define("AX_GEN_LDGR_VIA_MAINT_INV_NOR", "maint_invoice_general_ledger_nor");
+
+// Landlord Invoice
+define("COST_RECG_JNAME", "GJV");
+define("AX_VENDOR_COMP_ACC_PARAM", "Comprehensive_Payable_Transaction");
+define("AX_VENDOR_COST_RECOG_ACC_PARAM", "Monthly_Cost_Recognition");
+define("AX_VENDOR_CR", "VENDOR");
+define("AX_LEDGER_DR", "LEDGER");
+// SMS Details
+// SMS Details - 1 - enable , 2 - Disable
+define("SMS_ENABLE_DISABLE", 1);
+define("SMS_URL", "https://tamimahsms.com/API/sendsms");
+define("SMS_USERNAME", "alhabibi");
+define("SMS_PASSWORD", "admin@habibi");
+
+
+//Report
+define("REPORT_URL", "http://134.0.205.114:2053/");
+/************** AX CONSTANTS*********************/
+// Invoice Prefix
+define("INV_PREFIX", "CIR");
+//Tenant Code Constant
+define("TENANT_VAL", 102);

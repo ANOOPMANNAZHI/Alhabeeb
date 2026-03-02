@@ -1,0 +1,211 @@
+@extends('layouts.plms-app')
+@section('css')  
+
+<link href="{{asset('public/css/custom.css')}}" rel="stylesheet">
+<!-- data tables -->
+<link rel="stylesheet" href="{{ asset('public/css/datatables.min.css')}}">
+<style>
+    input[type=date]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    display: none;
+}
+</style>
+@endsection
+
+@section('search_url', route('handoverAssigned')) 
+@section('search_reset', route('handoverAssigned'))
+
+@section('content')
+<!-- start widget -->
+<div class="page-bar">
+    <div class="page-title-breadcrumb">
+        <div class=" pull-left">
+            <div class="page-title">Handover Assigned</div>
+        </div>
+         {{ Breadcrumbs::render('handoverAssigned') }}
+    </div>
+</div>
+<a  class=" align-right advSearch" href="#" id="enquiry_div" data-toggle="collapse" data-target="#show">
+    <i class="fa fa-search" aria-hidden="true"></i>  <span id="enquirySearch"> Advance Search <i class="fa fa-caret-down" aria-hidden="true"></i></span>
+</a>
+<div class="clearfix"></div>
+<div class="row collapse @if(old('fieldName')) show @endif" id="show"  >
+    <div class="col-md-12 col-sm-12 dashboardtab">
+        <div class="panel tab-border card-box">
+         
+      @include('backoffice::RenewalOrTermination.tenant_search')
+            
+        </div>
+    </div>
+</div>
+<div class="row">
+ <div class="col-md-12 col-sm-12">
+    <div class="card  card-box">
+       
+        <div class="card-body ">
+          <h4>
+          <div id="pagination_info">
+                     @include('includes.pagination_info',['paginator' => $tenantTerminations])         
+                 </div>
+            @can('handover_reassign')
+           <!-- <button type="button" class="btn btn-circle btn-primary groupAssign align-right"  data-toggle="modal" data-target="#myModal" data-id="" data-backdrop="static" data-keyboard="false">  Reassign</button> -->
+            @endcan
+          <div class="clr"></div>
+          </h4>
+          <div class="table-responsive">
+            <table class="table display product-overview mb-30" id="dtBasicExample">
+                <thead>
+                    <tr>
+                        <th></th>  
+                        <th>@sortablelink('tenant_contract_no','Contract No',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('building_name','Building',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('building_no','Building No',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('unit_code','Unit No',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('unitType.unit_types_name','Unit Type',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('tenant_name','Tenant',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('location.locations_name','Location',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('tenant_contact_no','Mob No',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('building_pc','Way No',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('os','OS',[],[ 'class' => 'sort_url' ])</th>
+                        <th>@sortablelink('is_resubmit','Resubmit',[],[ 'class' => 'sort_url' ])</th>
+                        <th>Action</th>
+                    </tr>
+                    <tr>
+                    <td></td>
+                       <td> <input autocomplete="off" type="text" name="contract_no" class="search_fields mob" id="contract_no" value="{{old('tenant_contract_no')}}" ></td>
+
+                        <td><input autocomplete="off" type="text" name="building_id" class="search_fields mob" id="building_id"  value="{{old('building_name')}}" ></td>
+
+                        <td><input autocomplete="off" type="text" name="building_no" class="search_fields mob" id="building_no"  value="{{old('building_no')}}" ></td>
+
+                        <td><input autocomplete="off" type="text" name="unit_id" class="search_fields mob" id="unit_id"  value="{{old('unit_code')}}" ></td>
+
+                        <td><input autocomplete="off" type="text" name="unit_types_name" class="search_fields mob" id="unit_types_name"  value="{{old('unitType__unit_types_name')}}" ></td>
+
+                        <td><input autocomplete="off" type="text" name="tenant_id" class="search_fields mob" id="tenant_id"  value="{{old('tenant_name')}}" ></td>
+
+                        <td><input autocomplete="off" type="text" name="location_id" class="search_fields mob" id="location_id"  value="{{old('location__locations_name')}}" ></td>
+
+                        <td><input autocomplete="off" type="text" name="tenant_contact_no" class="search_fields mob" id="tenant_contact_no"  value="{{old('tenant_contact_no')}}" ></td>
+
+                         <td><input autocomplete="off" type="text" name="way_no" class="search_fields mob" id="way_no"  value="{{old('building_pc')}}" >
+                         
+
+                        <input autocomplete="off" type="hidden" name="url_route" id="url_route"  value="" ></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </thead>
+                <tbody id="enquiry-search">
+                 
+                  @include('backoffice::Termination.tenant_termination_handover_assigned_list_ajax')  
+                    
+                </tbody>
+            </table>
+            </div>
+            <div class="row "  id="pagination">
+            {{$tenantTerminations->appends(\Request::except(['page','ajax','_token']))->links()}}
+   </div> 
+   
+</div>
+</div>
+</div>
+</div>
+<div class="modal" id="myModal">
+
+  </div>
+  
+@endsection
+@section('scripts') 
+@include('backoffice::RenewalOrTermination.tenant_search_js') 
+@include('backoffice::Termination.tenant_terminate_js')
+@include('backoffice::Termination.termination_js')
+
+<script>   
+
+function referBackEarlyTermination(id){
+   $.ajax
+        ({
+            type: "POST",
+            url: "{{route('cancelTerminationHandover')}}",
+            data: {"contract_id":id,"_token": "{{ csrf_token() }}"},
+            cache: false,
+            success: function(data)
+            {
+               console.log(data);
+
+                location.reload();
+            }
+        });
+}
+
+ $("#show").on("hide.bs.collapse", function(){
+        $("#enquirySearch").html('Advance Search <i class="fa fa-caret-down" aria-hidden="true"></i>');
+    });
+    $("#show").on("show.bs.collapse", function(){
+        $("#enquirySearch").html('Advance Search <i class="fa fa-caret-up" aria-hidden="true"></i>');
+    });
+/**********************************************************************************/
+$(document).ready(function() {
+
+    $(document).on('click', '.groupAssign',function(e) { 
+
+        var allVals = []; 
+        var workflow;  
+        $(".sub_chk:checked").each(function() {  
+            allVals.push($(this).attr('value'));
+            workflow =$(this).attr('datas-id');
+            action =$(this).attr('data_ac_key');
+        });  
+
+        if(allVals.length <=0)  
+        {  
+            alert("Please Select Atleast One Ticket..!");  
+            return false;
+        }  else {  
+            
+            //alert(allVals); return false;
+            $('input:hidden[name=enquiryIds]').val(allVals);
+
+              $.ajax({
+                  method: 'POST', // Type of response and matches what we said in the route
+                  url: "{{route('terminationGroupAssignModal')}}", // This is the url we gave in the route
+                  data: {'action':action,'workflow' : workflow,'id' : allVals,"_token": "{{ csrf_token() }}"}, // a JSON object to send back
+                  success: function(response){ // What to do if we succeed
+                      $("#myModal").html(response); 
+                  },
+              });
+            return true;   
+        }  
+    });
+/**********************************************************************************/
+
+  $(document).on('click', '.referback',function(e) {  
+        var termination_id = $(this).attr('data-id');
+        var contract_id = $(this).attr('datas-id');
+       /* if (confirm('Do you want to Approval Accept?')) {*/
+        $.ajax({
+            method: 'POST', // Type of response and matches what we said in the route
+            url: "{{route('terminationReferBack')}}", // This is the url we gave in the route
+            data: {'termination_id':termination_id,'contract_id':contract_id,"_token": "{{ csrf_token() }}"}, // a JSON object to send back
+            success: function(response){ // What to do if we succeed
+                $("#myModal").html(response);
+                //alert(response);
+               //window.location.href = response;
+            },
+        });
+        return true;
+        /*}else {
+            return false;
+        } */       
+         
+    });
+/**********************************************************************************/
+
+
+    
+});
+</script>
+
+@endsection

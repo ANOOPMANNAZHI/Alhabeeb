@@ -1,0 +1,1354 @@
+<?php
+
+namespace Modules\Sales\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Hweekttp\Response;
+use App\Http\Controllers\AuthController as Controller;
+use Modules\Sales\Entities\SalesEnquiry;
+use Modules\Sales\Entities\Sales;
+use Modules\Masters\Entities\UnitType;
+use Modules\Sales\Entities\Tenant;
+use Modules\Sales\Entities\ViewEnquiry;
+use Modules\Sales\Entities\viewLandlordEnquiryList;
+use Modules\Masters\Entities\Vendor;
+use Modules\General\Entities\WorkFlowProcess;
+use Modules\Sales\Entities\SalesNote;
+use Modules\Sales\Entities\ViewEnquirySalesPerson;
+use Carbon\Carbon;
+use Session;
+use URL;
+use Route;
+use DB;
+use Modules\General\Http\Controllers\GeneralController as General;
+use Illuminate\Support\Facades\Mail;
+use Modules\Sales\Events\NewEnquiry;
+use Modules\Sales\Events\UpdateEnquiry;
+use Modules\Sales\Events\ReminderEnquiry;
+use Modules\Sales\Emails\SalesEnquiryEmail;
+
+
+
+class SalesEnquiryController extends Controller
+{
+	public function __construct()
+  {
+    $this->middleware('auth'); 
+    $this->middleware('permission:add_enquiry', ['only' => ['enquiry']]);
+    $this->middleware('permission:edit_enquiry', ['only' => ['enquiry']]);
+    $this->middleware('permission:view_enquiry', ['only' => ['enquiry']]);
+    $this->noOfRecord  = prefixData('no_of_records_in_list_grid')->configuration_value;
+
+  }
+    /**
+     * Display a listing of the resource.
+     * @return Response
+     */
+    public function index()
+    {   
+
+
+     return view('sales::add_sales_enquiry');
+
+   }
+
+    /**
+     * Show the form for creating a new resource.
+     * @return Response
+     */
+    public function create(Request $request)
+    { 
+	  // 1 - tenant, 2 - landlord	
+     $type = $request['type']?$request['type']:null;
+
+     return view('sales::add_sales_enquiry',compact('type'));
+   }
+
+    /**
+     * Store a newly created resource in storage.
+     * @param  Request $request
+     * @return Response
+     */
+    public function store(Request $request)
+    {  
+
+      //$loggedRoles = \Auth::user()->roles()->get()->pluck('name');
+      //dd($loggedRoles);
+
+      if($request->sales_type == 1){
+       $prefix      = prefixData('tenant_enquiry_no_prefix')->configuration_value;
+       $salesLatest = SalesEnquiry::where('sales_type',1)->where('sales_enquiry_direct_contract',1)->orderBy('id', 'desc')->first();
+     }
+     else{
+       $prefix      = prefixData('landlord_enquiry_no_prefix')->configuration_value;
+       $salesLatest = SalesEnquiry::where('sales_type',2)->where('sales_enquiry_direct_contract',1)->orderBy('id', 'desc')->first();
+     }
+
+     if(!empty($salesLatest)){
+      $nextCode 	= $prefix.str_pad($salesLatest->enquiry_index+1,4,'0',STR_PAD_LEFT);
+      $index 		= $salesLatest->enquiry_index+1;
+    }
+    else{
+      $nextCode = $prefix.str_pad(1,4,'0',STR_PAD_LEFT);    
+      $index = 1;
+    }
+
+    if($request->sales_type == 1){
+     $request->unit_type_id  = explode(',',$request->unit_type_id);
+     $request->price_range_id  = explode(',',$request->price_range_id);
+     if(!empty($salesLatest)){
+      $nextCode = $prefix.str_pad($salesLatest->enquiry_index+1,4,'0',STR_PAD_LEFT);
+      $index 	= $salesLatest->enquiry_index+1;
+    }else{
+      $nextCode = $prefix.str_pad(1,4,'0',STR_PAD_LEFT); 
+      $index 	= 1;
+    }
+  }    
+
+  $this->validate($request, [
+    'sales_mobile_no' => 'required|regex:/^((\+)?(\d{2,2}))?(\d{13}){1}?$/',           
+    /*'sales_region' => 'required', */          
+    'sales_enquiry_name' => 'required|max:75',
+    'sales_email' => 'nullable|email',         
+    /*          'sales_contact_address' => 'required|max:250' , */       
+    'unit_type_id' => 'required_if:sales_type,1',         
+          /*'sales_no_of_unit' => 'required',        
+          'location_id' => 'required',         
+          'price_range_id' => 'required',*/          
+    //      'sales_size' => 'numeric',         
+          /*'tenant_type_id' => 'required_if:sales_type,1',*/         
+         // 'building_type_id' => 'required_if:sales_type,2',           
+          'year' => 'required_if:sales_type,1',
+          'month' => 'required_if:sales_type,1',
+          
+        //  'sales_building_name' => 'required_if:sales_type,2'
+          ]);   
+
+
+
+
+  $salesEnquiry = new SalesEnquiry;
+  $salesEnquiry->sales_enquiry_no = $nextCode;
+  $salesEnquiry->sales_type = $request->sales_type; 
+  $salesEnquiry->sales_mobile_no = $request->sales_mobile_no; 
+  /*$salesEnquiry->sales_region = $request->sales_region;*/  
+  $salesEnquiry->sales_enquiry_name = $request->sales_enquiry_name;
+  $salesEnquiry->sales_email = $request->sales_email;
+         //$salesEnquiry->sales_contact_address = $request->sales_contact_address;          
+  $salesEnquiry->alternative_no = ($request->alternative_no === '00968')?'':$request->alternative_no;       
+  $salesEnquiry->sales_size = $request->sales_size;
+         /*$salesEnquiry->sales_mode_id = $request->sales_mode_id;
+         $salesEnquiry->sales_referred_by = $request->sales_referred_by;*/
+
+         
+         $salesEnquiry->created_by = \Auth::user()->id;
+         $salesEnquiry->sales_note = $request->sales_note;         
+
+         if($request->sales_type == 1){
+           $sales_move_in_date = $request->year.'-'.$request->month.'-1';
+           $salesEnquiry->tenant_type_id = $request->tenant_type_id;
+           $salesEnquiry->sales_move_in_date = $sales_move_in_date; 
+           $salesEnquiry->sales_mode_id = $request->sales_mode_id;
+           $salesEnquiry->sales_referred_by = $request->sales_referred_by;
+           $salesEnquiry->sales_no_of_unit = $request->sales_no_of_unit;
+           $salesEnquiry->sales_region = $request->sales_region; 
+           $salesEnquiry->enquiry_index = $index ;  
+           $salesEnquiry->sales_enquiry_direct_contract = 1; // Normal Contract 
+           $processFlow = 101;
+         }else{
+           $salesEnquiry->sales_building_name = $request->sales_building_name;
+           $salesEnquiry->sales_contact_address = $request->sales_contact_address; 
+           $salesEnquiry->sales_company_name = $request->sales_company_name;
+           $salesEnquiry->sales_no_of_unit = $request->sales_no_of_unit;
+           $salesEnquiry->building_type_id = $request->building_type_id; 
+           $salesEnquiry->sales_region = $request->sales_region; 
+           $salesEnquiry->sales_mode_id = $request->sales_mode_id;
+           $salesEnquiry->sales_referred_by = $request->sales_referred_by;
+           $salesEnquiry->enquiry_index = $index ; 
+           $salesEnquiry->sales_enquiry_direct_contract = 1; // Normal Contract 
+           $processFlow = 201; 
+         }  
+
+         $salesEnquiry->work_flow_processes_code = $processFlow;
+         $salesEnquiry->enquiry_owner = \Auth::user()->id;
+         $salesEnquiry->save();  
+         
+         if($request->sales_type == 1)
+          $salesEnquiry->unitTypes()->sync($request->unit_type_id); 
+
+
+        if($request->location_id ){         
+
+          $request->location_id = array_where($request->location_id, function ($value, $key) {
+           if($value > 0)
+            return true;
+        });
+          if(count($request->location_id) > 0)     
+            $salesEnquiry->locations()->sync($request->location_id); 
+        }
+        if($request->price_range_id ){
+          if(count($request->price_range_id) > 0) {
+            $request->price_range_id = array_where($request->price_range_id, function ($value, $key) {
+             if($value > 0)
+              return true;
+          });
+            $salesEnquiry->priceRanges()->sync($request->price_range_id);
+          }
+        }
+
+       /*if(count($request->price_range_id) > 0) 
+       $salesEnquiry->priceRanges()->sync($request->price_range_id);*/
+
+    //}
+
+       $salesEnquiry->save();
+
+       if($request->sales_type == 2)       
+        $price_range_id =  $location_id = null;
+      else{
+       $price_range_id = (count($request->price_range_id) > 0)?  $request->price_range_id[0] : null;
+       $location_id = (count($request->location_id) > 0)? $request->location_id[0] : null;       
+
+     } 
+     
+
+     $sales =   Sales::create([
+      'sales_enquiry_id' =>$salesEnquiry->id,
+      'sales_type' => $salesEnquiry->sales_type,
+      'work_flow_processes_code' => $processFlow,
+      'created_by' => \Auth::user()->id,
+      ]);
+
+     $general =  new General;
+     $processAssign = $general->roleUsersFromProcess($processFlow,$location_id,$price_range_id);
+
+     $users = array();
+
+     if($processAssign == false){
+
+      $res =    $general->workFlowProcess($processFlow);
+
+      $sales->salesUsers()->attach($res->default_role, ['user_id' => $res->default_user_id]);
+      $sales->save();
+
+      if(empty($res->default_user_id)){			 
+        $users_list = \App\User::role($res->default_role)->get()->pluck('id'); 			 
+        $users = $users_list->toArray();			  
+      }else 
+      $users[] = $res->default_user_id;
+
+
+
+    }else{
+
+     foreach($processAssign->assign as $val){
+       $user_id = $val->user_id;
+
+       if(empty($val->user_id))
+         $user_id = null;
+
+       $sales->salesUsers()->attach($val->role_id, ['user_id' => $user_id]);
+       $sales->save();
+
+       if(empty($user_id)){			 
+        $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
+        $users_list = $users_list->toArray();	
+        $users_list = array_flatten($users_list);   
+        if(count($users) > 0){
+          $users = array_merge($users,$users_list); 			  	  
+        }else			 		 
+        $users = $users_list;			  
+      }else 
+      $users[] = $user_id;      
+
+    } 
+  }
+  $users = array_flatten($users);      
+  $users_notify =  \App\User::whereIn('id',$users)->get();
+   $roles = \Auth::user()->getRoles()->all();
+
+  if(in_array(2, $roles) && $request->sales_type == 1){
+
+            // Direct assign to salesperson
+    $this->enquiryAddBySalesperson($salesEnquiry->id);
+    return redirect()->route('tenantEnquiries');
+
+  } 
+  else{
+
+    event(new NewEnquiry($salesEnquiry,$users_notify));  //internal Notification
+    $sales_email = $request->sales_email;
+    $sales_mobile = $request->sales_mobile_no;
+    $alternative_mobile = $request->alternative_no;
+    $mobile = $sales_mobile ?? $alternative_mobile;
+    //dd($mobile);
+    $msg = 'New Enquiry Added !';
+    $params = 'optional data';
+    if(!empty($sales_email)){
+      Mail::to($sales_email)->send(new SalesEnquiryEmail($salesEnquiry)); //Email Notification
+    }else{
+      sendSms($mobile,$msg,$params); //SMS Notification
+    }
+    
+
+
+
+    session()->flash('success', ' Enquiry Added ');
+
+    if($request->sales_type == 1){
+     activity('Tenant Enquiry')
+     ->performedOn($salesEnquiry)
+     ->causedBy(\Auth::user()->id)
+     ->withProperties($salesEnquiry)
+     ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
+
+     return redirect()->route('tenantEnquiries');
+   }else{
+
+     activity('LandlordEnquiry Enquiry')
+     ->performedOn($salesEnquiry)
+     ->causedBy(\Auth::user()->id)
+     ->withProperties($salesEnquiry)
+     ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
+     return redirect()->route('landlordEnquiries');
+   }
+ }
+}
+
+    /**
+     * Show the specified resource.
+     * @return Response
+     */
+    public function show(SalesEnquiry  $enquiry)
+    {
+      $id = $enquiry->id;  
+      $allNotes = Sales::with('workFlowProcess')->where('sales_enquiry_id','=',$id)
+      ->where('sales_notes', '!=', null)->get();
+      $salesNotes = SalesNote::whereHas('sales', function ($query) use($id) {
+        $query->where('sales_enquiry_id', '=', $id);                      
+      })->get();
+      //dd($salesNotes);
+      clearNotification('Modules\Sales\Notifications\EnquiryNotification',$enquiry->id);
+      return view('sales::view_sales_enquiry',compact('enquiry','allNotes','salesNotes'));
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     * @return Response
+     */
+    public function edit(Request $request,SalesEnquiry  $enquiry)
+    {
+      $type = $request['type']?$request['type']:null;
+      $url = url()->previous();
+
+      Session::put('url', $url);
+      return view('sales::add_sales_enquiry',compact('enquiry','url','type'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     * @param  Request $request
+     * @return Response
+     */
+    public function update(Request $request,SalesEnquiry  $enquiry)
+    {
+
+	  $url = Session::get('url');
+	  $this->validate($request, [
+		'sales_mobile_no' => 'required|regex:/^((\+)?(\d{2,2}))?(\d{13}){1}?$/',           
+		  //'sales_region' => 'required',           
+		'sales_enquiry_name' => 'required|max:75',
+		'sales_email' => 'nullable|email',         
+		/*'sales_contact_address' => 'required|max:250' ,*/        
+		/*'sales_no_of_unit' => 'required',*/         
+		  //'location_id' => 'required',         
+		  //'price_range_id' => 'required',         
+		'sales_size' => 'numeric|nullable',         
+		/*'tenant_type_id' => 'required_if:sales_type,1', */        
+		//'building_type_id' => 'required_if:sales_type,2',
+
+		'month' => 'required_if:sales_type,1',
+		'year' => 'required_if:sales_type,1',
+
+		 // 'sales_building_name' => 'required_if:sales_type,2'
+		]);        
+
+
+      if($enquiry->sales_type == 1){
+       $request->unit_type_id  = explode(',',$request->unit_type_id);
+       $request->price_range_id  = explode(',',$request->price_range_id);
+	  }
+
+     
+
+		$enquiry->sales_mobile_no = $request->sales_mobile_no; 
+		$enquiry->sales_region = $request->sales_region;  
+		$enquiry->sales_enquiry_name = $request->sales_enquiry_name;
+		$enquiry->sales_email = $request->sales_email;
+		$enquiry->sales_contact_address = $request->sales_contact_address;          
+		$enquiry->sales_no_of_unit = $request->sales_no_of_unit;       
+		$enquiry->sales_size = $request->sales_size;
+		$enquiry->sales_mode_id = $request->sales_mode_id;
+		$enquiry->sales_referred_by = $request->sales_referred_by;
+		$enquiry->sales_note = $request->sales_note; 
+		$enquiry->alternative_no = $request->alternative_no; 
+
+
+		if($enquiry->sales_type == 1){
+
+		   $sales_move_in_date = $request->year.'-'.$request->month.'-1';
+
+		   $enquiry->tenant_type_id = $request->tenant_type_id;
+		   $enquiry->sales_move_in_date = $sales_move_in_date; 
+		   /*$enquiry->sales_company_name = $request->sales_company_name;*/
+		   $processFlow = 101;
+		   activity('Update Tenant Enquiry')
+		   ->performedOn($enquiry)
+		   ->causedBy(\Auth::user()->id)
+		   ->withProperties($enquiry)
+		   ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
+
+		}else{
+		  activity('Update Landlord Enquiry')
+		  ->performedOn($enquiry)
+		  ->causedBy(\Auth::user()->id)
+		  ->withProperties($enquiry)
+		  ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
+		  $enquiry->sales_building_name = $request->sales_building_name;
+		  $enquiry->building_type_id = $request->building_type_id;
+		  $enquiry->sales_company_name = $request->sales_company_name;
+		  $processFlow = 201;
+		}  
+		$enquiry->save();
+
+		if($enquiry->sales_type == 1){		 
+		 $enquiry->unitTypes()->sync($request->unit_type_id); 
+		}
+
+		//	dd($request->unit_type_id);
+
+	   /*if($request->sales_type == 1){   */
+		if($request->location_id ){	
+		  $request->location_id = array_where($request->location_id, function ($value, $key) {
+		   if($value > 0)
+			return true;
+		});
+
+		if(count($request->location_id) > 0) {		  
+			$enquiry->locations()->sync($request->location_id); 
+		}
+		}       
+		if($request->price_range_id ){
+		  $request->price_range_id = array_where($request->price_range_id, function ($value, $key) {
+		   if($value > 0)
+			return true;
+		});	  
+		  
+		  if(count($request->price_range_id) > 0) 
+			$enquiry->priceRanges()->sync($request->price_range_id);
+		}
+
+	  // }
+
+		$enquiry->save();
+
+	//Priority Price / Location
+		if($request->sales_type == 2)       
+		  $price_range_id =  $location_id = null;
+		else{
+		 $price_range_id = (count($request->price_range_id) > 0)?  $request->price_range_id[0] : null;
+		 $location_id = (count($request->location_id) > 0)? $request->location_id[0] : null;       
+
+	   }       
+
+	   $sales =   Sales::where('sales_enquiry_id',$enquiry->id)  
+	   ->where('work_flow_processes_code',$processFlow)->first();
+
+	// Get Process Users
+	   $general =  new General;
+	   $processAssign = $general->roleUsersFromProcess($processFlow,$location_id,$price_range_id);
+
+	   if(!empty($sales)) {
+
+		 if(count($sales->salesUsers) > 0)
+		   $sales->salesUsers()->detach();
+
+	   }else{
+		 $sales =   Sales::create([
+		  'sales_enquiry_id' =>$enquiry->id,
+		  'sales_type' => $enquiry->sales_type,
+		  'work_flow_processes_code' => $processFlow,
+		  'created_by' => \Auth::user()->id,
+		  ]);
+	   }
+
+	   $users = array();
+
+	   if($processAssign == false){
+
+		$res =    $general->workFlowProcess($processFlow);
+		$sales->salesUsers()->attach($res->default_role, ['user_id' => $res->default_user_id]);
+		$sales->save();
+
+		if(empty($res->default_user_id)){			 
+		  $users_list = \App\User::role($res->default_role)->get()->pluck('id'); 			 
+		  $users = $users_list->toArray();			  
+		}else 
+		$users[] = $res->default_user_id;
+
+
+
+	  }else{
+	   foreach($processAssign->assign as $val){
+		 $user_id = $val->user_id;
+		 if(empty($val->user_id))
+		  $user_id = null;
+		$sales->salesUsers()->attach($val->role_id, ['user_id' => $user_id]);
+		$sales->save();
+
+
+		if(empty($user_id)){			 
+		  $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
+		  $users_list = $users_list->toArray();	
+		  $users_list = array_flatten($users_list);      
+
+		  if(count($users) > 0){
+			$users = array_merge($users,$users_list); 
+		  }else			 		 
+		  $users = $users_list;			  
+		}else 
+		$users[] = $user_id;     
+
+
+	  }
+} 
+
+
+$users = array_flatten($users);      
+$users_notify =  \App\User::whereIn('id',$users)->get(); 
+/*Notification */
+/*event(new UpdateEnquiry($enquiry,$users_notify));  */  
+
+session()->flash('success', ' Enquiry Updated ');
+return redirect($url);
+      /*if($enquiry->sales_type == 1)
+        return redirect()->route('tenantEnquiries');
+      else
+      return redirect()->route('landlordEnquiries');*/
+
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     * @return Response
+     */
+    public function destroy()
+    {
+    }
+    
+    /*
+    *  Tenant Enquiries
+    *
+    */
+    
+    public function tenantEnquiry(Request $request){
+//dd($request->query->has('params'));
+
+	     
+
+    $enquiries = ViewEnquirySalesPerson::week($request)->openEnquiry($request)->where('sales_enquiry_direct_contract', '=',1)->where('sales_type', '=', 1)->select("sales_enquiry_no","sale_enquiry_id","created_at","cust","fc_att","cust_no","enquiry_flow", DB::raw("string_agg(distinct unit_type, ',' ) AS unit_type"), DB::raw("string_agg(distinct loc, ',') AS loc"),"sales_note","employee_name" )->groupBy("sale_enquiry_id","sales_enquiry_no","created_at","cust_no","sales_note","cust","fc_att","enquiry_flow","employee_name")->filter($request);
+ //$enquiries = ViewEnquiry::week($request)->openEnquiry($request)->where('sales_enquiry_direct_contract', '=',1)
+
+     // if(isset($request->employee_name)){
+     //  print(json_encode($enquiries));exit();
+     // }
+      
+
+
+     if(($request->sort=='unit_type' || $request->sort=='fc_att' || $request->sort=='loc') && isset($request->direction)){
+       
+          $enquiries = $enquiries->orderBy($request->sort,$request->direction)->paginate($this->noOfRecord);
+
+      }
+      else{
+          $enquiries = $enquiries->sortable()->paginate($this->noOfRecord);
+      }
+
+
+
+     $type = 'tenant';
+     $request->flash();
+     $stages = WorkFlowProcess::where('work_flows_id',1)->get();
+     $enquiry_fields = [
+     'sales_enquiry_no' => 'Enquiry No',
+     'sales_enquiry_name' => 'Customer Name',
+     'sales_email' => 'Email',           
+     'sales_mobile_no' => 'Mobile No',
+     /*'sales_company_name' => 'Company Name',*/
+     'sales_move_in_date' => 'Move In Date',
+     'created_at' => 'Enquiry Date',
+     'locations__locations_name' => 'Region',
+     'employee_name' => 'Enquiry Owner',
+
+     ];      
+
+     $operations = [
+     '=' => ' Is Equal To '  ,
+     '!=' => ' Is Not Equal To '  ,
+     '>' => ' Is Greater Than '  ,
+     '>=' => ' Is Greater Than Or Equal To '  ,
+     '<' => ' Is Less Than '  ,
+     '<=' => ' Is Less Than Or Equal To'  ,
+     'ilike' => ' Like '  ,
+     'ilike%...%' => ' Like%...% '  ,
+         //  'between' => ' Between '  ,   
+
+     ];
+
+      // print(json_encode($enquiries));exit();
+
+     if(isset($request->ajax)){
+
+      $route = route('tenantEnquiries');
+      return view('sales::enquiry_list_search',compact('enquiries','type','request','stages','route','request'));
+    }
+
+    $route = route('tenantEnquiries');
+
+    return view('sales::enquiry_list',compact('enquiries','type','enquiry_fields','operations','stages','request','route'));
+
+  }
+
+
+    /*
+    *  Call Center Dashboard
+    *
+    */
+    public function callCenter(){
+
+      $enquiry_today =  SalesEnquiry::whereDate('created_at', Carbon::today())->count();
+
+      $date = new Carbon;  
+      $date->subWeek();  
+      $enquiry_week =  SalesEnquiry::where('created_at', '>', $date->toDateTimeString() )->count();
+
+      return view('sales::call_center_dashboard',compact('enquiry_today','enquiry_week'));
+    }
+
+/*
+    *
+    * LandlordEnquiry
+    **/
+    public function landlordEnquiry(Request $request){       
+
+
+      $enquiries =  viewLandlordEnquiryList::week($request)->where('sales_enquiry_direct_contract', '=',1)
+			->where('sales_type', '=', 2)
+			->select("sales_enquiry_no","sale_enquiry_id","created_at","cust","cust_no","enquiry_flow", DB::raw("string_agg(distinct loc, ',') AS loc"),"sales_note" )
+			->groupBy("sale_enquiry_id","sales_enquiry_no","created_at","cust_no","sales_note","cust","enquiry_flow")
+			->dasboardCall($request)
+			->filter($request);
+
+       $enquiries = $enquiries->sortable()->paginate($this->noOfRecord);
+      /*
+      $enquiries =  SalesEnquiry::landlord()
+      ->filter($request)   
+      ->with('enquiryStatus')->landlordContractNotDirect()
+      ->sortable()
+      ->paginate($this->noOfRecord);
+      */
+      $type = 'landlord';
+      $request->flash();
+      $stages = WorkFlowProcess::where('work_flows_id',2)->get();
+      $enquiry_fields = [
+      'sales_enquiry_no' => 'Enquiry No',
+      'sales_enquiry_name' => 'Customer Name',
+      'sales_email' => 'Email',
+      'sales_building_name' => 'Building Name',
+      'sales_mobile_no' => 'Mobile No',
+      'created_at' => 'Enquiry Date',
+      'location' => 'Region',
+
+      ];
+      
+      $operations = [
+      '=' => ' Is equal to '  ,
+      '!=' => ' Is not equal to '  ,
+      '>' => ' Is greater than '  ,
+      '>=' => ' Is greater than or equal to '  ,
+      '<' => ' Is less than '  ,
+      '<=' => ' Is less than or equal to'  ,
+      'ilike' => ' Like '  ,
+      'ilike%...%' => ' Like%...% ',
+      ];
+
+
+      $route = route('landlordEnquiries'); 
+
+
+      if(isset($request->ajax))      
+       return view('sales::enquiry_list_search',compact('enquiries','type','request','stages','route','request'));
+     
+
+
+     return view('sales::enquiry_list',compact('enquiries','type','enquiry_fields','operations','stages','request','route'));
+
+   }
+    /*
+    *
+    *  tenantSearchByMobile
+    *
+    */
+    public function tenantSearchByMobile(Request $request){
+
+      $mobile = $request->mobile;
+      $name = $request->name;
+
+      $tenant =  Tenant::
+      when($mobile, function ($query, $mobile) {
+        return $query->where('tenant_contact_no', $mobile);
+      })->when($name, function ($query, $name) {
+        return $query->where('tenant_name', $name);
+      })->first();
+
+      if(empty($tenant)){
+        $tenant = SalesEnquiry::where('sales_mobile_no',$mobile)
+        ->select('sales_enquiry_name as tenant_name',
+          'sales_email as tenant_contact_email',
+          'sales_mobile_no as tenant_contact_no')
+        ->first();		
+        if(empty($tenant))
+          return 0;
+    		//dd($tenant)	;	 
+      }        
+
+      return $tenant; 
+
+
+    }
+    /*
+    *
+    *  LandlordSearchByMobile
+    *
+    */
+    public function landlordSearchByMobile(Request $request){
+
+      $mobile = $request->mobile;
+      $name = $request->name;
+
+      $landlord =  Vendor::
+      when($mobile, function ($query, $mobile) {
+        return $query->where('vendor_contact_no', $mobile);
+      })->when($name, function ($query, $name) {
+        return $query->where('vendor_name', $name);
+      })->first();
+
+      if(empty($landlord)){
+        $landlord = SalesEnquiry::where('sales_mobile_no',$mobile)
+        ->select('sales_enquiry_name as vendor_name',
+          'sales_email as vendor_contact_email',
+          'sales_contact_address as vendor_contact_address',
+          'sales_mobile_no as vendor_contact_no')
+        ->first();   
+        if(empty($landlord))
+          return 0;
+        //dd($tenant) ;  
+      }        
+
+      return $landlord; 
+
+
+    }
+    
+    
+    
+
+    /*
+    * Enquiry Search Form
+    * 
+    **/
+    public function enquiryFilter(Request $request){
+
+      $type = $request->type;
+
+      if($type == 'tenant'){
+       $enquiry_fields = [
+       'sales_enquiry_no' => 'Enquiry No',
+       'sales_enquiry_name' => 'Customer Name',
+       'sales_email' => 'Email',           
+       'sales_mobile_no' => 'Mobile No',
+       'sales_move_in_date' => 'Move In Date',     
+       'created_at' => 'Enquiry Date',   
+       'location' => 'Location',   
+       'enquiry_owner' => 'Enquiry Owner',
+       ];
+     }else{
+       $enquiry_fields = [
+       'sales_enquiry_no' => 'Enquiry No',
+       'sales_enquiry_name' => 'Customer Name',
+       'sales_email' => 'Email',
+       'sales_building_name' => 'Building Name',
+       'sales_mobile_no' => 'Mobile No' ,      
+       'created_at' => 'Enquiry Date',  
+       'location' => 'Location',  
+
+       ];
+     }
+
+
+     $operations = [
+     '=' => ' Is equal to '  ,
+     '!=' => ' Is not equal to '  ,
+     '>' => ' Is greater than '  ,
+     '>=' => ' Is greater than or equal to '  ,
+     '<' => ' Is less than '  ,
+     '<=' => ' Is less than or equal to'  ,
+     'ilike' => ' Like '  ,
+     'ilike%...%' => ' Like%...% '  ,
+         //  'between' => ' Between '  ,
+     ];
+
+     return view('sales::enquiry_filter',compact('type','enquiry_fields','operations'));
+
+   }
+
+
+   public function enquirySearch(Request $request){
+
+    $closure = array();
+    $closure_or = array();
+    $closure_month = array();
+
+    $closure_year = array();
+    $closure_or_year = array();
+    $closure_date = array();
+    $location = array();
+    $location_or = array(); 
+    $enquiry_owner_or =array();
+    $enquiry_owner =array();
+    $assigned_person =array();
+    $building_name_select = array();
+    $duration = array();
+    $sales_enquiry_no = array();
+    $customer_name  = array();
+    $sales_building_or  = array();
+    $sales_building  = array();
+    $building_name_select = $unit_select = $start_dt = $rent = $location_quick = $unitTypes = array();
+
+    if(isset($request->fieldName)){
+     if(count($request->fieldName) > 0){
+
+      foreach ($request->fieldName as $key => $value) {
+
+       if( !empty($request->fieldValue[$key]) && !empty($request->fieldValue[$key]) && !empty($value) ) {
+
+         $operation = $request->operation[$key];
+         $fieldValue = $request->fieldValue[$key];
+
+         if($request->operation[$key] == 'ilike%...%' ){
+          $fieldValue = '%'.$request->fieldValue[$key].'%';
+          $operation = 'ilike';
+        }elseif($value == 'sales_move_in_date' ||  $value == 'created_at'){
+
+          if(array_search($request->operation[$key],['=','>','<','>=','<=','between', '!=']) !== FALSE ){                    
+
+           $fieldDate = $request->fieldValue[$key];                   
+
+           $fieldDate = str_replace('/', '-', $fieldDate);
+           $created_at = Carbon::parse($fieldDate)->toDateString();                      
+
+           $month = Carbon::parse($fieldDate)->month;
+           $year = Carbon::parse($fieldDate)->year;
+
+           if($value == 'created_at')
+             $closure_date[] = array( 'created_at' ,$request->operation[$key],$created_at);
+           elseif($key != 0 && $request->logic[$key -1 ] == 'or' )
+             $closure_or_year[] = array($value , $request->operation[$key] ,$year,$month);
+           else
+             $closure_year[] = array($value , $request->operation[$key] ,$year,$month);
+         }
+
+       }
+
+       elseif($value == 'location'){
+
+        if($key != 0 && $request->logic[$key -1 ] == 'or' )
+          $location_or[] = array( $value , $operation ,$fieldValue);
+        else
+          $location[] = array( $value , $operation ,$fieldValue);
+
+      }
+      elseif($value == 'sales_building_name'){
+
+       if($key != 0 && $request->logic[$key -1 ] == 'or' )
+         $sales_building_or[] = array( $value , $operation ,$fieldValue);
+       else
+         $sales_building[] = array( $value , $operation ,$fieldValue);
+
+     }else{                
+      $fieldValue = $request->fieldValue[$key];
+      $operation = $request->operation[$key];
+    }
+
+    if($value != 'location' && $value != 'enquiry_owner' &&  $value != 'created_at' && $value != 'sales_move_in_date' && $value != 'sales_building_name' && (array_search($request->operation[$key],['>','<','>=','<=']) === FALSE ) ) {
+     if($key != 0 && $request->logic[$key -1 ] == 'or' )
+       $closure_or[] = array( $value , $operation ,$fieldValue);
+     else
+       $closure[] = array( $value , $operation ,$fieldValue);
+   }
+
+ }
+
+
+}
+
+
+if($request->ajax != true){
+ if(count($location_or) == 0 && count($closure) == 0 &&  count($closure_year) == 0  && count($closure_date) == 0 && count($location) == 0 && count($enquiry_owner) == 0 && count($sales_building_or) == 0  && count($sales_building) == 0 )
+  $closure[] = array( 'id' , '=' ,0);
+}
+
+}
+
+}
+
+
+$sales_enquiry_no = (isset($request->sales_enquiry_no)) ? $request->sales_enquiry_no : null;
+$customer_name = (isset($request->customer_name)) ? $request->customer_name : null;
+$email = (isset($request->email)) ? $request->email : null;
+$phone = (isset($request->phone)) ? $request->phone : null;
+$stages = (isset($request->stages)) ? $request->stages : null;
+$sales_building_name = (isset($request->sales_building_name)) ? $request->sales_building_name : null;
+$sales_mobile_no = (isset($request->sales_mobile_no)) ? $request->sales_mobile_no : null;    
+$sales_note = (isset($request->sales_note)) ? $request->sales_note : null; 
+$unitTypes = (isset($request->unitTypes)) ? $request->unitTypes : null; 
+$location_quick = (isset($request->location)) ? $request->location : null;
+$created_at = (isset($request->created_at)) ? $request->created_at : null;
+$assigned_person = (isset($request->assigned_person)) ? $request->assigned_person : null;
+$building_name_select = (isset($request->building_name_select)) ? $request->building_name_select : null;
+$unit_select	= (isset($request->unit_select)) ? $request->unit_select : null;
+$duration 		= (isset($request->duration)) ? $request->duration : null;
+$start_dt 		= (isset($request->start_dt)) ? $request->start_dt : null;
+$rent 		= (isset($request->rent)) ? $request->rent : null;
+
+$qiuck_search = array($customer_name, $email , $phone, $stages, $sales_building_name, $sales_enquiry_no, $sales_note, $created_at,$assigned_person,$building_name_select,$unit_select, $duration, $start_dt ,$rent ,$location_quick,$unitTypes);
+
+$result = array(
+ $closure,
+ $closure_or,      
+ $closure_year,
+ $closure_or_year,
+ $closure_date,$location, $location_or, $qiuck_search,$enquiry_owner_or,$enquiry_owner
+ ,$sales_building_or,$sales_building); 
+     //dd($sales_building_or);
+
+return $result;   
+}
+  /*
+  *
+  *
+  * Enquiry Tenant Serach
+  *
+  */
+  public function enquiryTenantSearch(Request $request) {
+
+    $sales_enquiry_no 	= $request->sales_enquiry_no;
+    $created_at 		= $request->created_at;
+    $status 			= $request->stages;
+    $type 				= $request->type;
+    $fc_att 			= $request->fc_att;
+    $sales_enquiry_name = $request->sales_enquiry_name;
+    $sales_mobile_no	= $request->sales_mobile_no;
+    $unit				= $request->unit;
+    $location			= $request->location;
+    $sales_note			= $request->sales_note;
+    
+    $route 				= $request->route;
+    $page 				= $request->page;
+
+    $salespersonId =null;  
+    
+    if(\Auth::user()->roles->pluck( 'id' )->toArray()[0] == 2){
+      $salespersonId = \Auth::user()->id;
+    }
+
+    $stages = WorkFlowProcess::where('work_flows_id',1)->get(); 
+
+    $enquiries =  SalesEnquiry::when($type, function ($query) use($type){
+     if($type == 'tenant')
+       $query->tenant();
+     else
+       $query->landlord();
+     return $query;
+   })  
+    ->when($sales_enquiry_no, function ($query,$sales_enquiry_no) {
+      return $query->where('sales_enquiry_no', 'ilike','%'.$sales_enquiry_no.'%');
+    })  
+    ->when($created_at, function ($query, $created_at) {
+      return $query->where('created_at', 'ilike','%'.$created_at.'%');
+    }) 
+    ->when($fc_att , function ($query,$fc_att) {
+      if($fc_att <=102){
+        return $query->where('work_flow_processes_code', '<=' ,102);
+      }
+      else{
+       return $query->where('work_flow_processes_code', '>=' ,$fc_att);
+     }
+
+   }) 					                           
+    ->when($sales_enquiry_name, function ($query, $sales_enquiry_name) {
+      return $query->where('sales_enquiry_name', 'ilike','%'.$sales_enquiry_name.'%');
+    })
+    ->when($sales_mobile_no, function ($query, $sales_mobile_no) {
+      return $query->where('sales_mobile_no','ilike', '%'.$sales_mobile_no.'%');
+    })
+    ->when($sales_note, function ($query, $sales_note) {
+      return $query->where('sales_note','ilike', '%'. $sales_note.'%');
+    })   
+    ->when($unit, function ($query) use($unit){
+
+      $query->whereHas('unitTypes', function ($query) use($unit){
+       return $query->where('unit_types_name','ilike', '%'.$unit.'%');
+     });
+      return  $query;      
+    })
+    ->when($location, function ($query) use($location){
+
+      $query->whereHas('locations', function ($query) use($location){
+       return $query->where('locations_name','ilike', '%'.$location.'%');
+     });
+      return  $query;      
+    })->when($status, function ($query, $status) {
+      return $query->where('work_flow_processes_code', $status);
+    })    
+    ->when($salespersonId, function ($query) use($salespersonId){
+
+      $query->whereHas('salesEnquiry', function ($query) use($salespersonId){
+
+       $query->whereHas('salesUser', function ($query) use($salespersonId){
+         return $query->where('user_id',$salespersonId);
+       });
+       return $query->where('work_flow_processes_code',102);
+     });
+
+    })                                     
+    ->with('enquiryStatus')
+    ->sortable() 
+    ->paginate($this->noOfRecord);
+    
+    
+    return view('sales::enquiry_list_search',compact('enquiries','type','request','stages','route','request'));
+
+  }
+  /*
+  *
+  *
+  * Enquiry Landlord Serach
+  *
+  */
+  public function enquiryLandlordSearch(Request $request) {
+
+    $customer_name = $request->customer_name;
+    $email = $request->email;
+    $phone = $request->phone;
+    $status = $request->stages;
+    
+    //dd($stages);
+    $route = $request->route;
+    
+    $stages = WorkFlowProcess::where('work_flows_id',2)->get();
+    $type = 'landlord';
+    $enquiries =  SalesEnquiry::landlord()
+    ->when($customer_name, function ($query, $customer_name) {
+      return $query->where('sales_enquiry_name','ilike',$customer_name.'%');
+    })
+    ->when($email, function ($query, $email) {
+      return $query->where('sales_email', 'ilike', $email.'%');
+    })
+    ->when($phone, function ($query, $phone) {
+      return $query->where('sales_mobile_no', 'ilike', $phone.'%');
+    })  
+    ->when($status, function ($query, $status) {
+      return $query->where('work_flow_processes_code', $status);
+    })                                
+    ->with('enquiryStatus')
+    ->sortable() 
+    ->paginate(15);
+
+    
+    return view('sales::enquiry_list_search',compact('enquiries','type','request','stages'));
+
+  }
+  
+  
+  
+  /*
+   *  
+   * Enquiry Reminder
+   *
+   * 
+   */
+  public function enquiryReminder(SalesEnquiry  $enquiry){
+
+
+    $sales =   Sales::where('sales_enquiry_id',$enquiry->id)->latest()->first();     
+    $salesUsers =  $sales->salesUser;
+    
+    $users = array();     
+
+    foreach($salesUsers as $val){
+
+      if(empty($val->user_id)){
+
+        $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
+        $users_list = $users_list->toArray();	
+
+        if(count($users) > 0){					 
+         $users = array_merge($users,$users_list); 
+       }else			 		 
+       $users[] = $users_list;		
+
+     }else 
+     $users[] = $user_id;
+
+   }
+
+   $users = array_flatten($users);      
+   $users_notify =  \App\User::whereIn('id',$users)->get();
+
+   event(new ReminderEnquiry($enquiry,$users_notify)); 
+
+
+   session()->flash('success', ' Notification Send ');
+
+   if($enquiry->sales_type == 1)
+    return redirect()->route('tenantEnquiries');
+  else
+    return redirect()->route('landlordEnquiries');
+
+
+}
+
+	 /**
+     * Popup edit in Tenant enquiry
+     * 
+     */
+   public function enquiryEditPopup($id, SalesEnquiry  $enquiry)
+   {
+
+    $enquiry =   SalesEnquiry::where('id',$id)->first();  
+    return view('sales::edit_sale_enquiry_modal',compact('enquiry','id'));
+  }
+
+    /**
+     * Update the specified resource in storage.
+     * @param  Request $request
+     * @return Response
+     */
+    public function enquiryEditPopupAction(Request $request,SalesEnquiry  $enquiry)
+    {
+
+      $this->validate($request, [
+        'sales_mobile_no' => 'required|regex:/^((\+)?(\d{2,3}))?(\d{8}){1}?$/',           
+        'sales_region' => 'required',           
+        'sales_enquiry_name' => 'required|max:75',
+        'sales_email' => 'nullable|email',         
+        'location_id' => 'required',         
+        'price_range_id' => 'required',         
+        'sales_size' => 'numeric|nullable',         
+        'building_type_id' => 'required_if:sales_type,2',
+        'month' => 'required_if:sales_type,1',
+        'year' => 'required_if:sales_type,1',
+
+        ]);        
+      $enquiry =   SalesEnquiry::where('id',$request->sales_enquiry_id)->first();
+      if($request->sales_type == 1){
+       $request->unit_type_id  = explode(',',$request->unit_type_id);
+       $request->price_range_id  = explode(',',$request->price_range_id);
+     }
+     $sales_move_in_date = $request->year.'-'.$request->month.'-1';
+
+     SalesEnquiry::where('id', $request->sales_enquiry_id)->update([
+       'sales_mobile_no' => $request->sales_mobile_no,
+       'sales_region'=>$request->sales_region,
+       'sales_enquiry_name' => $request->sales_enquiry_name,
+       'sales_email' => $request->sales_email,
+       'sales_contact_address' => $request->sales_contact_address,          
+       'sales_no_of_unit' => $request->sales_no_of_unit,       
+       'sales_size' => $request->sales_size,
+       'sales_mode_id' => $request->sales_mode_id,
+       'sales_referred_by' => $request->sales_referred_by,
+       'sales_note' => $request->sales_note, 
+       'alternative_no' => $request->alternative_no,
+       'tenant_type_id' => $request->tenant_type_id,
+       'sales_move_in_date' =>$sales_move_in_date
+       ]);
+
+     
+
+
+     activity('Update Tenant Enquiry')
+     ->performedOn($enquiry)
+     ->causedBy(\Auth::user()->id)
+     ->withProperties($enquiry)
+     ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
+
+
+     $enquiry->update();
+     
+     if($request->sales_type == 1){		 
+       $enquiry->unitTypes()->sync($request->unit_type_id); 
+     }
+
+
+     $request->location_id = array_where($request->location_id, function ($value, $key) {
+       if($value > 0)
+        return true;
+    });
+
+     if(count($request->location_id) > 0) {		  
+       $enquiry->locations()->sync($request->location_id); 
+     }       
+
+     $request->price_range_id = array_where($request->price_range_id, function ($value, $key) {
+      if($value > 0)
+        return true;
+    });	  
+
+     if(count($request->price_range_id) > 0) 
+       $enquiry->priceRanges()->sync($request->price_range_id);
+
+
+     if($request->sales_type == 2)       
+       $price_range_id =  $location_id = null;
+     else{
+       $price_range_id = (count($request->price_range_id) > 0)?  $request->price_range_id[0] : null;
+       $location_id = (count($request->location_id) > 0)? $request->location_id[0] : null;       
+
+     }       
+     $processFlow = 101;
+     $sales =   Sales::where('sales_enquiry_id',$enquiry->id)  
+     ->where('work_flow_processes_code',$processFlow)->first();
+
+	  // Get Process Users
+     $general =  new General;
+     $processAssign = $general->roleUsersFromProcess($processFlow,$location_id,$price_range_id);
+
+     
+     $users = array();
+
+     if($processAssign == false){
+
+      $res =    $general->workFlowProcess($processFlow);
+      $sales->salesUsers()->attach($res->default_role, ['user_id' => $res->default_user_id]);
+      $sales->save();
+
+      if(empty($res->default_user_id)){			 
+        $users_list = \App\User::role($res->default_role)->get()->pluck('id'); 			 
+        $users = $users_list->toArray();			  
+      }else 
+      $users[] = $res->default_user_id;
+
+
+
+    }else{
+     foreach($processAssign->assign as $val){
+       $user_id = $val->user_id;
+       if(empty($val->user_id))
+        $user_id = null;
+      $sales->salesUsers()->attach($val->role_id, ['user_id' => $user_id]);
+      $sales->save();
+
+
+      if(empty($user_id)){			 
+        $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
+        $users_list = $users_list->toArray();	
+        $users_list = array_flatten($users_list);      
+
+        if(count($users) > 0){
+          $users = array_merge($users,$users_list); 
+        }else			 		 
+        $users = $users_list;			  
+      }else 
+      $users[] = $user_id;     
+
+
+    }
+  } 
+
+
+  $users = array_flatten($users);      
+  $users_notify =  \App\User::whereIn('id',$users)->get(); 
+
+  session()->flash('success', ' Enquiry Updated ');
+  return back();
+
+}
+    /*
+     * 
+     * Automatically Self Assign Enquiry to a salesperson if add salesperson added a enquiry
+     * 
+     * 
+     */ 
+    public function enquiryAddBySalesperson($enquiry_id){
+
+      $workflow_id  = 101;
+      $action_key   = 'AS';
+      $roleid       =  2; // Selesperson role
+      $userid       =  \Auth::user()->id;
+      $enquiry_id   = $enquiry_id;
+      $general      =  new General;
+      $next_process_id = $general->nextProcessFromAction($workflow_id,$action_key);
+
+
+      $enquiryDetails = SalesEnquiry::where('id','=',$enquiry_id)->first();
+
+      $location       = $enquiryDetails->locations()->first();
+      $location_id    = $location->id;
+      $priceRange     = $enquiryDetails->priceRanges()->first();
+      $pricerange_id  = $priceRange->id;
+
+      $processAssign = $general->roleUsersFromProcess($next_process_id,$location_id,$pricerange_id,$tenant_status=null);
+
+      $countSales = Sales::where('sales_enquiry_id',$enquiry_id)->count();
+      if($countSales == 1) SalesEnquiry::where('id', $enquiry_id)->update([
+        'enquiry_owner' => \Auth::user()->id,
+        ]);
+
+	  $sales = Sales::create([
+          'sales_enquiry_id' =>$enquiry_id,
+          'sales_type' => $enquiryDetails->sales_type,
+          'work_flow_processes_code' => $next_process_id,
+          'created_by' => \Auth::user()->id,
+          ]);
+          
+      if($roleid == \Auth::user()->default_role){
+          $sales->salesUsers()->attach($roleid,['user_id'=>$userid]);
+
+      }
+      else{
+        $sales->salesUsers()->attach($roleid,['user_id'=>$userid]);
+        $sales->salesUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);
+      }
+      $sales->salesUsers()->attach(5);
+      
+      $enquiryDetails->update([
+        'work_flow_processes_code' => $next_process_id,
+        'assigned_person' => $userid,
+        'updated_by' => \Auth::user()->id,
+        ]);
+
+      /****** Activity log *****/
+
+      activity('Self Assign - Sales-person')
+      ->performedOn($sales)
+      ->causedBy(\Auth::user()->id)
+      ->withProperties($sales)
+      ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
+
+      
+      session()->flash('success', 'Enquiry Added');
+      return ;
+
+    }
+  }

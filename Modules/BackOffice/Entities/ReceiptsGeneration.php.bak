@@ -1,0 +1,426 @@
+<?php
+
+namespace Modules\BackOffice\Entities;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Model;
+use Kyslik\ColumnSortable\Sortable;
+
+class ReceiptsGeneration extends Model
+{
+	use Sortable;
+  use SoftDeletes;
+    protected $guarded = [];
+    protected $hidden = ["deleted_at"];
+    protected $table = 'receipts_generation';
+    protected $dates = ['receipts_generation_receipt_date','receipts_generation_posted_date','receipts_generation_cancel_date','created_at','receipts_generation_eff_from','receipts_generation_eff_to'];
+	public $sortable = ['id','receipts_generation_receipt_no','receipts_generation_eff_from','receipts_generation_eff_from'];
+	
+	/*
+    * Tenant Contract Building
+    */
+	public function tenantContractInfo(){
+
+	  return $this->belongsTo('Modules\Sales\Entities\TenantContract','tenant_contract_id','id');
+	}
+    /*
+    * Bank Info
+    */
+	public function bankInfo(){
+
+	  return $this->belongsTo('Modules\Masters\Entities\Bank','bank_id','id');
+	}
+	/*
+    * Receipt management Type
+    */
+	public function getReceiptsGenerationPaymentMethodNameAttribute(){    
+
+			switch($this->receipts_generation_payment_method){
+			  case '1' : return 'cheque';
+			  case '2' : return 'Cash';        
+		  }
+	} 
+	/*
+    * Receipt Type
+    */
+	public function getReceiptsGenerationTypeNameAttribute(){  
+	
+		switch($this->receipts_generation_type){
+		  case '0' : return 'Tenant Receipt';
+		  case '1' : return 'General Receipt';
+		  case '2' : return 'Deposit Receipt';        
+	  }
+	}
+	/*
+    * Receipt Type
+    */
+	public function getReceiptsGenerationApprovalStatusNameAttribute(){  
+		
+		switch($this->receipts_generation_approval_status){
+		  case '1' : return 'label-primary | Draft';
+		  case '2' : return 'label-warning | Pending';    
+		  case '3' : return 'label-success | Approved';
+		  case '4' : return 'label-danger | Reject';     
+		  case '5' : return 'label-warning | Pending For Draft'; 
+	  }
+	}
+	/*
+    * Receipt Dimension account
+    */
+	public function getReceiptsDimensionAccount(){  
+		
+		return $this->hasMany('Modules\BackOffice\Entities\ReceiptGenerationDim','receipts_generation_id','id');
+	}
+	/*
+    * Receipt Dimension
+    */
+	public function getReceiptsDimension(){  
+		
+		return $this->belongsTo('Modules\BackOffice\Entities\DimDetail','finance_dim','id');
+	}
+	/*
+    *  Receipt User
+    */
+    public function renewalUsers() {
+           return $this->belongsToMany('\Spatie\Permission\Models\Role', 'renewal_users','renewals_id','role_id');
+    }
+     /*
+    *
+    *Deposit Refund
+    *
+    *
+    */
+       public function depositRefund(){
+
+        return $this->hasOne('Modules\BackOffice\Entities\DepositRefund','receipts_generation_id','id');
+      }
+     /*
+    * Search   
+    *
+    *
+    *
+    */
+    /*
+    * Search   
+    *
+    *
+    *
+    */
+    public function scopeClosure($query, $result = array()){
+
+
+        $closure =  $closure_or =  $building =  $building_or =  $tenant = $tenant_or  = array();
+     
+        // $customer_name, $email , $phone  , $status
+        $quick_search_flag = false;
+        $qiuck_search  = array();
+   
+        if(count($result) > 0){
+            list($closure, $closure_or,$building,$building_or,$tenant, $quick_search) =  $result;
+        
+	        if(count($quick_search) > 0)
+	            $quick_search_flag = true; 
+        }
+
+       //dd($result) ; exit;
+        
+        $query->when($closure, function ($query) use($closure){
+        return $query->where($closure);
+        })
+        ->when($closure_or, function ($query) use($closure_or){
+            return $query->orwhere($closure_or);
+        })  
+        ->when($building, function ($query) use($building){               
+            $query->whereHas('building', function ($query) use($building){
+               foreach($building as $building_val){                             
+                    $query->where('building_name', $building_val[1],$building_val[2]);                 
+                } 
+                return $query;   
+            });             
+        return $query;                                       
+        }) 
+        ->when($building_or , function ($query) use($building_or){                
+            $query->orwhereHas('building', function ($query) use($building_or){
+               foreach($building_or as $building_or_val){                           
+                    $query->orWhere('building_name', $building_or_val[1],$building_or_val[2]);
+                }   
+            });             
+        	return $query;                                       
+        })
+        ->when($quick_search_flag , function ($query) use($quick_search){  
+           
+           list($receipts_generation_receipt_no, $receipts_generation_eff_from,$receipts_generation_eff_to , $building_name, $building_code, $tenant_name, $tenant_code, $receipts_generation_payment_method, $receipts_generation_payment_method,$receipts_generation_amt,$contract_no,$receipts_generation_approval_status) =   $quick_search;
+
+            $query->when($receipts_generation_receipt_no,function ($query)use($receipts_generation_receipt_no){
+                    return $query->where('receipts_generation_receipt_no','ilike','%'.$receipts_generation_receipt_no.'%');
+                                
+          	})->when($receipts_generation_eff_to , function ($query)use($receipts_generation_eff_to){
+                    return $query->whereDate('receipts_generation_eff_to','=',$receipts_generation_eff_to);
+                  
+            })->when($receipts_generation_eff_from , function ($query)use($receipts_generation_eff_from){
+                    return $query->whereDate('receipts_generation_eff_from','=',$receipts_generation_eff_from);
+                  
+            })->when($receipts_generation_payment_method , function ($query)use($receipts_generation_payment_method){
+                    return $query->where('receipts_generation_payment_method','=',$receipts_generation_payment_method);
+                 
+            })->when($receipts_generation_amt , function ($query)use($receipts_generation_amt){
+                    return $query->where('receipts_generation_amt','ilike','%'.$receipts_generation_amt.'%');
+            })->when($receipts_generation_approval_status , function ($query)use($receipts_generation_approval_status){
+                    return $query->where('receipts_generation_approval_status','=',$receipts_generation_approval_status);
+                                 
+          	})->when($building_name, function ($query) use($building_name) {
+                    $query->whereHas('tenantContractInfo', function ($query) use($building_name){
+                        $query->whereHas('building', function ($query) use($building_name){
+                           return $query->where('building_name','ilike', '%'.$building_name.'%');
+                        });
+                    });
+                return $query;
+                   
+            })->when($building_code , function ($query) use($building_code){
+                    $query->whereHas('tenantContractInfo', function ($query) use($building_code){
+                        $query->whereHas('building', function ($query) use($building_code){
+                           return $query->where('building_code','ilike', '%'.$building_code.'%');
+                        });
+                    });
+                return $query; 
+            })->when($tenant_name , function ($query) use($tenant_name){
+                    $query->whereHas('tenantContractInfo', function ($query) use($tenant_name){
+	                   $query->whereHas('tenant', function ($query) use($tenant_name){
+	                   return $query->where('tenant_name','ilike', '%'.$tenant_name.'%');
+	                    });
+	                });
+                return $query; 
+            })->when($tenant_code , function ($query) use($tenant_code){
+                     $query->whereHas('tenantContractInfo', function ($query) use($tenant_code){
+	                   $query->whereHas('tenant', function ($query) use($tenant_code){
+	                   return $query->where('tenant_code','ilike', '%'.$tenant_code.'%');
+	                    });
+	                });
+                return $query;     
+            })->when($contract_no, function ($query) use($contract_no){
+	               $query->whereHas('tenantContractInfo', function ($query) use($contract_no){
+	               return $query->where('tenant_contract_no','ilike', '%'.$contract_no.'%');
+	            });
+	            return $query;            
+            });
+                    
+                                                      
+        });                         
+       
+       return $query; 
+    }
+    /*
+    * 
+    *  CreatedBy
+    *
+    */
+    public function cancelBy() {
+        
+           return $this->belongsTo('App\User','receipts_generation_cancel_by');
+    }
+
+   
+   /*
+   *   Scope Type 
+   *
+   **/
+   public function scopeType($query,$type){
+     
+      switch($type){
+
+        case 'deposit' : $query->where('receipts_generation_type', '=',2);
+                         break;
+
+        case 'general' : $query->where('receipts_generation_type', '=',1);
+                         break; 
+        case 'rent' : 
+        default:
+
+                        $query->where('receipts_generation_type', '=',0);
+                         break;
+      }
+        
+      return $query;
+   }
+    
+
+
+   /*
+   *
+   *  Filter 
+   *
+   */
+   public function scopeFilter($query, $request){
+
+      if(isset($request)){     
+
+      $fieldNameFlag = false;  
+      $generalSearch = array(); 
+     
+    
+        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','tab']) as $key => $val){         
+
+           if($key == 'fieldValue' || $key == 'fieldValues' )
+              continue;
+
+           if($key == 'fieldName' && $fieldNameFlag == true) 
+             continue;
+
+             if($val != ''){  
+
+              if($key == 'fieldName'){
+
+                  if(is_array($request->fieldName)){
+                    $fieldNameFlag = true;                 
+
+
+                         $i = 0; 
+                         foreach ($request->fieldName as $keyName => $valueName) {
+
+
+
+                               if( !empty($request->fieldValue[$keyName]) && !empty($request->fieldValue[$keyName]) && !empty($valueName) ) {
+                                 
+                                  $curr_logic =  ($i == 0)? 'and' : $next_logic;
+                                  $next_logic =  $request->logic[$keyName]; $i++;
+
+                                 
+                                  if($request->operation[$keyName] == 'ilike%...%' ){
+                                    $fieldValue = '%'.$request->fieldValue[$keyName].'%';
+                                    $operation = 'ilike';
+                                  }else{
+                                  $operation = $request->operation[$keyName];
+                                  $fieldValue = $request->fieldValue[$keyName];
+                                  }
+                                 
+
+                                  $generalSearch[] = array( 'field'=> $valueName ,'operation'=> $operation , 'fieldValue' => $fieldValue, 'logic'=> $curr_logic); 
+
+                               }
+
+                              }
+
+                                            
+                            $generalSearch = collect($generalSearch)->groupBy('field');
+
+                          
+                  }else{ 
+                  $key = $val;                  
+                  $val = ($request->fieldName != 'tenant_contract_status') ? $request->fieldValue : $request->fieldValues;
+                }
+               } 
+
+              if($key == 'fieldName' && is_array($request->fieldName)){ 
+
+                    foreach($generalSearch  as $searchKey => $searchVal){
+               
+                       if(strpos($searchVal[0]['field'], '__') !== false) {
+
+                            $method = explode('__',$searchVal[0]['field']);
+
+                            if(count($method) > 2)
+                            {
+                              $searchMethod = $method[0].'.'. $method[1];
+                              $searchfor = $method[2];
+                            }else{
+                              $searchMethod = $method[0];
+                              $searchfor = $method[1];
+                            }
+
+                            $query->whereHas($searchMethod, function ($query) use($searchMethod,$searchVal,$searchfor){
+
+                                 foreach($searchVal as $subSearchVal ){
+                                  if($subSearchVal['logic'] == 'and' ){
+
+                                    if($subSearchVal['operation'] ==  'ilike%...%')
+                                      $query->where($searchfor,'ilike','%'.$subSearchVal['fieldValue'].'%');
+                                    else
+                                      $query->where($searchfor,$subSearchVal['operation'],$subSearchVal['fieldValue']); 
+
+                                  }else{
+                                    if($subSearchVal['operation'] ==  'ilike%...%')
+                                      $query->orWhere($searchfor,'ilike','%'.$subSearchVal['fieldValue'].'%');
+                                    else
+                                      $query->orWhere($searchfor,$subSearchVal['operation'],$subSearchVal['fieldValue']);
+                                  }                             
+
+                                 }                                 
+                            });
+
+                        }else{
+
+                           foreach($searchVal as $subSearchVal ){
+                              if($subSearchVal['logic'] == 'and' ){
+
+                                if($subSearchVal['operation'] ==  'ilike%...%')
+                                  $query->where($subSearchVal['field'],'ilike','%'.$subSearchVal['fieldValue'].'%');
+                                else
+                                  $query->where($subSearchVal['field'],$subSearchVal['operation'],$subSearchVal['fieldValue']); 
+
+                              }else{
+                                if($subSearchVal['operation'] ==  'ilike%...%')
+                                  $query->orWhere($subSearchVal['field'],'ilike','%'.$subSearchVal['fieldValue'].'%');
+                                else
+                                  $query->orWhere($subSearchVal['field'],$subSearchVal['operation'],$subSearchVal['fieldValue']);
+                              }                             
+
+                           }
+                            
+                        } 
+
+                    }                
+               }else{
+
+                 if(strpos($key, '__') !== false) {
+
+                    $method = explode('__',$key);
+
+                    $query->whereHas($method[0], function ($query) use($method,$val){
+                       if(count($method)>2){
+                         $query->whereHas($method[1], function ($query) use($method,$val){
+                           return $query->where($method[2],'ilike', '%'.$val.'%');
+                         });
+                       }else
+                        return $query->where($method[1],'ilike', '%'.$val.'%');
+                    });                   
+
+                }else{
+
+                   if(strpos($key, 'status') !== false) 
+                     $query->where($key,$val); 
+                   else{
+                      if(in_array($key,['contract_no','tenant_contract_old_no'])  !== false)
+                       $key = 'tenant_contract_no';
+
+                     $query->where($key,'ilike','%'.$val.'%'); 
+                   }
+                    
+                }
+
+               }                   
+               
+             }
+        }
+          
+      }
+      return $query;
+
+   }
+   /*
+    *
+    *Deposit Refund
+    *
+    */
+   public function pdcCheckNo(){
+
+        return $this->hasOne('Modules\BackOffice\Entities\Pdc','id','receipts_generation_is_pdc_bounce_id');
+    }
+	/*
+    *
+    *PDC
+    *
+    */
+   public function pdc(){
+
+        return $this->hasOne('Modules\BackOffice\Entities\Pdc','pdc_receipt_no','receipts_generation_receipt_no');
+    }
+}

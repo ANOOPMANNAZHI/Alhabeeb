@@ -1,0 +1,159 @@
+@extends('layouts.plms-app')
+ 
+@section('content')
+    <!-- start widget -->
+<div class="page-bar">
+    <div class="page-title-breadcrumb">
+        <div class=" pull-left">
+            <div class="page-title">Contractor Work Link</div>
+        </div>
+        {{ Breadcrumbs::render('workLink.index') }}
+    </div>
+</div>
+
+
+<div class="row">
+	<div class="col-md-12 col-sm-12 dashboardtab">
+		<div class="panel tab-border card-box">
+		   @include('masters::search')     
+    	</div>
+	</div>
+</div>
+
+
+ <div class="row">
+   <div class="col-md-12 col-sm-12">
+        <div class="card  card-box">
+            
+            <div class="card-body ">
+            <h4>
+			 @can('add_worklink')
+             <a href="{{route('workLink.create')}}" class="btn btn-circle btn-primary  align-right"  >Add New</a>
+             @endcan
+             <div class="clr"></div>
+            </h4>
+              
+              <table class="table display product-overview mb-30" id="dtBasicExample">
+                <thead>
+                    <tr>
+                        <th>Sl No.</th>
+                        <th>@sortablelink('vendor.vendor_name','Vendor')</th>
+                        <th>@sortablelink('work.works_code','Work')</th>
+                         @can('change_status_worklink')
+                        <th>@sortablelink('contractor_work_status','Status')</th>
+                        @endcan
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+					@php $count = 1; @endphp
+                    @forelse ($workLinks as $workLink)
+                    <tr>
+                        <td>
+							<a @can('edit_worklink') href="{{route('workLink.edit',$workLink->id)}}" title="Edit" @elsecan('view_worklink') href="{{route('workLink.show',$workLink->id)}}" title="Show"  @endcan class="no-link" >
+								{{$workLinks->perPage()*($workLinks->currentPage()-1)+$count}}
+							</a>
+                        </td>
+                        <td>
+							<a @can('edit_worklink') href="{{route('workLink.edit',$workLink->id)}}" title="Edit" @elsecan('view_worklink') href="{{route('workLink.show',$workLink->id)}}" title="Show"  @endcan class="no-link" >
+								{{$workLink->vendor->vendor_name}}
+							</a>
+						</td>
+                        <td>
+							<a @can('edit_worklink') href="{{route('workLink.edit',$workLink->id)}}" title="Edit" @elsecan('view_worklink') href="{{route('workLink.show',$workLink->id)}}" title="Show"  @endcan class="no-link" >
+								{{$workLink->work->works_code}}
+							</a>
+						</td>
+                         @can('change_status_worklink')
+                        <td >
+                            <a title="Change Status" class="change_status" href="{{route('workLink.changeStatus',$workLink->id)}}">@if($workLink->contractor_work_status==1)<button type="button" class="btn btn-circle btn-success btn-sm m-b-10">Active</button>@else <button type="button" class="btn btn-circle btn-danger btn-sm m-b-10">Inactive</button> @endif
+                            
+                            </a>
+                        </button>
+                            <form id="status-form" action="" method="POST">
+                                 {{csrf_field()}}
+                                 <input type="hidden" name="status" value="{{$workLink->contractor_work_status}}">
+                                <input style="display: none;" type="submit">
+                            </form>
+                        </td> 
+                        @endcan     
+                        <td>
+						@can('view_worklink')
+                        <a href="{{route('workLink.show',$workLink->id)}}" title="View" class="btn btn-tbl-view btn-xs">
+                            <i class="fa fa-eye "></i>
+                        </a>
+                        @endcan
+                         @can('edit_worklink') 
+                        <a title="Edit" href="{{route('workLink.edit',$workLink->id)}}" class="btn btn-tbl-edit btn-xs" title="Edit">
+                            <i class="fa fa-pencil"></i>
+                        </a> 
+                        @endcan
+                        @can('delete_worklink')
+                        <a href="{{route('workLink.destroy',$workLink->id)}}" title="Delete" class="btn btn-tbl-delete btn-xs delete_type">
+                            <i class="fa fa-trash-o "></i>
+                        </a>
+                        @endcan                       
+                        </td>
+                    </tr>  
+                    @php $count++; @endphp 
+                    @empty
+                    <tr>
+                        <td colspan="5" align="center">
+                        <p>No Record</p>
+                       </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+              </table>
+              @php
+					$sort =  app('request')->input('sort') ;
+					if(!empty($sort)){
+					$direction =  app('request')->input('direction') ;
+					$workLinks->appends(['sort' => $sort, 'direction' => $direction ]);					
+					}								
+			  @endphp  			
+                {{$workLinks->links()}}  
+            </div>
+        </div>
+    </div>
+</div>
+<form id="delete-form" action="" method="POST">
+    {{ method_field('DELETE') }}  {{csrf_field()}}
+    <input value="delete" style="display: none;" type="submit">
+</form>
+@endsection
+@section('scripts')    
+ 
+<script>
+
+
+ jQuery(document).ready(function() {
+ 
+  jQuery('.dataTables_length').addClass('bs-select');
+  
+            jQuery('.delete_type').click(function (event) {
+                var action = $(this).attr("href");
+                event.preventDefault();
+                if (confirm('Do you want to Delete this Contractor Work ?')) {
+                    jQuery("#delete-form").attr('action', action);
+                    jQuery("#delete-form").submit();
+                } else {
+                    return false;
+                }
+            });
+            jQuery('.change_status').click(function (event) {
+                var action = $(this).attr("href");
+                event.preventDefault();
+                if (confirm('Do you want to Change Status?')) {
+                    jQuery("#status-form").attr('action', action);
+                    jQuery("#status-form").submit();
+                } else {
+                    return false;
+                }
+            })
+        });
+
+</script> 
+
+
+@endsection

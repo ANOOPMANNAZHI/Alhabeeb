@@ -1,0 +1,411 @@
+@extends('layouts.plms-app')
+@section('css')
+
+<!-- data tables -->
+<link href="{{asset('public/css/formlayout.css')}}" rel="stylesheet" type="text/css" />
+<link href="{{asset('public/css/bootstrap-datetimepicker.min.css')}}" rel="stylesheet"  type="text/css" /> 
+
+@endsection 
+@section('content')
+  <!-- start widget -->
+  <div class="page-bar">
+      <div class="page-title-breadcrumb">
+          <div class=" pull-left">
+              <div class="page-title">Employee</div>
+          </div>
+          <ol class="breadcrumb page-breadcrumb pull-right">
+              <li><i class="fa fa-home"></i>&nbsp;<a class="parent-item" href="{{route('home')}}">Home</a>&nbsp;<i class="fa fa-angle-right"></i></li>
+              <li>&nbsp;<a class="parent-item" href="{{route('employee.index')}}">Employee</a>&nbsp;<i class="fa fa-angle-right"></i></li>
+              <li class="active">{{ isset($employee)?'Edit':'Create'}} Employee</li>
+          </ol>
+      </div>
+  </div>
+<div class="row">
+<div class="col">
+<div class="card card-box salesSearchBox">
+<form action="{{ !isset($employee)? route('employee.store'): route('employee.update',$employee->id)}}" autocomplete="off" method="POST" id="form_sample_2" class="form-horizontal" enctype="multipart/form-data" data-toggle="validator">
+{{csrf_field()}} @if(isset($employee)){{method_field('PUT')}}@endif
+
+<!-- <div class="sub-head">Building Type Details</div> -->
+	<div class="dataSearchBox ">
+        <div class="row">
+			<div class="w-100"></div>
+			
+			<div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Employee Code<small class="textRed">*</small></label>
+                    <div class="p-relative">
+                    <i class="fa fa-id-badge icn-add" aria-hidden="true"></i>
+                    <input  type="text" class="form-control" id="employee_code"  placeholder="Enter Employee code" name="employee_code" required patten="[ A-Za-z_@./#&+-]+" value="{{ isset($employee)?  old('employee_code',$employee->employee_code):$empl_code}}" maxlength="10" required  {{isset($employee)?"Disabled":""}}>
+                </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Username <small class="textRed">*</small></label>
+                    <div class="p-relative">
+						<i class="fa fa-user-o icn-add" aria-hidden="true"></i>         
+					<input  type="text" class="form-control" id="username"  placeholder="Enter User Name" name="username" value="{{ isset($employee->user->username)?  old('username',$employee->user->username): old('username')}}"  data-rule-pattern="[a-zA-Z0-9 ]*$" data-msg-pattern="Allowed only Apha-numeric Values" required >
+                 </div>
+                </div>
+            </div>
+            
+        </div>
+	 </div>		
+	 	
+	 <div class="sub-head"> Contact Details</div>	
+	<div class="dataSearchBox ">
+        <div class="row">
+			<div class="col-sm-6">
+                <div class="form-group">
+                    <label for="employee_name">Name <small class="textRed">*</small></label>
+                     <div class="p-relative">
+						<i class="fa fa-id-badge icn-add" aria-hidden="true"></i>            
+						<input type="text" class="form-control" id="employee_name"  placeholder="Enter Name" name="employee_name" value="{{ isset($employee)?  old('employee_name',$employee->employee_name): old('employee_name')}}" maxlength="250" required  data-rule-pattern="[a-zA-Z0-9 ]*$" data-msg-pattern="Allowed only Apha-numeric Values">
+					</div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="email">Email <small class="textRed">*</small></label>
+                     <div class="p-relative">
+						<i class="fa fa-envelope-o icn-add" aria-hidden="true"></i>
+						<input  type="email" class="form-control" id="email"  placeholder="Enter Email" name="email"  value="{{ isset($employee->user->email)?  old('email',$employee->user->email): old('email')}}" required>
+					</div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="employee_contact_no">Contact No <small class="textRed">*</small></label>
+                     <div class="p-relative">
+						<i class="fa fa-volume-control-phone icn-add" aria-hidden="true"></i>						
+						<input required type="text" class="form-control mob_validation_13" id="employee_contact_no" onkeypress="return isNumber(event)" name="employee_contact_no" value="{{ isset($employee)?  old('employee_contact_no',$employee->employee_contact_no): old('employee_contact_no')}}"  placeholder="Enter Mobile No">		
+		</div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="employee_secondary_no">Secondary Contact No </label>
+                      <div class="p-relative">
+						<i class="fa fa-volume-control-phone icn-add" aria-hidden="true"></i>
+						<input type="text" class="form-control" id="simpleFormEmail"  placeholder="Enter Secondary Contact No" name="employee_secondary_no" value="{{ isset($employee)?  old('employee_secondary_no',$employee->employee_secondary_no): old('employee_secondary_no')}}" maxlength="15"  onkeypress="return isNumber(event)" >
+					</div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="employee_contact_address">Contact Address <small class="textRed">*</small></label>
+                     <div class="p-relative">
+						<i class="fa fa-address-card-o icn-add" aria-hidden="true"></i>
+						<textarea name="employee_contact_address" class="form-control" placeholder="Enter Contact Address" required>{{isset($employee->employee_contact_address)?old('employee_contact_address',$employee->employee_contact_address):old('employee_contact_address')}}</textarea>
+					 </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="employee_secondary_address">Secondary Address</label>
+                      <div class="p-relative">
+						<i class="fa fa-address-card-o icn-add" aria-hidden="true"></i>
+						<textarea name="employee_secondary_address" class="form-control" placeholder="Enter Secondary Address">{{isset($employee->employee_secondary_address)? old('employee_secondary_address',trim($employee->employee_secondary_address)): old('employee_secondary_address')}}</textarea>
+					</div>
+                </div>
+            </div>
+         </div>
+         
+     </div>
+       
+    <div class="sub-head"> Job Details</div>	
+	<div class="dataSearchBox ">
+        <div class="row">
+			<div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Date of Birth <small class="textRed">*</small></label>
+                      <div class="p-relative">
+						<i class="fa fa-calendar-o icn-add" aria-hidden="true"></i>
+						<input type="date" class="form-control" id="employee_dob" required placeholder="Enter Date Of Birth" name="employee_dob" value="{{ isset($employee)?  old('employee_dob',$employee->employee_dob->format('Y-m-d')): old('employee_dob')}}" > 
+					  </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Designation <small class="textRed">*</small></label>
+                     <div class="p-relative">
+						<i class="fa fa-id-card-o icn-add" aria-hidden="true"></i>
+						<select class="form-control" name="designation_id" required>
+							<option  value="">Select Designation</option>
+							<?php foreach ($designationList as $key => $designation): ?>
+							   <option {{ isset($employee->designation_id)? ((old('designation_id',$designation->id) == $employee->designation_id )? 'selected' : '') :((old('designation_id') == $designation->id )? 'selected' : '')}} value="{{$designation->id}}">{{$designation->designation_name}}</option>
+							<?php endforeach ?> 
+						   
+						</select>
+					  </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Role <small class="textRed">*</small></label>
+                    <div class="w-100"> 
+                    
+					<select class="form-control"  id="roles"  name="role_name[]" multiple required>
+                      <option  value="" disabled>Select Role</option>
+                       <?php foreach ($roleList as $key => $role): ?>
+                       <option  {{isset($employee)? ( ($employee->user->hasRole($role->name))? 'selected' : ''  ) : ''}}  {{ (old('role_name') !== null)? 
+                      ((array_search($role->name,old('role_name')) !== false)?  'selected':''  ) : ''}} value="{{$role->name}}">{{ucwords(str_replace('_', ' ',$role->name))}}</option>
+                    <?php endforeach ?> 
+                  </select>
+                
+                </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Head Role</label>
+                      <div class="w-100"> 
+                    
+						<select class="form-control head_rolecls"  id="head_role"  name="head_role" >
+							<option  value="">Select Role</option>
+							<?php foreach ($roleList as $key => $role): ?>
+							<option  {{ isset($employee->head_role)? ((old('head_role',$role->id) == $employee->head_role )? 'selected' : '') :((old('head_role') == $role->id )? 'selected' : '')}} value="{{$role->id}}">{{ucwords(str_replace('_', ' ',$role->name))}}</option>
+							<?php endforeach ?> 
+						</select>
+                
+                </div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Head User</label>
+                      <div class="w-100"> 
+                    
+						<select class="form-control head_rolecls"  id="head_user"  name="head_user" >
+							<option  value="">Select Head Role </option>
+							@if(isset($employee->head_user))
+							   <?php foreach ($headUsers as $key => $user): ?>
+							   <option  {{ isset($employee->head_user)? ((old('head_user',$user->id) == $employee->head_user )? 'selected' : '') :((old('head_user') == $employee->head_user )? 'selected' : '')}} value="{{$user->id}}">{{ucwords(str_replace('_', ' ',$user->employee->employee_name))}}</option>
+								<?php endforeach ?> 
+							@endif
+						</select>
+                
+                </div>
+                </div>
+            </div>
+            
+             <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Default Role<small class="textRed">*</small></label>
+                     <div class="p-relative">
+                <i class="fa fa-id-card-o icn-add" aria-hidden="true"></i>          
+                  <select class="form-control" name="default_role" id="default_role"  required>
+                      <option  value="">Select Role</option>
+                      @isset($employee)
+                      @foreach($employee->user->getRoleNames() as $val)
+                      <option  {{ ($default_role_name == $val)? 'selected': '' }}  value="{{$val}}">{{ucwords(str_replace('_', ' ',$val))}} </option>
+                      @endforeach                      
+                      @endisset
+                      
+                  </select>
+                </div>
+                </div>
+            </div>
+             <div class="col-sm-6">
+                <div class="form-group">
+                    <label for="simpleFormEmail">Job Category<small class="textRed">*</small></label>
+                    <div class="p-relative">
+					<i class="fa fa-id-card-o icn-add" aria-hidden="true"></i>          
+					<select class="form-control" name="job_category_id" id="job_category_id" >
+                      <option  value="">Select Job</option>
+                      @foreach($jobs as $job)
+                      <option  {{ isset($employee->job_category_id)? ((old('job_category_id',$job->id) == $employee->job_category_id )? 'selected' : '') :((old('job_category_id') == $job->id )? 'selected' : '')}} value="{{$job->id}}">{{$job->job_category_name}} </option>
+                      @endforeach                      
+                     </select>
+                </div>
+                </div>
+            </div>
+         </div>
+          </div>
+        <div class="sub-head"> Image</div>
+        <div class="dataSearchBox ">
+        <div class="row">
+			<div class="col-sm-6">
+                <div class="form-group">
+                    <label for="employee_picture">Profile Upload (Max:2MB)</label>
+                       <div class="w-100">
+						<input type="file" name="employee_picture" id="employee_picture"  >
+                          @if(isset($employee->employee_picture))
+							<img src="{{asset("storage/app/".$employee->employee_picture)}}"   width="100" height="100"/>
+               <button type="button" title="Delete" class="btn btn-danger remove_img_button" data-id="{{$employee->id}}"><i class="fa fa-trash-o"></i></button>
+                   	
+							@endif
+					</div>
+                </div>
+            </div>
+      </div>	    
+      </div>
+      <div class="w-100"></div>
+              <button type="submit" class="btn btn-primary save_employee">Save</button>
+      </div>
+      
+      </div>
+       </div>
+</div>
+<div class="clearfix"></div>
+</form>
+    
+</div>
+</div>
+</div>
+@endsection
+@section('scripts')
+ <script type="text/javascript" src="{{asset('public/js/bootstrap-datetimepicker.min.js')}}"></script> 
+<script type="text/javascript">
+  $(document).ready(function(){ 
+
+      $("#form_sample_2").validate({
+        rules: {
+        'employee_dob': { maxDate: new Date() },
+        'employee_picture':{
+              
+                  accept:"jpg,png,jpeg,gif",
+                  filesize: 2000000, //1 Mb
+                  },
+        /*'employee_picture':{minImageWidth:500},*/
+               
+        },
+        messages: { // optional message
+            'employee_dob': {
+                maxDate: 'Due date must be on or after today'
+            },
+            'employee_picture':{
+              accept: "File must be jpg/png/jpeg/gif, less than 1MB",
+            },
+        },
+        submitHandler: function(form) {
+          $('.save_employee').prop('disabled', true);
+          form.submit();
+        },
+    });
+
+    $.validator.addMethod('filesize', function (value, element, param) {
+    return this.optional(element) || (element.files[0].size <= param)
+    }, 'File size must be less than 2MB');
+
+
+    jQuery.validator.addMethod('maxDate', function (v, el, maxDate) {
+    if (this.optional(el)) {
+        return true;
+    }
+    var selectedDate = new Date($(el).val());
+    maxDate = new Date(maxDate.setHours(0));
+    maxDate = new Date(maxDate.setMinutes(0));
+    maxDate = new Date(maxDate.setSeconds(0));
+    maxDate = new Date(maxDate.setMilliseconds(0));
+
+    return maxDate >= selectedDate;
+    }, 'Date is greater than {0}.');
+    /**************************************************************/
+    jQuery.validator.addMethod('minImageWidth', function(value, element, minWidth) {
+        return ($(element).data('imageWidth') || 0) > minWidth;
+      }, function(minWidth, element) {
+        var imageWidth = $(element).data('imageWidth');
+        return (imageWidth)
+            ? ("Your image's width must be greater than " + minWidth + "px")
+            : "Selected file is not an image.";
+    });
+    /**************************************************************/
+     $(document).on('change',".head_rolecls", function()
+      {
+     
+          var id_attr  = $(this).attr("id"); 
+          var id       = $('#'+id_attr).val();
+          
+          if(id){
+              $.ajax
+                  ({
+                      type: "POST",
+                      url: "{{url('/processAssign/usersByRoleId')}}",
+                      data: {"id":id,"_token": "{{ csrf_token() }}"},
+                      cache: false,
+                      dataType: "json",
+                      success: function(data)
+                      {
+                        if(data.length > 0){
+                          $('#head_user').empty();
+                          $('#head_user').html('<option value="">Select User</option>');
+                            $.each(data, function(key, value) {
+                                $('#head_user').append('<option value="'+ value['id'] +'">'+ value['username'] +'</option>');
+                          });
+                        }
+                        else{
+                            $('#head_user').html('<option value=0>No Data</option>');
+                        }
+                      } 
+                  });
+
+                }
+          
+          else{
+              $('#head_user').empty();
+          }
+        });
+    /**************************************************************/
+
+      $('#roles').on('change', function() {
+
+          
+          $('#default_role').empty();
+          $('#default_role').append('<option value="">Select Role</option>');
+
+          $.each($(this).val(), function(e,i){
+             
+           $('#default_role').append('<option value="'+ i +'">'+$("#roles option[value="+i+"]").text() +'</option>');
+          });
+    
+      });
+ /**************************************************************/
+ $('select[id=roles]').change(function () {
+        if (($(this).val() == 'technical_head') || ($(this).val() == 'technician')) {
+            $('#job_category_id').prop('required',true);
+        } else {
+            $('#job_category_id').prop('required',false);
+        }
+    });
+ /**************************************************************/
+  });
+  /**************************************************************/
+ $(function(){
+    var dtToday = new Date();
+
+    var month = dtToday.getMonth() + 1;
+    var day = dtToday.getDate();
+    var year = dtToday.getFullYear();
+
+    if(month < 10)
+        month = '0' + month.toString();
+    if(day < 10)
+        day = '0' + day.toString();
+
+    var maxDate = year + '-' + month + '-' + day;    
+    $('#employee_dob').attr('max', maxDate);
+});
+
+  /**************************************************************/
+  //Delete Profile Image
+  $(document).on('click','.remove_img_button',function(){
+
+    var employeeId = $(this).attr('data-id');
+    if(confirm('Do You want to Delete this Image?')){
+       $.ajax({
+            method: 'POST', // Type of response and matches what we said in the route
+            //url: '../../tenantContract/'+tenantContract_id+'/edit', // This is the url we gave in the 
+            url: "{{route('deleteEmployeeImage')}}",
+           //url: '../../complaintStage/'+item_id+'/edit',
+          data: {'employeeId' : employeeId,"_token": "{{ csrf_token() }}"}, // a JSON object to send back
+            success: function(response){ // What to do if we succeed
+              location.reload();
+          },
+      }); 
+   }    
+});
+  /**************************************************************/
+</script>
+@endsection 

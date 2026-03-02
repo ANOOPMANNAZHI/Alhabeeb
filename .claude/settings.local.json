@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan:*)",
+      "Bash(ls:*)",
+      "Bash(xargs grep:*)",
+      "Bash(xargs basename:*)",
+      "Bash(psql:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(taskkill:*)",
+      "Bash(php:*)"
+    ]
+  }
+}

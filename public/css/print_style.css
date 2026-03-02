@@ -1,0 +1,81 @@
+body{
+	font:14px/1.4 'Roboto', sans-serif
+}
+#page-wrap{
+	width:800px;
+	margin:0 auto;
+}
+#header{
+	height:15px;width:100%;
+	margin:10px 0;
+	text-align:center;
+	color:#000;
+	font:700 15px Helvetica,Sans-Serif;
+	text-decoration:uppercase;padding:8px 0;
+}
+#address {
+    width: 550px;
+    height: 100px;
+    float: right;
+    text-align: right;
+}
+#logo{
+	text-align:right;
+	float:left;
+	position:relative;
+	margin-top:10px;
+	border:1px solid #fff;
+	max-width:540px;
+	max-height:125px;
+	overflow:hidden
+}
+#items{
+	clear:both;
+	color:#000;
+	width:100%;
+	margin:10px 0 0;
+	border:1px solid #000;
+	border-radius: 25px;
+}
+#items label{
+	font:700 15px Helvetica,Sans-Serif;
+}
+#head-line{
+	width:100%;
+	margin:10px 0;
+	text-decoration:uppercase;
+	padding:8px 8px;
+	height: 20px;
+		
+}
+.item-no {
+	width: 250px;
+	float: left;
+	padding: 8px 8px;
+}
+.item-date {
+	text-align: left;
+	float: right;
+	width: 220px;
+}
+.item-row{
+	margin:5px 5px;
+
+}
+.item-full-width{
+	width:100%;
+	padding: 8px 8px;
+}
+.item-full-height{
+	width:100%;
+	padding: 8px 8px;
+	height: 50px;
+}
+.item-box{
+	clear:both;
+	width:25%;
+	margin:10px 0 0;
+	border:1px solid #000;
+	height: 30px;
+	padding:5px 5px;
+}
