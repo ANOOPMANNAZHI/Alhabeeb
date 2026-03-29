@@ -56,15 +56,6 @@
             </div>
             <div class="col-sm-6">
               <div class="form-group">
-                <label for="commission">Commission<small class="textRed">*</small></label>
-                <div class="p-relative">
-                  <i class="fa fa-calendar-o icn-add" aria-hidden="true"></i>
-                  <input type="number" class="form-control" id="commission" placeholder="Enter Commission" name="commission" value="5"  min="0" max="100" required>
-                </div>
-              </div>
-            </div>
-            <div class="col-sm-6">
-              <div class="form-group">
                 <label for="download_type">Download Type<small class="textRed">*</small>  </label>
                 <div class="p-relative">
                  <i class="fa fa-cubes icn-add" aria-hidden="true"></i>

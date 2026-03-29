@@ -20,6 +20,9 @@ use config;
 use JasperPHP;
 use Modules\BackOffice\Exports\MonthlyTenancyReportExport;
 use Modules\BackOffice\Exports\TenancyDetailsReportExport;
+use Modules\BackOffice\Exports\MeraRentReceiptReportExport;
+use Carbon\Carbon;
+use ZipArchive;
 
 class BackOfficeReportController extends Controller
 {
@@ -494,78 +497,80 @@ return redirect()->away($file1);
  *
  */
  public function showEmployeeTenantContractReport(){
-  $employeeList     = Employee::whereHas('user',function ($query){
+  $employeeList     = Employee::active()->whereHas('user',function ($query){
     $query->role(['sales_person','sales_coordinator']);
   })->orderBy('id', 'DESC')->get();
   return view('backoffice::reports.employee_tenant_contract_report',compact('employeeList'));
 }
 public function employeeTenantContractReportPdf(Request $request){
- $db = config('report.database');
- $user = Auth::user()->username;
- $Date1 =  $request['start_date'];
- $Date2 =  $request['end_date'];
- $commission =  $request['commission'];
- $employee_id =  $request['tenant_marketing_executive'];
- if(!empty($employee_id)){
-  $employee_name = Employee::where('id',$employee_id)->first()->employee_name;
- }
- else{
-  $employee_name = '';
- }
- $logo = getLogoPath();
- $jasper = new JasperPHP;
-     //dd($tenant_code);
+    $user = Auth::user()->username;
+    $startDate = $request['start_date'];
+    $endDate = $request['end_date'];
+    $employee_id = $request['tenant_marketing_executive'];
+    $employeeName = '';
 
- if(isset($request->download_type)){
+    if (!empty($employee_id)) {
+        $employeeName = Employee::where('id', $employee_id)->first()->employee_name;
+    }
 
-  if($request->download_type == 'pdf'){
+    $logoPath = public_path('img/logo_pdf.jpg');
+    $logo = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath));
 
-    if(!empty($Date1) && !empty($Date2) && !empty($commission) && empty($employee_name)){ //Mandotory
+    // Query matching the Jasper report SQL
+    $query = "
+        SELECT DISTINCT vt.id, vt.building_name, b.building_no, u.unit_no, vt.tenant_name,
+            vt.tenant_contract_start_date AS startdate,
+            vt.tenant_contract_valid_to_date AS enddate,
+            vt.tenant_contract_rent,
+            vt.tenant_contract_duration,
+            vt.employee_name,
+            Deposit_Amt(vt.id) AS deposit_amt,
+            COALESCE(c.nofpdc, 0) AS nofpdc,
+            (EXTRACT(YEAR FROM AGE(vt.tenant_contract_valid_to_date, vt.tenant_contract_start_date)) * 12
+             + EXTRACT(MONTH FROM AGE(vt.tenant_contract_valid_to_date, vt.tenant_contract_start_date)) + 1)::integer AS contract_period_months,
+            COALESCE(mt.management_types_name, '-') AS management_type
+        FROM view_tenant_stage vt
+        LEFT JOIN tenant_contracts tc ON tc.tenant_contract_no = vt.tenant_contract_no
+        LEFT JOIN buildings b ON b.building_name = vt.building_name
+        LEFT JOIN units u ON u.unit_code = vt.unit_code
+        LEFT JOIN management_types mt ON mt.id = b.management_id
+        LEFT JOIN (
+            SELECT vt.id AS contractid, COUNT(p.tenant_contract_id) AS nofpdc
+            FROM pdc p
+            LEFT JOIN tenant_contracts vt ON vt.id = p.tenant_contract_id
+            GROUP BY vt.id
+        ) c ON vt.id = c.contractid
+        WHERE vt.work_flow_processes_code = '108'
+          AND vt.sale_work_flow_processes_code = '108'
+          AND vt.sales_enquiry_direct_contract = '1'
+          AND vt.status = '1'
+          AND vt.tenant_contract_start_date BETWEEN ? AND ?
+    ";
 
-// Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise.jrxml'))->execute();
-print_r($a); */
-// Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"employee_name" => $employee_name,"commission" => $commission,"logo" => $logo),$db)->execute();
+    $params = [$startDate, $endDate];
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise.pdf";
-return redirect()->away($file);
-print_r($r);
-}else{
-  // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_compo.jrxml'))->execute();
-print_r($a); */
-// Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_compo.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"employee_name" => $employee_name,"commission" => $commission,"logo" => $logo),$db)->execute();
+    if (!empty($employeeName)) {
+        $query .= " AND vt.employee_name = ?";
+        $params[] = $employeeName;
+    }
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_compo.pdf";
-return redirect()->away($file);
-print_r($r);
-}  
-}else{
-  if(!empty($Date1) && !empty($Date2) && !empty($commission) && empty($employee_name)){ //Mandotory
-// Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_excel.jrxml'))->execute();
-print_r($a); */
-// Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_excel.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"employee_name" => $employee_name,"commission" => $commission,"logo" => $logo),$db)->execute();
+    $query .= " ORDER BY vt.building_name, u.unit_no";
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_excel.xlsx";
-    return redirect()->away($file1);
-print_r($r);
-}else{
-  // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_excel_compo.jrxml'))->execute();
-print_r($a); */
-// Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_excel_compo.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"employee_name" => $employee_name,"commission" => $commission,"logo" => $logo),$db)->execute();
+    $contracts = collect(DB::select($query, $params));
+    $groupedContracts = $contracts->groupBy('employee_name');
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/R8Report_on_flats_RentedEmployee_wise_excel_compo.xlsx";
-    return redirect()->away($file1);
-print_r($r);
-}
-}
-}
+    $data = compact('groupedContracts', 'user', 'logo', 'startDate', 'endDate', 'employeeName');
+
+    if ($request->download_type == 'pdf') {
+        $pdf = \PDF::loadView('backoffice::Reports.employee_tenant_contract_report_pdf', $data)
+                  ->setPaper('a4', 'landscape');
+        return $pdf->download('employee_tenant_contract_report.pdf');
+    } else {
+        return response()->view('backoffice::Reports.employee_tenant_contract_report_excel', $data, 200, [
+            'Content-Type' => 'application/vnd.ms-excel',
+            'Content-Disposition' => 'attachment; filename="employee_tenant_contract_report.xlsx"',
+        ]);
+    }
 }
  /*
  *
@@ -682,11 +687,13 @@ public function buildingsCodeReportAutocompleteCode(Request $request){
  */
   public function showRentReceiptReport(){
    $buildings =  $building =   Building::active()
+  ->where('building_name', 'NOT ILIKE', '%-MERA')
   ->whereHas('tenantContract', function ($query){
     $query->where('tenant_contract_status',1);
   })->orderBy('building_name','asc')
   ->get();
-  return view('backoffice::reports.rent_receipt_report',compact('buildings'));
+  $managementTypes = \Modules\Masters\Entities\ManagementType::active()->get();
+  return view('backoffice::reports.rent_receipt_report',compact('buildings','managementTypes'));
 }
 
 public function rentReceiptReportPdf(Request $request){
@@ -702,6 +709,7 @@ else{
   $building_name = '';
 }
  $building_code =  isset($request->building_code) ? $request->building_code : null;
+ $management_type =  isset($request->management_type) ? $request->management_type : '';
  $logo = getLogoPath();
  $jasper = new JasperPHP;
      //dd($tenant_code);
@@ -714,7 +722,7 @@ else{
     /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"logo" => $logo),$db)->execute();
+    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
     $file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt.pdf";
     return redirect()->away($file);
@@ -725,7 +733,7 @@ else{
     /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"logo" => $logo),$db)->execute();
+    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
     $file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_compo.pdf";
     return redirect()->away($file);
@@ -737,7 +745,7 @@ else{
    /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel.jrxml'))->execute();
    print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-   $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"logo" => $logo),$db)->execute();
+   $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
    $file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_excel.xlsx";
 
@@ -749,7 +757,7 @@ else{
   /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.jrxml'))->execute();
   print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-  $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"logo" => $logo),$db)->execute();
+  $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
   $file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.xlsx";
 
@@ -1968,6 +1976,254 @@ public function monthlyTenancyReportPdf(Request $request){
  * Monthly Tenancy Details ends
  *
  */
+
+/*
+ *
+ * MERA Rent Receipt Report starts
+ *
+ */
+
+public function showMeraRentReceiptReport(){
+    $buildings = Building::active()->where('building_name', 'ILIKE', '%-MERA')->orderBy('building_name','asc')->get();
+    return view('backoffice::Reports.mera_rent_receipt_report', compact('buildings'));
+}
+
+public function meraRentReceiptReportDownload(Request $request){
+    $user = Auth::user()->username;
+    $reportMonth = Carbon::createFromFormat('Y-m', $request->report_month);
+    $startDate = $reportMonth->copy()->startOfMonth()->format('Y-m-d');
+    $endDate = $reportMonth->copy()->endOfMonth()->format('Y-m-d');
+    $period = $reportMonth->format('F Y');
+    $buildingIds = $request->building_ids;
+    $downloadType = $request->download_type;
+
+    $logoPath = public_path('img/logo_pdf.jpg');
+    $logoBase64 = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath));
+
+    $files = [];
+    $tempDir = storage_path('app/temp/mera_rent_receipt_' . time());
+    if (!file_exists($tempDir)) {
+        mkdir($tempDir, 0755, true);
+    }
+
+    foreach ($buildingIds as $buildingId) {
+        $rows = DB::select("
+            SELECT b.building_name, rg.receipts_generation_receipt_no AS doc_no,
+                   rg.receipts_generation_receipt_date AS doc_date,
+                   u.unit_no, tc.tenant_contract_rent AS rent,
+                   t.tenant_code, t.tenant_name,
+                   CASE WHEN rg.receipts_generation_payment_method = 1 THEN 'Cheque'
+                        WHEN rg.receipts_generation_payment_method = 3 THEN 'Bank Transfer'
+                        ELSE 'Cash' END AS payment_method,
+                   rg.receipts_generation_cheque_no AS cheque_no,
+                   rg.receipts_generation_eff_from AS eff_from,
+                   rg.receipts_generation_eff_to AS eff_to,
+                   rg.receipts_generation_amt AS amount,
+                   ut.unit_types_name AS unit_type
+            FROM receipts_generation rg
+            LEFT JOIN tenant_contracts tc ON rg.tenant_contract_id = tc.id
+            LEFT JOIN tenant t ON tc.tenant_id = t.id
+            LEFT JOIN units u ON tc.unit_id = u.id
+            LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+            LEFT JOIN buildings b ON u.building_id = b.id
+            WHERE rg.receipts_generation_status <> 2
+              AND rg.receipts_generation_receipt_date BETWEEN ? AND ?
+              AND rg.receipts_generation_type = '0'
+              AND rg.deleted_at IS NULL
+              AND b.id = ?
+            ORDER BY u.unit_no
+        ", [$startDate, $endDate, $buildingId]);
+
+        $buildingName = count($rows) > 0 ? $rows[0]->building_name : Building::find($buildingId)->building_name;
+        $safeName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $buildingName);
+        $monthName = $reportMonth->format('F');
+        $year = $reportMonth->format('Y');
+
+        $data = [
+            'rows' => $rows,
+            'buildingName' => $buildingName,
+            'period' => $period,
+            'user' => $user,
+            'logo' => $logoBase64,
+        ];
+
+        if ($downloadType == 'pdf') {
+            $fileName = $safeName . '_' . $monthName . '_' . $year . '.pdf';
+            $pdf = \PDF::loadView('backoffice::Reports.mera_rent_receipt_pdf', $data)
+                        ->setPaper('a4', 'landscape');
+            $filePath = $tempDir . '/' . $fileName;
+            $pdf->save($filePath);
+        } else {
+            $fileName = $safeName . '_' . $monthName . '_' . $year . '.xlsx';
+            $filePath = $tempDir . '/' . $fileName;
+            $content = \Excel::raw(new MeraRentReceiptReportExport($data), \Maatwebsite\Excel\Excel::XLSX);
+            file_put_contents($filePath, $content);
+        }
+
+        $files[] = ['path' => $filePath, 'name' => $fileName];
+    }
+
+    // If only 1 building, return file directly
+    if (count($files) === 1) {
+        $file = $files[0];
+        return response()->download($file['path'], $file['name'])->deleteFileAfterSend(true);
+    }
+
+    // Multiple buildings: create ZIP
+    $zipFileName = 'MERA_Rent_Receipt_' . $reportMonth->format('F_Y') . '.zip';
+    $zipPath = $tempDir . '/' . $zipFileName;
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath, ZipArchive::CREATE) === true) {
+        foreach ($files as $file) {
+            $zip->addFile($file['path'], $file['name']);
+        }
+        $zip->close();
+    }
+
+    // Cleanup individual files after zipping
+    foreach ($files as $file) {
+        if (file_exists($file['path'])) {
+            unlink($file['path']);
+        }
+    }
+
+    return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+}
+
+/*
+ *
+ * MERA Rent Receipt Report ends
+ *
+ */
+
+/*
+ * Leasing Consultant Performance Dashboard
+ */
+
+public function showLeasingConsultantPerformance()
+{
+    return view('backoffice::Reports.leasing_consultant_performance');
+}
+
+public function leasingConsultantPerformanceData(Request $request)
+{
+    $period = $request->get('period', 'YTD');
+    $year = $request->get('year', date('Y'));
+
+    // Determine date range
+    switch ($period) {
+        case 'Q1':
+            $startDate = "$year-01-01";
+            $endDate = "$year-03-31";
+            break;
+        case 'Q2':
+            $startDate = "$year-04-01";
+            $endDate = "$year-06-30";
+            break;
+        case 'Q3':
+            $startDate = "$year-07-01";
+            $endDate = "$year-09-30";
+            break;
+        case 'Q4':
+            $startDate = "$year-10-01";
+            $endDate = "$year-12-31";
+            break;
+        case 'Custom':
+            $startDate = $request->get('start_date', "$year-01-01");
+            $endDate = $request->get('end_date', date('Y-m-d'));
+            break;
+        default: // YTD
+            $startDate = "$year-01-01";
+            $endDate = ($year == date('Y')) ? date('Y-m-d') : "$year-12-31";
+            break;
+    }
+
+    $periodLabel = $period === 'Custom'
+        ? Carbon::parse($startDate)->format('d M Y') . ' - ' . Carbon::parse($endDate)->format('d M Y')
+        : $period . ' ' . $year . ' (' . Carbon::parse($startDate)->format('d M') . ' - ' . Carbon::parse($endDate)->format('d M Y') . ')';
+
+    // Base query - using view_tenant_stage with DISTINCT id (matching Jasper report)
+    $contracts = DB::select("
+        SELECT DISTINCT ON (vt.id)
+            vt.id,
+            vt.employee_name,
+            vt.building_name,
+            vt.tenant_contract_rent,
+            vt.tenant_contract_start_date
+        FROM view_tenant_stage vt
+        WHERE vt.work_flow_processes_code = '108'
+          AND vt.sale_work_flow_processes_code = '108'
+          AND vt.sales_enquiry_direct_contract = '1'
+          AND vt.status = '1'
+          AND vt.tenant_contract_start_date BETWEEN ? AND ?
+    ", [$startDate, $endDate]);
+    $contracts = collect($contracts);
+
+    // KPIs
+    $totalUnits = $contracts->count();
+    $totalRent = $contracts->sum('tenant_contract_rent');
+    $avgRent = $totalUnits > 0 ? round($totalRent / $totalUnits) : 0;
+
+    $byEmployee = $contracts->groupBy('employee_name');
+    $employeeUnits = $byEmployee->map(function ($group, $name) {
+        $count = $group->count();
+        $total = round($group->sum('tenant_contract_rent'), 3);
+        return ['name' => $name, 'count' => $count, 'total' => $total, 'avg' => $count > 0 ? round($total / $count) : 0];
+    })->values();
+
+    $topByUnits = $employeeUnits->sortByDesc('count')->first();
+    $topByAmount = $employeeUnits->sortByDesc('total')->first();
+
+    // Leaderboard - top 5 by units
+    $leaderboard = $employeeUnits->sortByDesc('count')->take(5)->values();
+
+    // Rent by employee (all)
+    $rentByEmployee = $employeeUnits->sortByDesc('total')->values();
+
+    // Rent distribution buckets
+    $buckets = [
+        ['bucket' => '≤100', 'min' => 0, 'max' => 100],
+        ['bucket' => '101-150', 'min' => 101, 'max' => 150],
+        ['bucket' => '151-200', 'min' => 151, 'max' => 200],
+        ['bucket' => '201-300', 'min' => 201, 'max' => 300],
+        ['bucket' => '301+', 'min' => 301, 'max' => PHP_INT_MAX],
+    ];
+    $rentDistribution = collect($buckets)->map(function ($b) use ($contracts) {
+        return [
+            'bucket' => $b['bucket'],
+            'count' => $contracts->filter(function ($c) use ($b) {
+                return $c->tenant_contract_rent >= $b['min'] && $c->tenant_contract_rent <= $b['max'];
+            })->count(),
+        ];
+    });
+
+    // Top buildings by units
+    $topBuildings = $contracts->groupBy('building_name')
+        ->map(function ($group, $name) {
+            return ['name' => $name, 'count' => $group->count()];
+        })
+        ->sortByDesc('count')
+        ->take(5)
+        ->values();
+
+    return response()->json([
+        'kpi' => [
+            'totalUnits' => $totalUnits,
+            'totalRent' => round($totalRent, 3),
+            'avgRent' => $avgRent,
+            'topByUnitsName' => $topByUnits ? $topByUnits['name'] : null,
+            'topByUnitsCount' => $topByUnits ? $topByUnits['count'] : null,
+            'topByAmountName' => $topByAmount ? $topByAmount['name'] : null,
+            'topByAmountValue' => $topByAmount ? round($topByAmount['total'], 3) : null,
+        ],
+        'leaderboard' => $leaderboard,
+        'rentByEmployee' => $rentByEmployee,
+        'rentDistribution' => $rentDistribution,
+        'topBuildings' => $topBuildings,
+        'employeeSummary' => $employeeUnits->sortByDesc('count')->values(),
+        'dateRange' => $periodLabel,
+    ]);
+}
 
 
 }

@@ -70,6 +70,20 @@
           </div> 
           <div class="col-sm-6">
               <div class="form-group">
+                <label for="management_type">Management Type</label>
+                <div class="p-relative">
+                 <i class="fa fa-building icn-add" aria-hidden="true"></i>
+                 <select class="form-control" id="management_type" name="management_type">
+                  <option value="">All Management Types</option>
+                  @foreach($managementTypes as $mt)
+                    <option value="{{ $mt->management_types_name }}">{{ $mt->management_types_name }}</option>
+                  @endforeach
+                 </select>
+                </div>
+              </div>
+            </div>
+          <div class="col-sm-6">
+              <div class="form-group">
                 <label for="download_type">Download Type<small class="textRed">*</small>  </label>
                 <div class="p-relative">
                  <i class="fa fa-cubes icn-add" aria-hidden="true"></i>

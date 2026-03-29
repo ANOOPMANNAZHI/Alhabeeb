@@ -9,6 +9,7 @@ use App\Setting;
 use Modules\Maintenance\Http\Controllers\AmcTaskController as Task ;
 use Modules\BackOffice\Http\Controllers\TenantRenewalController as TenantRenewal ;
 use Modules\Sales\Http\Controllers\TenantController as Tenant;
+use Modules\BackOffice\Http\Controllers\PdcController as PdcReminder;
 
 
 class NotificationCommand extends Command
@@ -56,6 +57,10 @@ class NotificationCommand extends Command
         $birthday =  new Tenant;
         $birthday->tenantBirthdayNotification();
         $this->info('Tenant Birthday');
+
+        $pdcReminder =  new PdcReminder;
+        $pdcReminder->pdcExpiryReminderSms();
+        $this->info('PDC Expiry SMS Reminder');
 
         //$reminder =  new Tenant;
         //$reminder->areReminderNotification();

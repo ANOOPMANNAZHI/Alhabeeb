@@ -815,3 +815,13 @@ Breadcrumbs::for('showMonthlyTenancyReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Monthly Tenancy Details', route('showMonthlyTenancyReport'));
 });
+
+Breadcrumbs::for('showMeraRentReceiptReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('MERA Rent Receipt Report', route('showMeraRentReceiptReport'));
+});
+
+Breadcrumbs::for('showLeasingConsultantPerformance', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Leasing Consultant Performance', route('showLeasingConsultantPerformance'));
+});
