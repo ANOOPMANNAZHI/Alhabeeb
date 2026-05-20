@@ -312,5 +312,5 @@ Route::get('unitReportAutocompleteCode', 'MaintenanceReportController@unitReport
 Route::get('showServiceReport', 'MaintenanceReportController@showServiceReport')->name('showServiceReport');
 Route::post('serviceReportPdf', 'MaintenanceReportController@serviceReportPdf')->name('serviceReportPdf');
 Route::get('servicecomplaintReportAutocompleteCode', 'MaintenanceReportController@servicecomplaintReportAutocompleteCode')->name('servicecomplaintReportAutocompleteCode');
-Route::get('servicecomplaintReportNoAutocompleteCode', 'servicecomplaintReportNoAutocompleteCode@servicecomplaintReportNoAutocompleteCode')->name('servicecomplaintReportNoAutocompleteCode');
+Route::get('servicecomplaintReportNoAutocompleteCode', 'MaintenanceReportController@servicecomplaintReportNoAutocompleteCode')->name('servicecomplaintReportNoAutocompleteCode');
 });

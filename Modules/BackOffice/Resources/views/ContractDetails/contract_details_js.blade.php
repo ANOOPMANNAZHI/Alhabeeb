@@ -437,8 +437,8 @@
     	   // $(ths).attr("disabled","true");
 
     	    var building = $("#building_id").val();
-			var unit     = $("#unit_id").val();
-			var tenant   = $("#tenant_id").val();
+			var unit     = $("#unit_id").val() || $("#units_id").val();
+			var tenant   = $("#tenant_id").val() || $("#tenants_id").val();
 			var remark   = $("#remark_sec").val();
 			$("#msg").css("display","block");
 

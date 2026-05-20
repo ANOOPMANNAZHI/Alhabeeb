@@ -23,6 +23,7 @@ use Modules\BackOffice\Emails\ChequeBounceEmail;
 use Modules\BackOffice\Emails\ChequeBounceAreEmail;
 use Modules\BackOffice\Events\ChequeBounceAre;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class PdcController extends Controller
 {
@@ -661,41 +662,64 @@ public function printPreview($contract_id){
    */
   public function pdcExpiryReminderSms()
   {
-      // Run only at 8 AM to avoid duplicate SMS (command runs every minute)
-      if (Carbon::now()->hour != 8) {
+      // TODO: Restore time check after testing
+      if (Carbon::now()->hour != 10 || Carbon::now()->minute != 0) {
           return;
       }
 
-      $reminderDate = Carbon::now()->addDays(5)->format('Y-m-d');
+      Log::info('pdcExpiryReminderSms: Started at ' . Carbon::now()->toDateTimeString());
 
-      // Get rent PDCs (pdc_type=1) with check_date = 5 days from now
-      // that are not cancelled (pdc_is_saved != 2), not cleared, not bounced
-      $pdcs = Pdc::where('pdc_type', 1)
-          ->whereDate('pdc_check_date', $reminderDate)
-          ->where(function($q) {
-              $q->whereNull('pdc_cancel_date')
-                ->whereNull('pdc_clear_date');
-          })
-          ->where(function($q) {
-              $q->where('pdc_is_saved', '!=', 2)
-                ->orWhereNull('pdc_is_saved');
-          })
-          ->with('tenantContractInfo.tenant')
-          ->get();
+      try {
+          $reminderDate = Carbon::now()->addDays(5)->format('Y-m-d');
 
-      foreach ($pdcs as $pdc) {
-          $tenant = $pdc->tenantContractInfo->tenant ?? null;
-          if (!$tenant || empty($tenant->tenant_contact_no)) {
-              continue;
+          // Get rent PDCs (pdc_type=1) with check_date = 5 days from now
+          // that are not cancelled (pdc_is_saved != 2), not cleared, not bounced
+          $pdcs = Pdc::where('pdc_type', 1)
+              ->whereDate('pdc_check_date', $reminderDate)
+              ->where(function($q) {
+                  $q->whereNull('pdc_cancel_date')
+                    ->whereNull('pdc_clear_date');
+              })
+              ->where(function($q) {
+                  $q->where('pdc_is_saved', '!=', 2)
+                    ->orWhereNull('pdc_is_saved');
+              })
+              ->with('tenantContractInfo.tenant')
+              ->get();
+
+          Log::info('pdcExpiryReminderSms: Found ' . $pdcs->count() . ' PDCs for date ' . $reminderDate);
+
+          $sentCount = 0;
+          $failCount = 0;
+
+          foreach ($pdcs as $pdc) {
+              $tenant = $pdc->tenantContractInfo->tenant ?? null;
+              if (!$tenant || empty($tenant->tenant_contact_no)) {
+                  Log::warning('pdcExpiryReminderSms: Skipping PDC #' . $pdc->id . ' - no tenant or contact number');
+                  continue;
+              }
+
+              $amount = number_format($pdc->pdc_amt, 3);
+              $chequeDate = Carbon::parse($pdc->pdc_check_date)->format('d-m-Y');
+              $chequeNo = $pdc->pdc_check_no;
+
+              $msg = "Dear Tenant, your cheque No. {$chequeNo} of amount {$amount} is due on {$chequeDate}. Please ensure sufficient funds are available in your account to avoid penalty charges. - Al Habib";
+
+              $result = sendSms($tenant->tenant_contact_no, $msg, []);
+              if ($result) {
+                  $sentCount++;
+              } else {
+                  $failCount++;
+                  Log::warning('pdcExpiryReminderSms: SMS failed for PDC #' . $pdc->id . ', mobile: ' . $tenant->tenant_contact_no);
+              }
           }
 
-          $amount = number_format($pdc->pdc_amt, 2);
-          $chequeDate = Carbon::parse($pdc->pdc_check_date)->format('d-m-Y');
-          $chequeNo = $pdc->pdc_check_no;
+          Log::info("pdcExpiryReminderSms: Completed. Sent: {$sentCount}, Failed: {$failCount}");
 
-          $msg = "Dear Tenant, your cheque No. {$chequeNo} of amount {$amount} is due on {$chequeDate}. Please ensure sufficient funds are available in your account to avoid penalty charges. - Al Habib";
-
-          sendSms($tenant->tenant_contact_no, $msg, []);
+      } catch (\Exception $e) {
+          Log::error('pdcExpiryReminderSms: Exception - ' . $e->getMessage(), [
+              'trace' => $e->getTraceAsString()
+          ]);
       }
   }
 

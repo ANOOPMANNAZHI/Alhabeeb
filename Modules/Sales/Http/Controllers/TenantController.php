@@ -452,8 +452,11 @@ class TenantController extends Controller
 */
     public function tenantBirthdayNotification()
     {
+      if (Carbon::now()->hour != 10 || Carbon::now()->minute != 0) {
+          return;
+      }
+
       $tenants = Tenant::active()->birthdays()->get();
-   //    dd($tenants);
        foreach ($tenants as $key => $tenant) {
         $tenant_birthday = $tenant->tenant_date_of_birth;
         $tenant->tenant_subject = "Happy Birthday";

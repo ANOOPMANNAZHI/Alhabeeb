@@ -150,10 +150,13 @@ class RoleController extends Controller
                       
         }
     
-      $role->givePermissionTo($request['permissions']); 
-    
-      session()->flash('success', ' Permission Assigned '); 
-      return back();      
+      if (!empty($request['permissions'])) {
+          $role->givePermissionTo($request['permissions']);
+      }
+      app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+      session()->flash('success', ' Permission Assigned ');
+      return back();
 
     }
 

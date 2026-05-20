@@ -412,24 +412,33 @@ function sendSms($mobile,$msg,$params){
 	// 1 - Enable, 2 - Disable
 	if(SMS_ENABLE_DISABLE==2)
 		return false;
-	$http = new GuzzleHttp\Client(['verify'=>false]);
-	$response = $http->post(SMS_URL, [
-	   'json' => [
-		   'UserName' => SMS_USERNAME,
-		   'Password' => SMS_PASSWORD,
-		   'Message' => $msg,
-		   'Priority' => "1",
-		   'SourceRef' => 'PLMS',
-		   'MSISDNs' => $mobile ,                
-		   'Sender' => 'PLMS'                    
-	   ],
-			'http_errors' => false
-	]);
+	try {
+		$http = new GuzzleHttp\Client(['verify'=>false]);
+		$response = $http->post(SMS_URL, [
+		   'json' => [
+			   'UserName' => SMS_USERNAME,
+			   'Password' => SMS_PASSWORD,
+			   'Message' => $msg,
+			   'Priority' => "1",
+			   'SourceRef' => 'PLMS',
+			   'MSISDNs' => $mobile ,
+			   'Sender' => 'PLMS'
+		   ],
+				'http_errors' => false
+		]);
 
+		$res =  json_decode((string) $response->getBody(), true);
 
-	$res =  json_decode((string) $response->getBody(), true);
+		if (!$res || !isset($res['StatusCode'])) {
+			\Log::error('sendSms: Unexpected API response', ['mobile' => $mobile, 'body' => (string) $response->getBody()]);
+			return false;
+		}
 
-	return ($res['StatusCode'] == '00')? true : false ;
+		return ($res['StatusCode'] == '00')? true : false ;
+	} catch (\Exception $e) {
+		\Log::error('sendSms: Exception - ' . $e->getMessage(), ['mobile' => $mobile]);
+		return false;
+	}
 }
 //get total receivables
 

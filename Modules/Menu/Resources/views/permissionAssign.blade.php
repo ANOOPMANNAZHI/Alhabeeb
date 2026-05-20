@@ -23,18 +23,33 @@
 
   @foreach($menu as $menu_val)
 
-
+   @if($menu_val->menutype == 2)
    <div class="col-md-6 block">
-                  
+     <ul class="head-line nested" id="nested">
+       <input class="main-class" type="checkbox" value="" > {{$menu_val->menu_name}}
+       <ul>
+         @foreach($menu_val->permissionList as $val)
+           <ul>
+             <input @if($role->hasPermissionTo($val->name)) {{'checked'}} @endif class="inner-class nested" name="permissions[]" type="checkbox" value="{{$val->name}}" >
+             {{ucwords(str_replace('_', ' ',$val->name))}}
+           </ul>
+         @endforeach
+       </ul>
+     </ul>
+   </div>
+   @else
+   <div class="col-md-6 block">
+
    <ul class="head-line nested" id="nested" > <input class = "main-class" type="checkbox" value="" >    {{$menu_val->menu_name}}
-          
+
     @include('layouts.permission_recursion',['menu_val' => $menu_val,'role'=>$role])
     </ul>
-    </div> 
-    
+    </div>
+   @endif
+
    @if($loop->iteration%3 == 0)
    <div class="clear-fix"></div>
-   @endif 
+   @endif
 
   @endforeach
 
