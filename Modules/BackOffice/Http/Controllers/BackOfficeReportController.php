@@ -21,6 +21,7 @@ use JasperPHP;
 use Modules\BackOffice\Exports\MonthlyTenancyReportExport;
 use Modules\BackOffice\Exports\TenancyDetailsReportExport;
 use Modules\BackOffice\Exports\MeraRentReceiptReportExport;
+use Modules\BackOffice\Exports\TenantReceivableV2Export;
 use Carbon\Carbon;
 use ZipArchive;
 
@@ -1397,6 +1398,242 @@ return redirect()->away($file1);
 /*
  *
  *Tenant receivable as on (Date Range) starts
+ *
+ */
+
+/*
+ *
+ *Tenant receivable v2 starts
+ *
+ */
+public function showtenantReceivablesReportV2(){
+  $managementTypes = ManagementType::active()->get();
+  return view('backoffice::reports.tenant_receivables_report_v2', compact('managementTypes'));
+}
+
+public function tenantReceivablesReportPdfV2(Request $request){
+  $user         = Auth::user()->username;
+  $buildingname = $request['building_name'] ?? '';
+  $buildingno   = $request['building_no'] ?? '';
+  $tenantname   = $request['tenant_name'] ?? '';
+  $managetype   = $request['management_type'] ?? '';
+  $are          = $request['are'] ?? '';
+  $date2        = $request['end_date'];
+  $downloadType = $request['download_type'];
+
+  $logoPath   = public_path('img/logo_pdf.jpg');
+  $logo       = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath));
+
+  $dateOnly = !empty($date2) && empty($buildingname) && empty($buildingno) && empty($tenantname) && empty($managetype) && empty($are);
+
+  if ($dateOnly) {
+    $rows = DB::select("SELECT * FROM tenantrentreceivable_v2(?::date)", [$date2]);
+  } else {
+    $rows = DB::select(
+      "SELECT * FROM tenantrentreceivablecompo_v2(?::date,?,?,?,?,?) ORDER BY buildingname, unit_code",
+      [$date2, $tenantname, $buildingname, $buildingno, $managetype, $are]
+    );
+  }
+
+  $data = [
+    'rows'    => $rows,
+    'date'    => $date2,
+    'user'    => $user,
+    'logo'    => $logo,
+    'filters' => [
+      'building_name'   => $buildingname,
+      'building_no'     => $buildingno,
+      'tenant_name'     => $tenantname,
+      'management_type' => $managetype,
+      'are'             => $are,
+    ],
+  ];
+
+  if ($downloadType == 'pdf') {
+    ini_set('memory_limit', '256M');
+    set_time_limit(300);
+    try {
+      $fmtDate = function($d) { return $d ? date('d/m/Y', strtotime($d)) : ''; };
+
+      require_once base_path('vendor/setasign/fpdf/fpdf.php');
+
+      // Column widths in mm (A3 landscape = 420mm, margins 10 each = 400mm usable)
+      // Arial 6pt ≈ 1.3mm per char. ContName/AREName need extra space for long names.
+      $cols = [
+        'Sl'       => 7,
+        'Tenant'   => 38,
+        'AgrmtNo'  => 26,
+        'Unit'     => 14,
+        'RentPM'   => 18,
+        'From'     => 18,
+        'To'       => 18,
+        'PayMode'  => 20,
+        'LastRecv' => 18,
+        'TotalDue' => 20,
+        'PaidTill' => 18,
+        'AmtRecvd' => 20,
+        'NetAmt'   => 20,
+        'Contact'  => 20,
+        'PDC'      => 10,
+        'ChqClose' => 13,
+        'ContName' => 34,
+        'MgmtType' => 20,
+        'AREName'  => 28,
+      ];
+      $totalW = array_sum($cols); // 390
+
+      // Truncate text to fit cell (Arial 6pt ≈ 1.35mm/char)
+      $fit = function($text, $w) {
+        $max = (int)($w / 1.35);
+        return mb_strlen($text) > $max ? mb_substr($text, 0, $max - 1) . '~' : $text;
+      };
+
+      $pdf = new \FPDF('L', 'mm', 'A3');
+      $pdf->SetAutoPageBreak(true, 10);
+      $pdf->SetMargins(10, 10, 10);
+      $pdf->AddPage();
+      $pdf->SetFont('Arial', '', 8);
+
+      // --- Header ---
+      $pdf->SetFont('Arial', 'B', 14);
+      $pdf->Cell($totalW, 7, 'Rent Receivable as on Date', 0, 1, 'C');
+      $pdf->SetFont('Arial', 'B', 11);
+      $pdf->Cell($totalW, 6, date('d/m/Y', strtotime($date2)), 0, 1, 'C');
+      $pdf->SetFont('Arial', '', 7);
+      $pdf->Cell($totalW, 5, 'Generated: ' . date('d/m/Y H:i') . '   User: ' . $user, 0, 1, 'R');
+
+      $filters = [];
+      if ($buildingname) $filters[] = 'Building: ' . $buildingname;
+      if ($buildingno)   $filters[] = 'Bldg No: '  . $buildingno;
+      if ($tenantname)   $filters[] = 'Tenant: '   . $tenantname;
+      if ($managetype)   $filters[] = 'Mgmt: '     . $managetype;
+      if ($are)          $filters[] = 'ARE: '      . $are;
+      if ($filters) {
+        $pdf->SetFont('Arial', 'B', 7);
+        $pdf->Cell($totalW, 5, implode('   ', $filters), 0, 1, 'L');
+      }
+      $pdf->Ln(1);
+
+      // --- Table header ---
+      $pdf->SetFillColor(4, 93, 194);
+      $pdf->SetTextColor(255, 255, 255);
+      $pdf->SetFont('Arial', 'B', 6);
+      $pdf->SetLineWidth(0.2);
+      foreach ($cols as $label => $w) {
+        $pdf->Cell($w, 6, $label, 1, 0, 'C', true);
+      }
+      $pdf->Ln();
+      $pdf->SetTextColor(0, 0, 0);
+
+      // --- Group rows by building ---
+      $grouped = [];
+      foreach ($rows as $row) {
+        $grouped[$row->buildingname][] = $row;
+      }
+      unset($rows);
+
+      $sl = 0;
+      $grandTotal = $grandAmt = $grandNet = 0;
+      $even = false;
+
+      foreach ($grouped as $buildingName => $buildingRows) {
+        // Building header row
+        $pdf->SetFillColor(160, 201, 242);
+        $pdf->SetFont('Arial', 'B', 7);
+        $pdf->Cell($totalW, 5, $fit($buildingName, $totalW), 1, 1, 'L', true);
+
+        $bTotal = $bAmt = $bNet = 0;
+        $pdf->SetFont('Arial', '', 6);
+
+        foreach ($buildingRows as $row) {
+          $sl++;
+          $bTotal += $row->totaldue        ?? 0;
+          $bAmt   += $row->amount_received ?? 0;
+          $bNet   += $row->netamtdue       ?? 0;
+
+          $even = !$even;
+          if ($even) {
+            $pdf->SetFillColor(220, 235, 245);
+          } else {
+            $pdf->SetFillColor(255, 255, 255);
+          }
+
+          $cells = [
+            'Sl'       => [$sl,                                                          'C'],
+            'Tenant'   => [$fit($row->tenant_name    ?? '', $cols['Tenant']),             'L'],
+            'AgrmtNo'  => [$row->contract_no    ?? '',                                   'C'],
+            'Unit'     => [$row->unit_code       ?? '',                                   'C'],
+            'RentPM'   => [number_format($row->rentper_month ?? 0, 3),                   'R'],
+            'From'     => [$fmtDate($row->start_date),                                   'C'],
+            'To'       => [$fmtDate($row->end_date),                                     'C'],
+            'PayMode'  => [$fit($row->paymentmode ?? '', $cols['PayMode']),               'C'],
+            'LastRecv' => [$fmtDate($row->receipt_date),                                 'C'],
+            'TotalDue' => [number_format($row->totaldue        ?? 0, 3),                 'R'],
+            'PaidTill' => [$fmtDate($row->lastpaid_till),                                    'C'],
+            'AmtRecvd' => [number_format($row->amount_received ?? 0, 3),                   'R'],
+            'NetAmt'   => [number_format($row->netamtdue       ?? 0, 3),                   'R'],
+            'Contact'  => [$row->contact_no     ?? '',                                     'C'],
+            'PDC'      => [$row->pdc             ?? '',                                     'C'],
+            'ChqClose' => [$row->pdc_closed      ?? '',                                     'C'],
+            'ContName' => [$fit($row->contact_person  ?? '', $cols['ContName']),            'L'],
+            'MgmtType' => [$fit($row->management_type ?? '', $cols['MgmtType']),            'C'],
+            'AREName'  => [$fit($row->employee_name   ?? '', $cols['AREName']),             'L'],
+          ];
+          foreach ($cells as $key => [$val, $align]) {
+            $pdf->Cell($cols[$key], 5, $val, 1, 0, $align, true);
+          }
+          $pdf->Ln();
+        }
+
+        // Building subtotal
+        $grandTotal += $bTotal;
+        $grandAmt   += $bAmt;
+        $grandNet   += $bNet;
+
+        $subW = array_sum(array_slice(array_values($cols), 0, 9));
+        $pdf->SetFillColor(232, 244, 252);
+        $pdf->SetFont('Arial', 'B', 6);
+        $pdf->Cell($subW, 5, 'Total :', 1, 0, 'R', true);
+        $pdf->Cell($cols['TotalDue'], 5, number_format($bTotal, 3), 1, 0, 'R', true);
+        $pdf->Cell($cols['PaidTill'], 5, '', 1, 0, 'C', true);
+        $pdf->Cell($cols['AmtRecvd'], 5, number_format($bAmt, 3), 1, 0, 'R', true);
+        $pdf->Cell($cols['NetAmt'],   5, number_format($bNet, 3),  1, 0, 'R', true);
+        $remW = array_sum(array_slice(array_values($cols), 13));
+        $pdf->Cell($remW, 5, '', 1, 1, 'C', true);
+
+        unset($buildingRows);
+      }
+
+      // Grand total
+      $subW = array_sum(array_slice(array_values($cols), 0, 9));
+      $pdf->SetFillColor(197, 220, 237);
+      $pdf->SetFont('Arial', 'B', 7);
+      $pdf->Cell($subW, 6, 'Grand Total :', 1, 0, 'R', true);
+      $pdf->Cell($cols['TotalDue'], 6, number_format($grandTotal, 3), 1, 0, 'R', true);
+      $pdf->Cell($cols['PaidTill'], 6, '', 1, 0, 'C', true);
+      $pdf->Cell($cols['AmtRecvd'], 6, number_format($grandAmt, 3), 1, 0, 'R', true);
+      $pdf->Cell($cols['NetAmt'],   6, number_format($grandNet, 3),  1, 0, 'R', true);
+      $remW = array_sum(array_slice(array_values($cols), 13));
+      $pdf->Cell($remW, 6, '', 1, 1, 'C', true);
+
+      $content = $pdf->Output('S');
+      return response($content, 200, [
+        'Content-Type'        => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="tenant_receivable_v2_' . $date2 . '.pdf"',
+      ]);
+    } catch (\Throwable $e) {
+      return response('PDF Error: ' . $e->getMessage(), 500);
+    }
+  } else {
+    return \Excel::download(
+      new TenantReceivableV2Export($data),
+      'tenant_receivable_v2_' . $date2 . '.xlsx'
+    );
+  }
+}
+/*
+ *
+ *Tenant receivable v2 ends
  *
  */
 

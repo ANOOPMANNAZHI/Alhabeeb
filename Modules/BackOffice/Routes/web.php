@@ -720,6 +720,10 @@ Route::middleware('auth')->group(function () {
 
 	Route::post('tenantReceivablesReportPdf', 'BackOfficeReportController@tenantReceivablesReportPdf')->name('tenantReceivablesReportPdf');
 
+	Route::get('showtenantReceivablesReportV2', 'BackOfficeReportController@showtenantReceivablesReportV2')->name('showtenantReceivablesReportV2');
+
+	Route::post('tenantReceivablesReportPdfV2', 'BackOfficeReportController@tenantReceivablesReportPdfV2')->name('tenantReceivablesReportPdfV2');
+
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 
 	Route::post('chequeReturnReportPdf', 'BackOfficeReportController@chequeReturnReportPdf')->name('chequeReturnReportPdf');

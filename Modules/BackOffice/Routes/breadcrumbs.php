@@ -771,6 +771,11 @@ Breadcrumbs::for('showtenantReceivablesReport', function ($trail) {
     $trail->push('Tenant Receivables',route('showtenantReceivablesReport'));
 });
 
+Breadcrumbs::for('showtenantReceivablesReportV2', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Tenant Receivable v2',route('showtenantReceivablesReportV2'));
+});
+
 Breadcrumbs::for('showchequeReturnReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Cheque Return Statement',route('showchequeReturnReport'));
