@@ -7,7 +7,7 @@ class ExcludeLegalFromTenantReceivableV2 extends Migration
 {
     public function up()
     {
-        // Recreate tenantrentreceivable_v2 excluding open legal contracts
+        // Recreate tenantrentreceivable_v2 excluding all contracts under legal (regardless of status)
         DB::unprepared('
 CREATE OR REPLACE FUNCTION public.tenantrentreceivable_v2(date2 date)
 RETURNS TABLE(
@@ -72,12 +72,11 @@ $func$
         SELECT tc.tenant_contract_no
         FROM legal l
         INNER JOIN tenant_contracts tc ON tc.id = l.tenant_contract_id
-        WHERE l.legal_is_closed = 0
     )
 $func$;
         ');
 
-        // Recreate tenantrentreceivablecompo_v2 excluding open legal contracts
+        // Recreate tenantrentreceivablecompo_v2 excluding all contracts under legal (regardless of status)
         DB::unprepared('
 CREATE OR REPLACE FUNCTION public.tenantrentreceivablecompo_v2(
     date2 date,
@@ -151,7 +150,6 @@ $func$
         SELECT tc.tenant_contract_no
         FROM legal l
         INNER JOIN tenant_contracts tc ON tc.id = l.tenant_contract_id
-        WHERE l.legal_is_closed = 0
     )
 $func$;
         ');
