@@ -57,19 +57,33 @@ Tel:+968 247 00247 | Fax:+968 247 03 666
   </div>
   <div class="item-row">
       <div class="item-full-height"><label>Being: </label>
-	  @if(isset($receiptInfo->receipts_generation_remark))
+      @if(isset($receiptInfo->receipts_generation_is_pdc_bounce_id) && $receiptInfo->receipts_generation_is_pdc_bounce_id)
+        @php
+          $contract   = $receiptInfo->tenantContractInfo;
+          $unitNo     = $contract->Unit->unit_no ?? '';
+          $bldgName   = $contract->building->building_name ?? '';
+          $rent       = $contract->tenant_contract_rent ?? '';
+          $effFrom    = $receiptInfo->receipts_generation_eff_from ? \Carbon\Carbon::parse($receiptInfo->receipts_generation_eff_from)->format('d-m-Y') : '';
+          $effTo      = $receiptInfo->receipts_generation_eff_to   ? \Carbon\Carbon::parse($receiptInfo->receipts_generation_eff_to)->format('d-m-Y')   : '';
+          $beingText  = "RENT FOR UNIT NO. {$unitNo},{$bldgName} FOR {$effFrom} TO {$effTo}@{$rent}/-PM";
+        @endphp
+        {{ $beingText }}
+      @elseif(isset($receiptInfo->receipts_generation_remark))
         {{$receiptInfo->receipts_generation_remark}}
-        @elseif(isset($receiptInfo->receipts_generation_description))
+      @elseif(isset($receiptInfo->receipts_generation_description))
         {{$receiptInfo->receipts_generation_description}}
-        @endif
+      @endif
 		</div></br>
   </div>
   @if(isset($pdcInfo->pdc_check_no))
   <div class="item-row">
       <div class="item-full-height"><label>Comment: </label>
-    
-        {{' Cash/B.T against '.$pdcInfo->bankInfo->bank_code.$pdcInfo->pdc_check_no.' dated '.$pdcInfo->pdc_check_date}}       
-    
+        {{' Cash/B.T against '.$pdcInfo->bankInfo->bank_code.$pdcInfo->pdc_check_no.' dated '.\Carbon\Carbon::parse($pdcInfo->pdc_check_date)->format('Y-m-d')}}
+    </div>
+  </div>
+  <div class="item-row">
+      <div class="item-full-height"><label>Receipt Number for Reference - </label>
+        {{$receiptInfo->receipts_generation_receipt_no}}
     </div>
   </div>
   @endif

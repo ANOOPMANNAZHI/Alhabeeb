@@ -3002,12 +3002,25 @@ public function normalManagementReportV2Generate(Request $request)
                     active_contracts AS (
                         SELECT DISTINCT ON (tc.unit_id)
                             tc.id, tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
+                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+                            td.termination_date AS contract_termination_date
                         FROM tenant_contracts tc
                         JOIN building_units bu ON bu.id = tc.unit_id
+                        LEFT JOIN (
+                            SELECT contract_id, MAX(termination_date) AS termination_date
+                            FROM termination
+                            WHERE termination_date IS NOT NULL
+                            GROUP BY contract_id
+                        ) td ON td.contract_id = tc.id
                         WHERE tc.tenant_contract_start_date <= ?::date
-                          AND (tc.tenant_contract_valid_to_date >= ?::date OR tc.tenant_contract_valid_to_date IS NULL)
-                        ORDER BY tc.unit_id, tc.tenant_contract_start_date DESC
+                          AND (
+                              (tc.tenant_contract_status = 1
+                               AND (tc.tenant_contract_valid_to_date >= ?::date OR tc.tenant_contract_valid_to_date IS NULL))
+                              OR
+                              (tc.tenant_contract_status = 0
+                               AND COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) >= ?::date)
+                          )
+                        ORDER BY tc.unit_id, tc.tenant_contract_status DESC, tc.tenant_contract_start_date DESC
                     ),
                     all_receipts AS (
                         SELECT
@@ -3050,7 +3063,8 @@ public function normalManagementReportV2Generate(Request $request)
                         SELECT DISTINCT tc_oas.unit_id
                         FROM tenant_contracts tc_oas
                         JOIN building_units bu ON bu.id = tc_oas.unit_id
-                        WHERE tc_oas.tenant_contract_start_date <= ?::date
+                        WHERE tc_oas.tenant_contract_status = 1
+                          AND tc_oas.tenant_contract_start_date <= ?::date
                           AND (tc_oas.tenant_contract_valid_to_date >= ?::date OR tc_oas.tenant_contract_valid_to_date IS NULL)
                     )
                     SELECT
@@ -3061,6 +3075,7 @@ public function normalManagementReportV2Generate(Request $request)
                         COALESCE(t.tenant_name, 'VACANT') AS tenant_name,
                         ac.tenant_contract_start_date AS contract_start,
                         ac.tenant_contract_valid_to_date AS contract_end,
+                        ac.contract_termination_date,
                         rr.rent_recd_upto,
                         pt.paid_through,
                         COALESCE(ac.tenant_contract_rent, 0) AS rent_per_month,
@@ -3079,7 +3094,8 @@ public function normalManagementReportV2Generate(Request $request)
                 ", [
                     $building->id,  // building_units: building_id
                     $endDate,       // active_contracts: start_date <=
-                    $startDate,     // active_contracts: valid_to >=
+                    $startDate,     // active_contracts status=1: valid_to >=
+                    $startDate,     // active_contracts status=0: effective_end >=
                     $endDate,       // all_receipts: receipt_date <=
                     $endDate,       // rent_recd: eff_to <=
                     $endDate,       // paid_thru: eff_from <=
@@ -3111,6 +3127,23 @@ public function normalManagementReportV2Generate(Request $request)
                             $unit->rent_per_month = $rent;
                             $unit->income_amount  = $rent;
                             // collection = actual cash received, never capped by prorated rent
+                        }
+                    }
+
+                    // Prorate rent/income for contracts terminated mid-month.
+                    // Outstanding = max(0, pro_rated_income - collection) — no rollover for terminated tenants.
+                    if ($rent > 0 && !empty($unit->contract_termination_date)) {
+                        $terminationTs = strtotime($unit->contract_termination_date);
+                        $startDateTs   = strtotime($startDate);
+                        $endDateTs     = strtotime($endDate);
+                        if ($terminationTs >= $startDateTs && $terminationTs < $endDateTs) {
+                            $termDay    = (int)date('j', $terminationTs);
+                            $termDay30  = ($termDay >= (int)date('t', $terminationTs)) ? 30 : min($termDay, 30);
+                            $rent = round($rent * $termDay30 / 30, 2);
+                            $unit->rent_per_month = $rent;
+                            $unit->income_amount  = $rent;
+                            $unit->outstanding_amount = max(0, round($rent - (float)($unit->collection_amount ?? 0), 2));
+                            continue;
                         }
                     }
 
@@ -3173,15 +3206,23 @@ public function normalManagementReportV2Generate(Request $request)
                         LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
                         WHERE u.building_id = ? AND u.unit_status = 1
                     ),
+                    termination_dates AS (
+                        SELECT contract_id, MAX(termination_date) AS termination_date
+                        FROM termination
+                        WHERE termination_date IS NOT NULL
+                        GROUP BY contract_id
+                    ),
                     expired_contracts AS (
-                        SELECT DISTINCT ON (tc.unit_id)
+                        SELECT DISTINCT ON (tc.unit_id, tc.tenant_id)
                             tc.id, tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
+                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+                            COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) AS effective_end_date
                         FROM tenant_contracts tc
                         JOIN building_units bu ON bu.id = tc.unit_id
+                        LEFT JOIN termination_dates td ON td.contract_id = tc.id
                         WHERE tc.tenant_contract_valid_to_date IS NOT NULL
-                          AND tc.tenant_contract_valid_to_date < ?::date
-                        ORDER BY tc.unit_id, tc.tenant_contract_valid_to_date DESC NULLS LAST
+                          AND COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) < ?::date
+                        ORDER BY tc.unit_id, tc.tenant_id, COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) DESC NULLS LAST
                     ),
                     old_receipts AS (
                         SELECT
@@ -3194,8 +3235,9 @@ public function normalManagementReportV2Generate(Request $request)
                         FROM receipts_generation rg
                         JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
                         JOIN building_units bu ON bu.id = tc_r.unit_id
+                        LEFT JOIN termination_dates td ON td.contract_id = tc_r.id
                         WHERE tc_r.tenant_contract_valid_to_date IS NOT NULL
-                          AND tc_r.tenant_contract_valid_to_date < ?::date
+                          AND COALESCE(td.termination_date, tc_r.tenant_contract_valid_to_date) < ?::date
                           AND rg.receipts_generation_status != 2
                           AND rg.deleted_at IS NULL
                           AND rg.receipts_generation_receipt_date::date <= ?::date
@@ -3226,7 +3268,7 @@ public function normalManagementReportV2Generate(Request $request)
                         bu.unit_type,
                         t.tenant_name,
                         ec.tenant_contract_start_date AS contract_start,
-                        ec.tenant_contract_valid_to_date AS contract_end,
+                        ec.effective_end_date AS contract_end,
                         rr.rent_recd_upto,
                         pt.paid_through,
                         COALESCE(ec.tenant_contract_rent, 0) AS rent_per_month,
@@ -3250,12 +3292,20 @@ public function normalManagementReportV2Generate(Request $request)
                         SELECT 1 FROM legal l
                         WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id AND l.legal_is_closed != 2
                     )
-                    AND NOT (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
+                    AND NOT (
+                        (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
+                        AND NOT EXISTS (
+                            SELECT 1 FROM legal l3
+                            WHERE l3.unit_id = bu.id
+                              AND l3.tenant_id = ec.tenant_id
+                              AND l3.legal_is_closed = 2
+                        )
+                    )
                     ORDER BY bu.unit_no
                 ", [
                     $building->id,  // building_units: building_id
-                    $startDate,     // expired_contracts: valid_to < startDate
-                    $startDate,     // old_receipts: tc_r.valid_to < startDate
+                    $startDate,     // expired_contracts: effective_end_date < startDate
+                    $startDate,     // old_receipts: effective_end_date < startDate
                     $endDate,       // old_receipts: receipt_date <=
                     $endDate,       // rent_recd_old: eff_from <=
                     $endDate,       // paid_thru_old: eff_from <=
@@ -3360,6 +3410,12 @@ public function normalManagementReportV2Generate(Request $request)
                               JOIN units u2 ON u2.id = l2.unit_id
                               WHERE u2.building_id = ? AND l2.legal_is_closed != 2
                                 AND l2.tenant_contract_id IS NOT NULL
+                          )
+                          AND NOT EXISTS (
+                              SELECT 1 FROM legal l3
+                              WHERE l3.unit_id = tc.unit_id
+                                AND l3.tenant_id = tc.tenant_id
+                                AND l3.legal_is_closed = 2
                           )
                     ),
                     latest_expired AS (
@@ -3764,11 +3820,24 @@ public function normalManagementReportV2Stream(Request $request)
                     active_contracts AS (
                         SELECT DISTINCT ON (tc.unit_id)
                             tc.id, tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
+                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+                            td.termination_date AS contract_termination_date
                         FROM tenant_contracts tc JOIN building_units bu ON bu.id = tc.unit_id
+                        LEFT JOIN (
+                            SELECT contract_id, MAX(termination_date) AS termination_date
+                            FROM termination
+                            WHERE termination_date IS NOT NULL
+                            GROUP BY contract_id
+                        ) td ON td.contract_id = tc.id
                         WHERE tc.tenant_contract_start_date <= ?::date
-                          AND (tc.tenant_contract_valid_to_date >= ?::date OR tc.tenant_contract_valid_to_date IS NULL)
-                        ORDER BY tc.unit_id, tc.tenant_contract_start_date DESC
+                          AND (
+                              (tc.tenant_contract_status = 1
+                               AND (tc.tenant_contract_valid_to_date >= ?::date OR tc.tenant_contract_valid_to_date IS NULL))
+                              OR
+                              (tc.tenant_contract_status = 0
+                               AND COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) >= ?::date)
+                          )
+                        ORDER BY tc.unit_id, tc.tenant_contract_status DESC, tc.tenant_contract_start_date DESC
                     ),
                     all_receipts AS (
                         SELECT tc_r.unit_id, tc_r.tenant_id,
@@ -3803,13 +3872,15 @@ public function normalManagementReportV2Stream(Request $request)
                     occ_at_start AS (
                         SELECT DISTINCT tc_oas.unit_id
                         FROM tenant_contracts tc_oas JOIN building_units bu ON bu.id = tc_oas.unit_id
-                        WHERE tc_oas.tenant_contract_start_date <= ?::date
+                        WHERE tc_oas.tenant_contract_status = 1
+                          AND tc_oas.tenant_contract_start_date <= ?::date
                           AND (tc_oas.tenant_contract_valid_to_date >= ?::date OR tc_oas.tenant_contract_valid_to_date IS NULL)
                     )
                     SELECT bu.id AS unit_id, ac.id AS contract_id, bu.unit_no, bu.unit_type,
                         COALESCE(t.tenant_name, 'VACANT') AS tenant_name,
                         ac.tenant_contract_start_date AS contract_start,
                         ac.tenant_contract_valid_to_date AS contract_end,
+                        ac.contract_termination_date,
                         rr.rent_recd_upto, pt.paid_through,
                         COALESCE(ac.tenant_contract_rent, 0) AS rent_per_month,
                         CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.collection_amount, 0) ELSE 0 END AS collection_amount,
@@ -3824,7 +3895,7 @@ public function normalManagementReportV2Stream(Request $request)
                     LEFT JOIN monthly_col mc ON mc.unit_id = bu.id AND mc.tenant_id = ac.tenant_id
                     LEFT JOIN occ_at_start os ON os.unit_id = bu.id
                     ORDER BY bu.unit_no
-                ", [$building->id, $endDate, $startDate, $endDate, $endDate, $endDate, $startDate, $startDate, $startDate]);
+                ", [$building->id, $endDate, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $startDate, $startDate]);
 
                 foreach ($units as &$unit) {
                     $rent  = (float) ($unit->rent_per_month ?? 0);
@@ -3839,6 +3910,22 @@ public function normalManagementReportV2Stream(Request $request)
                             $rent = round($rent * $proratedDays / 30, 2);
                             $unit->rent_per_month = $rent;
                             $unit->income_amount  = $rent;
+                        }
+                    }
+                    // Prorate rent/income for contracts terminated mid-month.
+                    // Outstanding = max(0, pro_rated_income - collection) — no rollover for terminated tenants.
+                    if ($rent > 0 && !empty($unit->contract_termination_date)) {
+                        $terminationTs = strtotime($unit->contract_termination_date);
+                        $startDateTs   = strtotime($startDate);
+                        $endDateTs     = strtotime($endDate);
+                        if ($terminationTs >= $startDateTs && $terminationTs < $endDateTs) {
+                            $termDay    = (int) date('j', $terminationTs);
+                            $termDay30  = ($termDay >= (int) date('t', $terminationTs)) ? 30 : min($termDay, 30);
+                            $rent = round($rent * $termDay30 / 30, 2);
+                            $unit->rent_per_month = $rent;
+                            $unit->income_amount  = $rent;
+                            $unit->outstanding_amount = max(0, round($rent - (float) ($unit->collection_amount ?? 0), 2));
+                            continue;
                         }
                     }
                     if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
@@ -3867,13 +3954,22 @@ public function normalManagementReportV2Stream(Request $request)
                         FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
                         WHERE u.building_id = ? AND u.unit_status = 1
                     ),
+                    termination_dates AS (
+                        SELECT contract_id, MAX(termination_date) AS termination_date
+                        FROM termination
+                        WHERE termination_date IS NOT NULL
+                        GROUP BY contract_id
+                    ),
                     expired_contracts AS (
-                        SELECT DISTINCT ON (tc.unit_id)
+                        SELECT DISTINCT ON (tc.unit_id, tc.tenant_id)
                             tc.id, tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
+                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+                            COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) AS effective_end_date
                         FROM tenant_contracts tc JOIN building_units bu ON bu.id = tc.unit_id
-                        WHERE tc.tenant_contract_valid_to_date IS NOT NULL AND tc.tenant_contract_valid_to_date < ?::date
-                        ORDER BY tc.unit_id, tc.tenant_contract_valid_to_date DESC NULLS LAST
+                        LEFT JOIN termination_dates td ON td.contract_id = tc.id
+                        WHERE tc.tenant_contract_valid_to_date IS NOT NULL
+                          AND COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) < ?::date
+                        ORDER BY tc.unit_id, tc.tenant_id, COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) DESC NULLS LAST
                     ),
                     old_receipts AS (
                         SELECT tc_r.unit_id, tc_r.tenant_id,
@@ -3882,7 +3978,9 @@ public function normalManagementReportV2Stream(Request $request)
                         FROM receipts_generation rg
                         JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
                         JOIN building_units bu ON bu.id = tc_r.unit_id
-                        WHERE tc_r.tenant_contract_valid_to_date IS NOT NULL AND tc_r.tenant_contract_valid_to_date < ?::date
+                        LEFT JOIN termination_dates td ON td.contract_id = tc_r.id
+                        WHERE tc_r.tenant_contract_valid_to_date IS NOT NULL
+                          AND COALESCE(td.termination_date, tc_r.tenant_contract_valid_to_date) < ?::date
                           AND rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
                           AND rg.receipts_generation_receipt_date::date <= ?::date
                     ),
@@ -3907,7 +4005,7 @@ public function normalManagementReportV2Stream(Request $request)
                     )
                     SELECT bu.unit_no, bu.unit_type, t.tenant_name,
                         ec.tenant_contract_start_date AS contract_start,
-                        ec.tenant_contract_valid_to_date AS contract_end,
+                        ec.effective_end_date AS contract_end,
                         rr.rent_recd_upto, pt.paid_through,
                         COALESCE(ec.tenant_contract_rent, 0) AS rent_per_month,
                         COALESCE(mc.collection_amount, 0) AS collection_amount,
@@ -3928,7 +4026,15 @@ public function normalManagementReportV2Stream(Request $request)
                         SELECT 1 FROM legal l
                         WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id AND l.legal_is_closed != 2
                     )
-                    AND NOT (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
+                    AND NOT (
+                        (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
+                        AND NOT EXISTS (
+                            SELECT 1 FROM legal l3
+                            WHERE l3.unit_id = bu.id
+                              AND l3.tenant_id = ec.tenant_id
+                              AND l3.legal_is_closed = 2
+                        )
+                    )
                     ORDER BY bu.unit_no
                 ", [$building->id, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $endDate, $startDate]);
 
@@ -3984,6 +4090,12 @@ public function normalManagementReportV2Stream(Request $request)
                               JOIN units u2 ON u2.id = l2.unit_id
                               WHERE u2.building_id = ? AND l2.legal_is_closed != 2
                                 AND l2.tenant_contract_id IS NOT NULL
+                          )
+                          AND NOT EXISTS (
+                              SELECT 1 FROM legal l3
+                              WHERE l3.unit_id = tc.unit_id
+                                AND l3.tenant_id = tc.tenant_id
+                                AND l3.legal_is_closed = 2
                           )
                     ),
                     latest_expired AS (

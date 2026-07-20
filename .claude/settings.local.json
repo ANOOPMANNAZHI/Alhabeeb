@@ -43,7 +43,12 @@
       "Bash(PGPASSWORD=123456 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h 127.0.0.1 -U postgres -d plms_live -c \"\\\\dt *pdc*\")",
       "Bash(PGPASSWORD=123456 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h 127.0.0.1 -U postgres -d plms_live -c \"\\\\d landlord_contract\")",
       "Bash(PGPASSWORD=123456 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h 127.0.0.1 -U postgres -d plms_live -c \"\\\\d tenant_contracts\")",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(PGPASSWORD=123456 C:/laragon/bin/postgresql/pgsql-17.4/bin/psql.exe:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(PGPASSWORD=postgres /c/Program Files/PostgreSQL/18/bin/psql.exe:*)",
+      "Bash(PGPASSWORD=123456 \"/c/Program Files/PostgreSQL/18/bin/pg_dump.exe\" -h 127.0.0.1 -p 5432 -U postgres --data-only --disable-triggers -t menu -t permissions -t roles -t role_has_permissions -t model_has_roles -t model_has_permissions plms_live)",
+      "Bash(PGPASSWORD=123456 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h 127.0.0.1 -p 5432 -U postgres -d plms_new)"
     ]
   }
 }

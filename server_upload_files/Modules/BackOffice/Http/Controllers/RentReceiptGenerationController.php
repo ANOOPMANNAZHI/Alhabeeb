@@ -2171,20 +2171,20 @@ $receiptslist = ViewReceipt::filter($request)
 	$pdcInfo =null;
 	
     $receiptId = $request->id;
-    $receiptInfo = ReceiptsGeneration::where('id',$receiptId)->first();
-    
+    $receiptInfo = ReceiptsGeneration::with('tenantContractInfo.Unit', 'tenantContractInfo.building')->where('id',$receiptId)->first();
+
     $numberSplit = explode('.', $receiptInfo->receipts_generation_amt);
-   
+
     $decimalPart = isset($numberSplit[1])?$numberSplit[1].'/1000':'XXX /1000';
 
     $inWords = numberToWords($numberSplit[0]).' And '.$decimalPart
     ;
 	if(isset($receiptInfo->receipts_generation_is_pdc_bounce_id))
        $pdcInfo= Pdc::where('id',$receiptInfo->receipts_generation_is_pdc_bounce_id)->first();
-    
-    return view('backoffice::Receipt.print_view',compact('receiptInfo','inWords','pdcInfo')); 
+
+    return view('backoffice::Receipt.print_view',compact('receiptInfo','inWords','pdcInfo'));
   }
-    /*	
+    /*
 	*   Receipt no generation For cash & 	
 	*   Cheque	
 	*/	
