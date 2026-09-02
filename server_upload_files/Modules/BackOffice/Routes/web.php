@@ -755,6 +755,10 @@ Route::middleware('auth')->group(function () {
 
 	Route::post('meraRentReceiptReportDownload', 'BackOfficeReportController@meraRentReceiptReportDownload')->name('meraRentReceiptReportDownload');
 
+	Route::get('showtenancyDetailsMeraReport', 'BackOfficeReportController@showtenancyDetailsMeraReport')->name('showtenancyDetailsMeraReport');
+
+	Route::post('tenancyDetailsMeraReportDownload', 'BackOfficeReportController@tenancyDetailsMeraReportDownload')->name('tenancyDetailsMeraReportDownload');
+
 	Route::get('showLeasingConsultantPerformance', 'BackOfficeReportController@showLeasingConsultantPerformance')->name('showLeasingConsultantPerformance');
 	Route::get('leasingConsultantPerformanceData', 'BackOfficeReportController@leasingConsultantPerformanceData')->name('leasingConsultantPerformanceData');
 

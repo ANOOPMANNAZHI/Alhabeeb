@@ -836,6 +836,11 @@ Breadcrumbs::for('showMeraRentReceiptReport', function ($trail) {
     $trail->push('MERA Rent Receipt Report', route('showMeraRentReceiptReport'));
 });
 
+Breadcrumbs::for('showtenancyDetailsMeraReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Tenancy Details MERA', route('showtenancyDetailsMeraReport'));
+});
+
 Breadcrumbs::for('showLeasingConsultantPerformance', function ($trail) {
     $trail->parent('home');
     $trail->push('Leasing Consultant Performance', route('showLeasingConsultantPerformance'));

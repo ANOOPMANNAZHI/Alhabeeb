@@ -73,17 +73,12 @@ Tel:+968 247 00247 | Fax:+968 247 03 666
       @elseif(isset($receiptInfo->receipts_generation_description))
         {{$receiptInfo->receipts_generation_description}}
       @endif
-		</div></br>
+		</div>
   </div>
   @if(isset($pdcInfo->pdc_check_no))
   <div class="item-row">
       <div class="item-full-height"><label>Comment: </label>
         {{' Cash/B.T against '.$pdcInfo->bankInfo->bank_code.$pdcInfo->pdc_check_no.' dated '.\Carbon\Carbon::parse($pdcInfo->pdc_check_date)->format('Y-m-d')}}
-    </div>
-  </div>
-  <div class="item-row">
-      <div class="item-full-height"><label>Receipt Number for Reference - </label>
-        {{$receiptInfo->receipts_generation_receipt_no}}
     </div>
   </div>
   @endif

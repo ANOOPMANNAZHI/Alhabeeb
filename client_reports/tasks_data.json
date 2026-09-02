@@ -1,0 +1,87 @@
+[
+    {
+        "date": "2026-09-02",
+        "module": "BackOffice - Contract Details",
+        "description": "Fixed unit selection on Contract Details screen: the currently active tenant now displays first in the tenant list and is auto-selected by default, with contract details loading automatically below. Previously, when a unit had multiple past/current tenants, none was auto-selected and details did not load.",
+        "files": [
+            "Modules/BackOffice/Http/Controllers/TenantContractDetailsController.php",
+            "Modules/BackOffice/Resources/views/ContractDetails/contract_details_js.blade.php"
+        ],
+        "status": "Completed",
+        "remarks": "Verified in browser on a unit with multiple tenants (past + active)."
+    },
+    {
+        "date": "2026-09-02",
+        "module": "BackOffice - Reports (Tenancy Details MERA)",
+        "description": "New 'Tenancy Details MERA' report: lists all buildings registered under MERA, lets the user select one or more buildings and download a per-building Tenancy Details report (unit, tenant, rent, contract dates, vacancy status, payment method, assigned employee, etc.) as PDF or Excel; multiple buildings are bundled into a ZIP. Added as a new menu item under Reports with its own permission.",
+        "files": [
+            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (showtenancyDetailsMeraReport, tenancyDetailsMeraReportDownload)",
+            "Modules/BackOffice/Resources/views/Reports/tenancy_details_mera_report.blade.php",
+            "Modules/BackOffice/Routes/web.php",
+            "Modules/BackOffice/Routes/breadcrumbs.php",
+            "database/migrations/2026_08_15_000001_add_tenancy_details_mera_report_menu.php",
+            "tenancy_details_mera_report_menu.sql (manual DB script alternative to the migration)"
+        ],
+        "status": "In Progress",
+        "remarks": "Code complete and staged in server_upload_files/ for deployment. Pending: run the menu migration/SQL on the production database and verify the report end-to-end on the live server."
+    },
+    {
+        "date": "2026-09-02",
+        "module": "BackOffice - Reports (Tenancy Details / MERA)",
+        "description": "Fixed incorrect 'Total Rent' figure on the Tenancy Details report (also affects the Tenancy Details MERA report, which reuses the same logic). The total was summing rent from every row returned for a building, including historical/terminated contract rows kept on screen for reference on now-vacant units. This inflated the total (e.g. Karama Bldg showed 6045.00 instead of the correct 3675.00). Total Rent is now summed only from currently occupied units.",
+        "files": [
+            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (tenancyDetailsReportPdf, tenancyDetailsMeraReportDownload)",
+            "server_upload_files/Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (mirrored fix in the deployment-staging copy)"
+        ],
+        "status": "Completed",
+        "remarks": "Verified by replaying the report's SQL for Karama Bldg: occupied-only rows sum to 3675.00, matching the client's manual calculation."
+    },
+    {
+        "date": "2026-09-02",
+        "module": "Masters - Reports (Report on Vacant Unit)",
+        "description": "Fixed incorrect 'Rent (Per Month)' figure on the Report on Vacant Unit for units that had more than one terminated contract in their history. The database function picked the last contract's rent using an independent MAX(tenant_contract_rent) grouped by unit, unrelated to which contract actually had the latest termination date - so it could show rent from an old, unrelated tenancy instead of the most recent one (e.g. Al Khuwair House unit 33 showed 300.000 instead of the correct 225.000). Rent is now taken from the same contract row as the latest termination date.",
+        "files": [
+            "Postgres functions public.vacant_unit_date() and public.vacant_unit_compo() (used by Modules/Masters/Http/Controllers/MasterReportController.php: showVacantUnitReport, vacantUnitReportPdf)",
+            "database/migrations/2026_09_02_000000_fix_vacant_unit_report_rent_functions.php",
+            "server_upload_files/fix_vacant_unit_report_rent_functions.sql (manual DB script alternative to the migration)"
+        ],
+        "status": "Completed",
+        "remarks": "Verified on Al Khuwair House unit 33: rent now correctly shows 225.000 (from the contract terminated 2026-06-30) instead of 300.000 (from an unrelated contract terminated in 2020). Confirmed no change in total row count (389 vacant units) and the management-type-filtered report path also fixed."
+    },
+    {
+        "date": "2026-09-02",
+        "module": "BackOffice - Reports (Tenancy Details / MERA)",
+        "description": "Fixed a unit going missing entirely from the Tenancy Details report. Matar Al Kadeem Bldg-MERA, Unit 51 was marked occupied but its previous contract had expired and its renewal contract was still pending approval (not yet active) - a gap state the report's query did not account for, so the unit was silently dropped instead of appearing. Added a 4th case to the report query: an occupied unit with no currently-active contract now shows using its latest contract on file (e.g. the pending renewal), so it no longer disappears.",
+        "files": [
+            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (tenancyDetailsReportPdf, tenancyDetailsMeraReportDownload)",
+            "server_upload_files/Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (mirrored fix in the deployment-staging copy)"
+        ],
+        "status": "Completed",
+        "remarks": "Verified Unit 51 now appears (pending renewal contract TAG2601880, rent 200.000) with no duplicate rows for the building. Checked system-wide: only 1 unit was in this gap state, so the fix has a small, well-understood scope."
+    },
+    {
+        "date": "2026-09-02",
+        "module": "BackOffice - Reports (Tenancy Details / MERA)",
+        "description": "Added row highlighting on the Tenancy Details / MERA report (PDF and Excel) so units needing attention stand out visually: vacant units stay highlighted red (existing), and the newly-added 'occupied but no active contract / pending renewal' units (see Unit 51 fix above) are now highlighted yellow. A small color-key legend was added below the table in both formats explaining what each color means.",
+        "files": [
+            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (tags each row with 'active'/'pending'/'vacant' via a new row_flag column)",
+            "Modules/BackOffice/Resources/views/Reports/tenancy_details_report_pdf.blade.php",
+            "Modules/BackOffice/Resources/views/Reports/tenancy_details_report_excel.blade.php",
+            "server_upload_files/ (all three files mirrored for deployment)"
+        ],
+        "status": "Completed",
+        "remarks": "Verified row_flag values via SQL for Matar Al Kadeem Bldg-MERA (Unit 51 tagged 'pending', vacant units tagged 'vacant', rest 'active') and confirmed no regressions on Karama Bldg's row count/structure."
+    },
+    {
+        "date": "2026-09-02",
+        "module": "BackOffice - Reports (Tenancy Details MERA)",
+        "description": "Fixed the menu placement logic in the MERA menu setup (migration + manual SQL script). It matched any menu whose name contained 'report', which is ambiguous - the system has multiple 'Reports' menus (one per module) plus similarly-named menus like 'Finance Reports', so it could attach the new menu item under the wrong module (confirmed it was picking 'Finance Reports' instead). Now resolves 'PLM Module' first, then its exact 'Reports' child, so the menu item reliably lands under PLM Module -> Reports.",
+        "files": [
+            "database/migrations/2026_08_15_000001_add_tenancy_details_mera_report_menu.php",
+            "server_upload_files/database/migrations/2026_08_15_000001_add_tenancy_details_mera_report_menu.php (mirrored)",
+            "server_upload_files/tenancy_details_mera_report_menu.sql"
+        ],
+        "status": "Completed",
+        "remarks": "Verified by running the corrected SQL script in a rolled-back test transaction: the new menu now resolves parent_menu=183 ('Reports' under 'PLM Module'), not 'Finance Reports'."
+    }
+]

@@ -1172,7 +1172,8 @@ public function tenancyDetailsReportPdf(Request $request){
              null::date AS termination_date, t.tenant_name,
              CASE WHEN u.unit_vaccant_status = 0 THEN 'Yes' ELSE 'No' END AS vaccant_status,
              pm.payment_method_code, tc.tenant_contract_last_paid_date,
-             t.tenant_contact_no, bt.building_types_name, e.employee_name
+             t.tenant_contact_no, bt.building_types_name, e.employee_name,
+             'active' AS row_flag
       FROM units u
       LEFT JOIN buildings b ON b.id = u.building_id
       LEFT JOIN building_types bt ON bt.id = b.building_type_id
@@ -1192,13 +1193,50 @@ public function tenancyDetailsReportPdf(Request $request){
 
       UNION
 
+      -- Occupied units with no currently-active contract (e.g. mid-renewal: previous
+      -- contract expired, replacement contract not yet approved/started). Without this
+      -- branch such units are silently dropped from the report entirely.
+      SELECT * FROM (
+        SELECT DISTINCT ON (u.id) tc.unit_usage, u.unit_vaccant_status, b.building_name, b.building_code,
+               u.unit_no, ut.unit_types_name, tc.tenant_contract_no, tc.tenant_contract_rent,
+               tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+               null::date AS termination_date, t.tenant_name,
+               CASE WHEN u.unit_vaccant_status = 0 THEN 'Yes' ELSE 'No' END AS vaccant_status,
+               pm.payment_method_code, tc.tenant_contract_last_paid_date,
+               t.tenant_contact_no, bt.building_types_name, e.employee_name,
+               'pending' AS row_flag
+        FROM units u
+        LEFT JOIN buildings b ON b.id = u.building_id
+        LEFT JOIN building_types bt ON bt.id = b.building_type_id
+        LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+        LEFT JOIN tenant_contracts tc ON tc.unit_id = u.id
+        LEFT JOIN tenant t ON t.id = tc.tenant_id
+        LEFT JOIN (
+          SELECT pb.building_id, employee_name FROM employees emp
+          LEFT JOIN users us ON emp.id = us.user_type_id
+          LEFT JOIN are_buildings are ON us.id = are.user_id
+          LEFT JOIN preferred_buildings pb ON are.id = pb.are_building_id
+          WHERE pb.assign_to IS NULL
+        ) e ON e.building_id = b.id
+        LEFT JOIN payment_method pm ON tc.tenant_contract_payment_type = pm.payment_method_index
+        WHERE u.unit_vaccant_status IN (1,2) AND u.unit_status = '1' AND now() >= u.created_at
+          AND NOT EXISTS (
+            SELECT 1 FROM tenant_contracts tcx
+            WHERE tcx.unit_id = u.id AND tcx.tenant_contract_status = '1'
+          )
+        ORDER BY u.id, tc.tenant_contract_effective_date DESC NULLS LAST, tc.id DESC
+      ) occ_no_active
+
+      UNION
+
       SELECT DISTINCT tc.unit_usage, u.unit_vaccant_status, b.building_name, b.building_code,
              u.unit_no, ut.unit_types_name, tc.tenant_contract_no, u.unit_base_rent::float,
              tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
              null::date AS termination_date, t.tenant_name,
              CASE WHEN u.unit_vaccant_status = 0 THEN 'Yes' ELSE 'No' END AS vaccant_status,
              pm.payment_method_code, tc.tenant_contract_last_paid_date,
-             t.tenant_contact_no, bt.building_types_name, e.employee_name
+             t.tenant_contact_no, bt.building_types_name, e.employee_name,
+             'vacant' AS row_flag
       FROM units u
       LEFT JOIN buildings b ON b.id = u.building_id
       LEFT JOIN building_types bt ON bt.id = b.building_type_id
@@ -1224,7 +1262,8 @@ public function tenancyDetailsReportPdf(Request $request){
              a.terminationdate AS termination_date, t.tenant_name,
              CASE WHEN u.unit_vaccant_status = 0 THEN 'Yes' ELSE 'No' END AS vaccant_status,
              pm.payment_method_code, tc.tenant_contract_last_paid_date,
-             t.tenant_contact_no, bt.building_types_name, e.employee_name
+             t.tenant_contact_no, bt.building_types_name, e.employee_name,
+             'vacant' AS row_flag
       FROM units u
       LEFT JOIN buildings b ON b.id = u.building_id
       LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
@@ -1261,7 +1300,7 @@ public function tenancyDetailsReportPdf(Request $request){
   $totalUnits   = $collection->count();
   $occupiedCount = $collection->where('unit_vaccant_status', '!=', 0)->count();
   $vacantCount  = $collection->where('unit_vaccant_status', 0)->count();
-  $totalRent    = $collection->sum(function($row){
+  $totalRent    = $collection->where('unit_vaccant_status', '!=', 0)->sum(function($row){
     return (float)$row->tenant_contract_rent;
   });
 
@@ -1279,7 +1318,254 @@ public function tenancyDetailsReportPdf(Request $request){
   }
 }
 
+/*
+ *
+ *Tenancy Details by Building Wise ends
+ *
+ */
 
+/*
+ *
+ *Tenancy Details MERA starts
+ *
+ */
+
+public function showtenancyDetailsMeraReport(){
+  $buildings = Building::active()->where('building_name', 'ILIKE', '%-MERA')->orderBy('building_name','asc')->get();
+  return view('backoffice::Reports.tenancy_details_mera_report', compact('buildings'));
+}
+
+public function tenancyDetailsMeraReportDownload(Request $request){
+  $user = Auth::user()->username;
+  $buildingIds = $request->building_ids;
+  $downloadType = $request->download_type;
+
+  if(!$buildingIds || !$downloadType){
+    return;
+  }
+
+  $logoPath = public_path('img/logo_pdf.jpg');
+  $logo = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath));
+
+  $files = [];
+  $tempDir = storage_path('app/temp/tenancy_details_mera_' . time());
+  if (!file_exists($tempDir)) {
+    mkdir($tempDir, 0755, true);
+  }
+
+  foreach ($buildingIds as $buildingId) {
+    $building = Building::find($buildingId);
+    if(!$building){
+      continue;
+    }
+    $buildingName = $building->building_name;
+
+    $rows = DB::select("
+      SELECT * FROM (
+        SELECT DISTINCT tc.unit_usage, u.unit_vaccant_status, b.building_name, b.building_code,
+               u.unit_no, ut.unit_types_name, tc.tenant_contract_no, tc.tenant_contract_rent,
+               tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+               null::date AS termination_date, t.tenant_name,
+               CASE WHEN u.unit_vaccant_status = 0 THEN 'Yes' ELSE 'No' END AS vaccant_status,
+               pm.payment_method_code, tc.tenant_contract_last_paid_date,
+               t.tenant_contact_no, bt.building_types_name, e.employee_name,
+               'active' AS row_flag
+        FROM units u
+        LEFT JOIN buildings b ON b.id = u.building_id
+        LEFT JOIN building_types bt ON bt.id = b.building_type_id
+        LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+        LEFT JOIN tenant_contracts tc ON tc.unit_id = u.id
+        LEFT JOIN tenant t ON t.id = tc.tenant_id
+        LEFT JOIN (
+          SELECT pb.building_id, employee_name FROM employees emp
+          LEFT JOIN users us ON emp.id = us.user_type_id
+          LEFT JOIN are_buildings are ON us.id = are.user_id
+          LEFT JOIN preferred_buildings pb ON are.id = pb.are_building_id
+          WHERE pb.assign_to IS NULL
+        ) e ON e.building_id = b.id
+        LEFT JOIN payment_method pm ON tc.tenant_contract_payment_type = pm.payment_method_index
+        WHERE (tc.work_flow_processes_code = '104' OR u.unit_vaccant_status IN (1,2))
+          AND tc.tenant_contract_status = '1' AND u.unit_status = '1' AND now() >= u.created_at
+
+        UNION
+
+        -- Occupied units with no currently-active contract (e.g. mid-renewal: previous
+        -- contract expired, replacement contract not yet approved/started). Without this
+        -- branch such units are silently dropped from the report entirely.
+        SELECT * FROM (
+          SELECT DISTINCT ON (u.id) tc.unit_usage, u.unit_vaccant_status, b.building_name, b.building_code,
+                 u.unit_no, ut.unit_types_name, tc.tenant_contract_no, tc.tenant_contract_rent,
+                 tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+                 null::date AS termination_date, t.tenant_name,
+                 CASE WHEN u.unit_vaccant_status = 0 THEN 'Yes' ELSE 'No' END AS vaccant_status,
+                 pm.payment_method_code, tc.tenant_contract_last_paid_date,
+                 t.tenant_contact_no, bt.building_types_name, e.employee_name,
+                 'pending' AS row_flag
+          FROM units u
+          LEFT JOIN buildings b ON b.id = u.building_id
+          LEFT JOIN building_types bt ON bt.id = b.building_type_id
+          LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+          LEFT JOIN tenant_contracts tc ON tc.unit_id = u.id
+          LEFT JOIN tenant t ON t.id = tc.tenant_id
+          LEFT JOIN (
+            SELECT pb.building_id, employee_name FROM employees emp
+            LEFT JOIN users us ON emp.id = us.user_type_id
+            LEFT JOIN are_buildings are ON us.id = are.user_id
+            LEFT JOIN preferred_buildings pb ON are.id = pb.are_building_id
+            WHERE pb.assign_to IS NULL
+          ) e ON e.building_id = b.id
+          LEFT JOIN payment_method pm ON tc.tenant_contract_payment_type = pm.payment_method_index
+          WHERE u.unit_vaccant_status IN (1,2) AND u.unit_status = '1' AND now() >= u.created_at
+            AND NOT EXISTS (
+              SELECT 1 FROM tenant_contracts tcx
+              WHERE tcx.unit_id = u.id AND tcx.tenant_contract_status = '1'
+            )
+          ORDER BY u.id, tc.tenant_contract_effective_date DESC NULLS LAST, tc.id DESC
+        ) occ_no_active
+
+        UNION
+
+        SELECT DISTINCT tc.unit_usage, u.unit_vaccant_status, b.building_name, b.building_code,
+               u.unit_no, ut.unit_types_name, tc.tenant_contract_no, u.unit_base_rent::float,
+               tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+               null::date AS termination_date, t.tenant_name,
+               CASE WHEN u.unit_vaccant_status = 0 THEN 'Yes' ELSE 'No' END AS vaccant_status,
+               pm.payment_method_code, tc.tenant_contract_last_paid_date,
+               t.tenant_contact_no, bt.building_types_name, e.employee_name,
+               'vacant' AS row_flag
+        FROM units u
+        LEFT JOIN buildings b ON b.id = u.building_id
+        LEFT JOIN building_types bt ON bt.id = b.building_type_id
+        LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+        LEFT JOIN tenant_contracts tc ON tc.unit_id = u.id
+        LEFT JOIN tenant t ON t.id = tc.tenant_id
+        LEFT JOIN (
+          SELECT pb.building_id, employee_name FROM employees emp
+          LEFT JOIN users us ON emp.id = us.user_type_id
+          LEFT JOIN are_buildings are ON us.id = are.user_id
+          LEFT JOIN preferred_buildings pb ON are.id = pb.are_building_id
+          WHERE pb.assign_to IS NULL
+        ) e ON e.building_id = b.id
+        LEFT JOIN payment_method pm ON tc.tenant_contract_payment_type = pm.payment_method_index
+        WHERE u.unit_vaccant_status = '0' AND tc.tenant_contract_no IS NULL
+          AND u.unit_status = '1' AND now() >= u.created_at
+
+        UNION
+
+        SELECT DISTINCT tc.unit_usage, u.unit_vaccant_status, b.building_name, b.building_code,
+               u.unit_no, ut.unit_types_name, a.tenant_contract_no, tc.tenant_contract_rent,
+               tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+               a.terminationdate AS termination_date, t.tenant_name,
+               CASE WHEN u.unit_vaccant_status = 0 THEN 'Yes' ELSE 'No' END AS vaccant_status,
+               pm.payment_method_code, tc.tenant_contract_last_paid_date,
+               t.tenant_contact_no, bt.building_types_name, e.employee_name,
+               'vacant' AS row_flag
+        FROM units u
+        LEFT JOIN buildings b ON b.id = u.building_id
+        LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+        LEFT JOIN building_types bt ON bt.id = b.building_type_id
+        LEFT JOIN (
+          SELECT pb.building_id, employee_name FROM employees emp
+          LEFT JOIN users us ON emp.id = us.user_type_id
+          LEFT JOIN are_buildings are ON us.id = are.user_id
+          LEFT JOIN preferred_buildings pb ON are.id = pb.are_building_id
+          WHERE pb.assign_to IS NULL
+        ) e ON e.building_id = b.id
+        LEFT JOIN (
+          SELECT DISTINCT u.unit_code, MAX(tenant_contract_no) AS tenant_contract_no,
+                 MAX(tr.termination_date) AS terminationdate,
+                 MAX(tc.tenant_contract_valid_from_date) AS contract_start_date
+          FROM units u
+          LEFT JOIN tenant_contracts tc ON tc.unit_id = u.id
+          LEFT JOIN termination tr ON tr.contract_id = tc.id
+          WHERE tenant_contract_status = '0' AND u.unit_vaccant_status = '0' AND u.unit_status = '1'
+          GROUP BY unit_code
+        ) a ON a.unit_code = u.unit_code
+        LEFT JOIN tenant_contracts tc ON tc.tenant_contract_no = a.tenant_contract_no
+        LEFT JOIN payment_method pm ON tc.tenant_contract_payment_type = pm.payment_method_index
+        LEFT JOIN tenant t ON t.id = tc.tenant_id
+        WHERE (tc.work_flow_processes_code = '104' OR u.unit_vaccant_status = '0')
+          AND tc.tenant_contract_status = '0' AND u.unit_status = '1' AND now() >= u.created_at
+        ORDER BY unit_no
+      ) x
+      WHERE building_name = ?
+      ORDER BY building_name, unit_no
+    ", [$buildingName]);
+
+    $collection    = collect($rows);
+    $totalUnits    = $collection->count();
+    $occupiedCount = $collection->where('unit_vaccant_status', '!=', 0)->count();
+    $vacantCount   = $collection->where('unit_vaccant_status', 0)->count();
+    $totalRent     = $collection->where('unit_vaccant_status', '!=', 0)->sum(function($row){
+      return (float)$row->tenant_contract_rent;
+    });
+
+    $data = [
+      'rows'          => $rows,
+      'user'          => $user,
+      'totalUnits'    => $totalUnits,
+      'occupiedCount' => $occupiedCount,
+      'vacantCount'   => $vacantCount,
+      'totalRent'     => $totalRent,
+      'filterLabel'   => 'Building Name',
+      'filterValue'   => $buildingName,
+    ];
+
+    $safeName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $buildingName);
+
+    if($downloadType == 'pdf'){
+      $data['logo'] = $logo;
+      $fileName = 'tenancy_details_' . $safeName . '.pdf';
+      $pdf = \PDF::loadView('backoffice::Reports.tenancy_details_report_pdf', $data)
+                ->setPaper('a4', 'landscape');
+      $filePath = $tempDir . '/' . $fileName;
+      $pdf->save($filePath);
+    } else {
+      $fileName = 'tenancy_details_' . $safeName . '.xlsx';
+      $filePath = $tempDir . '/' . $fileName;
+      $content = \Excel::raw(new TenancyDetailsReportExport($data), \Maatwebsite\Excel\Excel::XLSX);
+      file_put_contents($filePath, $content);
+    }
+
+    $files[] = ['path' => $filePath, 'name' => $fileName];
+  }
+
+  if(empty($files)){
+    return;
+  }
+
+  // If only 1 building, return file directly
+  if (count($files) === 1) {
+    $file = $files[0];
+    return response()->download($file['path'], $file['name'])->deleteFileAfterSend(true);
+  }
+
+  // Multiple buildings: create ZIP
+  $zipFileName = 'Tenancy_Details_MERA_' . time() . '.zip';
+  $zipPath = $tempDir . '/' . $zipFileName;
+  $zip = new ZipArchive();
+  if ($zip->open($zipPath, ZipArchive::CREATE) === true) {
+    foreach ($files as $file) {
+      $zip->addFile($file['path'], $file['name']);
+    }
+    $zip->close();
+  }
+
+  // Cleanup individual files after zipping
+  foreach ($files as $file) {
+    if (file_exists($file['path'])) {
+      unlink($file['path']);
+    }
+  }
+
+  return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+}
+
+/*
+ *
+ *Tenancy Details MERA ends
+ *
+ */
 
 public function tenancyBuildingReportAutocompleteCode(Request $request){
   $key = $request->term;
@@ -2812,8 +3098,20 @@ public function normalManagementReportV2Generate(Request $request)
         $buildings = Building::where('id', $buildingId)->get();
     }
 
-    // Determine which months to populate
-    $monthsToPopulate = ($month === 'all') ? range(1, 12) : [(int)$month];
+    // Determine which months to populate.
+    // For the current year, only populate up to the last completed month.
+    if ($month === 'all') {
+        $currentYear  = (int)date('Y');
+        $currentMonth = (int)date('n');
+        if ($year === $currentYear) {
+            $lastMonth = $currentMonth - 1;
+            $monthsToPopulate = $lastMonth >= 1 ? range(1, $lastMonth) : [];
+        } else {
+            $monthsToPopulate = range(1, 12);
+        }
+    } else {
+        $monthsToPopulate = [(int)$month];
+    }
 
     $tempDir = storage_path('app/temp/normal_mgmt_' . time());
     if (!file_exists($tempDir)) {
@@ -3646,7 +3944,19 @@ public function normalManagementReportV2Stream(Request $request)
     $buildingId       = $request->input('building_id', 'all');
     $month            = $request->input('month', 'all');
     $year             = (int) $request->input('year', date('Y'));
-    $monthsToPopulate = ($month === 'all') ? range(1, 12) : [(int) $month];
+    // For the current year, only populate up to the last completed month.
+    if ($month === 'all') {
+        $currentYear  = (int)date('Y');
+        $currentMonth = (int)date('n');
+        if ($year === $currentYear) {
+            $lastMonth = $currentMonth - 1;
+            $monthsToPopulate = $lastMonth >= 1 ? range(1, $lastMonth) : [];
+        } else {
+            $monthsToPopulate = range(1, 12);
+        }
+    } else {
+        $monthsToPopulate = [(int) $month];
+    }
 
     if ($buildingId === 'all') {
         $buildings = Building::whereIn('id', self::$nmrV2BuildingIds)
