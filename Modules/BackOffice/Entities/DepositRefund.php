@@ -73,18 +73,9 @@ class DepositRefund extends Model
    *
    */
       public function depositRefundDim(){
-
+       
        return $this->hasOne('Modules\BackOffice\Entities\DepositRefundDimension');
-
-     }
-
-      /*
-   * Itemized deductions against the deposit (cleaning, damage, unpaid utility, other)
-   */
-      public function depositRefundDeduction(){
-
-       return $this->hasMany('Modules\BackOffice\Entities\DepositRefundDeduction')->orderBy('id','ASC');
-
+       
      }
  /**
      * Get all of the owning dim1 models.

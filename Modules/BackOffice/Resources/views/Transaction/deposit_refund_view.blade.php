@@ -200,25 +200,8 @@
       <div class="col-lg-6 p-t-20"> 
         <div class = "txt-full-width">
           <h5 class="details"><b>Refund Amount :  </b><span>{{numberFormat($depositRefund->deposit_refund_amt)}} OMR</span></h5>
-          <h5 class="details"><b>Original Deposit Amount :  </b><span>{{numberFormat($depositRefund->receiptGeneration->receipts_generation_amt)}} OMR</span></h5>
-@if(count($depositRefund->depositRefundDeduction) > 0)
-          <table class="table" style="max-width:500px;">
-            <thead>
-              <tr><th>Reason</th><th>Description</th><th class="text-right">Amount</th></tr>
-            </thead>
-            <tbody>
-@foreach($depositRefund->depositRefundDeduction as $deduction)
-              <tr>
-                <td>{{$deduction->deduction_reason}}</td>
-                <td>{{$deduction->description}}</td>
-                <td class="text-right">{{numberFormat($deduction->amount)}}</td>
-              </tr>
-@endforeach
-            </tbody>
-          </table>
-@endif
         </div>
-      </div>
+      </div> 
       @endif
 
       @if(isset($depositRefund->deposit_refund_comment))

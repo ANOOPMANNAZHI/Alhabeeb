@@ -85,78 +85,6 @@ class DepositRefundController extends Controller
     }
 
     /**
-     * Collect the valid deduction line items submitted on the request.
-     * A row is skipped when its reason is blank OR its amount is not
-     * strictly positive — this is the single source of truth for what
-     * counts as a "real" deduction, shared by the calculation and the
-     * persistence helpers below so they can never disagree.
-     *
-     * @return array<int, array{reason:string, description:?string, amount:float}>
-     */
-    private function collectValidDeductionRows(Request $request)
-    {
-      $rows = [];
-      if (empty($request['deduction_reason'])) {
-        return $rows;
-      }
-      foreach ($request['deduction_reason'] as $key => $reason) {
-        if ($reason === null || $reason === '') {
-          continue;
-        }
-        $amount = isset($request['deduction_amount'][$key])
-          ? (float)replaceCommaWithDot($request['deduction_amount'][$key])
-          : 0.0;
-        if ($amount <= 0) {
-          continue;
-        }
-        $rows[] = [
-          'reason'      => $reason,
-          'description' => $request['deduction_description'][$key] ?? null,
-          'amount'      => $amount,
-        ];
-      }
-      return $rows;
-    }
-
-    /**
-     * Compute the original deposit amount, total deductions, and net refund
-     * amount for a Deposit Refund request. The server is the source of
-     * truth for deposit_refund_amt — never trust the client-submitted value.
-     */
-    private function calculateNetDepositRefundAmount(Request $request)
-    {
-      $receipt = ReceiptsGeneration::find($request['receipts_generation_id']);
-      $originalDepositAmt = $receipt ? (float)$receipt->receipts_generation_amt : 0.0;
-
-      $totalDeductions = 0.0;
-      foreach ($this->collectValidDeductionRows($request) as $row) {
-        $totalDeductions += $row['amount'];
-      }
-
-      return [
-        'original_amt'     => $originalDepositAmt,
-        'total_deductions' => $totalDeductions,
-        'net_amt'          => $originalDepositAmt - $totalDeductions,
-      ];
-    }
-
-    /**
-     * Persist submitted deduction line items against a Deposit Refund.
-     * Rows with a blank reason or a non-positive amount are skipped.
-     */
-    private function saveDepositRefundDeductions(DepositRefund $depositRefund, Request $request)
-    {
-      foreach ($this->collectValidDeductionRows($request) as $row) {
-        $depositRefund->depositRefundDeduction()->create([
-          'deduction_reason' => $row['reason'],
-          'description'      => $row['description'],
-          'amount'           => $row['amount'],
-          'created_by'       => \Auth::user()->id,
-        ]);
-      }
-    }
-
-    /**
      * Show the form for creating a new resource.
      * @return Response
      */
@@ -210,7 +138,7 @@ class DepositRefundController extends Controller
         $generateCode = $this->depositRefundCode();
         $nextCode = $generateCode['code'];
       $this->validate($request, [
-        'deposit_refund_no' => 'required',
+        'deposit_refund_no' => 'required',                    
         'deposit_refund_date'   => 'required|date|after:yesterday',
         'tenant_contract_id'   => 'required',
         'receipts_generation_id'   => 'required',
@@ -218,22 +146,7 @@ class DepositRefundController extends Controller
         'deposit_refund_amt'   => 'required',
         'deposit_refund_valid_from'   => 'required',
         'deposit_refund_valid_to'   => 'required',
-        'deduction_reason.*'   => 'nullable|in:Cleaning,Damage,Unpaid Utility,Other',
-        'deduction_amount.*'   => 'nullable|numeric|min:0',
         ]);
-
-      if (!ReceiptsGeneration::find($request['receipts_generation_id'])) {
-        return back()->withInput()->withErrors([
-          'receipts_generation_id' => 'The linked deposit receipt could not be found.',
-        ]);
-      }
-
-      $depositCalc = $this->calculateNetDepositRefundAmount($request);
-      if ($depositCalc['total_deductions'] > $depositCalc['original_amt']) {
-        return back()->withInput()->withErrors([
-          'deduction_amount' => 'Total deductions ('.number_format($depositCalc['total_deductions'], 3).') cannot exceed the original deposit amount ('.number_format($depositCalc['original_amt'], 3).').',
-        ]);
-      }
       if($request['deposit_refund_payment_method'] == 1){
         $cheque_no = $request['deposit_refund_cheque_no'];
       }else{
@@ -248,7 +161,7 @@ class DepositRefundController extends Controller
 			'deposit_refund_payment_method' => $request['deposit_refund_payment_method'],
 			'deposit_refund_cheque_no' => $cheque_no,
 			'bank_id' => $request['bank_id'],
-			'deposit_refund_amt' => $depositCalc['net_amt'],
+			'deposit_refund_amt' => replaceCommaWithDot($request['deposit_refund_amt']),
 			'deposit_refund_valid_from' => $request['deposit_refund_valid_from'],
 			'deposit_refund_valid_to' => $request['deposit_refund_valid_to'],
 			'deposit_refund_comment' => $request['deposit_refund_comment'],
@@ -292,9 +205,6 @@ class DepositRefundController extends Controller
                
           
       }
-
-       $this->saveDepositRefundDeductions($depositRefund, $request);
-
        Setting::where('configuration_settings','general_ledger_prefix')->update(['configuration_increment_value'=> $generateCode['inc'] + 1
         ]);
 
@@ -350,7 +260,7 @@ class DepositRefundController extends Controller
      */
     public function update(Request $request,DepositRefund $depositRefund)
     {
-      $this->validate($request, [
+      $this->validate($request, [                   
         'deposit_refund_date'   => 'required|date',
         'tenant_contract_id'   => 'required',
         'receipts_generation_id'   => 'required',
@@ -358,22 +268,7 @@ class DepositRefundController extends Controller
         'deposit_refund_amt'   => 'required',
         'deposit_refund_valid_from'   => 'required',
         'deposit_refund_valid_to'   => 'required',
-        'deduction_reason.*'   => 'nullable|in:Cleaning,Damage,Unpaid Utility,Other',
-        'deduction_amount.*'   => 'nullable|numeric|min:0',
         ]);
-
-      if (!ReceiptsGeneration::find($request['receipts_generation_id'])) {
-        return back()->withInput()->withErrors([
-          'receipts_generation_id' => 'The linked deposit receipt could not be found.',
-        ]);
-      }
-
-      $depositCalc = $this->calculateNetDepositRefundAmount($request);
-      if ($depositCalc['total_deductions'] > $depositCalc['original_amt']) {
-        return back()->withInput()->withErrors([
-          'deduction_amount' => 'Total deductions ('.number_format($depositCalc['total_deductions'], 3).') cannot exceed the original deposit amount ('.number_format($depositCalc['original_amt'], 3).').',
-        ]);
-      }
       if($request['deposit_refund_payment_method'] == 1){
         $cheque_no = $request['deposit_refund_cheque_no'];
       }else{
@@ -386,7 +281,7 @@ class DepositRefundController extends Controller
         'deposit_refund_payment_method' => $request['deposit_refund_payment_method'],
         'deposit_refund_cheque_no' => $cheque_no,
         'bank_id' => $request['bank_id'],
-        'deposit_refund_amt' => $depositCalc['net_amt'],
+        'deposit_refund_amt' => replaceCommaWithDot($request['deposit_refund_amt']),
         'deposit_refund_valid_from' => $request['deposit_refund_valid_from'],
         'deposit_refund_valid_to' => $request['deposit_refund_valid_to'],
         'deposit_refund_comment' => $request['deposit_refund_comment'],
@@ -400,11 +295,11 @@ class DepositRefundController extends Controller
         ]);
 	
 	  $bankinfo = Bank::Where('id', $request['bank_id'])->first();
-      if(count($request->account_id) > 0){
-
+      if(count($request->account_id) > 0){  
+       
         $depositRefund->depositRefundDimension()->delete();
 
-        foreach ($request->account_id as $key => $value) {
+        foreach ($request->account_id as $key => $value) { 
 
           $acc_code = isset($bankinfo->bank_chequebook_id)?$bankinfo->bank_chequebook_id:0;
           $acc_desc = null;
@@ -428,10 +323,6 @@ class DepositRefundController extends Controller
 
         }
       }
-
-      $depositRefund->depositRefundDeduction()->delete();
-      $this->saveDepositRefundDeductions($depositRefund, $request);
-
       session()->flash('success', 'Deposit Refund Updated Successfully');
       return redirect()->route('depositRefund.index');
     }

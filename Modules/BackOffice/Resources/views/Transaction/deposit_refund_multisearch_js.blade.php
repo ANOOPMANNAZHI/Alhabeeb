@@ -26,10 +26,9 @@ if(receiptNo !=""){
 			$('#first_row1 .debit_amount').val(formatNumber(parseFloat(results[1].receipts_generation_amt).toFixed(3)));
 			$('#first_row1 .credit_amount').val(0); 
 			$('#receipts_generation_id').val(results[1].id);
-			$('#debit_amount_total').val(formatNumber(parseFloat(results[1].receipts_generation_amt).toFixed(3)));
-			$('#deposit_amount_original').val(formatNumber(parseFloat(results[1].receipts_generation_amt).toFixed(3)));
-			recalcNetRefundAmount();
-			$('#debit_amount_first').val(formatNumber(parseFloat(results[1].receipts_generation_amt).toFixed(3)));
+			$('#debit_amount_total').val(formatNumber(parseFloat(results[1].receipts_generation_amt).toFixed(3))); 
+			$('#deposit_refund_amt').val(formatNumber(parseFloat(results[1].receipts_generation_amt).toFixed(3)));
+			$('#debit_amount_first').val(formatNumber(parseFloat(results[1].receipts_generation_amt).toFixed(3))); 
 			$('#credit_amount_first').val(0); 
 			$('#credit_amount_second').val(formatNumber(parseFloat(results[1].receipts_generation_amt).toFixed(3))); 
 			$('#debit_amount_second').val(0); 

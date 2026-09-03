@@ -59,16 +59,7 @@
 </style>
 <form method="post" autocomplete="off" id="payment-form" action="{{isset($depositRefund)? route( 'depositRefund.update',$depositRefund->id) : route( 'depositRefund.store')}}" data-toggle="validator">
   @csrf  @if(isset($depositRefund)){{method_field('PUT')}}@endif
-  @if($errors->any())
-  <div class="alert alert-danger">
-    <ul style="margin-bottom:0;">
-      @foreach($errors->all() as $error)
-      <li>{{$error}}</li>
-      @endforeach
-    </ul>
-  </div>
-  @endif
-  <div class="row">
+  <div class="row">  
 
     <!-- activities -->
     <div class="col-md-12 col-sm-12 dashboardtab">
@@ -288,24 +279,15 @@
 </div>
 <div class="col-sm-6">
   <div class="form-group">
-    <label for="deposit_amount_original">Original Deposit Amount</label>
+    <label for="deposit_refund_amt">Refund Amount<small class="textRed">*</small></label>
     <div class="p-relative">
      <i class="fa fa-money icn-add" aria-hidden="true"></i>
-     <input type="text" class="form-control text-right" id="deposit_amount_original" name="deposit_amount_original" value="{{ old('deposit_amount_original', isset($depositRefund) ? numberFormat($depositRefund->receiptGeneration->receipts_generation_amt) : '' )}}" readonly>
-   </div>
- </div>
-</div>
-<div class="col-sm-6">
-  <div class="form-group">
-    <label for="deposit_refund_amt">Refund Amount (Net of Deductions)<small class="textRed">*</small></label>
-    <div class="p-relative">
-     <i class="fa fa-money icn-add" aria-hidden="true"></i>
-     <input required  type="text" class="form-control allownumericwithdecimal text-right" id="deposit_refund_amt"  name="deposit_refund_amt" value="{{ old('deposit_refund_amt', isset($depositRefund)? numberFormat($depositRefund->deposit_refund_amt) : '' )}}"  placeholder="Enter Refund Amount" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" readonly>
+     <input required  type="text" class="form-control allownumericwithdecimal text-right" id="deposit_refund_amt"  name="deposit_refund_amt" value="{{ old('deposit_refund_amt', isset($depositRefund)? numberFormat($depositRefund->deposit_refund_amt) : '' )}}"  placeholder="Enter Refund Amount" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" onkeyup="FormatCurrency(this)">
      <input type="hidden" name="deposit_refund_amount" id="deposit_refund_amount">
      <div class="error" style="display:none">Should Not Be greater than Refund Amount</div>
    </div>
  </div>
-</div>
+</div> 
 
 
 
@@ -383,95 +365,6 @@
 </div>
 </div>
 
-<div class="sub-head">Deductions</div>
-<div class="row">
-  <div class="col">
-    <div class="dimtablepad">
-      <div class="table-responsive">
-        <table class="table" id="deduction_table" style="border: 1px solid #ccc;">
-          <thead>
-            <tr>
-              <th><a href='#' id="add_deduction" class="add_deduction"><i class="fa fa-plus" aria-hidden="true"></i></a></th>
-              <th>Reason</th>
-              <th>Description</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-          <tbody id="deduction_line_list">
-@if(old('deduction_reason'))
-@foreach(old('deduction_reason') as $key => $oldReason)
-            <tr id="deduction_row{{$key+1}}">
-              <td class="minus">
-                @if($key >= 1)
-                <a href="#" class="remove_deduction"><i class="fa fa-minus" aria-hidden="true"></i></a>
-                @endif
-              </td>
-              <td>
-                <select class="form-control" name="deduction_reason[]">
-                  <option value="">Select Reason</option>
-                  @foreach(['Cleaning', 'Damage', 'Unpaid Utility', 'Other'] as $reason)
-                  <option value="{{$reason}}" {{ $oldReason == $reason ? 'selected' : '' }}>{{$reason}}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td>
-                <input type="text" class="form-control" name="deduction_description[]" value="{{ old('deduction_description')[$key] ?? '' }}" placeholder="Description">
-              </td>
-              <td>
-                <input type="text" onkeyup="FormatCurrency(this); recalcNetRefundAmount();" name="deduction_amount[]" value="{{ old('deduction_amount')[$key] ?? '0.000' }}" class="deduction_amount allownumericwithdecimal" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values">
-              </td>
-            </tr>
-@endforeach
-@elseif(isset($depositRefund) && count($depositRefund->depositRefundDeduction) > 0)
-@foreach($depositRefund->depositRefundDeduction as $key => $deduction)
-            <tr id="deduction_row{{$key+1}}">
-              <td class="minus">
-                @if($key >= 1)
-                <a href="#" class="remove_deduction"><i class="fa fa-minus" aria-hidden="true"></i></a>
-                @endif
-              </td>
-              <td>
-                <select class="form-control" name="deduction_reason[]">
-                  <option value="">Select Reason</option>
-                  @foreach(['Cleaning', 'Damage', 'Unpaid Utility', 'Other'] as $reason)
-                  <option value="{{$reason}}" {{ $deduction->deduction_reason == $reason ? 'selected' : '' }}>{{$reason}}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td>
-                <input type="text" class="form-control" name="deduction_description[]" value="{{$deduction->description}}" placeholder="Description">
-              </td>
-              <td>
-                <input type="text" onkeyup="FormatCurrency(this); recalcNetRefundAmount();" name="deduction_amount[]" value="{{numberFormat($deduction->amount)}}" class="deduction_amount allownumericwithdecimal" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values">
-              </td>
-            </tr>
-@endforeach
-@else
-            <tr id="deduction_row1">
-              <td class="minus"></td>
-              <td>
-                <select class="form-control" name="deduction_reason[]">
-                  <option value="">Select Reason</option>
-                  @foreach(['Cleaning', 'Damage', 'Unpaid Utility', 'Other'] as $reason)
-                  <option value="{{$reason}}">{{$reason}}</option>
-                  @endforeach
-                </select>
-              </td>
-              <td>
-                <input type="text" class="form-control" name="deduction_description[]" value="" placeholder="Description">
-              </td>
-              <td>
-                <input type="text" onkeyup="FormatCurrency(this); recalcNetRefundAmount();" name="deduction_amount[]" value="0.000" class="deduction_amount allownumericwithdecimal" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values">
-              </td>
-            </tr>
-@endif
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-<!--ends -->
 <!--bbbbbbbbbbbbbbbb -->
 <div class="sub-head dimdetail">Dimension Details</div>
 <div class="row">
@@ -643,21 +536,7 @@ $('.submitBtn').prop('disabled', true);
   }
 });
 //AutoComplete For Vendor Name
-/************************************************************/
-function recalcNetRefundAmount(){
-   var original = parseFloat(($('#deposit_amount_original').val() || '0').replace(/,/g, '')) || 0;
-   var totalDeductions = 0;
-   $('.deduction_amount').each(function(){
-     var reason = $(this).closest('tr').find('select[name="deduction_reason[]"]').val();
-     if(!reason){
-       return;
-     }
-     var val = ($(this).val() != '') ? $(this).val().replace(/,/g, '') : 0;
-     totalDeductions = totalDeductions + parseFloat(val);
-   });
-   var net = original - totalDeductions;
-   $('#deposit_refund_amt').val(formatNumber(net.toFixed(3))).trigger('change');
- }
+/************************************************************/ 
 $(document).ready(function() {
  @if($isYearCorrect == false)
       alert("Current Year Is Not Match With the Sequence Year");
@@ -672,10 +551,10 @@ $(document).ready(function() {
   var total = 0;
   $('.'+className).each(function() {
     var this_val = ($(this).val() !=  '')? ($(this).val().replace(/,/g, '')) : 0;
-    total = parseFloat(total) + parseFloat(this_val);
+    total = parseFloat(total) + parseFloat(this_val);     
   });
 
-  $('#'+className+'_total').val(formatNumber(total.toFixed(3)));
+  $('#'+className+'_total').val(formatNumber(total.toFixed(3)));   
 }
 
 
@@ -801,30 +680,6 @@ $(document).on("click",".remove_details",function(event) {
       
 });
 /************ End Remove Line Item  *******/
-/*--------------Add Deduction Row ---------------*/
-$('.add_deduction').click(function(event){
-  event.preventDefault();
-  var $tr = $('tr[id^="deduction_row"]:last');
-  var num = parseInt($tr.prop("id").match(/\d+/g), 10) + 1;
-  var new_row = $tr.clone().prop('id', 'deduction_row' + num);
-  new_row.find(".minus").html('<a href="#" class="remove_deduction"><i class="fa fa-minus" aria-hidden="true"></i></a>');
-  new_row.find("select").val("");
-  new_row.find("input:text").val("0.000");
-  new_row.find("input[name='deduction_description[]']").val("");
-  new_row.appendTo('#deduction_line_list');
-});
-/*--------------Remove Deduction Row ---------------*/
-$(document).on("click", ".remove_deduction", function(event) {
-  event.preventDefault();
-  var tr_count = $(this).closest('tbody').find('tr').length;
-  if (tr_count > 1) {
-    $(this).closest('tr').remove();
-  }
-  recalcNetRefundAmount();
-});
-$(document).on("change", ".deduction_amount", function(){
-  recalcNetRefundAmount();
-});
 @if(!isset($depositRefund))
 if ($("#chkYes").is(":checked")) {
 
@@ -1113,8 +968,7 @@ $(document).on("change",'#deposit_refund_amt',function(event){
      $('#tenant_name').val(ui.item.tenant_name); 
      $('#tenant_code').val(ui.item.tenant_code);
      $('#tenant_contract_no').val(ui.item.tenant_contract_no);
-	 $('#deposit_amount_original').val(formatNumber(parseFloat(ui.item.receipts_generation_amt).toFixed(3)));
-	 recalcNetRefundAmount();
+	 $('#deposit_refund_amt').val(formatNumber(parseFloat(ui.item.receipts_generation_amt).toFixed(3))); 
 
 	 $('#debit_amount_first').val(formatNumber(parseFloat(ui.item.receipts_generation_amt).toFixed(3))); 
      $('#credit_amount_first').val(0); 
