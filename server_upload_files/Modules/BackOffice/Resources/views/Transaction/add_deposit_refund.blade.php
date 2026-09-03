@@ -59,7 +59,16 @@
 </style>
 <form method="post" autocomplete="off" id="payment-form" action="{{isset($depositRefund)? route( 'depositRefund.update',$depositRefund->id) : route( 'depositRefund.store')}}" data-toggle="validator">
   @csrf  @if(isset($depositRefund)){{method_field('PUT')}}@endif
-  <div class="row">  
+  @if($errors->any())
+  <div class="alert alert-danger">
+    <ul style="margin-bottom:0;">
+      @foreach($errors->all() as $error)
+      <li>{{$error}}</li>
+      @endforeach
+    </ul>
+  </div>
+  @endif
+  <div class="row">
 
     <!-- activities -->
     <div class="col-md-12 col-sm-12 dashboardtab">
@@ -389,7 +398,31 @@
             </tr>
           </thead>
           <tbody id="deduction_line_list">
-@if(isset($depositRefund) && count($depositRefund->depositRefundDeduction) > 0)
+@if(old('deduction_reason'))
+@foreach(old('deduction_reason') as $key => $oldReason)
+            <tr id="deduction_row{{$key+1}}">
+              <td class="minus">
+                @if($key >= 1)
+                <a href="#" class="remove_deduction"><i class="fa fa-minus" aria-hidden="true"></i></a>
+                @endif
+              </td>
+              <td>
+                <select class="form-control" name="deduction_reason[]">
+                  <option value="">Select Reason</option>
+                  @foreach(['Cleaning', 'Damage', 'Unpaid Utility', 'Other'] as $reason)
+                  <option value="{{$reason}}" {{ $oldReason == $reason ? 'selected' : '' }}>{{$reason}}</option>
+                  @endforeach
+                </select>
+              </td>
+              <td>
+                <input type="text" class="form-control" name="deduction_description[]" value="{{ old('deduction_description')[$key] ?? '' }}" placeholder="Description">
+              </td>
+              <td>
+                <input type="text" onkeyup="FormatCurrency(this); recalcNetRefundAmount();" name="deduction_amount[]" value="{{ old('deduction_amount')[$key] ?? '0.000' }}" class="deduction_amount allownumericwithdecimal" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values">
+              </td>
+            </tr>
+@endforeach
+@elseif(isset($depositRefund) && count($depositRefund->depositRefundDeduction) > 0)
 @foreach($depositRefund->depositRefundDeduction as $key => $deduction)
             <tr id="deduction_row{{$key+1}}">
               <td class="minus">
@@ -610,7 +643,21 @@ $('.submitBtn').prop('disabled', true);
   }
 });
 //AutoComplete For Vendor Name
-/************************************************************/ 
+/************************************************************/
+function recalcNetRefundAmount(){
+   var original = parseFloat(($('#deposit_amount_original').val() || '0').replace(/,/g, '')) || 0;
+   var totalDeductions = 0;
+   $('.deduction_amount').each(function(){
+     var reason = $(this).closest('tr').find('select[name="deduction_reason[]"]').val();
+     if(!reason){
+       return;
+     }
+     var val = ($(this).val() != '') ? $(this).val().replace(/,/g, '') : 0;
+     totalDeductions = totalDeductions + parseFloat(val);
+   });
+   var net = original - totalDeductions;
+   $('#deposit_refund_amt').val(formatNumber(net.toFixed(3))).trigger('change');
+ }
 $(document).ready(function() {
  @if($isYearCorrect == false)
       alert("Current Year Is Not Match With the Sequence Year");
@@ -630,20 +677,6 @@ $(document).ready(function() {
 
   $('#'+className+'_total').val(formatNumber(total.toFixed(3)));
 }
-
- function recalcNetRefundAmount(){
-   var original = parseFloat(($('#deposit_amount_original').val() || '0').replace(/,/g, '')) || 0;
-   var totalDeductions = 0;
-   $('.deduction_amount').each(function(){
-     var val = ($(this).val() != '') ? $(this).val().replace(/,/g, '') : 0;
-     totalDeductions = totalDeductions + parseFloat(val);
-   });
-   var net = original - totalDeductions;
-   $('#deposit_refund_amt').val(formatNumber(net.toFixed(3)));
-   $('#debit_amount_first').val(formatNumber(net.toFixed(3)));
-   $('#debit_amount_total').val(formatNumber(net.toFixed(3)));
-   $('#credit_amount_total').val(formatNumber(net.toFixed(3)));
- }
 
 
 $(document).on("keyup",'.debit_amount,.credit_amount',function (event) {
