@@ -135,6 +135,19 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
             $rows[] = $expenseRow;
         }
 
+        // Cleaning Charges (from the landlord contract, not a transactional expense —
+        // included in the Expenses section since it's deducted like one)
+        $cleaningRow  = ['', 'Cleaning Charges'];
+        $cleaningYTD  = 0;
+        foreach (range(1, 12) as $m) {
+            $amount = (float)($this->monthData[$m]['cleaning_charge'] ?? 0);
+            $cleaningRow[] = $amount > 0 ? $amount : '-';
+            $cleaningYTD  += $amount;
+            $expenseTotalsByMonth[$m] += $amount;
+        }
+        $cleaningRow[] = $cleaningYTD ?: '-';
+        $rows[] = $cleaningRow;
+
         // Total Expenses
         $totalExpRow = ['', 'Total Expenses'];
         foreach ($expenseTotalsByMonth as $v) {

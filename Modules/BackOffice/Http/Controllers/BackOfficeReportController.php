@@ -4026,6 +4026,17 @@ public function normalManagementReportV2Stream(Request $request)
             $expensesByMonth[$em][] = $eRow;
         }
 
+        // ── Batch landlord contract cleaning charges for the year ─────────
+        $landlordContractRows = DB::select("
+            SELECT landlord_contract_status AS status,
+                   landlord_contract_valid_from_date AS valid_from,
+                   landlord_contract_valid_to_date AS valid_to,
+                   landlord_contract_cleaning_charge AS cleaning_charge
+            FROM landlord_contract
+            WHERE building_id = ?
+            ORDER BY landlord_contract_valid_from_date
+        ", [$building->id]);
+
         // ── Batch occupancy for all months ────────────────────────────────
         $yearStart = $year . '-01-01';
         $yearEnd   = $year . '-12-01';
@@ -4517,8 +4528,28 @@ public function normalManagementReportV2Stream(Request $request)
                     'evacuation_residential' => 0,
                     'evacuation_commercial'  => 0,
                 ];
+                // Cleaning charge: the landlord contract valid for this month (prefer status=1 if
+                // more than one overlaps; otherwise the latest matching valid_from).
+                $cleaningCharge = 0;
+                $matched = null;
+                foreach ($landlordContractRows as $lc) {
+                    $validFrom = $lc->valid_from;
+                    $validTo   = $lc->valid_to;
+                    if ($validFrom !== null && $validFrom > $endDate) continue;
+                    if ($validTo !== null && $validTo < $startDate) continue;
+                    // Rows are ordered by valid_from ascending; prefer an active (status=1)
+                    // match, otherwise keep the most recent overlapping row.
+                    if ($matched === null
+                        || ((int)$lc->status === 1 && (int)$matched->status !== 1)
+                        || (int)$lc->status === (int)$matched->status) {
+                        $matched = $lc;
+                    }
+                }
+                if ($matched !== null) {
+                    $cleaningCharge = (float) $matched->cleaning_charge;
+                }
             } else {
-                $units = []; $oldOutstanding = []; $expenses = [];
+                $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0;
                 $occupancy = ['total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
                     'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
                     'vacant_commercial' => 0, 'evacuation_residential' => 0, 'evacuation_commercial' => 0];
@@ -4529,6 +4560,7 @@ public function normalManagementReportV2Stream(Request $request)
                 'old_outstanding' => $oldOutstanding ?? [],
                 'expenses'        => $expenses,
                 'occupancy'       => $occupancy,
+                'cleaning_charge' => $cleaningCharge,
             ];
         }
 

@@ -26,7 +26,7 @@ class NormalManagementV2Export implements WithMultipleSheets
             $m = (int)$this->selectedMonth;
             return [
                 new NormalManagementMonthSheet(
-                    $this->monthData[$m] ?? ['units' => [], 'expenses' => [], 'occupancy' => []],
+                    $this->monthData[$m] ?? ['units' => [], 'expenses' => [], 'occupancy' => [], 'cleaning_charge' => 0],
                     $m,
                     $this->year,
                     $this->buildingName
@@ -38,7 +38,7 @@ class NormalManagementV2Export implements WithMultipleSheets
         $sheets = [];
         foreach (range(1, 12) as $m) {
             $sheets[] = new NormalManagementMonthSheet(
-                $this->monthData[$m] ?? ['units' => [], 'expenses' => [], 'occupancy' => []],
+                $this->monthData[$m] ?? ['units' => [], 'expenses' => [], 'occupancy' => [], 'cleaning_charge' => 0],
                 $m,
                 $this->year,
                 $this->buildingName
