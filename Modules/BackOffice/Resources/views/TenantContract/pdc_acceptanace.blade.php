@@ -109,6 +109,7 @@
                             <li>{{$landlordContractInfo->landlord_contract_amt}}</li>
                             <li class="bld">Management fees</li>
                             <li>{{$landlordContractInfo->landlord_contract_management_fee}}</li>
+                            <li class="bld">Cleaning charges</li>
                             <li>{{ $landlordContractInfo->landlord_contract_cleaning_charge }}</li>
 
                             <li class="bld">Free Lease Period</li>

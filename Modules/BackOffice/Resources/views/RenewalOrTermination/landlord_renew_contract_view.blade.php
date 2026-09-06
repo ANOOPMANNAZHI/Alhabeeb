@@ -95,6 +95,15 @@
                   <div class="col-md-6"><span>{{$renewContract->landlord_contract_management_fee}}</span></div>
                 </div>
               </div>
+              @if($renewContract->landlord_contract_cleaning_charge)
+              <div class="col-md-6 p-t-10">
+                <div class="row">
+                  <div class="col-md-5"><b>Cleaning Charges </b></div>
+                  <div class="col-md-1 s-clm">:</div>
+                  <div class="col-md-6"><span>{{ ($renewContract->cleaning_charge_method == 1) ? $renewContract->landlord_contract_cleaning_charge.' %' : numberFormat($renewContract->landlord_contract_cleaning_charge).' OMR' }}</span></div>
+                </div>
+              </div>
+              @endif
               <div class="col-md-6 p-t-10">
                 <div class="row">
                   <div class="col-md-5"><b>Contract Percentage  </b></div>
