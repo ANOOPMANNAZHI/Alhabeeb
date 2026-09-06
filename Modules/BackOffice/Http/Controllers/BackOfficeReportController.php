@@ -3917,6 +3917,144 @@ public function showLandlordTaxInvoiceReport()
     return view('backoffice::Reports.landlord_tax_invoice_report');
 }
 
+public function landlordTaxInvoiceReportStream(Request $request)
+{
+    // ── Kill all output buffering (critical for Apache + Windows / Laragon) ──
+    @ini_set('output_buffering', 'off');
+    @ini_set('zlib.output_compression', false);
+    while (ob_get_level()) @ob_end_clean();
+    ob_implicit_flush(true);
+
+    header('Content-Type: text/event-stream');
+    header('Cache-Control: no-cache, no-store');
+    header('X-Accel-Buffering: no');
+    header('Content-Encoding: none');
+    header('Connection: keep-alive');
+
+    session()->save();
+
+    ini_set('memory_limit', '512M');
+    set_time_limit(600);
+
+    echo ': ' . str_repeat(' ', 4096) . "\n\n";
+    flush();
+
+    $send = function (array $data): void {
+        echo 'data: ' . json_encode($data) . "\n\n";
+        flush();
+    };
+
+    $fromDate = $request->input('from_date');
+    $toDate   = $request->input('to_date');
+    $vendorId = (int) $request->input('vendor_id');
+
+    $vendor = Vendor::find($vendorId);
+    if (!$vendor || !$fromDate || !$toDate) {
+        $send(['pct' => 100, 'msg' => 'Invalid request — missing landlord or dates.', 'done' => true, 'error' => true]);
+        exit;
+    }
+
+    $contracts = $this->landlordTaxInvoiceEligibleContracts($vendorId);
+    if ($contracts->isEmpty()) {
+        $send(['pct' => 100, 'msg' => 'No eligible (Normal-management) buildings found for this landlord.', 'done' => true, 'error' => true]);
+        exit;
+    }
+
+    $totalBuildings = $contracts->count();
+    $send(['pct' => 1, 'msg' => 'Preparing — ' . $totalBuildings . ' invoice' . ($totalBuildings !== 1 ? 's' : '') . ' to generate']);
+
+    $tempDir = storage_path('app/temp/landlord_tax_invoice_' . uniqid());
+    if (!file_exists($tempDir)) mkdir($tempDir, 0755, true);
+    $files = [];
+
+    foreach ($contracts as $idx => $contract) {
+        $building = $contract->buildingInfo;
+        if (!$building) continue;
+
+        $pctNow = (int) round(1 + ($idx / $totalBuildings) * 88);
+        $send(['pct' => $pctNow, 'msg' => 'Processing ' . $building->building_name . ' (' . ($idx + 1) . ' / ' . $totalBuildings . ')']);
+
+        $amounts = $this->landlordTaxInvoiceLineAmounts($building, $fromDate, $toDate);
+
+        $mgmtAmount    = $amounts['management_fee'];
+        $cleanAmount   = $amounts['cleaning_charge'];
+        $repairAmount  = $amounts['repair_maintenance'];
+        $periodLabel   = $amounts['period_label'];
+
+        $lines = [
+            ['desc' => 'MANAGEMENT FEES FOR ' . $periodLabel, 'amount' => $mgmtAmount],
+            ['desc' => "CLEANING CHARGES FOR " . $periodLabel, 'amount' => $cleanAmount],
+            ['desc' => 'REPAIR AND MAINTENANCE CHARGES', 'amount' => $repairAmount],
+        ];
+        foreach ($lines as &$line) {
+            $line['qty']   = 1.000;
+            $line['unit_price'] = $line['amount'];
+            $line['vat']   = round($line['amount'] * 0.05, 3);
+            $line['total'] = round($line['amount'] + $line['vat'], 3);
+        }
+        unset($line);
+
+        $totalAmount = round(array_sum(array_column($lines, 'amount')), 3);
+        $totalVat    = round(array_sum(array_column($lines, 'vat')), 3);
+        $totalDue    = round(array_sum(array_column($lines, 'total')), 3);
+
+        $data = [
+            'vendor'       => $vendor,
+            'building'     => $building,
+            'lines'        => $lines,
+            'totalAmount'  => $totalAmount,
+            'totalVat'     => $totalVat,
+            'totalDue'     => $totalDue,
+            'invoiceDate'  => date('d.m.Y', strtotime($toDate)),
+            'deliveryDate' => date('d.m.Y', strtotime($toDate)),
+            'paymentDate'  => date('d.m.Y', strtotime($toDate . ' +1 month')),
+            'amountInWords' => $this->landlordTaxInvoiceAmountInWords($totalDue),
+        ];
+
+        $pdf = \PDF::loadView('backoffice::Reports.landlord_tax_invoice_pdf', $data)->setPaper('a4', 'portrait');
+
+        $safeVendor   = preg_replace('/[^A-Za-z0-9_\-]/', '_', $vendor->vendor_name);
+        $safeBuilding = preg_replace('/[^A-Za-z0-9_\-]/', '_', $building->building_name);
+        $fileName     = $safeVendor . '_' . $safeBuilding . '_TaxInvoice.pdf';
+        $filePath     = $tempDir . '/' . $fileName;
+        $pdf->save($filePath);
+
+        $files[] = ['path' => $filePath, 'name' => $fileName];
+
+        $send(['pct' => (int) round(1 + (($idx + 1) / $totalBuildings) * 88), 'msg' => 'Done: ' . $building->building_name]);
+    }
+
+    if (empty($files)) {
+        $send(['pct' => 100, 'msg' => 'No invoices could be generated.', 'done' => true, 'error' => true]);
+        exit;
+    }
+
+    if (count($files) === 1) {
+        $finalPath = $files[0]['path'];
+        $finalName = $files[0]['name'];
+    } else {
+        $send(['pct' => 92, 'msg' => 'Creating ZIP archive…']);
+        $zipFileName = 'Landlord_Tax_Invoices_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $vendor->vendor_name) . '.zip';
+        $zipPath     = $tempDir . '/' . $zipFileName;
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE) === true) {
+            foreach ($files as $f) { $zip->addFile($f['path'], $f['name']); }
+            $zip->close();
+        }
+        foreach ($files as $f) {
+            if (file_exists($f['path'])) unlink($f['path']);
+        }
+        $finalPath = $zipPath;
+        $finalName = $zipFileName;
+    }
+
+    $token = uniqid('ltir_dl_', true);
+    cache()->put('ltir_dl_' . $token, ['path' => $finalPath, 'name' => $finalName], now()->addMinutes(5));
+
+    $send(['pct' => 100, 'msg' => 'Complete! Starting download…', 'done' => true, 'token' => $token]);
+    exit;
+}
+
 /**
  * Landlord contracts for the given vendor, restricted to buildings in the
  * Normal Management Report v2 building list and excluding Comprehensive
@@ -3931,6 +4069,108 @@ private function landlordTaxInvoiceEligibleContracts(int $vendorId): \Illuminate
         ->get()
         ->unique('building_id')
         ->values();
+}
+
+/**
+ * Every {year, month} pair the given date range touches, in order.
+ * E.g. 2026-06-15..2026-07-10 returns [{2026,6}, {2026,7}].
+ */
+private function monthsTouchedByRange(string $fromDate, string $toDate): array
+{
+    $result = [];
+    $cursor = new \DateTime(date('Y-m-01', strtotime($fromDate)));
+    $end    = new \DateTime(date('Y-m-01', strtotime($toDate)));
+    while ($cursor <= $end) {
+        $result[] = ['year' => (int) $cursor->format('Y'), 'month' => (int) $cursor->format('n')];
+        $cursor->modify('+1 month');
+    }
+    return $result;
+}
+
+/**
+ * Sums Management Fee, Cleaning Charges, and Repair & Maintenance for one
+ * building over the given date range, reusing buildNormalManagementMonthData()
+ * per distinct year the range touches. The applicable landlord contract can
+ * change month to month, so each total is accumulated per month rather than
+ * assuming one contract covers the whole range. Returns
+ * ['management_fee' => float, 'cleaning_charge' => float, 'repair_maintenance' => float,
+ *  'period_label' => string].
+ */
+private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate): array
+{
+    $monthsTouched = $this->monthsTouchedByRange($fromDate, $toDate);
+
+    $byYear = [];
+    foreach ($monthsTouched as $mt) {
+        $byYear[$mt['year']][] = $mt['month'];
+    }
+
+    $managementFee = 0.0;
+    $totalCleaning = 0.0;
+    $totalExpenses = 0.0;
+    foreach ($byYear as $yr => $months) {
+        $monthData = $this->buildNormalManagementMonthData($building, $yr, $months);
+        foreach ($months as $m) {
+            $data = $monthData[$m] ?? null;
+            if (!$data) continue;
+
+            foreach ($data['expenses'] ?? [] as $exp) {
+                $totalExpenses += (float) $exp->expense_amount;
+            }
+            $totalCleaning += (float) ($data['cleaning_charge'] ?? 0);
+
+            $lc = $data['landlord_contract'] ?? null;
+            if ($lc === null) continue;
+
+            if ((int) $lc->management_method === 2) {
+                $managementFee += (float) $lc->landlord_contract_management_fee;
+                continue;
+            }
+
+            // Percentage type: apply to this month's income or collection only.
+            $monthIncome     = 0.0;
+            $monthCollection = 0.0;
+            foreach ($data['units'] ?? [] as $u) {
+                $monthIncome     += (float) ($u->income_amount ?? 0);
+                $monthCollection += (float) ($u->collection_amount ?? 0);
+            }
+            foreach ($data['old_outstanding'] ?? [] as $u) {
+                $monthCollection += (float) ($u->collection_amount ?? 0);
+            }
+            $basis = ((int) $lc->landlord_contract_percentage === 2) ? $monthCollection : $monthIncome;
+            $managementFee += round($basis * ((float) $lc->landlord_contract_management_fee / 100), 3);
+        }
+    }
+
+    // Period label for the line descriptions.
+    $fromTs = strtotime($fromDate);
+    $toTs   = strtotime($toDate);
+    $isCleanCalendarMonth = date('Y-m-d', $fromTs) === date('Y-m-01', $fromTs)
+        && date('Y-m-d', $toTs) === date('Y-m-t', $toTs)
+        && date('Y-m', $fromTs) === date('Y-m', $toTs);
+    $periodLabel = $isCleanCalendarMonth
+        ? strtoupper(date('M', $fromTs)) . "'" . date('y', $fromTs)
+        : date('d.m.y', $fromTs) . '-' . date('d.m.y', $toTs);
+
+    return [
+        'management_fee'     => round($managementFee, 3),
+        'cleaning_charge'    => round($totalCleaning, 3),
+        'repair_maintenance' => round($totalExpenses, 3),
+        'period_label'       => $periodLabel,
+    ];
+}
+
+/**
+ * "Omani Riyals <words> & Bzs <NNN>/1000 only" — same convention as
+ * RentReceiptGenerationController::printPreview(), built on the existing
+ * numberToWords() global helper (config/function.php).
+ */
+private function landlordTaxInvoiceAmountInWords(float $total): string
+{
+    $parts   = explode('.', number_format($total, 3, '.', ''));
+    $whole   = (int) $parts[0];
+    $baisa   = $parts[1] ?? '000';
+    return 'Omani Riyals ' . ucwords(numberToWords($whole)) . ' & Bzs ' . $baisa . '/1000 only';
 }
 
 /*
