@@ -194,7 +194,17 @@ Cancel</button>
             </div>
         </div>
         <div class="w-100"></div>
-            
+        <div class="col-sm-6">
+            <div class="form-group">
+                <label for="landlord_contract_cleaning_charge">Cleaning Charges</label>
+                <div class="p-relative">
+                    <i class="fa fa-money icn-add" aria-hidden="true"></i>
+                <input type="number" class="form-control" value="{{ isset($landlordContract->landlord_contract_cleaning_charge)?$landlordContract->landlord_contract_cleaning_charge:'' }}" id="landlord_contract_cleaning_charge" name="landlord_contract_cleaning_charge" placeholder="Enter Cleaning Charges" min="1">
+                </div>
+            </div>
+        </div>
+        <div class="w-100"></div>
+
         </div>
     
 </div>
