@@ -786,6 +786,11 @@ Breadcrumbs::for('showNormalManagementReportV2', function ($trail) {
     $trail->push('Normal Management Report v2', route('showNormalManagementReportV2'));
 });
 
+Breadcrumbs::for('showLandlordTaxInvoiceReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Landlord Tax Invoice Report', route('showLandlordTaxInvoiceReport'));
+});
+
 Breadcrumbs::for('showchequeReturnReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Cheque Return Statement',route('showchequeReturnReport'));
