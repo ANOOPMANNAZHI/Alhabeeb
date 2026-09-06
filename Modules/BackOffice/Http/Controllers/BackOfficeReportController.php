@@ -3910,6 +3910,609 @@ public function normalManagementReportV2Generate(Request $request)
  *
  */
 
+/**
+ * Builds the per-month data structure (units, old_outstanding, expenses,
+ * occupancy, cleaning_charge, landlord_contract) for one building/year,
+ * exactly as normalManagementReportV2Stream() computes it. Shared with
+ * the Landlord Tax Invoice Report so both reuse the same figures.
+ */
+private function buildNormalManagementMonthData(\Modules\Masters\Entities\Building $building, int $year, array $monthsToPopulate): array
+{
+    $monthData = [];
+
+    // ── Static per-building counts (queried once) ─────────────────────
+    $totalUnits = DB::table('units')
+        ->where('building_id', $building->id)->where('unit_status', 1)->count();
+
+    $totalResidentialUnits = DB::table('units as u')
+        ->join('unit_types as ut', 'ut.id', '=', 'u.unit_type_id')
+        ->where('u.building_id', $building->id)->where('u.unit_status', 1)
+        ->whereRaw("(ut.unit_types_name ILIKE '%residential%' OR ut.unit_types_name ILIKE '%apart%' OR ut.unit_types_name ILIKE '%flat%' OR ut.unit_types_name ILIKE '%villa%' OR ut.unit_types_name ILIKE '%BR%' OR ut.unit_types_name ILIKE '%studio%' OR ut.unit_types_name = 'PH')")
+        ->count();
+
+    $totalCommercialUnits = DB::table('units as u')
+        ->join('unit_types as ut', 'ut.id', '=', 'u.unit_type_id')
+        ->where('u.building_id', $building->id)->where('u.unit_status', 1)
+        ->whereRaw("(ut.unit_types_name ILIKE '%commercial%' OR ut.unit_types_name ILIKE '%shop%' OR ut.unit_types_name ILIKE '%office%' OR ut.unit_types_name ILIKE '%showroom%' OR ut.unit_types_name ILIKE '%warehouse%')")
+        ->count();
+
+    // ── Batch expense data for the entire year ────────────────────────
+    $expenseRows = DB::select("
+        SELECT month, expense_name, SUM(expense_amount) AS expense_amount
+        FROM (
+            SELECT EXTRACT(MONTH FROM mi.maintenance_invoice_date)::int AS month,
+                   eh.expense_name, CAST(mid.debit_amt AS NUMERIC) AS expense_amount
+            FROM maintenance_invoice_details mid
+            JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
+            JOIN acc_codes ac ON ac.id = mid.ac_codes_id
+            JOIN expense_head eh ON eh.acc_codes_id = ac.id
+            WHERE mid.building_id = ? AND EXTRACT(YEAR FROM mi.maintenance_invoice_date) = ?
+              AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
+            UNION ALL
+            SELECT EXTRACT(MONTH FROM gl.doc_date)::int AS month,
+                   eh.expense_name, CAST(gld.debit_amt AS NUMERIC) AS expense_amount
+            FROM general_ledger_dim gld
+            JOIN general_ledgers gl ON gl.id = gld.general_ledger_id
+            JOIN acc_codes ac ON ac.id = gld.account_id
+            JOIN expense_head eh ON eh.acc_codes_id = ac.id
+            WHERE gld.building_id = ? AND EXTRACT(YEAR FROM gl.doc_date) = ?
+              AND gl.general_ledger_status != 2 AND gl.deleted_at IS NULL
+        ) src
+        GROUP BY month, expense_name ORDER BY month, expense_name
+    ", [$building->id, $year, $building->id, $year]);
+
+    $expensesByMonth = [];
+    foreach ($expenseRows as $eRow) {
+        $em = (int) $eRow->month;
+        if (!isset($expensesByMonth[$em])) $expensesByMonth[$em] = [];
+        $expensesByMonth[$em][] = $eRow;
+    }
+
+    // ── Batch landlord contract cleaning charges + management fee for the year ─
+    $landlordContractRows = DB::select("
+        SELECT landlord_contract_status AS status,
+               landlord_contract_valid_from_date AS valid_from,
+               landlord_contract_valid_to_date AS valid_to,
+               landlord_contract_cleaning_charge AS cleaning_charge,
+               management_method,
+               landlord_contract_percentage,
+               landlord_contract_management_fee
+        FROM landlord_contract
+        WHERE building_id = ?
+        ORDER BY landlord_contract_valid_from_date
+    ", [$building->id]);
+
+    // ── Batch occupancy for all months ────────────────────────────────
+    $yearStart = $year . '-01-01';
+    $yearEnd   = $year . '-12-01';
+    $occupiedRows = DB::select("
+        SELECT EXTRACT(MONTH FROM (gs.m + interval '1 month - 1 day'))::int AS month,
+            COUNT(DISTINCT CASE WHEN ut.unit_types_name ILIKE '%residential%' OR ut.unit_types_name ILIKE '%apart%'
+                OR ut.unit_types_name ILIKE '%flat%' OR ut.unit_types_name ILIKE '%villa%'
+                OR ut.unit_types_name ILIKE '%BR%' OR ut.unit_types_name ILIKE '%studio%'
+                OR ut.unit_types_name = 'PH' THEN u.id END) AS occupied_residential,
+            COUNT(DISTINCT CASE WHEN ut.unit_types_name ILIKE '%commercial%' OR ut.unit_types_name ILIKE '%shop%'
+                OR ut.unit_types_name ILIKE '%office%' OR ut.unit_types_name ILIKE '%showroom%'
+                OR ut.unit_types_name ILIKE '%warehouse%' THEN u.id END) AS occupied_commercial
+        FROM generate_series(?::date, ?::date, '1 month') AS gs(m)
+        LEFT JOIN tenant_contracts tc ON tc.tenant_contract_status != 2
+            AND tc.tenant_contract_start_date <= (gs.m + interval '1 month - 1 day')::date
+            AND (tc.tenant_contract_valid_to_date >= (gs.m + interval '1 month - 1 day')::date OR tc.tenant_contract_valid_to_date IS NULL)
+        LEFT JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
+        LEFT JOIN unit_types ut ON ut.id = u.unit_type_id AND u.id IS NOT NULL
+        GROUP BY gs.m ORDER BY gs.m
+    ", [$yearStart, $yearEnd, $building->id]);
+
+    $occupiedByMonth = [];
+    foreach ($occupiedRows as $oRow) {
+        $occupiedByMonth[(int) $oRow->month] = [
+            'occupied_residential' => (int) $oRow->occupied_residential,
+            'occupied_commercial'  => (int) $oRow->occupied_commercial,
+        ];
+    }
+
+    $newLeasedRows = DB::select("
+        SELECT EXTRACT(MONTH FROM tc.tenant_contract_start_date)::int AS month,
+            COUNT(DISTINCT CASE WHEN ut.unit_types_name ILIKE '%residential%' OR ut.unit_types_name ILIKE '%apart%'
+                OR ut.unit_types_name ILIKE '%flat%' OR ut.unit_types_name ILIKE '%villa%'
+                OR ut.unit_types_name ILIKE '%BR%' OR ut.unit_types_name ILIKE '%studio%'
+                OR ut.unit_types_name = 'PH' THEN u.id END) AS new_leased_residential,
+            COUNT(DISTINCT CASE WHEN ut.unit_types_name ILIKE '%commercial%' OR ut.unit_types_name ILIKE '%shop%'
+                OR ut.unit_types_name ILIKE '%office%' OR ut.unit_types_name ILIKE '%showroom%'
+                OR ut.unit_types_name ILIKE '%warehouse%' THEN u.id END) AS new_leased_commercial
+        FROM tenant_contracts tc
+        JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
+        JOIN unit_types ut ON ut.id = u.unit_type_id
+        WHERE tc.tenant_contract_status != 2 AND EXTRACT(YEAR FROM tc.tenant_contract_start_date) = ?
+        GROUP BY month ORDER BY month
+    ", [$building->id, $year]);
+
+    $newLeasedByMonth = [];
+    foreach ($newLeasedRows as $nlRow) {
+        $newLeasedByMonth[(int) $nlRow->month] = [
+            'new_leased_residential' => (int) $nlRow->new_leased_residential,
+            'new_leased_commercial'  => (int) $nlRow->new_leased_commercial,
+        ];
+    }
+
+    // ── Legal contract ID lookup (contract-level, not unit-level) ────────────
+    // Primary: legal.tenant_contract_id when the building has entries in the legal table.
+    // Fallback: tenant name patterns for buildings with no legal table entries.
+    // This ensures only the SPECIFIC contract flagged as legal is marked red,
+    // not a later active renewal contract for the same tenant.
+    $hasLegalTableEntries = DB::table('legal as l')
+        ->join('units as u', 'u.id', '=', 'l.unit_id')
+        ->where('u.building_id', $building->id)
+        ->where('l.legal_is_closed', '!=', 2)
+        ->whereNotNull('l.tenant_contract_id')
+        ->exists();
+
+    if ($hasLegalTableEntries) {
+        $legalRows = DB::select("
+            SELECT DISTINCT l.tenant_contract_id
+            FROM legal l
+            JOIN units u ON u.id = l.unit_id
+            WHERE u.building_id = ? AND l.legal_is_closed != 2
+              AND l.tenant_contract_id IS NOT NULL
+        ", [$building->id]);
+    } else {
+        $legalRows = DB::select("
+            SELECT DISTINCT tc.id AS tenant_contract_id
+            FROM tenant_contracts tc
+            JOIN tenant t ON t.id = tc.tenant_id
+            JOIN units u ON u.id = tc.unit_id
+            WHERE u.building_id = ? AND u.unit_status = 1
+              AND (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
+        ", [$building->id]);
+    }
+    $legalContractIds = [];
+    foreach ($legalRows as $lr) {
+        $legalContractIds[$lr->tenant_contract_id] = true;
+    }
+
+    // ── Per-month loop ────────────────────────────────────────────────
+    foreach (range(1, 12) as $m) {
+        $startDate = date('Y-m-d', mktime(0, 0, 0, $m, 1, $year));
+        $endDate   = date('Y-m-t', mktime(0, 0, 0, $m, 1, $year));
+
+        if (in_array($m, $monthsToPopulate)) {
+            // Active unit data (CTE-based)
+            $units = DB::select("
+                WITH building_units AS (
+                    SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
+                    FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+                    WHERE u.building_id = ? AND u.unit_status = 1
+                ),
+                active_contracts AS (
+                    SELECT DISTINCT ON (tc.unit_id)
+                        tc.id, tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
+                        tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+                        td.termination_date AS contract_termination_date
+                    FROM tenant_contracts tc JOIN building_units bu ON bu.id = tc.unit_id
+                    LEFT JOIN (
+                        SELECT contract_id, MAX(termination_date) AS termination_date
+                        FROM termination
+                        WHERE termination_date IS NOT NULL
+                        GROUP BY contract_id
+                    ) td ON td.contract_id = tc.id
+                    WHERE tc.tenant_contract_start_date <= ?::date
+                      AND (
+                          (tc.tenant_contract_status = 1
+                           AND (tc.tenant_contract_valid_to_date >= ?::date OR tc.tenant_contract_valid_to_date IS NULL))
+                          OR
+                          (tc.tenant_contract_status = 0
+                           AND COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) >= ?::date)
+                      )
+                    ORDER BY tc.unit_id, tc.tenant_contract_status DESC, tc.tenant_contract_start_date DESC
+                ),
+                all_receipts AS (
+                    SELECT tc_r.unit_id, tc_r.tenant_id,
+                           rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
+                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt
+                    FROM receipts_generation rg
+                    JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
+                    JOIN building_units bu ON bu.id = tc_r.unit_id
+                    WHERE rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
+                      AND rg.receipts_generation_receipt_date::date <= ?::date
+                ),
+                rent_recd AS (
+                    SELECT DISTINCT ON (unit_id, tenant_id)
+                        unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
+                    FROM all_receipts WHERE receipts_generation_eff_to::date <= ?::date
+                    ORDER BY unit_id, tenant_id, receipts_generation_eff_to DESC NULLS LAST
+                ),
+                paid_thru AS (
+                    SELECT DISTINCT ON (unit_id, tenant_id)
+                        unit_id, tenant_id, receipts_generation_eff_to AS paid_through
+                    FROM all_receipts
+                    WHERE receipts_generation_eff_from IS NOT NULL AND receipts_generation_eff_from::date <= ?::date
+                    ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
+                ),
+                monthly_col AS (
+                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
+                    FROM all_receipts
+                    WHERE receipts_generation_eff_from IS NOT NULL
+                      AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
+                    GROUP BY unit_id, tenant_id
+                ),
+                occ_at_start AS (
+                    SELECT DISTINCT tc_oas.unit_id
+                    FROM tenant_contracts tc_oas JOIN building_units bu ON bu.id = tc_oas.unit_id
+                    WHERE tc_oas.tenant_contract_status = 1
+                      AND tc_oas.tenant_contract_start_date <= ?::date
+                      AND (tc_oas.tenant_contract_valid_to_date >= ?::date OR tc_oas.tenant_contract_valid_to_date IS NULL)
+                )
+                SELECT bu.id AS unit_id, ac.id AS contract_id, bu.unit_no, bu.unit_type,
+                    COALESCE(t.tenant_name, 'VACANT') AS tenant_name,
+                    ac.tenant_contract_start_date AS contract_start,
+                    ac.tenant_contract_valid_to_date AS contract_end,
+                    ac.contract_termination_date,
+                    rr.rent_recd_upto, pt.paid_through,
+                    COALESCE(ac.tenant_contract_rent, 0) AS rent_per_month,
+                    CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.collection_amount, 0) ELSE 0 END AS collection_amount,
+                    COALESCE(ac.tenant_contract_rent, 0) AS income_amount,
+                    0 AS outstanding_amount,
+                    CASE WHEN os.unit_id IS NOT NULL THEN 1 ELSE 0 END AS occupied_at_month_start
+                FROM building_units bu
+                LEFT JOIN active_contracts ac ON ac.unit_id = bu.id
+                LEFT JOIN tenant t ON t.id = ac.tenant_id
+                LEFT JOIN rent_recd rr ON rr.unit_id = bu.id AND rr.tenant_id = ac.tenant_id
+                LEFT JOIN paid_thru pt ON pt.unit_id = bu.id AND pt.tenant_id = ac.tenant_id
+                LEFT JOIN monthly_col mc ON mc.unit_id = bu.id AND mc.tenant_id = ac.tenant_id
+                LEFT JOIN occ_at_start os ON os.unit_id = bu.id
+                ORDER BY bu.unit_no
+            ", [$building->id, $endDate, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $startDate, $startDate]);
+
+            foreach ($units as &$unit) {
+                $rent  = (float) ($unit->rent_per_month ?? 0);
+                $effTo = !empty($unit->paid_through) ? $unit->paid_through : null;
+                if ($rent > 0 && !empty($unit->contract_start)) {
+                    $contractStartTs = strtotime($unit->contract_start);
+                    $isNewOccupancy  = empty($unit->occupied_at_month_start);
+                    if ($contractStartTs > strtotime($startDate) && $contractStartTs <= strtotime($endDate) && $isNewOccupancy) {
+                        $startDay   = (int) date('j', $contractStartTs);
+                        $startDay30 = ($startDay >= (int) date('t', $contractStartTs)) ? 30 : min($startDay, 30);
+                        $proratedDays = 30 - $startDay30 + 1;
+                        $rent = round($rent * $proratedDays / 30, 2);
+                        $unit->rent_per_month = $rent;
+                        $unit->income_amount  = $rent;
+                    }
+                }
+                // Prorate rent/income for contracts terminated mid-month.
+                // Outstanding = max(0, pro_rated_income - collection) — no rollover for terminated tenants.
+                if ($rent > 0 && !empty($unit->contract_termination_date)) {
+                    $terminationTs = strtotime($unit->contract_termination_date);
+                    $startDateTs   = strtotime($startDate);
+                    $endDateTs     = strtotime($endDate);
+                    if ($terminationTs >= $startDateTs && $terminationTs < $endDateTs) {
+                        $termDay    = (int) date('j', $terminationTs);
+                        $termDay30  = ($termDay >= (int) date('t', $terminationTs)) ? 30 : min($termDay, 30);
+                        $rent = round($rent * $termDay30 / 30, 2);
+                        $unit->rent_per_month = $rent;
+                        $unit->income_amount  = $rent;
+                        $unit->outstanding_amount = max(0, round($rent - (float) ($unit->collection_amount ?? 0), 2));
+                        continue;
+                    }
+                }
+                if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
+                if (empty($effTo)) { $unit->outstanding_amount = $rent; continue; }
+                $effToTs   = strtotime($effTo);
+                $endDateTs = strtotime($endDate);
+                if ($effToTs >= $endDateTs) { $unit->outstanding_amount = 0; continue; }
+                $nextDayTs     = $effToTs + 86400;
+                $nextPeriodEnd = date('Y-m-t', mktime(0, 0, 0, (int) date('n', $nextDayTs), 1, (int) date('Y', $nextDayTs)));
+                $ceilingDate   = (strtotime($nextPeriodEnd) > $endDateTs) ? $nextPeriodEnd : $endDate;
+                $ceilingTs     = strtotime($ceilingDate);
+                if ($effToTs >= $ceilingTs) { $unit->outstanding_amount = 0; continue; }
+                $eY = (int) date('Y', $effToTs); $eM = (int) date('n', $effToTs); $eD = (int) date('j', $effToTs);
+                $eD30 = ($eD >= (int) date('t', $effToTs)) ? 30 : min($eD, 30);
+                $cY = (int) date('Y', $ceilingTs); $cM = (int) date('n', $ceilingTs); $cD = (int) date('j', $ceilingTs);
+                $cD30 = ($cD >= (int) date('t', $ceilingTs)) ? 30 : min($cD, 30);
+                $days = ($cY - $eY) * 360 + ($cM - $eM) * 30 + ($cD30 - $eD30);
+                $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
+            }
+            unset($unit);
+
+            // Old outstanding (CTE-based)
+            $oldOutstanding = DB::select("
+                WITH building_units AS (
+                    SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
+                    FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+                    WHERE u.building_id = ? AND u.unit_status = 1
+                ),
+                termination_dates AS (
+                    SELECT contract_id, MAX(termination_date) AS termination_date
+                    FROM termination
+                    WHERE termination_date IS NOT NULL
+                    GROUP BY contract_id
+                ),
+                expired_contracts AS (
+                    SELECT DISTINCT ON (tc.unit_id, tc.tenant_id)
+                        tc.id, tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
+                        tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
+                        COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) AS effective_end_date
+                    FROM tenant_contracts tc JOIN building_units bu ON bu.id = tc.unit_id
+                    LEFT JOIN termination_dates td ON td.contract_id = tc.id
+                    WHERE tc.tenant_contract_valid_to_date IS NOT NULL
+                      AND COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) < ?::date
+                    ORDER BY tc.unit_id, tc.tenant_id, COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) DESC NULLS LAST
+                ),
+                old_receipts AS (
+                    SELECT tc_r.unit_id, tc_r.tenant_id,
+                           rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
+                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt
+                    FROM receipts_generation rg
+                    JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
+                    JOIN building_units bu ON bu.id = tc_r.unit_id
+                    LEFT JOIN termination_dates td ON td.contract_id = tc_r.id
+                    WHERE tc_r.tenant_contract_valid_to_date IS NOT NULL
+                      AND COALESCE(td.termination_date, tc_r.tenant_contract_valid_to_date) < ?::date
+                      AND rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
+                      AND rg.receipts_generation_receipt_date::date <= ?::date
+                ),
+                rent_recd_old AS (
+                    SELECT DISTINCT ON (unit_id, tenant_id)
+                        unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
+                    FROM old_receipts WHERE receipts_generation_eff_from::date <= ?::date
+                    ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
+                ),
+                paid_thru_old AS (
+                    SELECT DISTINCT ON (unit_id, tenant_id)
+                        unit_id, tenant_id, receipts_generation_eff_to AS paid_through
+                    FROM old_receipts WHERE receipts_generation_eff_from::date <= ?::date
+                    ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
+                ),
+                monthly_col_old AS (
+                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
+                    FROM old_receipts
+                    WHERE receipts_generation_eff_from IS NOT NULL
+                      AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
+                    GROUP BY unit_id, tenant_id
+                )
+                SELECT bu.unit_no, bu.unit_type, t.tenant_name,
+                    ec.tenant_contract_start_date AS contract_start,
+                    ec.effective_end_date AS contract_end,
+                    rr.rent_recd_upto, pt.paid_through,
+                    COALESCE(ec.tenant_contract_rent, 0) AS rent_per_month,
+                    COALESCE(mc.collection_amount, 0) AS collection_amount,
+                    0 AS income_amount, 0 AS outstanding_amount
+                FROM building_units bu
+                JOIN expired_contracts ec ON ec.unit_id = bu.id
+                JOIN tenant t ON t.id = ec.tenant_id
+                LEFT JOIN rent_recd_old rr ON rr.unit_id = bu.id AND rr.tenant_id = ec.tenant_id
+                LEFT JOIN paid_thru_old pt ON pt.unit_id = bu.id AND pt.tenant_id = ec.tenant_id
+                LEFT JOIN monthly_col_old mc ON mc.unit_id = bu.id AND mc.tenant_id = ec.tenant_id
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM tenant_contracts tc2
+                    WHERE tc2.unit_id = bu.id AND tc2.tenant_id = ec.tenant_id
+                      AND tc2.tenant_contract_start_date <= ?::date
+                      AND (tc2.tenant_contract_valid_to_date >= ?::date OR tc2.tenant_contract_valid_to_date IS NULL)
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM legal l
+                    WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id AND l.legal_is_closed != 2
+                )
+                AND NOT (
+                    (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
+                    AND NOT EXISTS (
+                        SELECT 1 FROM legal l3
+                        WHERE l3.unit_id = bu.id
+                          AND l3.tenant_id = ec.tenant_id
+                          AND l3.legal_is_closed = 2
+                    )
+                )
+                ORDER BY bu.unit_no
+            ", [$building->id, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $endDate, $startDate]);
+
+            foreach ($oldOutstanding as &$unit) {
+                $rent = (float) ($unit->rent_per_month ?? 0);
+                $effTo = $unit->paid_through ?? null;
+                $contractEnd = $unit->contract_end ?? null;
+                $contractStart = $unit->contract_start ?? null;
+                if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
+                if (!empty($effTo) && !empty($contractEnd) && strtotime($effTo) > strtotime($contractEnd)) $effTo = $contractEnd;
+                if (empty($effTo) && !empty($contractStart)) $effTo = date('Y-m-d', strtotime($contractStart) - 86400);
+                $ceilingDate = !empty($contractEnd) ? $contractEnd : $endDate;
+                if (empty($effTo)) { $unit->outstanding_amount = 0; continue; }
+                $effToTs = strtotime($effTo); $cTs = strtotime($ceilingDate);
+                if ($effToTs >= $cTs) { $unit->outstanding_amount = 0; continue; }
+                $eY = (int) date('Y', $effToTs); $eM = (int) date('n', $effToTs); $eD = (int) date('j', $effToTs);
+                $eD30 = ($eD >= (int) date('t', $effToTs)) ? 30 : min($eD, 30);
+                $cY = (int) date('Y', $cTs); $cM = (int) date('n', $cTs); $cD = (int) date('j', $cTs);
+                $cD30 = ($cD >= (int) date('t', $cTs)) ? 30 : min($cD, 30);
+                $days = ($cY - $eY) * 360 + ($cM - $eM) * 30 + ($cD30 - $eD30);
+                $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
+            }
+            unset($unit);
+
+            $oldOutstanding = array_values(array_filter($oldOutstanding, function ($u) {
+                return $u->outstanding_amount > 0 || (float) ($u->collection_amount ?? 0) > 0;
+            }));
+
+            // Mark legal tenants in main units array (contract-level check:
+            // only the specific contract in legal is marked red, not a later renewal)
+            foreach ($units as &$unit) {
+                $unit->is_legal = !empty($unit->contract_id) && isset($legalContractIds[$unit->contract_id]);
+            }
+            unset($unit);
+
+            // Legal tenants with expired contracts — add as a second row (red) even if an active contract also exists
+            $legalExpiredUnits = DB::select("
+                WITH building_units AS (
+                    SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
+                    FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+                    WHERE u.building_id = ? AND u.unit_status = 1
+                ),
+                legal_ids AS (
+                    SELECT DISTINCT l.unit_id, l.tenant_id FROM legal l
+                    JOIN building_units bu ON bu.id = l.unit_id WHERE l.legal_is_closed != 2
+                    UNION
+                    SELECT DISTINCT tc.unit_id, tc.tenant_id FROM tenant_contracts tc
+                    JOIN tenant t ON t.id = tc.tenant_id
+                    JOIN building_units bu ON bu.id = tc.unit_id
+                    WHERE (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
+                      AND NOT EXISTS (
+                          SELECT 1 FROM legal l2
+                          JOIN units u2 ON u2.id = l2.unit_id
+                          WHERE u2.building_id = ? AND l2.legal_is_closed != 2
+                            AND l2.tenant_contract_id IS NOT NULL
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM legal l3
+                          WHERE l3.unit_id = tc.unit_id
+                            AND l3.tenant_id = tc.tenant_id
+                            AND l3.legal_is_closed = 2
+                      )
+                ),
+                latest_expired AS (
+                    -- Only truly expired contracts (end date before report month start)
+                    -- so active-contract units still get the second legal-outstanding row
+                    -- without duplicating what the active-contract row already covers
+                    SELECT DISTINCT ON (tc.unit_id)
+                        tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
+                        tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
+                    FROM tenant_contracts tc
+                    JOIN legal_ids li ON li.unit_id = tc.unit_id AND li.tenant_id = tc.tenant_id
+                    WHERE tc.tenant_contract_valid_to_date IS NOT NULL
+                      AND tc.tenant_contract_valid_to_date < ?::date
+                    ORDER BY tc.unit_id, tc.tenant_contract_valid_to_date DESC NULLS LAST
+                ),
+                all_legal_receipts AS (
+                    SELECT tc_r.unit_id, tc_r.tenant_id,
+                           rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
+                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt
+                    FROM receipts_generation rg
+                    JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
+                    JOIN building_units bu ON bu.id = tc_r.unit_id
+                    JOIN legal_ids li ON li.unit_id = tc_r.unit_id AND li.tenant_id = tc_r.tenant_id
+                    WHERE rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
+                ),
+                rent_recd_l AS (
+                    SELECT DISTINCT ON (unit_id, tenant_id)
+                        unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
+                    FROM all_legal_receipts
+                    WHERE receipts_generation_eff_to::date <= ?::date
+                    ORDER BY unit_id, tenant_id, receipts_generation_eff_to DESC NULLS LAST
+                ),
+                paid_thru_l AS (
+                    SELECT DISTINCT ON (unit_id, tenant_id)
+                        unit_id, tenant_id, receipts_generation_eff_to AS paid_through
+                    FROM all_legal_receipts
+                    WHERE receipts_generation_eff_from::date <= ?::date
+                    ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
+                ),
+                monthly_col_l AS (
+                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
+                    FROM all_legal_receipts
+                    WHERE receipts_generation_eff_from IS NOT NULL
+                      AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
+                    GROUP BY unit_id, tenant_id
+                )
+                SELECT
+                    bu.id AS unit_id,
+                    bu.unit_no, bu.unit_type, t.tenant_name,
+                    le.tenant_contract_start_date AS contract_start,
+                    le.tenant_contract_valid_to_date AS contract_end,
+                    rr.rent_recd_upto, pt.paid_through,
+                    COALESCE(le.tenant_contract_rent, 0) AS rent_per_month,
+                    COALESCE(mc.collection_amount, 0) AS collection_amount,
+                    0 AS income_amount, 0 AS outstanding_amount, 0 AS occupied_at_month_start
+                FROM building_units bu
+                JOIN latest_expired le ON le.unit_id = bu.id
+                JOIN tenant t ON t.id = le.tenant_id
+                LEFT JOIN rent_recd_l rr ON rr.unit_id = bu.id AND rr.tenant_id = le.tenant_id
+                LEFT JOIN paid_thru_l pt ON pt.unit_id = bu.id AND pt.tenant_id = le.tenant_id
+                LEFT JOIN monthly_col_l mc ON mc.unit_id = bu.id AND mc.tenant_id = le.tenant_id
+                ORDER BY bu.unit_no
+            ", [$building->id, $building->id, $startDate, $endDate, $endDate, $startDate]);
+
+            foreach ($legalExpiredUnits as &$unit) {
+                $unit->is_legal = true;
+                $rent = (float)($unit->rent_per_month ?? 0);
+                $effTo = $unit->paid_through ?? null;
+                $contractStart = $unit->contract_start ?? null;
+                if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
+                if (empty($effTo) && !empty($contractStart)) {
+                    $effTo = date('Y-m-d', strtotime($contractStart) - 86400);
+                }
+                if (empty($effTo)) { $unit->outstanding_amount = 0; continue; }
+                $effToTs = strtotime($effTo);
+                $endDateTs = strtotime($endDate);
+                if ($effToTs >= $endDateTs) { $unit->outstanding_amount = 0; continue; }
+                $eY=(int)date('Y',$effToTs); $eM=(int)date('n',$effToTs); $eD=(int)date('j',$effToTs);
+                $eD30 = ($eD >= (int)date('t',$effToTs)) ? 30 : min($eD, 30);
+                $cY=(int)date('Y',$endDateTs); $cM=(int)date('n',$endDateTs); $cD=(int)date('j',$endDateTs);
+                $cD30 = ($cD >= (int)date('t',$endDateTs)) ? 30 : min($cD, 30);
+                $days = ($cY-$eY)*360 + ($cM-$eM)*30 + ($cD30-$eD30);
+                $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
+            }
+            unset($unit);
+
+            // Filter expired-legal units: only keep those with outstanding > 0 or collection this month
+            $legalExpiredUnits = array_values(array_filter($legalExpiredUnits, function ($u) {
+                return $u->outstanding_amount > 0 || (float)($u->collection_amount ?? 0) > 0;
+            }));
+
+            // Merge legal expired units into main units and sort by unit_no
+            if (!empty($legalExpiredUnits)) {
+                $units = array_merge($units, $legalExpiredUnits);
+                usort($units, function($a, $b) { return strnatcmp($a->unit_no ?? '', $b->unit_no ?? ''); });
+            }
+
+            $expenses  = $expensesByMonth[$m] ?? [];
+            $occ       = $occupiedByMonth[$m]  ?? ['occupied_residential' => 0, 'occupied_commercial' => 0];
+            $newLeased = $newLeasedByMonth[$m]  ?? ['new_leased_residential' => 0, 'new_leased_commercial' => 0];
+            $occupancy = [
+                'total_units'            => $totalUnits,
+                'new_leased_residential' => $newLeased['new_leased_residential'],
+                'new_leased_commercial'  => $newLeased['new_leased_commercial'],
+                'occupied_residential'   => $occ['occupied_residential'],
+                'occupied_commercial'    => $occ['occupied_commercial'],
+                'vacant_residential'     => max(0, $totalResidentialUnits - $occ['occupied_residential']),
+                'vacant_commercial'      => max(0, $totalCommercialUnits - $occ['occupied_commercial']),
+                'evacuation_residential' => 0,
+                'evacuation_commercial'  => 0,
+            ];
+            // Cleaning charge: the landlord contract valid for this month (prefer status=1 if
+            // more than one overlaps; otherwise the latest matching valid_from).
+            $cleaningCharge = 0;
+            $matched = null;
+            foreach ($landlordContractRows as $lc) {
+                $validFrom = $lc->valid_from;
+                $validTo   = $lc->valid_to;
+                if ($validFrom !== null && $validFrom > $endDate) continue;
+                if ($validTo !== null && $validTo < $startDate) continue;
+                // Rows are ordered by valid_from ascending; prefer an active (status=1)
+                // match, otherwise keep the most recent overlapping row.
+                if ($matched === null
+                    || ((int)$lc->status === 1 && (int)$matched->status !== 1)
+                    || (int)$lc->status === (int)$matched->status) {
+                    $matched = $lc;
+                }
+            }
+            if ($matched !== null) {
+                $cleaningCharge = (float) $matched->cleaning_charge;
+            }
+        } else {
+            $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0; $matched = null;
+            $occupancy = ['total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
+                'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
+                'vacant_commercial' => 0, 'evacuation_residential' => 0, 'evacuation_commercial' => 0];
+        }
+
+        $monthData[$m] = [
+            'units'             => $units,
+            'old_outstanding'   => $oldOutstanding ?? [],
+            'expenses'          => $expenses,
+            'occupancy'         => $occupancy,
+            'cleaning_charge'   => $cleaningCharge,
+            'landlord_contract' => $matched,
+        ];
+    }
+
+    return $monthData;
+}
+
 public function normalManagementReportV2Stream(Request $request)
 {
     // ── Kill all output buffering (critical for Apache + Windows / Laragon) ──
@@ -3976,593 +4579,7 @@ public function normalManagementReportV2Stream(Request $request)
         $pctNow = (int) round(1 + ($idx / $totalBuildings) * 88);
         $send(['pct' => $pctNow, 'msg' => 'Processing ' . $building->building_name . ' (' . ($idx + 1) . ' / ' . $totalBuildings . ')']);
 
-        $monthData = [];
-
-        // ── Static per-building counts (queried once) ─────────────────────
-        $totalUnits = DB::table('units')
-            ->where('building_id', $building->id)->where('unit_status', 1)->count();
-
-        $totalResidentialUnits = DB::table('units as u')
-            ->join('unit_types as ut', 'ut.id', '=', 'u.unit_type_id')
-            ->where('u.building_id', $building->id)->where('u.unit_status', 1)
-            ->whereRaw("(ut.unit_types_name ILIKE '%residential%' OR ut.unit_types_name ILIKE '%apart%' OR ut.unit_types_name ILIKE '%flat%' OR ut.unit_types_name ILIKE '%villa%' OR ut.unit_types_name ILIKE '%BR%' OR ut.unit_types_name ILIKE '%studio%' OR ut.unit_types_name = 'PH')")
-            ->count();
-
-        $totalCommercialUnits = DB::table('units as u')
-            ->join('unit_types as ut', 'ut.id', '=', 'u.unit_type_id')
-            ->where('u.building_id', $building->id)->where('u.unit_status', 1)
-            ->whereRaw("(ut.unit_types_name ILIKE '%commercial%' OR ut.unit_types_name ILIKE '%shop%' OR ut.unit_types_name ILIKE '%office%' OR ut.unit_types_name ILIKE '%showroom%' OR ut.unit_types_name ILIKE '%warehouse%')")
-            ->count();
-
-        // ── Batch expense data for the entire year ────────────────────────
-        $expenseRows = DB::select("
-            SELECT month, expense_name, SUM(expense_amount) AS expense_amount
-            FROM (
-                SELECT EXTRACT(MONTH FROM mi.maintenance_invoice_date)::int AS month,
-                       eh.expense_name, CAST(mid.debit_amt AS NUMERIC) AS expense_amount
-                FROM maintenance_invoice_details mid
-                JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
-                JOIN acc_codes ac ON ac.id = mid.ac_codes_id
-                JOIN expense_head eh ON eh.acc_codes_id = ac.id
-                WHERE mid.building_id = ? AND EXTRACT(YEAR FROM mi.maintenance_invoice_date) = ?
-                  AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
-                UNION ALL
-                SELECT EXTRACT(MONTH FROM gl.doc_date)::int AS month,
-                       eh.expense_name, CAST(gld.debit_amt AS NUMERIC) AS expense_amount
-                FROM general_ledger_dim gld
-                JOIN general_ledgers gl ON gl.id = gld.general_ledger_id
-                JOIN acc_codes ac ON ac.id = gld.account_id
-                JOIN expense_head eh ON eh.acc_codes_id = ac.id
-                WHERE gld.building_id = ? AND EXTRACT(YEAR FROM gl.doc_date) = ?
-                  AND gl.general_ledger_status != 2 AND gl.deleted_at IS NULL
-            ) src
-            GROUP BY month, expense_name ORDER BY month, expense_name
-        ", [$building->id, $year, $building->id, $year]);
-
-        $expensesByMonth = [];
-        foreach ($expenseRows as $eRow) {
-            $em = (int) $eRow->month;
-            if (!isset($expensesByMonth[$em])) $expensesByMonth[$em] = [];
-            $expensesByMonth[$em][] = $eRow;
-        }
-
-        // ── Batch landlord contract cleaning charges for the year ─────────
-        $landlordContractRows = DB::select("
-            SELECT landlord_contract_status AS status,
-                   landlord_contract_valid_from_date AS valid_from,
-                   landlord_contract_valid_to_date AS valid_to,
-                   landlord_contract_cleaning_charge AS cleaning_charge
-            FROM landlord_contract
-            WHERE building_id = ?
-            ORDER BY landlord_contract_valid_from_date
-        ", [$building->id]);
-
-        // ── Batch occupancy for all months ────────────────────────────────
-        $yearStart = $year . '-01-01';
-        $yearEnd   = $year . '-12-01';
-        $occupiedRows = DB::select("
-            SELECT EXTRACT(MONTH FROM (gs.m + interval '1 month - 1 day'))::int AS month,
-                COUNT(DISTINCT CASE WHEN ut.unit_types_name ILIKE '%residential%' OR ut.unit_types_name ILIKE '%apart%'
-                    OR ut.unit_types_name ILIKE '%flat%' OR ut.unit_types_name ILIKE '%villa%'
-                    OR ut.unit_types_name ILIKE '%BR%' OR ut.unit_types_name ILIKE '%studio%'
-                    OR ut.unit_types_name = 'PH' THEN u.id END) AS occupied_residential,
-                COUNT(DISTINCT CASE WHEN ut.unit_types_name ILIKE '%commercial%' OR ut.unit_types_name ILIKE '%shop%'
-                    OR ut.unit_types_name ILIKE '%office%' OR ut.unit_types_name ILIKE '%showroom%'
-                    OR ut.unit_types_name ILIKE '%warehouse%' THEN u.id END) AS occupied_commercial
-            FROM generate_series(?::date, ?::date, '1 month') AS gs(m)
-            LEFT JOIN tenant_contracts tc ON tc.tenant_contract_status != 2
-                AND tc.tenant_contract_start_date <= (gs.m + interval '1 month - 1 day')::date
-                AND (tc.tenant_contract_valid_to_date >= (gs.m + interval '1 month - 1 day')::date OR tc.tenant_contract_valid_to_date IS NULL)
-            LEFT JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
-            LEFT JOIN unit_types ut ON ut.id = u.unit_type_id AND u.id IS NOT NULL
-            GROUP BY gs.m ORDER BY gs.m
-        ", [$yearStart, $yearEnd, $building->id]);
-
-        $occupiedByMonth = [];
-        foreach ($occupiedRows as $oRow) {
-            $occupiedByMonth[(int) $oRow->month] = [
-                'occupied_residential' => (int) $oRow->occupied_residential,
-                'occupied_commercial'  => (int) $oRow->occupied_commercial,
-            ];
-        }
-
-        $newLeasedRows = DB::select("
-            SELECT EXTRACT(MONTH FROM tc.tenant_contract_start_date)::int AS month,
-                COUNT(DISTINCT CASE WHEN ut.unit_types_name ILIKE '%residential%' OR ut.unit_types_name ILIKE '%apart%'
-                    OR ut.unit_types_name ILIKE '%flat%' OR ut.unit_types_name ILIKE '%villa%'
-                    OR ut.unit_types_name ILIKE '%BR%' OR ut.unit_types_name ILIKE '%studio%'
-                    OR ut.unit_types_name = 'PH' THEN u.id END) AS new_leased_residential,
-                COUNT(DISTINCT CASE WHEN ut.unit_types_name ILIKE '%commercial%' OR ut.unit_types_name ILIKE '%shop%'
-                    OR ut.unit_types_name ILIKE '%office%' OR ut.unit_types_name ILIKE '%showroom%'
-                    OR ut.unit_types_name ILIKE '%warehouse%' THEN u.id END) AS new_leased_commercial
-            FROM tenant_contracts tc
-            JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
-            JOIN unit_types ut ON ut.id = u.unit_type_id
-            WHERE tc.tenant_contract_status != 2 AND EXTRACT(YEAR FROM tc.tenant_contract_start_date) = ?
-            GROUP BY month ORDER BY month
-        ", [$building->id, $year]);
-
-        $newLeasedByMonth = [];
-        foreach ($newLeasedRows as $nlRow) {
-            $newLeasedByMonth[(int) $nlRow->month] = [
-                'new_leased_residential' => (int) $nlRow->new_leased_residential,
-                'new_leased_commercial'  => (int) $nlRow->new_leased_commercial,
-            ];
-        }
-
-        // ── Legal contract ID lookup (contract-level, not unit-level) ────────────
-        // Primary: legal.tenant_contract_id when the building has entries in the legal table.
-        // Fallback: tenant name patterns for buildings with no legal table entries.
-        // This ensures only the SPECIFIC contract flagged as legal is marked red,
-        // not a later active renewal contract for the same tenant.
-        $hasLegalTableEntries = DB::table('legal as l')
-            ->join('units as u', 'u.id', '=', 'l.unit_id')
-            ->where('u.building_id', $building->id)
-            ->where('l.legal_is_closed', '!=', 2)
-            ->whereNotNull('l.tenant_contract_id')
-            ->exists();
-
-        if ($hasLegalTableEntries) {
-            $legalRows = DB::select("
-                SELECT DISTINCT l.tenant_contract_id
-                FROM legal l
-                JOIN units u ON u.id = l.unit_id
-                WHERE u.building_id = ? AND l.legal_is_closed != 2
-                  AND l.tenant_contract_id IS NOT NULL
-            ", [$building->id]);
-        } else {
-            $legalRows = DB::select("
-                SELECT DISTINCT tc.id AS tenant_contract_id
-                FROM tenant_contracts tc
-                JOIN tenant t ON t.id = tc.tenant_id
-                JOIN units u ON u.id = tc.unit_id
-                WHERE u.building_id = ? AND u.unit_status = 1
-                  AND (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-            ", [$building->id]);
-        }
-        $legalContractIds = [];
-        foreach ($legalRows as $lr) {
-            $legalContractIds[$lr->tenant_contract_id] = true;
-        }
-
-        // ── Per-month loop ────────────────────────────────────────────────
-        foreach (range(1, 12) as $m) {
-            $startDate = date('Y-m-d', mktime(0, 0, 0, $m, 1, $year));
-            $endDate   = date('Y-m-t', mktime(0, 0, 0, $m, 1, $year));
-
-            if (in_array($m, $monthsToPopulate)) {
-                // Active unit data (CTE-based)
-                $units = DB::select("
-                    WITH building_units AS (
-                        SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
-                        FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
-                        WHERE u.building_id = ? AND u.unit_status = 1
-                    ),
-                    active_contracts AS (
-                        SELECT DISTINCT ON (tc.unit_id)
-                            tc.id, tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
-                            td.termination_date AS contract_termination_date
-                        FROM tenant_contracts tc JOIN building_units bu ON bu.id = tc.unit_id
-                        LEFT JOIN (
-                            SELECT contract_id, MAX(termination_date) AS termination_date
-                            FROM termination
-                            WHERE termination_date IS NOT NULL
-                            GROUP BY contract_id
-                        ) td ON td.contract_id = tc.id
-                        WHERE tc.tenant_contract_start_date <= ?::date
-                          AND (
-                              (tc.tenant_contract_status = 1
-                               AND (tc.tenant_contract_valid_to_date >= ?::date OR tc.tenant_contract_valid_to_date IS NULL))
-                              OR
-                              (tc.tenant_contract_status = 0
-                               AND COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) >= ?::date)
-                          )
-                        ORDER BY tc.unit_id, tc.tenant_contract_status DESC, tc.tenant_contract_start_date DESC
-                    ),
-                    all_receipts AS (
-                        SELECT tc_r.unit_id, tc_r.tenant_id,
-                               rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                               rg.receipts_generation_receipt_date, rg.receipts_generation_amt
-                        FROM receipts_generation rg
-                        JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
-                        JOIN building_units bu ON bu.id = tc_r.unit_id
-                        WHERE rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
-                          AND rg.receipts_generation_receipt_date::date <= ?::date
-                    ),
-                    rent_recd AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
-                        FROM all_receipts WHERE receipts_generation_eff_to::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_to DESC NULLS LAST
-                    ),
-                    paid_thru AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS paid_through
-                        FROM all_receipts
-                        WHERE receipts_generation_eff_from IS NOT NULL AND receipts_generation_eff_from::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
-                    ),
-                    monthly_col AS (
-                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
-                        FROM all_receipts
-                        WHERE receipts_generation_eff_from IS NOT NULL
-                          AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
-                        GROUP BY unit_id, tenant_id
-                    ),
-                    occ_at_start AS (
-                        SELECT DISTINCT tc_oas.unit_id
-                        FROM tenant_contracts tc_oas JOIN building_units bu ON bu.id = tc_oas.unit_id
-                        WHERE tc_oas.tenant_contract_status = 1
-                          AND tc_oas.tenant_contract_start_date <= ?::date
-                          AND (tc_oas.tenant_contract_valid_to_date >= ?::date OR tc_oas.tenant_contract_valid_to_date IS NULL)
-                    )
-                    SELECT bu.id AS unit_id, ac.id AS contract_id, bu.unit_no, bu.unit_type,
-                        COALESCE(t.tenant_name, 'VACANT') AS tenant_name,
-                        ac.tenant_contract_start_date AS contract_start,
-                        ac.tenant_contract_valid_to_date AS contract_end,
-                        ac.contract_termination_date,
-                        rr.rent_recd_upto, pt.paid_through,
-                        COALESCE(ac.tenant_contract_rent, 0) AS rent_per_month,
-                        CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.collection_amount, 0) ELSE 0 END AS collection_amount,
-                        COALESCE(ac.tenant_contract_rent, 0) AS income_amount,
-                        0 AS outstanding_amount,
-                        CASE WHEN os.unit_id IS NOT NULL THEN 1 ELSE 0 END AS occupied_at_month_start
-                    FROM building_units bu
-                    LEFT JOIN active_contracts ac ON ac.unit_id = bu.id
-                    LEFT JOIN tenant t ON t.id = ac.tenant_id
-                    LEFT JOIN rent_recd rr ON rr.unit_id = bu.id AND rr.tenant_id = ac.tenant_id
-                    LEFT JOIN paid_thru pt ON pt.unit_id = bu.id AND pt.tenant_id = ac.tenant_id
-                    LEFT JOIN monthly_col mc ON mc.unit_id = bu.id AND mc.tenant_id = ac.tenant_id
-                    LEFT JOIN occ_at_start os ON os.unit_id = bu.id
-                    ORDER BY bu.unit_no
-                ", [$building->id, $endDate, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $startDate, $startDate]);
-
-                foreach ($units as &$unit) {
-                    $rent  = (float) ($unit->rent_per_month ?? 0);
-                    $effTo = !empty($unit->paid_through) ? $unit->paid_through : null;
-                    if ($rent > 0 && !empty($unit->contract_start)) {
-                        $contractStartTs = strtotime($unit->contract_start);
-                        $isNewOccupancy  = empty($unit->occupied_at_month_start);
-                        if ($contractStartTs > strtotime($startDate) && $contractStartTs <= strtotime($endDate) && $isNewOccupancy) {
-                            $startDay   = (int) date('j', $contractStartTs);
-                            $startDay30 = ($startDay >= (int) date('t', $contractStartTs)) ? 30 : min($startDay, 30);
-                            $proratedDays = 30 - $startDay30 + 1;
-                            $rent = round($rent * $proratedDays / 30, 2);
-                            $unit->rent_per_month = $rent;
-                            $unit->income_amount  = $rent;
-                        }
-                    }
-                    // Prorate rent/income for contracts terminated mid-month.
-                    // Outstanding = max(0, pro_rated_income - collection) — no rollover for terminated tenants.
-                    if ($rent > 0 && !empty($unit->contract_termination_date)) {
-                        $terminationTs = strtotime($unit->contract_termination_date);
-                        $startDateTs   = strtotime($startDate);
-                        $endDateTs     = strtotime($endDate);
-                        if ($terminationTs >= $startDateTs && $terminationTs < $endDateTs) {
-                            $termDay    = (int) date('j', $terminationTs);
-                            $termDay30  = ($termDay >= (int) date('t', $terminationTs)) ? 30 : min($termDay, 30);
-                            $rent = round($rent * $termDay30 / 30, 2);
-                            $unit->rent_per_month = $rent;
-                            $unit->income_amount  = $rent;
-                            $unit->outstanding_amount = max(0, round($rent - (float) ($unit->collection_amount ?? 0), 2));
-                            continue;
-                        }
-                    }
-                    if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
-                    if (empty($effTo)) { $unit->outstanding_amount = $rent; continue; }
-                    $effToTs   = strtotime($effTo);
-                    $endDateTs = strtotime($endDate);
-                    if ($effToTs >= $endDateTs) { $unit->outstanding_amount = 0; continue; }
-                    $nextDayTs     = $effToTs + 86400;
-                    $nextPeriodEnd = date('Y-m-t', mktime(0, 0, 0, (int) date('n', $nextDayTs), 1, (int) date('Y', $nextDayTs)));
-                    $ceilingDate   = (strtotime($nextPeriodEnd) > $endDateTs) ? $nextPeriodEnd : $endDate;
-                    $ceilingTs     = strtotime($ceilingDate);
-                    if ($effToTs >= $ceilingTs) { $unit->outstanding_amount = 0; continue; }
-                    $eY = (int) date('Y', $effToTs); $eM = (int) date('n', $effToTs); $eD = (int) date('j', $effToTs);
-                    $eD30 = ($eD >= (int) date('t', $effToTs)) ? 30 : min($eD, 30);
-                    $cY = (int) date('Y', $ceilingTs); $cM = (int) date('n', $ceilingTs); $cD = (int) date('j', $ceilingTs);
-                    $cD30 = ($cD >= (int) date('t', $ceilingTs)) ? 30 : min($cD, 30);
-                    $days = ($cY - $eY) * 360 + ($cM - $eM) * 30 + ($cD30 - $eD30);
-                    $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
-                }
-                unset($unit);
-
-                // Old outstanding (CTE-based)
-                $oldOutstanding = DB::select("
-                    WITH building_units AS (
-                        SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
-                        FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
-                        WHERE u.building_id = ? AND u.unit_status = 1
-                    ),
-                    termination_dates AS (
-                        SELECT contract_id, MAX(termination_date) AS termination_date
-                        FROM termination
-                        WHERE termination_date IS NOT NULL
-                        GROUP BY contract_id
-                    ),
-                    expired_contracts AS (
-                        SELECT DISTINCT ON (tc.unit_id, tc.tenant_id)
-                            tc.id, tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date,
-                            COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) AS effective_end_date
-                        FROM tenant_contracts tc JOIN building_units bu ON bu.id = tc.unit_id
-                        LEFT JOIN termination_dates td ON td.contract_id = tc.id
-                        WHERE tc.tenant_contract_valid_to_date IS NOT NULL
-                          AND COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) < ?::date
-                        ORDER BY tc.unit_id, tc.tenant_id, COALESCE(td.termination_date, tc.tenant_contract_valid_to_date) DESC NULLS LAST
-                    ),
-                    old_receipts AS (
-                        SELECT tc_r.unit_id, tc_r.tenant_id,
-                               rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                               rg.receipts_generation_receipt_date, rg.receipts_generation_amt
-                        FROM receipts_generation rg
-                        JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
-                        JOIN building_units bu ON bu.id = tc_r.unit_id
-                        LEFT JOIN termination_dates td ON td.contract_id = tc_r.id
-                        WHERE tc_r.tenant_contract_valid_to_date IS NOT NULL
-                          AND COALESCE(td.termination_date, tc_r.tenant_contract_valid_to_date) < ?::date
-                          AND rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
-                          AND rg.receipts_generation_receipt_date::date <= ?::date
-                    ),
-                    rent_recd_old AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
-                        FROM old_receipts WHERE receipts_generation_eff_from::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
-                    ),
-                    paid_thru_old AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS paid_through
-                        FROM old_receipts WHERE receipts_generation_eff_from::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
-                    ),
-                    monthly_col_old AS (
-                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
-                        FROM old_receipts
-                        WHERE receipts_generation_eff_from IS NOT NULL
-                          AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
-                        GROUP BY unit_id, tenant_id
-                    )
-                    SELECT bu.unit_no, bu.unit_type, t.tenant_name,
-                        ec.tenant_contract_start_date AS contract_start,
-                        ec.effective_end_date AS contract_end,
-                        rr.rent_recd_upto, pt.paid_through,
-                        COALESCE(ec.tenant_contract_rent, 0) AS rent_per_month,
-                        COALESCE(mc.collection_amount, 0) AS collection_amount,
-                        0 AS income_amount, 0 AS outstanding_amount
-                    FROM building_units bu
-                    JOIN expired_contracts ec ON ec.unit_id = bu.id
-                    JOIN tenant t ON t.id = ec.tenant_id
-                    LEFT JOIN rent_recd_old rr ON rr.unit_id = bu.id AND rr.tenant_id = ec.tenant_id
-                    LEFT JOIN paid_thru_old pt ON pt.unit_id = bu.id AND pt.tenant_id = ec.tenant_id
-                    LEFT JOIN monthly_col_old mc ON mc.unit_id = bu.id AND mc.tenant_id = ec.tenant_id
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM tenant_contracts tc2
-                        WHERE tc2.unit_id = bu.id AND tc2.tenant_id = ec.tenant_id
-                          AND tc2.tenant_contract_start_date <= ?::date
-                          AND (tc2.tenant_contract_valid_to_date >= ?::date OR tc2.tenant_contract_valid_to_date IS NULL)
-                    )
-                    AND NOT EXISTS (
-                        SELECT 1 FROM legal l
-                        WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id AND l.legal_is_closed != 2
-                    )
-                    AND NOT (
-                        (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                        AND NOT EXISTS (
-                            SELECT 1 FROM legal l3
-                            WHERE l3.unit_id = bu.id
-                              AND l3.tenant_id = ec.tenant_id
-                              AND l3.legal_is_closed = 2
-                        )
-                    )
-                    ORDER BY bu.unit_no
-                ", [$building->id, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $endDate, $startDate]);
-
-                foreach ($oldOutstanding as &$unit) {
-                    $rent = (float) ($unit->rent_per_month ?? 0);
-                    $effTo = $unit->paid_through ?? null;
-                    $contractEnd = $unit->contract_end ?? null;
-                    $contractStart = $unit->contract_start ?? null;
-                    if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
-                    if (!empty($effTo) && !empty($contractEnd) && strtotime($effTo) > strtotime($contractEnd)) $effTo = $contractEnd;
-                    if (empty($effTo) && !empty($contractStart)) $effTo = date('Y-m-d', strtotime($contractStart) - 86400);
-                    $ceilingDate = !empty($contractEnd) ? $contractEnd : $endDate;
-                    if (empty($effTo)) { $unit->outstanding_amount = 0; continue; }
-                    $effToTs = strtotime($effTo); $cTs = strtotime($ceilingDate);
-                    if ($effToTs >= $cTs) { $unit->outstanding_amount = 0; continue; }
-                    $eY = (int) date('Y', $effToTs); $eM = (int) date('n', $effToTs); $eD = (int) date('j', $effToTs);
-                    $eD30 = ($eD >= (int) date('t', $effToTs)) ? 30 : min($eD, 30);
-                    $cY = (int) date('Y', $cTs); $cM = (int) date('n', $cTs); $cD = (int) date('j', $cTs);
-                    $cD30 = ($cD >= (int) date('t', $cTs)) ? 30 : min($cD, 30);
-                    $days = ($cY - $eY) * 360 + ($cM - $eM) * 30 + ($cD30 - $eD30);
-                    $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
-                }
-                unset($unit);
-
-                $oldOutstanding = array_values(array_filter($oldOutstanding, function ($u) {
-                    return $u->outstanding_amount > 0 || (float) ($u->collection_amount ?? 0) > 0;
-                }));
-
-                // Mark legal tenants in main units array (contract-level check:
-                // only the specific contract in legal is marked red, not a later renewal)
-                foreach ($units as &$unit) {
-                    $unit->is_legal = !empty($unit->contract_id) && isset($legalContractIds[$unit->contract_id]);
-                }
-                unset($unit);
-
-                // Legal tenants with expired contracts — add as a second row (red) even if an active contract also exists
-                $legalExpiredUnits = DB::select("
-                    WITH building_units AS (
-                        SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
-                        FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
-                        WHERE u.building_id = ? AND u.unit_status = 1
-                    ),
-                    legal_ids AS (
-                        SELECT DISTINCT l.unit_id, l.tenant_id FROM legal l
-                        JOIN building_units bu ON bu.id = l.unit_id WHERE l.legal_is_closed != 2
-                        UNION
-                        SELECT DISTINCT tc.unit_id, tc.tenant_id FROM tenant_contracts tc
-                        JOIN tenant t ON t.id = tc.tenant_id
-                        JOIN building_units bu ON bu.id = tc.unit_id
-                        WHERE (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                          AND NOT EXISTS (
-                              SELECT 1 FROM legal l2
-                              JOIN units u2 ON u2.id = l2.unit_id
-                              WHERE u2.building_id = ? AND l2.legal_is_closed != 2
-                                AND l2.tenant_contract_id IS NOT NULL
-                          )
-                          AND NOT EXISTS (
-                              SELECT 1 FROM legal l3
-                              WHERE l3.unit_id = tc.unit_id
-                                AND l3.tenant_id = tc.tenant_id
-                                AND l3.legal_is_closed = 2
-                          )
-                    ),
-                    latest_expired AS (
-                        -- Only truly expired contracts (end date before report month start)
-                        -- so active-contract units still get the second legal-outstanding row
-                        -- without duplicating what the active-contract row already covers
-                        SELECT DISTINCT ON (tc.unit_id)
-                            tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
-                        FROM tenant_contracts tc
-                        JOIN legal_ids li ON li.unit_id = tc.unit_id AND li.tenant_id = tc.tenant_id
-                        WHERE tc.tenant_contract_valid_to_date IS NOT NULL
-                          AND tc.tenant_contract_valid_to_date < ?::date
-                        ORDER BY tc.unit_id, tc.tenant_contract_valid_to_date DESC NULLS LAST
-                    ),
-                    all_legal_receipts AS (
-                        SELECT tc_r.unit_id, tc_r.tenant_id,
-                               rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                               rg.receipts_generation_receipt_date, rg.receipts_generation_amt
-                        FROM receipts_generation rg
-                        JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
-                        JOIN building_units bu ON bu.id = tc_r.unit_id
-                        JOIN legal_ids li ON li.unit_id = tc_r.unit_id AND li.tenant_id = tc_r.tenant_id
-                        WHERE rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
-                    ),
-                    rent_recd_l AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_to::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_to DESC NULLS LAST
-                    ),
-                    paid_thru_l AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS paid_through
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_from::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
-                    ),
-                    monthly_col_l AS (
-                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_from IS NOT NULL
-                          AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
-                        GROUP BY unit_id, tenant_id
-                    )
-                    SELECT
-                        bu.id AS unit_id,
-                        bu.unit_no, bu.unit_type, t.tenant_name,
-                        le.tenant_contract_start_date AS contract_start,
-                        le.tenant_contract_valid_to_date AS contract_end,
-                        rr.rent_recd_upto, pt.paid_through,
-                        COALESCE(le.tenant_contract_rent, 0) AS rent_per_month,
-                        COALESCE(mc.collection_amount, 0) AS collection_amount,
-                        0 AS income_amount, 0 AS outstanding_amount, 0 AS occupied_at_month_start
-                    FROM building_units bu
-                    JOIN latest_expired le ON le.unit_id = bu.id
-                    JOIN tenant t ON t.id = le.tenant_id
-                    LEFT JOIN rent_recd_l rr ON rr.unit_id = bu.id AND rr.tenant_id = le.tenant_id
-                    LEFT JOIN paid_thru_l pt ON pt.unit_id = bu.id AND pt.tenant_id = le.tenant_id
-                    LEFT JOIN monthly_col_l mc ON mc.unit_id = bu.id AND mc.tenant_id = le.tenant_id
-                    ORDER BY bu.unit_no
-                ", [$building->id, $building->id, $startDate, $endDate, $endDate, $startDate]);
-
-                foreach ($legalExpiredUnits as &$unit) {
-                    $unit->is_legal = true;
-                    $rent = (float)($unit->rent_per_month ?? 0);
-                    $effTo = $unit->paid_through ?? null;
-                    $contractStart = $unit->contract_start ?? null;
-                    if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
-                    if (empty($effTo) && !empty($contractStart)) {
-                        $effTo = date('Y-m-d', strtotime($contractStart) - 86400);
-                    }
-                    if (empty($effTo)) { $unit->outstanding_amount = 0; continue; }
-                    $effToTs = strtotime($effTo);
-                    $endDateTs = strtotime($endDate);
-                    if ($effToTs >= $endDateTs) { $unit->outstanding_amount = 0; continue; }
-                    $eY=(int)date('Y',$effToTs); $eM=(int)date('n',$effToTs); $eD=(int)date('j',$effToTs);
-                    $eD30 = ($eD >= (int)date('t',$effToTs)) ? 30 : min($eD, 30);
-                    $cY=(int)date('Y',$endDateTs); $cM=(int)date('n',$endDateTs); $cD=(int)date('j',$endDateTs);
-                    $cD30 = ($cD >= (int)date('t',$endDateTs)) ? 30 : min($cD, 30);
-                    $days = ($cY-$eY)*360 + ($cM-$eM)*30 + ($cD30-$eD30);
-                    $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
-                }
-                unset($unit);
-
-                // Filter expired-legal units: only keep those with outstanding > 0 or collection this month
-                $legalExpiredUnits = array_values(array_filter($legalExpiredUnits, function ($u) {
-                    return $u->outstanding_amount > 0 || (float)($u->collection_amount ?? 0) > 0;
-                }));
-
-                // Merge legal expired units into main units and sort by unit_no
-                if (!empty($legalExpiredUnits)) {
-                    $units = array_merge($units, $legalExpiredUnits);
-                    usort($units, function($a, $b) { return strnatcmp($a->unit_no ?? '', $b->unit_no ?? ''); });
-                }
-
-                $expenses  = $expensesByMonth[$m] ?? [];
-                $occ       = $occupiedByMonth[$m]  ?? ['occupied_residential' => 0, 'occupied_commercial' => 0];
-                $newLeased = $newLeasedByMonth[$m]  ?? ['new_leased_residential' => 0, 'new_leased_commercial' => 0];
-                $occupancy = [
-                    'total_units'            => $totalUnits,
-                    'new_leased_residential' => $newLeased['new_leased_residential'],
-                    'new_leased_commercial'  => $newLeased['new_leased_commercial'],
-                    'occupied_residential'   => $occ['occupied_residential'],
-                    'occupied_commercial'    => $occ['occupied_commercial'],
-                    'vacant_residential'     => max(0, $totalResidentialUnits - $occ['occupied_residential']),
-                    'vacant_commercial'      => max(0, $totalCommercialUnits - $occ['occupied_commercial']),
-                    'evacuation_residential' => 0,
-                    'evacuation_commercial'  => 0,
-                ];
-                // Cleaning charge: the landlord contract valid for this month (prefer status=1 if
-                // more than one overlaps; otherwise the latest matching valid_from).
-                $cleaningCharge = 0;
-                $matched = null;
-                foreach ($landlordContractRows as $lc) {
-                    $validFrom = $lc->valid_from;
-                    $validTo   = $lc->valid_to;
-                    if ($validFrom !== null && $validFrom > $endDate) continue;
-                    if ($validTo !== null && $validTo < $startDate) continue;
-                    // Rows are ordered by valid_from ascending; prefer an active (status=1)
-                    // match, otherwise keep the most recent overlapping row.
-                    if ($matched === null
-                        || ((int)$lc->status === 1 && (int)$matched->status !== 1)
-                        || (int)$lc->status === (int)$matched->status) {
-                        $matched = $lc;
-                    }
-                }
-                if ($matched !== null) {
-                    $cleaningCharge = (float) $matched->cleaning_charge;
-                }
-            } else {
-                $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0;
-                $occupancy = ['total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
-                    'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
-                    'vacant_commercial' => 0, 'evacuation_residential' => 0, 'evacuation_commercial' => 0];
-            }
-
-            $monthData[$m] = [
-                'units'           => $units,
-                'old_outstanding' => $oldOutstanding ?? [],
-                'expenses'        => $expenses,
-                'occupancy'       => $occupancy,
-                'cleaning_charge' => $cleaningCharge,
-            ];
-        }
+        $monthData = $this->buildNormalManagementMonthData($building, $year, $monthsToPopulate);
 
         $safeName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $building->building_name);
         $fileName = $safeName . '_' . $year . '.xlsx';
