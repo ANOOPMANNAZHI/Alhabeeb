@@ -3968,7 +3968,7 @@ public function landlordTaxInvoiceReportStream(Request $request)
             exit;
         }
 
-        $contracts = $this->landlordTaxInvoiceEligibleContracts($vendorId);
+        $contracts = $this->landlordTaxInvoiceEligibleContracts($vendorId, $fromDate, $toDate);
         if ($contracts->isEmpty()) {
             $send(['pct' => 100, 'msg' => 'No eligible (Normal-management) buildings found for this landlord.', 'done' => true, 'error' => true]);
             exit;
@@ -4024,7 +4024,7 @@ public function landlordTaxInvoiceReportStream(Request $request)
                 'totalDue'     => $totalDue,
                 'invoiceDate'  => date('d.m.Y', strtotime($toDate)),
                 'deliveryDate' => date('d.m.Y', strtotime($toDate)),
-                'paymentDate'  => date('d.m.Y', strtotime($toDate . ' +1 month')),
+                'paymentDate'  => Carbon::parse($toDate)->addMonthNoOverflow()->format('d.m.Y'),
                 'amountInWords' => $this->landlordTaxInvoiceAmountInWords($totalDue),
             ];
 
@@ -4088,12 +4088,17 @@ public function landlordTaxInvoiceReportDownload(string $token)
  * Normal Management Report v2 building list and excluding Comprehensive
  * management (management_id == 1), per the report's explicit scope.
  */
-private function landlordTaxInvoiceEligibleContracts(int $vendorId): \Illuminate\Support\Collection
+private function landlordTaxInvoiceEligibleContracts(int $vendorId, string $fromDate, string $toDate): \Illuminate\Support\Collection
 {
     return LandlordContract::with('buildingInfo')
         ->where('vendor_id', $vendorId)
         ->where('management_id', '!=', 1)
+        ->where('landlord_contract_status', 1)
         ->whereIn('building_id', self::$nmrV2BuildingIds)
+        ->where('start_date', '<=', $toDate)
+        ->where(function ($q) use ($fromDate) {
+            $q->whereNull('end_date')->orWhere('end_date', '>=', $fromDate);
+        })
         ->get()
         ->unique('building_id')
         ->values();
@@ -4170,7 +4175,11 @@ private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Buildin
             foreach ($data['old_outstanding'] ?? [] as $u) {
                 $monthCollection += (float) ($u->collection_amount ?? 0);
             }
-            $basis = ((int) $lc->landlord_contract_percentage === 2) ? $monthCollection : $monthIncome;
+            $percentageBasis = (int) $lc->landlord_contract_percentage;
+            if ($percentageBasis !== 1 && $percentageBasis !== 2) {
+                continue; // out-of-domain percentage basis on this contract; skip this month's fee rather than guess
+            }
+            $basis = ($percentageBasis === 2) ? $monthCollection : $monthIncome;
             $managementFee += round($basis * ((float) $lc->landlord_contract_management_fee / 100), 3);
         }
     }
