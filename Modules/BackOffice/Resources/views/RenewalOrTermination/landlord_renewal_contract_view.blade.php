@@ -103,6 +103,7 @@
 <div class="col-lg-6 p-t-20"> 
   <div class = "txt-full-width">
    <h5 class="details"><b>Management Fee  :  </b><span>{{$landlordContract->newLandlordContract->landlord_contract_management_fee ?? ''}}</span></h5>
+   <h5 class="details"><b>Cleaning Charges  :  </b><span>{{ ($landlordContract->newLandlordContract->cleaning_charge_method ?? null) == 1 ? ($landlordContract->newLandlordContract->landlord_contract_cleaning_charge ?? '').' %' : numberFormat($landlordContract->newLandlordContract->landlord_contract_cleaning_charge ?? 0).' OMR' }}</span></h5>
   </div>
 </div> 
 <div class="col-lg-6 p-t-20"> 
