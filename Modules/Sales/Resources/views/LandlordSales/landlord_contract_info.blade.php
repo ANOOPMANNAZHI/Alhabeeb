@@ -316,9 +316,9 @@
          @if($landlordContractInfo->landlord_contract_cleaning_charge)
         <div class="col-lg-6 p-t-20">
             <div class = "txt-full-width">
-               <h5 class="details"><b>{{($landlordContractInfo->cleaning_charge_method==1)?'Cleaning Value':'Cleaning Amount' }} :  </b>
+               <h5 class="details"><b>Cleaning Amount :  </b>
                <span>
-               {{ ($landlordContractInfo->cleaning_charge_method==1) ? $landlordContractInfo->landlord_contract_cleaning_charge.' %' : numberFormat($landlordContractInfo->landlord_contract_cleaning_charge).' OMR' }}
+               {{ numberFormat($landlordContractInfo->landlord_contract_cleaning_charge) }} OMR
                </span></h5>
             </div>
         </div>
