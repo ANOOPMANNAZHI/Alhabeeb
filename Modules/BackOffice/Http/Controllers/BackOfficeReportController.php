@@ -4076,6 +4076,13 @@ public function landlordTaxInvoiceReportStream(Request $request)
     }
 }
 
+public function landlordTaxInvoiceReportDownload(string $token)
+{
+    $info = cache()->get('ltir_dl_' . $token);
+    abort_if(!$info || !file_exists($info['path']), 404, 'File not found or expired.');
+    return response()->download($info['path'], $info['name'])->deleteFileAfterSend(true);
+}
+
 /**
  * Landlord contracts for the given vendor, restricted to buildings in the
  * Normal Management Report v2 building list and excluding Comprehensive
