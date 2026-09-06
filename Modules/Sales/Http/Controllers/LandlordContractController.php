@@ -205,7 +205,6 @@ class LandlordContractController extends Controller
           'landlord_contract_duration_type'     => 1, //1 - Month, 2 - Year, 3 - Day
           'landlord_contract_management_fee'    => $request['landlord_contract_management_fee'],
           'landlord_contract_percentage'        => $request['landlord_contract_percentage'],
-          'cleaning_charge_method'               => $request['cleaning_charge_method'],
           'landlord_contract_cleaning_charge'    => $request['landlord_contract_cleaning_charge'],
           'landlord_contract_amt'               => $request['landlord_contract_amt'],
           'landlord_contract_agreement_amt'     => null,
@@ -311,7 +310,6 @@ class LandlordContractController extends Controller
           'landlord_contract_duration_type'     => 1, //1 - Month, 2 - Year, 3 - Day
           'landlord_contract_management_fee'    => $request['landlord_contract_management_fee'],
           'landlord_contract_percentage'        => $request['landlord_contract_percentage'],
-          'cleaning_charge_method'               => $request['cleaning_charge_method'],
           'landlord_contract_cleaning_charge'    => $request['landlord_contract_cleaning_charge'],
           'landlord_contract_amt'               => $request['landlord_contract_amt'],
           'landlord_contract_agreement_amt'     => null,
