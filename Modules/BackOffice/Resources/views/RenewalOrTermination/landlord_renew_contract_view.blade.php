@@ -100,7 +100,7 @@
                 <div class="row">
                   <div class="col-md-5"><b>Cleaning Charges </b></div>
                   <div class="col-md-1 s-clm">:</div>
-                  <div class="col-md-6"><span>{{ ($renewContract->cleaning_charge_method == 1) ? $renewContract->landlord_contract_cleaning_charge.' %' : numberFormat($renewContract->landlord_contract_cleaning_charge).' OMR' }}</span></div>
+                  <div class="col-md-6"><span>{{ numberFormat($renewContract->landlord_contract_cleaning_charge) }} OMR</span></div>
                 </div>
               </div>
               @endif
