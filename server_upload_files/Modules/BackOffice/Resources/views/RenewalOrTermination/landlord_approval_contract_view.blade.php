@@ -101,7 +101,7 @@
   <div class = "txt-full-width">
    <h5 class="details"><b>Management Fee  :  </b><span>{{$landlordApprove->newLandlordContract->landlord_contract_management_fee ?? ''}}</span></h5>
    @if($landlordApprove->newLandlordContract->landlord_contract_cleaning_charge)
-   <h5 class="details"><b>Cleaning Charges  :  </b><span>{{ ($landlordApprove->newLandlordContract->cleaning_charge_method ?? null) == 1 ? ($landlordApprove->newLandlordContract->landlord_contract_cleaning_charge ?? '').' %' : numberFormat($landlordApprove->newLandlordContract->landlord_contract_cleaning_charge ?? 0).' OMR' }}</span></h5>
+   <h5 class="details"><b>Cleaning Charges  :  </b><span>{{ numberFormat($landlordApprove->newLandlordContract->landlord_contract_cleaning_charge) }} OMR</span></h5>
    @endif
   </div>
 </div> 

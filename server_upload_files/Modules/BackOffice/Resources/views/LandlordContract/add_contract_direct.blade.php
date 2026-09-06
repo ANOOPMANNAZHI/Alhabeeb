@@ -210,24 +210,11 @@ Cancel</button>
         <div class="w-100"></div>
         <div class="col-sm-6">
             <div class="form-group">
-                <label for="cleaning_charge_method">Cleaning Charges</label>
-                 <div class="p-relative">
-                 <label for="cleaning_charge_method_one">
-                        <input type="radio" name="cleaning_charge_method" id="cleaning_charge_method_one" value="1" class="cleaning_charge_method" checked> Percentage
-                </label>
-                <label for="cleaning_charge_method_two">
-                    <input type="radio" name="cleaning_charge_method" id="cleaning_charge_method_two" value="2" class="cleaning_charge_method"> Amount
-                </label>
-            </div>
-            </div>
-        </div>
-        <div class="col-sm-6">
-            <div class="form-group">
-                 <label for="landlord_contract_cleaning_charge_label" id="landlord_contract_cleaning_charge_label">Cleaning Value</label>
-                 <div class="p-relative">
+                <label for="landlord_contract_cleaning_charge">Cleaning Amount</label>
+                <div class="p-relative">
                     <i class="fa fa-money icn-add" aria-hidden="true"></i>
-                    <input type="number" class="form-control" id="landlord_contract_cleaning_charge" name="landlord_contract_cleaning_charge" placeholder="Enter Cleaning Value" min="0" max="999999999">
-            </div>
+                    <input type="number" class="form-control" id="landlord_contract_cleaning_charge" name="landlord_contract_cleaning_charge" placeholder="Enter Cleaning Amount" min="0" max="999999999">
+                </div>
             </div>
         </div>
         <div class="w-100"></div>
@@ -500,18 +487,6 @@ $(document).ready(function() {
             $("#landlord_contract_management_fee").val('');
             $("#landlord_contract_management_fee").attr("max",999999999);
             $("#landlord_contract_management_fee-error").hide();
-        }
-    });
-    $(".cleaning_charge_method").on('click', function(e) {
-        var cleaning_charge_method = $(this).val();
-        if (cleaning_charge_method == 1) {
-            $("#landlord_contract_cleaning_charge_label").html('Cleaning Value');
-            $("#landlord_contract_cleaning_charge").attr('placeholder', 'Enter Cleaning Value');
-            $("#landlord_contract_cleaning_charge").attr("max", 100);
-        } else {
-            $("#landlord_contract_cleaning_charge_label").html('Cleaning Amount');
-            $("#landlord_contract_cleaning_charge").attr('placeholder', 'Enter Cleaning Amount');
-            $("#landlord_contract_cleaning_charge").attr("max", 999999999);
         }
     });
 /************************************************************/
