@@ -356,6 +356,7 @@ public function renewalContract(Request $request)
       $contractData['landlord_contract_duration_type'] = 1;
       $contractData['landlord_contract_management_fee'] = request('landlord_contract_management_fee');
       $contractData['landlord_contract_percentage'] = request('landlord_contract_percentage');
+      $contractData['landlord_contract_cleaning_charge'] = request('landlord_contract_cleaning_charge');
       $contractData['landlord_contract_agreement_amt'] = null;
       $contractData['landlord_contract_amt'] = request('landlord_contract_amt');
       $contractData['management_id'] = request('landlord_contract_payment_type');
@@ -901,6 +902,8 @@ public function renewalContract(Request $request)
         'landlord_contract_duration_type'     => 1, 
         'landlord_contract_management_fee'    => $request['landlord_contract_management_fee'],
         'landlord_contract_percentage'        => $request['landlord_contract_percentage'],
+        'cleaning_charge_method'               => $request['cleaning_charge_method'],
+        'landlord_contract_cleaning_charge'    => $request['landlord_contract_cleaning_charge'],
         'landlord_contract_amt'               => replaceCommaWithDot($request['landlord_contract_amt']),
         'landlord_contract_agreement_amt'     => null,        
         'landlord_contract_status'            => 0, //0 - Pending in Normal Flow , 1 - Approved , 2 - Unapproved Direct , 3- Pending Approval in Direct Contract         
@@ -1017,6 +1020,8 @@ public function renewalContract(Request $request)
           'landlord_contract_duration_type'     => 1, //1 - Month, 2 - Year, 3 - Day
           'landlord_contract_management_fee'    => $request['landlord_contract_management_fee'],
           'landlord_contract_percentage'        => $request['landlord_contract_percentage'],
+          'cleaning_charge_method'               => $request['cleaning_charge_method'],
+          'landlord_contract_cleaning_charge'    => $request['landlord_contract_cleaning_charge'],
           'landlord_contract_amt'               => replaceCommaWithDot($request['landlord_contract_amt']),
           'landlord_contract_agreement_amt'     => null,
           'management_id'                       =>  $request['management_id'],
