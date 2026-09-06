@@ -238,10 +238,10 @@ Cancel</button>
                 <label for="cleaning_charge_method">Cleaning Charges</label>
                  <div class="p-relative">
                  <label for="cleaning_charge_method_one">
-                        <input type="radio" name="cleaning_charge_method" value="1" {{ isset($landlordContract->cleaning_charge_method)? (($landlordContract->cleaning_charge_method==1)?'CHECKED':''):'CHECKED' }} class="cleaning_charge_method"> Percentage
+                        <input type="radio" name="cleaning_charge_method" id="cleaning_charge_method_one" value="1" {{ isset($landlordContract->cleaning_charge_method)? (($landlordContract->cleaning_charge_method==1)?'CHECKED':''):'CHECKED' }} class="cleaning_charge_method"> Percentage
                 </label>
                 <label for="cleaning_charge_method_two">
-                    <input type="radio" name="cleaning_charge_method" value="2" {{ isset($landlordContract->cleaning_charge_method)? (($landlordContract->cleaning_charge_method==2)?'CHECKED':''):'' }} class="cleaning_charge_method"> Amount
+                    <input type="radio" name="cleaning_charge_method" id="cleaning_charge_method_two" value="2" {{ isset($landlordContract->cleaning_charge_method)? (($landlordContract->cleaning_charge_method==2)?'CHECKED':''):'' }} class="cleaning_charge_method"> Amount
                 </label>
             </div>
             </div>
