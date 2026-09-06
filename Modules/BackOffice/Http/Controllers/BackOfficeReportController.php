@@ -13,6 +13,8 @@ use Modules\Masters\Entities\BuildingType;
 use Modules\Masters\Entities\Location;
 use Modules\Masters\Entities\ManagementType;
 use Modules\BackOffice\Entities\AccountCodes;
+use Modules\Masters\Entities\Vendor;
+use Modules\Sales\Entities\LandlordContract;
 use Auth;
 use DB;
 use PDF;
@@ -3902,6 +3904,33 @@ public function normalManagementReportV2Generate(Request $request)
     }
 
     return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+}
+
+/*
+ *
+ * Landlord Tax Invoice Report
+ *
+ */
+
+public function showLandlordTaxInvoiceReport()
+{
+    return view('backoffice::Reports.landlord_tax_invoice_report');
+}
+
+/**
+ * Landlord contracts for the given vendor, restricted to buildings in the
+ * Normal Management Report v2 building list and excluding Comprehensive
+ * management (management_id == 1), per the report's explicit scope.
+ */
+private function landlordTaxInvoiceEligibleContracts(int $vendorId): \Illuminate\Support\Collection
+{
+    return LandlordContract::with('buildingInfo')
+        ->where('vendor_id', $vendorId)
+        ->where('management_id', '!=', 1)
+        ->whereIn('building_id', self::$nmrV2BuildingIds)
+        ->get()
+        ->unique('building_id')
+        ->values();
 }
 
 /*
