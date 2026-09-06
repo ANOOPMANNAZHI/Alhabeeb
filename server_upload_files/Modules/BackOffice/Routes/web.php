@@ -735,6 +735,10 @@ Route::middleware('auth')->group(function () {
 	Route::get('normalManagementReportV2Stream', 'BackOfficeReportController@normalManagementReportV2Stream')->name('normalManagementReportV2Stream');
 	Route::get('normalManagementReportV2Download/{token}', 'BackOfficeReportController@normalManagementReportV2Download')->name('normalManagementReportV2Download');
 
+	Route::get('showLandlordTaxInvoiceReport', 'BackOfficeReportController@showLandlordTaxInvoiceReport')->name('showLandlordTaxInvoiceReport');
+	Route::get('landlordTaxInvoiceReportStream', 'BackOfficeReportController@landlordTaxInvoiceReportStream')->name('landlordTaxInvoiceReportStream');
+	Route::get('landlordTaxInvoiceReportDownload/{token}', 'BackOfficeReportController@landlordTaxInvoiceReportDownload')->name('landlordTaxInvoiceReportDownload');
+
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 
 	Route::post('chequeReturnReportPdf', 'BackOfficeReportController@chequeReturnReportPdf')->name('chequeReturnReportPdf');
