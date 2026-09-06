@@ -4095,9 +4095,9 @@ private function landlordTaxInvoiceEligibleContracts(int $vendorId, string $from
         ->where('management_id', '!=', 1)
         ->where('landlord_contract_status', 1)
         ->whereIn('building_id', self::$nmrV2BuildingIds)
-        ->where('start_date', '<=', $toDate)
+        ->where('landlord_contract_valid_from_date', '<=', $toDate)
         ->where(function ($q) use ($fromDate) {
-            $q->whereNull('end_date')->orWhere('end_date', '>=', $fromDate);
+            $q->whereNull('landlord_contract_valid_to_date')->orWhere('landlord_contract_valid_to_date', '>=', $fromDate);
         })
         ->get()
         ->unique('building_id')
