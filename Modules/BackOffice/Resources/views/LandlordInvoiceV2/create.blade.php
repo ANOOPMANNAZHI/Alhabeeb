@@ -141,14 +141,16 @@ $(document).ready(function () {
             period_month: month,
             period_year: year
         }, function (res) {
-            var rows = '';
+            var $body = $('#liv2_lines_body');
+            $body.empty();
             $.each(res.lines, function (i, line) {
-                rows += '<tr>' +
-                    '<td><input type="hidden" name="lines[' + i + '][description]" value="' + line.description + '">' + line.description + '</td>' +
-                    '<td><input type="number" step="0.001" class="form-control" name="lines[' + i + '][amount]" value="' + line.amount + '"></td>' +
-                    '</tr>';
+                var $hiddenDesc = $('<input>').attr('type', 'hidden').attr('name', 'lines[' + i + '][description]').val(line.description);
+                var $descTd = $('<td>').append($hiddenDesc).append(document.createTextNode(line.description));
+                var $amountInput = $('<input>').attr('type', 'number').attr('step', '0.001').addClass('form-control').attr('name', 'lines[' + i + '][amount]').val(line.amount);
+                var $amountTd = $('<td>').append($amountInput);
+                var $row = $('<tr>').append($descTd).append($amountTd);
+                $body.append($row);
             });
-            $('#liv2_lines_body').html(rows);
         });
     }
 
@@ -164,11 +166,12 @@ $(document).ready(function () {
         }
 
         $.getJSON(contractsUrl, { vendor_id: vendorId }, function (contracts) {
-            var opts = '<option value="">Select Contract</option>';
+            $contract.empty();
+            $contract.append($('<option>').val('').text('Select Contract'));
             $.each(contracts, function (i, c) {
-                opts += '<option value="' + c.id + '">' + c.label + '</option>';
+                $contract.append($('<option>').val(c.id).text(c.label));
             });
-            $contract.html(opts).prop('disabled', false);
+            $contract.prop('disabled', false);
         });
     });
 
