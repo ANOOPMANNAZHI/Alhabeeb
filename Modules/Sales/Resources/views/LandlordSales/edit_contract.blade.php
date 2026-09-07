@@ -243,10 +243,10 @@ Cancel</button>
                 <label for="landlord_contract_new_leasing_fee_type">New Leasing Fee</label>
                 <div class="p-relative">
                 <label for="landlord_contract_new_leasing_fee_type_one">
-                       <input type="radio" name="landlord_contract_new_leasing_fee_type" value="1" {{ isset($landlordContract->landlord_contract_new_leasing_fee_type)? (($landlordContract->landlord_contract_new_leasing_fee_type==1)?'CHECKED':''):'CHECKED' }} class="new_leasing_fee_type"> Percentage
+                       <input type="radio" name="landlord_contract_new_leasing_fee_type" id="landlord_contract_new_leasing_fee_type_one" value="1" {{ isset($landlordContract->landlord_contract_new_leasing_fee_type)? (($landlordContract->landlord_contract_new_leasing_fee_type==1)?'CHECKED':''):'CHECKED' }} class="new_leasing_fee_type"> Percentage
                </label>
                <label for="landlord_contract_new_leasing_fee_type_two">
-                   <input type="radio" name="landlord_contract_new_leasing_fee_type" value="2" {{ isset($landlordContract->landlord_contract_new_leasing_fee_type)? (($landlordContract->landlord_contract_new_leasing_fee_type==2)?'CHECKED':''):'' }} class="new_leasing_fee_type"> Amount
+                   <input type="radio" name="landlord_contract_new_leasing_fee_type" id="landlord_contract_new_leasing_fee_type_two" value="2" {{ isset($landlordContract->landlord_contract_new_leasing_fee_type)? (($landlordContract->landlord_contract_new_leasing_fee_type==2)?'CHECKED':''):'' }} class="new_leasing_fee_type"> Amount
                </label>
            </div>
            </div>
