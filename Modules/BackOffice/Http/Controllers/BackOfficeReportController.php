@@ -4085,14 +4085,13 @@ public function landlordTaxInvoiceReportDownload(string $token)
 
 /**
  * Landlord contracts for the given vendor, restricted to buildings in the
- * Normal Management Report v2 building list and excluding Comprehensive
- * management (management_id == 1), per the report's explicit scope.
+ * Normal Management Report v2 building list. All management types
+ * (Comprehensive, Normal, Commission) are included.
  */
 private function landlordTaxInvoiceEligibleContracts(int $vendorId, string $fromDate, string $toDate): \Illuminate\Support\Collection
 {
     return LandlordContract::with('buildingInfo')
         ->where('vendor_id', $vendorId)
-        ->where('management_id', '!=', 1)
         ->where('landlord_contract_status', 1)
         ->whereIn('building_id', self::$nmrV2BuildingIds)
         ->where('landlord_contract_valid_from_date', '<=', $toDate)
