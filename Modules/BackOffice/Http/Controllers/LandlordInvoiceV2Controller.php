@@ -257,6 +257,88 @@ class LandlordInvoiceV2Controller extends Controller
         return response()->json(['lines' => $lines]);
     }
 
+    /**
+     * Building/month overview for the create screen's "Overview" tab -
+     * income, collection, expenses, transfer amount, and occupancy figures.
+     * Reuses buildNormalManagementMonthData() and the exact same formulas
+     * as Normal Management Report v2's consolidated sheet
+     * (Modules/BackOffice/Exports/NormalManagementConsolidateSheet.php) so
+     * the two screens never disagree on the same month's numbers.
+     */
+    public function overviewPreview(Request $request)
+    {
+        $request->validate([
+            'landlord_contract_id' => 'required|exists:landlord_contract,id',
+            'period_month'         => 'required|integer|min:1|max:12',
+            'period_year'          => 'required|integer|min:2000|max:2100',
+        ]);
+
+        $contract = LandlordContract::with('buildingInfo')->findOrFail($request->landlord_contract_id);
+        $building = $contract->buildingInfo;
+        abort_if(!$building, 404, 'This contract has no building assigned.');
+
+        $month = (int) $request->period_month;
+        $year  = (int) $request->period_year;
+
+        $monthData = $this->calc->buildNormalManagementMonthData($building, $year, [$month]);
+        $data = $monthData[$month] ?? null;
+
+        $income = 0.0;
+        $collection = 0.0;
+        $totalExpenses = 0.0;
+        $occupancy = [
+            'total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
+            'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
+            'vacant_commercial' => 0, 'evacuation_residential' => 0, 'evacuation_commercial' => 0,
+        ];
+
+        if ($data) {
+            foreach ($data['units'] ?? [] as $u) {
+                $income += (float) ($u->income_amount ?? 0);
+                $collection += (float) ($u->collection_amount ?? 0);
+            }
+            foreach ($data['old_outstanding'] ?? [] as $u) {
+                $collection += (float) ($u->collection_amount ?? 0);
+            }
+
+            foreach ($data['expenses'] ?? [] as $exp) {
+                $totalExpenses += (float) $exp->expense_amount;
+            }
+            // Cleaning Charges, Facility Management Fee, Renewal Fee, and New
+            // Leasing Fee are not transactional expenses but are folded into
+            // Total Expenses here, matching NormalManagementConsolidateSheet.php.
+            $totalExpenses += (float) ($data['cleaning_charge'] ?? 0);
+            $totalExpenses += (float) ($data['facility_management_fee'] ?? 0);
+            $totalExpenses += (float) ($data['renewal_fee'] ?? 0);
+            $totalExpenses += (float) ($data['new_leasing_fee'] ?? 0);
+
+            $occupancy = array_merge($occupancy, $data['occupancy'] ?? []);
+        }
+
+        $transfer = $collection - $totalExpenses;
+        $occupiedTotal = $occupancy['occupied_residential'] + $occupancy['occupied_commercial'];
+        $occupancyLevel = $occupancy['total_units'] > 0
+            ? round(($occupiedTotal / $occupancy['total_units']) * 100, 1)
+            : 0.0;
+
+        return response()->json([
+            'income'                  => round($income, 3),
+            'collection'              => round($collection, 3),
+            'total_expenses'          => round($totalExpenses, 3),
+            'transfer_to_landlord'    => round($transfer, 3),
+            'total_units'             => $occupancy['total_units'],
+            'new_leased_residential'  => $occupancy['new_leased_residential'],
+            'new_leased_commercial'   => $occupancy['new_leased_commercial'],
+            'occupied_residential'    => $occupancy['occupied_residential'],
+            'occupied_commercial'     => $occupancy['occupied_commercial'],
+            'vacant_residential'      => $occupancy['vacant_residential'],
+            'vacant_commercial'       => $occupancy['vacant_commercial'],
+            'evacuation_residential'  => $occupancy['evacuation_residential'],
+            'evacuation_commercial'   => $occupancy['evacuation_commercial'],
+            'occupancy_level'         => $occupancyLevel,
+        ]);
+    }
+
     public function print(LandlordInvoiceV2 $landlordInvoiceV2)
     {
         $landlordInvoiceV2->load('lines');
