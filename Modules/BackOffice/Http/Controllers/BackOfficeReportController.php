@@ -3993,16 +3993,31 @@ public function landlordTaxInvoiceReportStream(Request $request)
 
             $amounts = $this->landlordTaxInvoiceLineAmounts($building, $fromDate, $toDate, $vendorId);
 
-            $mgmtAmount    = $amounts['management_fee'];
-            $cleanAmount   = $amounts['cleaning_charge'];
-            $repairAmount  = $amounts['repair_maintenance'];
-            $periodLabel   = $amounts['period_label'];
+            $mgmtAmount     = $amounts['management_fee'];
+            $cleanAmount    = $amounts['cleaning_charge'];
+            $repairAmount   = $amounts['repair_maintenance'];
+            $facilityAmount = $amounts['facility_management_fee'];
+            $renewalAmount  = $amounts['renewal_fee'];
+            $newLeaseAmount = $amounts['new_leasing_fee'];
+            $periodLabel    = $amounts['period_label'];
 
             $lines = [
                 ['desc' => 'MANAGEMENT FEES FOR ' . $periodLabel, 'amount' => $mgmtAmount],
                 ['desc' => "CLEANING CHARGES FOR " . $periodLabel, 'amount' => $cleanAmount],
                 ['desc' => 'REPAIR AND MAINTENANCE CHARGES', 'amount' => $repairAmount],
             ];
+            // Only printed when non-zero for the invoiced period — e.g. no
+            // "Renewal Fee" line if no renewal happened in this building
+            // during the requested from_date/to_date range.
+            if ($facilityAmount > 0) {
+                $lines[] = ['desc' => 'FACILITY MANAGEMENT FEE FOR ' . $periodLabel, 'amount' => $facilityAmount];
+            }
+            if ($renewalAmount > 0) {
+                $lines[] = ['desc' => 'RENEWAL FEE FOR ' . $periodLabel, 'amount' => $renewalAmount];
+            }
+            if ($newLeaseAmount > 0) {
+                $lines[] = ['desc' => 'NEW LEASING FEE FOR ' . $periodLabel, 'amount' => $newLeaseAmount];
+            }
             foreach ($lines as &$line) {
                 $line['qty']   = 1.000;
                 $line['unit_price'] = $line['amount'];
@@ -4140,6 +4155,9 @@ private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Buildin
     $managementFee = 0.0;
     $totalCleaning = 0.0;
     $totalExpenses = 0.0;
+    $totalFacility = 0.0;
+    $totalRenewal = 0.0;
+    $totalNewLeasing = 0.0;
     foreach ($byYear as $yr => $months) {
         $monthData = $this->buildNormalManagementMonthData($building, $yr, $months);
         foreach ($months as $m) {
@@ -4149,7 +4167,10 @@ private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Buildin
             foreach ($data['expenses'] ?? [] as $exp) {
                 $totalExpenses += (float) $exp->expense_amount;
             }
-            $totalCleaning += (float) ($data['cleaning_charge'] ?? 0);
+            $totalCleaning   += (float) ($data['cleaning_charge'] ?? 0);
+            $totalFacility   += (float) ($data['facility_management_fee'] ?? 0);
+            $totalRenewal    += (float) ($data['renewal_fee'] ?? 0);
+            $totalNewLeasing += (float) ($data['new_leasing_fee'] ?? 0);
 
             $lc = $data['landlord_contract'] ?? null;
             if ($lc === null) continue;
@@ -4208,10 +4229,13 @@ private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Buildin
     }
 
     return [
-        'management_fee'     => round($managementFee, 3),
-        'cleaning_charge'    => round($totalCleaning, 3),
-        'repair_maintenance' => round($totalExpenses, 3),
-        'period_label'       => $periodLabel,
+        'management_fee'          => round($managementFee, 3),
+        'cleaning_charge'         => round($totalCleaning, 3),
+        'repair_maintenance'      => round($totalExpenses, 3),
+        'facility_management_fee' => round($totalFacility, 3),
+        'renewal_fee'             => round($totalRenewal, 3),
+        'new_leasing_fee'         => round($totalNewLeasing, 3),
+        'period_label'            => $periodLabel,
     ];
 }
 
