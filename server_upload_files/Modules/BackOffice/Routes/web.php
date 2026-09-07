@@ -739,6 +739,12 @@ Route::middleware('auth')->group(function () {
 	Route::get('landlordTaxInvoiceReportStream', 'BackOfficeReportController@landlordTaxInvoiceReportStream')->name('landlordTaxInvoiceReportStream');
 	Route::get('landlordTaxInvoiceReportDownload/{token}', 'BackOfficeReportController@landlordTaxInvoiceReportDownload')->name('landlordTaxInvoiceReportDownload');
 
+	Route::resource('landlord-invoice-v2', 'LandlordInvoiceV2Controller')->except(['show']);
+	Route::get('landlord-invoice-v2-contracts-by-vendor', 'LandlordInvoiceV2Controller@contractsByVendor')->name('landlordInvoiceV2ContractsByVendor');
+	Route::get('landlord-invoice-v2-contract-details/{landlordContract}', 'LandlordInvoiceV2Controller@contractDetails')->name('landlordInvoiceV2ContractDetails');
+	Route::get('landlord-invoice-v2-calculation-preview', 'LandlordInvoiceV2Controller@calculationPreview')->name('landlordInvoiceV2CalculationPreview');
+	Route::get('landlord-invoice-v2/{landlordInvoiceV2}/print', 'LandlordInvoiceV2Controller@print')->name('landlordInvoiceV2Print');
+
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 
 	Route::post('chequeReturnReportPdf', 'BackOfficeReportController@chequeReturnReportPdf')->name('chequeReturnReportPdf');
