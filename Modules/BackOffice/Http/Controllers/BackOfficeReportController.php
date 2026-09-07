@@ -4122,7 +4122,7 @@ private function landlordTaxInvoiceEligibleContracts(int $vendorId, string $from
  * Every {year, month} pair the given date range touches, in order.
  * E.g. 2026-06-15..2026-07-10 returns [{2026,6}, {2026,7}].
  */
-private function monthsTouchedByRange(string $fromDate, string $toDate): array
+public function monthsTouchedByRange(string $fromDate, string $toDate): array
 {
     $result = [];
     $cursor = new \DateTime(date('Y-m-01', strtotime($fromDate)));
@@ -4143,7 +4143,7 @@ private function monthsTouchedByRange(string $fromDate, string $toDate): array
  * ['management_fee' => float, 'cleaning_charge' => float, 'repair_maintenance' => float,
  *  'period_label' => string].
  */
-private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate, int $vendorId): array
+public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate, int $vendorId): array
 {
     $monthsTouched = $this->monthsTouchedByRange($fromDate, $toDate);
 
@@ -4251,12 +4251,92 @@ private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Buildin
 }
 
 /**
+ * Sums Mun Tax, Elect & Water, Dewatering, AMC/Repair for A/C Units, and
+ * AMC for F.A.S for one building over the given date range, reusing
+ * buildNormalManagementMonthData() the same way landlordTaxInvoiceLineAmounts()
+ * does for Repair & Maintenance - same building-level expense source, just
+ * matched against different expense_name categories. No vendor-ownership
+ * guard is applied here (unlike Management Fee) because these are
+ * building-level utility/AMC expenses, not contract-derived fees.
+ */
+public function landlordOtherDeductionsLineAmounts(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate): array
+{
+    $monthsTouched = $this->monthsTouchedByRange($fromDate, $toDate);
+
+    $byYear = [];
+    foreach ($monthsTouched as $mt) {
+        $byYear[$mt['year']][] = $mt['month'];
+    }
+
+    $munTax = $electWater = $dewatering = $acMaintenance = $fas = 0.0;
+    foreach ($byYear as $yr => $months) {
+        $monthData = $this->buildNormalManagementMonthData($building, $yr, $months);
+        foreach ($months as $m) {
+            $data = $monthData[$m] ?? null;
+            if (!$data) continue;
+
+            foreach ($data['expenses'] ?? [] as $exp) {
+                switch ($exp->expense_name) {
+                    case 'MUNICIPAL TAX':
+                        $munTax += (float) $exp->expense_amount;
+                        break;
+                    case 'ELECTRICITY & WATER':
+                        $electWater += (float) $exp->expense_amount;
+                        break;
+                    case 'DEWATERING':
+                        $dewatering += (float) $exp->expense_amount;
+                        break;
+                    case 'A C MAINTENANCE':
+                    case 'CIT - AC MAINTENANCE':
+                        $acMaintenance += (float) $exp->expense_amount;
+                        break;
+                    case 'FIRE ALARM SYSTEM MAINT.':
+                    case 'CIT - FIRE ALARAM SYSTEM MAINT.':
+                        $fas += (float) $exp->expense_amount;
+                        break;
+                }
+            }
+        }
+    }
+
+    return [
+        'mun_tax_charges'       => round($munTax, 3),
+        'elect_water_charges'   => round($electWater, 3),
+        'dewatering_charges'    => round($dewatering, 3),
+        'ac_amc_repair_charges' => round($acMaintenance, 3),
+        'fas_amc_charges'       => round($fas, 3),
+    ];
+}
+
+/**
+ * Sums Repair & Maintenance charges billed by a sub-contractor (i.e. NOT
+ * generated from an in-house technician service report) for one vendor +
+ * building over the given date range - same in-house/sub-contractor signal
+ * (mid.service_report_id) as Maintenance Invoice Report v2
+ * (MaintenanceReportController::maintenanceInvoiceReportV2Query()).
+ */
+public function landlordSubcontractorRepairMaintenanceAmount(int $vendorId, int $buildingId, string $fromDate, string $toDate): float
+{
+    $row = DB::selectOne("
+        SELECT COALESCE(SUM(CAST(mid.debit_amt AS NUMERIC)), 0) AS total
+        FROM maintenance_invoice_details mid
+        JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
+        WHERE mi.vendor_id = ? AND mid.building_id = ?
+          AND mi.maintenance_invoice_date BETWEEN ? AND ?
+          AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
+          AND mid.service_report_id IS NULL
+    ", [$vendorId, $buildingId, $fromDate, $toDate]);
+
+    return round((float) ($row->total ?? 0), 3);
+}
+
+/**
  * "Omani Riyals <words> & Bzs <NNN>/1000 only" — format matches the reference
  * Tax Invoice sample; reuses the numberToWords() global helper
  * (config/function.php) also used by RentReceiptGenerationController::printPreview()
  * for a similar amount-in-words line.
  */
-private function landlordTaxInvoiceAmountInWords(float $total): string
+public function landlordTaxInvoiceAmountInWords(float $total): string
 {
     $parts   = explode('.', number_format($total, 3, '.', ''));
     $whole   = (int) $parts[0];
@@ -4276,7 +4356,7 @@ private function landlordTaxInvoiceAmountInWords(float $total): string
  * exactly as normalManagementReportV2Stream() computes it. Shared with
  * the Landlord Tax Invoice Report so both reuse the same figures.
  */
-private function buildNormalManagementMonthData(\Modules\Masters\Entities\Building $building, int $year, array $monthsToPopulate): array
+public function buildNormalManagementMonthData(\Modules\Masters\Entities\Building $building, int $year, array $monthsToPopulate): array
 {
     $monthData = [];
 
