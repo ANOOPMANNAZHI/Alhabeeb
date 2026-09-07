@@ -275,10 +275,10 @@ Cancel</button>
        </div>
        <div class="col-sm-6">
            <div class="form-group">
-                <label for="landlord_contract_new_leasing_fee_label" id="landlord_contract_new_leasing_fee_label">New Leasing Value</label>
+                <label for="landlord_contract_new_leasing_fee_label" id="landlord_contract_new_leasing_fee_label">{{ (isset($landlordContract->landlord_contract_new_leasing_fee_type) && $landlordContract->landlord_contract_new_leasing_fee_type == 2) ? 'New Leasing Amount' : 'New Leasing Value' }}</label>
                 <div class="p-relative">
                    <i class="fa fa-money icn-add" aria-hidden="true"></i>
-                   <input type="number" class="form-control" id="landlord_contract_new_leasing_fee" name="landlord_contract_new_leasing_fee" value="{{ isset($landlordContract->landlord_contract_new_leasing_fee)?$landlordContract->landlord_contract_new_leasing_fee:'' }}" placeholder="Enter New Leasing Value" min="0" max="999999999">
+                   <input type="number" class="form-control" id="landlord_contract_new_leasing_fee" name="landlord_contract_new_leasing_fee" value="{{ isset($landlordContract->landlord_contract_new_leasing_fee)?$landlordContract->landlord_contract_new_leasing_fee:'' }}" placeholder="Enter New Leasing Value" min="0" max="{{ (isset($landlordContract->landlord_contract_new_leasing_fee_type) && $landlordContract->landlord_contract_new_leasing_fee_type == 2) ? '999999999' : '100' }}">
            </div>
            </div>
        </div>
