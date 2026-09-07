@@ -4164,8 +4164,15 @@ private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Buildin
             $data = $monthData[$m] ?? null;
             if (!$data) continue;
 
+            // Only the Routine & Maintenance expense category feeds this line
+            // (matches the "Routine & Maintenance Expenses" row in Normal
+            // Management Report v2) - other expense heads (A/C Maintenance,
+            // Dewatering, Electricity & Water, Municipal Tax, etc.) are not
+            // part of "Repair & Maintenance Charges" and must not be summed in.
             foreach ($data['expenses'] ?? [] as $exp) {
-                $totalExpenses += (float) $exp->expense_amount;
+                if (in_array($exp->expense_name, ['ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES'], true)) {
+                    $totalExpenses += (float) $exp->expense_amount;
+                }
             }
             $totalCleaning += (float) ($data['cleaning_charge'] ?? 0);
 
