@@ -218,6 +218,48 @@ Cancel</button>
                 </div>
             </div>
         </div>
+        <div class="w-100"></div>
+        <div class="col-sm-6">
+            <div class="form-group">
+                <label for="landlord_contract_facility_management_fee">Facility Management Fee</label>
+                <div class="p-relative">
+                    <i class="fa fa-money icn-add" aria-hidden="true"></i>
+                    <input type="number" class="form-control" id="landlord_contract_facility_management_fee" name="landlord_contract_facility_management_fee" value="{{ isset($landlordContract->landlord_contract_facility_management_fee)?$landlordContract->landlord_contract_facility_management_fee:'' }}" placeholder="Enter Facility Management Fee" min="0" max="999999999">
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="form-group">
+                <label for="landlord_contract_renewal_fee">Renewal Fee</label>
+                <div class="p-relative">
+                    <i class="fa fa-money icn-add" aria-hidden="true"></i>
+                    <input type="number" class="form-control" id="landlord_contract_renewal_fee" name="landlord_contract_renewal_fee" value="{{ isset($landlordContract->landlord_contract_renewal_fee)?$landlordContract->landlord_contract_renewal_fee:'' }}" placeholder="Enter Renewal Fee" min="0" max="999999999">
+                </div>
+            </div>
+        </div>
+        <div class="w-100"></div>
+        <div class="col-sm-6">
+            <div class="form-group">
+                <label for="landlord_contract_new_leasing_fee_type">New Leasing Fee</label>
+                <div class="p-relative">
+                <label for="landlord_contract_new_leasing_fee_type_one">
+                       <input type="radio" name="landlord_contract_new_leasing_fee_type" id="landlord_contract_new_leasing_fee_type_one" value="1" {{ isset($landlordContract->landlord_contract_new_leasing_fee_type)? (($landlordContract->landlord_contract_new_leasing_fee_type==1)?'CHECKED':''):'CHECKED' }} class="new_leasing_fee_type"> Percentage
+               </label>
+               <label for="landlord_contract_new_leasing_fee_type_two">
+                   <input type="radio" name="landlord_contract_new_leasing_fee_type" id="landlord_contract_new_leasing_fee_type_two" value="2" {{ isset($landlordContract->landlord_contract_new_leasing_fee_type)? (($landlordContract->landlord_contract_new_leasing_fee_type==2)?'CHECKED':''):'' }} class="new_leasing_fee_type"> Amount
+               </label>
+           </div>
+           </div>
+       </div>
+       <div class="col-sm-6">
+           <div class="form-group">
+                <label for="landlord_contract_new_leasing_fee_label" id="landlord_contract_new_leasing_fee_label">New Leasing Value</label>
+                <div class="p-relative">
+                   <i class="fa fa-money icn-add" aria-hidden="true"></i>
+                   <input type="number" class="form-control" id="landlord_contract_new_leasing_fee" name="landlord_contract_new_leasing_fee" value="{{ isset($landlordContract->landlord_contract_new_leasing_fee)?$landlordContract->landlord_contract_new_leasing_fee:'' }}" placeholder="Enter New Leasing Value" min="0" max="999999999">
+           </div>
+           </div>
+       </div>
 
 
         <div class="w-100"></div>
@@ -594,6 +636,18 @@ $(document).ready(function() {
 			$("#landlord_contract_management_fee").val('');
 			$("#landlord_contract_management_fee").attr("max",999999999);
 			$("#landlord_contract_management_fee-error").hide();
+		}
+	});
+	$(".new_leasing_fee_type").on('click', function(e) {
+		var new_leasing_fee_type = $(this).val();
+		if (new_leasing_fee_type == 1) {
+			$("#landlord_contract_new_leasing_fee_label").html('New Leasing Value');
+			$("#landlord_contract_new_leasing_fee").attr('placeholder', 'Enter New Leasing Value');
+			$("#landlord_contract_new_leasing_fee").attr("max", 100);
+		} else {
+			$("#landlord_contract_new_leasing_fee_label").html('New Leasing Amount');
+			$("#landlord_contract_new_leasing_fee").attr('placeholder', 'Enter New Leasing Amount');
+			$("#landlord_contract_new_leasing_fee").attr("max", 999999999);
 		}
 	});
     // Create Landlord

@@ -204,6 +204,36 @@ Cancel</button>
             </div>
         </div>
         <div class="w-100"></div>
+        <div class="col-sm-6">
+            <div class="form-group">
+                <label for="landlord_contract_facility_management_fee">Facility Management Fee</label>
+                <div class="p-relative">
+                    <i class="fa fa-money icn-add" aria-hidden="true"></i>
+                <input type="number" class="form-control" value="{{ isset($landlordContract->landlord_contract_facility_management_fee)?$landlordContract->landlord_contract_facility_management_fee:'' }}" id="landlord_contract_facility_management_fee" name="landlord_contract_facility_management_fee" placeholder="Enter Facility Management Fee" min="1">
+                </div>
+            </div>
+        </div>
+        <div class="w-100"></div>
+        <div class="col-sm-6">
+            <div class="form-group">
+                <label for="landlord_contract_renewal_fee">Renewal Fee</label>
+                <div class="p-relative">
+                    <i class="fa fa-money icn-add" aria-hidden="true"></i>
+                <input type="number" class="form-control" value="{{ isset($landlordContract->landlord_contract_renewal_fee)?$landlordContract->landlord_contract_renewal_fee:'' }}" id="landlord_contract_renewal_fee" name="landlord_contract_renewal_fee" placeholder="Enter Renewal Fee" min="1">
+                </div>
+            </div>
+        </div>
+        <div class="w-100"></div>
+        <div class="col-sm-6">
+            <div class="form-group">
+                <label for="landlord_contract_new_leasing_fee">New Leasing Fee</label>
+                <div class="p-relative">
+                    <i class="fa fa-money icn-add" aria-hidden="true"></i>
+                <input type="number" class="form-control" value="{{ isset($landlordContract->landlord_contract_new_leasing_fee)?$landlordContract->landlord_contract_new_leasing_fee:'' }}" id="landlord_contract_new_leasing_fee" name="landlord_contract_new_leasing_fee" placeholder="Enter New Leasing Fee" min="1">
+                </div>
+            </div>
+        </div>
+        <div class="w-100"></div>
 
         </div>
     
