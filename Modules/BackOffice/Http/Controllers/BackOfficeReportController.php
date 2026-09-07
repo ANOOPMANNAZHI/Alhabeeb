@@ -4310,22 +4310,42 @@ public function landlordOtherDeductionsLineAmounts(\Modules\Masters\Entities\Bui
 
 /**
  * Sums Repair & Maintenance charges billed by a sub-contractor (i.e. NOT
- * generated from an in-house technician service report) for one vendor +
- * building over the given date range - same in-house/sub-contractor signal
+ * generated from an in-house technician service report) for one building
+ * over the given date range - same in-house/sub-contractor signal
  * (mid.service_report_id) as Maintenance Invoice Report v2
  * (MaintenanceReportController::maintenanceInvoiceReportV2Query()).
+ *
+ * NOTE: no vendor filter here. maintenance_invoices.vendor_id only ever
+ * holds CONTRACTOR vendor ids, never the LANDLORD vendor id this method's
+ * caller has on hand (landlord_contract.vendor_id points at a vendor with
+ * vendor_type_id = 2, disjoint from the vendor_type_id = 1 contractors on
+ * maintenance_invoices) - filtering on it can never match anything.
+ * Repair & Maintenance expenses are billed against the building, not tied
+ * to which landlord owns it, matching how the in-house Repair &
+ * Maintenance line (landlordTaxInvoiceLineAmounts()) and the other
+ * Other-Deductions lines (landlordOtherDeductionsLineAmounts()) already
+ * work - both scope by building only. Scoping is instead done by expense
+ * category (same two Routine & Maintenance expense_name values as the
+ * in-house R&M line) joined the same way buildNormalManagementMonthData()
+ * joins maintenance_invoice_details -> maintenance_invoices -> acc_codes
+ * -> expense_head, plus mid.service_report_id IS NULL to select only the
+ * sub-contractor-billed portion (the in-house line implicitly gets the
+ * service_report_id IS NOT NULL portion via technician service reports).
  */
-public function landlordSubcontractorRepairMaintenanceAmount(int $vendorId, int $buildingId, string $fromDate, string $toDate): float
+public function landlordSubcontractorRepairMaintenanceAmount(int $buildingId, string $fromDate, string $toDate): float
 {
     $row = DB::selectOne("
         SELECT COALESCE(SUM(CAST(mid.debit_amt AS NUMERIC)), 0) AS total
         FROM maintenance_invoice_details mid
         JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
-        WHERE mi.vendor_id = ? AND mid.building_id = ?
+        JOIN acc_codes ac ON ac.id = mid.ac_codes_id
+        JOIN expense_head eh ON eh.acc_codes_id = ac.id
+        WHERE mid.building_id = ?
+          AND eh.expense_name IN ('ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES')
           AND mi.maintenance_invoice_date BETWEEN ? AND ?
           AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
           AND mid.service_report_id IS NULL
-    ", [$vendorId, $buildingId, $fromDate, $toDate]);
+    ", [$buildingId, $fromDate, $toDate]);
 
     return round((float) ($row->total ?? 0), 3);
 }
