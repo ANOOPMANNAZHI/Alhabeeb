@@ -37,6 +37,8 @@
                         <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
                         <option value="voided" {{ request('status') == 'voided' ? 'selected' : '' }}>Voided</option>
                     </select>
+                    <input type="date" name="from_date" class="form-control" style="margin-right:10px;" value="{{ request('from_date') }}" placeholder="From Date">
+                    <input type="date" name="to_date" class="form-control" style="margin-right:10px;" value="{{ request('to_date') }}" placeholder="To Date">
                     <button type="submit" class="btn btn-default">Filter</button>
                 </form>
 

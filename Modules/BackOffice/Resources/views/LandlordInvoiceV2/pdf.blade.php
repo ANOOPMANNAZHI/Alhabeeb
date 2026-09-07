@@ -50,6 +50,12 @@
 
 <div class="invoice-title">{{ $invoice->invoice_type == 'tax_invoice' ? 'Tax Invoice' : 'Other Deductions Invoice' }}</div>
 
+@if($invoice->status === 'voided')
+<div style="text-align:center; color:#c00; font-weight:bold; font-size:16px; border:2px solid #c00; padding:6px; margin-bottom:12px;">
+  THIS INVOICE HAS BEEN VOIDED
+</div>
+@endif
+
 <table class="header-fields">
   <tr>
     <td class="label">CUSTOMER NAME:</td>
