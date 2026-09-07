@@ -83,13 +83,39 @@
     </div>
 </div>
 
-<h3>Vendor / Building Details</h3>
 <div class="dataSearchBox">
-    <div class="row">
-        <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vendor Name: </b><span id="disp_vendor_name">-</span></h5></div>
-        <div class="col-lg-6 p-t-20"><h5 class="details"><b>Building Name: </b><span id="disp_building_name">-</span></h5></div>
-        <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vendor Address: </b><span id="disp_vendor_address">-</span></h5></div>
-        <div class="col-lg-6 p-t-20"><h5 class="details"><b>VATIN No: </b><span id="disp_vatin_no">-</span></h5></div>
+    <ul class="nav nav-tabs">
+        <li class="nav-item"><a href="#liv2_tab_details" data-toggle="tab" class="active">Contract &amp; Building Details</a></li>
+        <li class="nav-item"><a href="#liv2_tab_overview" data-toggle="tab">Overview</a></li>
+    </ul>
+    <div class="tab-content">
+        <div class="tab-pane active" id="liv2_tab_details">
+            <div class="row">
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vendor Name: </b><span id="disp_vendor_name">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Building Name: </b><span id="disp_building_name">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vendor Address: </b><span id="disp_vendor_address">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>VATIN No: </b><span id="disp_vatin_no">-</span></h5></div>
+            </div>
+        </div>
+        <div class="tab-pane" id="liv2_tab_overview">
+            <div class="row">
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Income as per rental agreement: </b><span id="disp_ov_income">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Selected Month Collection: </b><span id="disp_ov_collection">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Total Expenses for the month: </b><span id="disp_ov_expenses">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Amount Transfer to Land Lord: </b><span id="disp_ov_transfer">-</span></h5></div>
+                <div class="col-lg-12"><hr></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Total Number of Units: </b><span id="disp_ov_total_units">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Total Building Occupancy Level: </b><span id="disp_ov_occupancy_level">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>New Leased Residential Units: </b><span id="disp_ov_new_leased_res">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>New Leased Commercial Units: </b><span id="disp_ov_new_leased_com">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Total Occupied Residential Units: </b><span id="disp_ov_occupied_res">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Total Occupied Commercial Units: </b><span id="disp_ov_occupied_com">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vacant Residential Units: </b><span id="disp_ov_vacant_res">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vacant Commercial Units: </b><span id="disp_ov_vacant_com">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Residential Units Under Evacuation: </b><span id="disp_ov_evac_res">-</span></h5></div>
+                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Commercial Units Under Evacuation: </b><span id="disp_ov_evac_com">-</span></h5></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -127,6 +153,7 @@ $(document).ready(function () {
     var contractsUrl = '{{ route("landlordInvoiceV2ContractsByVendor") }}';
     var detailsUrlBase = '{{ url("landlord-invoice-v2-contract-details") }}';
     var previewUrl = '{{ route("landlordInvoiceV2CalculationPreview") }}';
+    var overviewUrl = '{{ route("landlordInvoiceV2OverviewPreview") }}';
 
     function maybeLoadPreview() {
         var contractId = $('#landlord_contract_id').val();
@@ -151,6 +178,34 @@ $(document).ready(function () {
                 var $row = $('<tr>').append($descTd).append($amountTd);
                 $body.append($row);
             });
+        });
+    }
+
+    function maybeLoadOverview() {
+        var contractId = $('#landlord_contract_id').val();
+        var month = $('#period_month').val();
+        var year = $('#period_year').val();
+        if (!contractId || !month || !year) return;
+
+        $.getJSON(overviewUrl, {
+            landlord_contract_id: contractId,
+            period_month: month,
+            period_year: year
+        }, function (res) {
+            $('#disp_ov_income').text(res.income);
+            $('#disp_ov_collection').text(res.collection);
+            $('#disp_ov_expenses').text(res.total_expenses);
+            $('#disp_ov_transfer').text(res.transfer_to_landlord);
+            $('#disp_ov_total_units').text(res.total_units);
+            $('#disp_ov_occupancy_level').text(res.occupancy_level + '%');
+            $('#disp_ov_new_leased_res').text(res.new_leased_residential);
+            $('#disp_ov_new_leased_com').text(res.new_leased_commercial);
+            $('#disp_ov_occupied_res').text(res.occupied_residential);
+            $('#disp_ov_occupied_com').text(res.occupied_commercial);
+            $('#disp_ov_vacant_res').text(res.vacant_residential);
+            $('#disp_ov_vacant_com').text(res.vacant_commercial);
+            $('#disp_ov_evac_res').text(res.evacuation_residential);
+            $('#disp_ov_evac_com').text(res.evacuation_commercial);
         });
     }
 
@@ -187,9 +242,11 @@ $(document).ready(function () {
         });
 
         maybeLoadPreview();
+        maybeLoadOverview();
     });
 
     $('#invoice_type, #period_month, #period_year').on('change', maybeLoadPreview);
+    $('#period_month, #period_year').on('change', maybeLoadOverview);
 });
 </script>
 @endsection
