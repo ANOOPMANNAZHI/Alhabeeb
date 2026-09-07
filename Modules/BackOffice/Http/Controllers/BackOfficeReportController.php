@@ -4302,7 +4302,11 @@ private function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildi
                management_method,
                landlord_contract_percentage,
                landlord_contract_management_fee,
-               vendor_id
+               vendor_id,
+               landlord_contract_facility_management_fee AS facility_management_fee,
+               landlord_contract_renewal_fee AS renewal_fee,
+               landlord_contract_new_leasing_fee_type AS new_leasing_fee_type,
+               landlord_contract_new_leasing_fee AS new_leasing_fee
         FROM landlord_contract
         WHERE building_id = ?
         ORDER BY landlord_contract_valid_from_date
@@ -4358,6 +4362,31 @@ private function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildi
         $newLeasedByMonth[(int) $nlRow->month] = [
             'new_leased_residential' => (int) $nlRow->new_leased_residential,
             'new_leased_commercial'  => (int) $nlRow->new_leased_commercial,
+        ];
+    }
+
+    // ── Batch renewal/new-lease counts + new-lease rent sum for the year ──
+    // A tenant contract is a renewal when tenant_contract_old_no is populated
+    // (it references the prior contract it renews), and a genuine new lease
+    // when it is null/empty. Used to compute the Renewal Fee and New Leasing
+    // Fee components below.
+    $renewalNewLeaseRows = DB::select("
+        SELECT EXTRACT(MONTH FROM tc.tenant_contract_start_date)::int AS month,
+            COUNT(DISTINCT CASE WHEN tc.tenant_contract_old_no IS NOT NULL AND tc.tenant_contract_old_no != '' THEN tc.id END) AS renewal_count,
+            COUNT(DISTINCT CASE WHEN tc.tenant_contract_old_no IS NULL OR tc.tenant_contract_old_no = '' THEN tc.id END) AS new_lease_count,
+            SUM(CASE WHEN tc.tenant_contract_old_no IS NULL OR tc.tenant_contract_old_no = '' THEN tc.tenant_contract_rent ELSE 0 END) AS new_lease_rent_sum
+        FROM tenant_contracts tc
+        JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
+        WHERE tc.tenant_contract_status != 2 AND EXTRACT(YEAR FROM tc.tenant_contract_start_date) = ?
+        GROUP BY month ORDER BY month
+    ", [$building->id, $year]);
+
+    $renewalNewLeaseByMonth = [];
+    foreach ($renewalNewLeaseRows as $rlRow) {
+        $renewalNewLeaseByMonth[(int) $rlRow->month] = [
+            'renewal_count'      => (int) $rlRow->renewal_count,
+            'new_lease_count'    => (int) $rlRow->new_lease_count,
+            'new_lease_rent_sum' => (float) $rlRow->new_lease_rent_sum,
         ];
     }
 
@@ -4819,20 +4848,44 @@ private function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildi
             if ($matched !== null) {
                 $cleaningCharge = (float) $matched->cleaning_charge;
             }
+
+            // Facility Management Fee, Renewal Fee, New Leasing Fee — all
+            // derived from the matched landlord contract, same date-range
+            // matching as Cleaning Charges above.
+            $facilityManagementFee = 0.0;
+            $renewalFee = 0.0;
+            $newLeasingFee = 0.0;
+            if ($matched !== null) {
+                $facilityManagementFee = (float) ($matched->facility_management_fee ?? 0);
+
+                $rn = $renewalNewLeaseByMonth[$m] ?? ['renewal_count' => 0, 'new_lease_count' => 0, 'new_lease_rent_sum' => 0];
+                $renewalFee = $rn['renewal_count'] * (float) ($matched->renewal_fee ?? 0);
+
+                $newLeasingFeeType = (int) ($matched->new_leasing_fee_type ?? 0);
+                if ($newLeasingFeeType === 1) {
+                    $newLeasingFee = round($rn['new_lease_rent_sum'] * ((float) ($matched->new_leasing_fee ?? 0) / 100), 3);
+                } elseif ($newLeasingFeeType === 2) {
+                    $newLeasingFee = $rn['new_lease_count'] * (float) ($matched->new_leasing_fee ?? 0);
+                }
+            }
         } else {
             $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0; $matched = null;
+            $facilityManagementFee = 0.0; $renewalFee = 0.0; $newLeasingFee = 0.0;
             $occupancy = ['total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
                 'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
                 'vacant_commercial' => 0, 'evacuation_residential' => 0, 'evacuation_commercial' => 0];
         }
 
         $monthData[$m] = [
-            'units'             => $units,
-            'old_outstanding'   => $oldOutstanding ?? [],
-            'expenses'          => $expenses,
-            'occupancy'         => $occupancy,
-            'cleaning_charge'   => $cleaningCharge,
-            'landlord_contract' => $matched,
+            'units'                   => $units,
+            'old_outstanding'         => $oldOutstanding ?? [],
+            'expenses'                => $expenses,
+            'occupancy'               => $occupancy,
+            'cleaning_charge'         => $cleaningCharge,
+            'landlord_contract'       => $matched,
+            'facility_management_fee' => $facilityManagementFee,
+            'renewal_fee'             => $renewalFee,
+            'new_leasing_fee'         => $newLeasingFee,
         ];
     }
 
