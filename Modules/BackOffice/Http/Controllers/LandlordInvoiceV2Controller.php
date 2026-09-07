@@ -176,4 +176,99 @@ class LandlordInvoiceV2Controller extends Controller
         session()->flash('success', 'Landlord Invoice Voided: ' . $landlordInvoiceV2->invoice_no);
         return redirect()->route('landlord-invoice-v2.index');
     }
+
+    public function contractsByVendor(Request $request)
+    {
+        $contracts = LandlordContract::with('buildingInfo')
+            ->where('vendor_id', $request->vendor_id)
+            ->where('landlord_contract_status', 1)
+            ->get()
+            ->map(function ($c) {
+                return [
+                    'id'    => $c->id,
+                    'label' => $c->landlord_contract_no . ' - ' . optional($c->buildingInfo)->building_name,
+                ];
+            });
+
+        return response()->json($contracts);
+    }
+
+    public function contractDetails(LandlordContract $landlordContract)
+    {
+        $vendor = $landlordContract->vendorInfo;
+
+        return response()->json([
+            'vendor_name'    => optional($vendor)->vendor_name,
+            'vendor_address' => optional($vendor)->vendor_contact_address,
+            'vatin_no'       => optional($vendor)->vatin_no,
+            'building_name'  => optional($landlordContract->buildingInfo)->building_name,
+        ]);
+    }
+
+    public function calculationPreview(Request $request)
+    {
+        $request->validate([
+            'landlord_contract_id' => 'required|exists:landlord_contract,id',
+            'invoice_type'         => 'required|in:tax_invoice,other_deductions',
+            'period_month'         => 'required|integer|min:1|max:12',
+            'period_year'          => 'required|integer|min:2000|max:2100',
+        ]);
+
+        $contract = LandlordContract::with('buildingInfo')->findOrFail($request->landlord_contract_id);
+        $building = $contract->buildingInfo;
+        abort_if(!$building, 404, 'This contract has no building assigned.');
+
+        $fromDate = sprintf('%04d-%02d-01', $request->period_year, $request->period_month);
+        $toDate   = date('Y-m-t', strtotime($fromDate));
+
+        if ($request->invoice_type === 'tax_invoice') {
+            $amounts = $this->calc->landlordTaxInvoiceLineAmounts($building, $fromDate, $toDate, $contract->vendor_id);
+            $lines = [
+                ['description' => 'MANAGEMENT FEES FOR ' . $amounts['period_label'], 'amount' => $amounts['management_fee']],
+                ['description' => 'CLEANING CHARGES FOR ' . $amounts['period_label'], 'amount' => $amounts['cleaning_charge']],
+                ['description' => 'REPAIR AND MAINTENANCE CHARGES', 'amount' => $amounts['repair_maintenance']],
+            ];
+        } else {
+            $amounts = $this->calc->landlordOtherDeductionsLineAmounts($building, $fromDate, $toDate);
+            $subAmount = $this->calc->landlordSubcontractorRepairMaintenanceAmount($contract->vendor_id, $building->id, $fromDate, $toDate);
+            $lines = [
+                ['description' => 'MUN TAX CHARGES', 'amount' => $amounts['mun_tax_charges']],
+                ['description' => 'ELECT. AND WATER CHARGES', 'amount' => $amounts['elect_water_charges']],
+                ['description' => 'DEWATERING CHARGES', 'amount' => $amounts['dewatering_charges']],
+                ['description' => 'AMC / REPAIR AND MAINTENANCE CHARGES FOR A/C UNITS', 'amount' => $amounts['ac_amc_repair_charges']],
+                ['description' => 'AMC FOR F.A.S FOR THE PERIOD', 'amount' => $amounts['fas_amc_charges']],
+                ['description' => 'REPAIR AND MAINTENANCE CHARGES (SUB-CONTRACTOR)', 'amount' => $subAmount],
+            ];
+        }
+
+        return response()->json(['lines' => $lines]);
+    }
+
+    public function print(LandlordInvoiceV2 $landlordInvoiceV2)
+    {
+        $landlordInvoiceV2->load('lines');
+
+        $lines = $landlordInvoiceV2->lines->map(function ($l) {
+            return [
+                'desc'       => $l->description,
+                'qty'        => 1.000,
+                'unit_price' => (float) $l->amount,
+                'amount'     => (float) $l->amount,
+                'vat'        => (float) $l->vat_amount,
+                'total'      => round((float) $l->amount + (float) $l->vat_amount, 3),
+            ];
+        })->toArray();
+
+        $data = [
+            'invoice'       => $landlordInvoiceV2,
+            'lines'         => $lines,
+            'totalAmount'   => (float) $landlordInvoiceV2->subtotal,
+            'totalVat'      => (float) $landlordInvoiceV2->vat_total,
+            'totalDue'      => (float) $landlordInvoiceV2->grand_total,
+            'amountInWords' => $this->calc->landlordTaxInvoiceAmountInWords((float) $landlordInvoiceV2->grand_total),
+        ];
+
+        $pdf = \PDF::loadView('backoffice::LandlordInvoiceV2.pdf', $data)->setPaper('a4', 'portrait');
+        return $pdf->stream($landlordInvoiceV2->invoice_no . '.pdf');
+    }
 }
