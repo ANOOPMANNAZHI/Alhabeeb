@@ -148,6 +148,45 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         $cleaningRow[] = $cleaningYTD ?: '-';
         $rows[] = $cleaningRow;
 
+        // Facility Management Fee — same treatment as Cleaning Charges: from the
+        // landlord contract, not a transactional expense, folded into Total Expenses.
+        $facilityRow = ['', 'Facility Management Fee'];
+        $facilityYTD = 0;
+        foreach (range(1, 12) as $m) {
+            $amount = (float)($this->monthData[$m]['facility_management_fee'] ?? 0);
+            $facilityRow[] = $amount > 0 ? $amount : '-';
+            $facilityYTD += $amount;
+            $expenseTotalsByMonth[$m] += $amount;
+        }
+        $facilityRow[] = $facilityYTD ?: '-';
+        $rows[] = $facilityRow;
+
+        // Renewal Fee — count of tenant contract renewals that month times the
+        // landlord contract's flat renewal fee (computed in buildNormalManagementMonthData()).
+        $renewalRow = ['', 'Renewal Fee'];
+        $renewalYTD = 0;
+        foreach (range(1, 12) as $m) {
+            $amount = (float)($this->monthData[$m]['renewal_fee'] ?? 0);
+            $renewalRow[] = $amount > 0 ? $amount : '-';
+            $renewalYTD += $amount;
+            $expenseTotalsByMonth[$m] += $amount;
+        }
+        $renewalRow[] = $renewalYTD ?: '-';
+        $rows[] = $renewalRow;
+
+        // New Leasing Fee — count/rent-sum of genuinely new tenant leases that
+        // month times the landlord contract's flat fee or percentage.
+        $newLeasingRow = ['', 'New Leasing Fee'];
+        $newLeasingYTD = 0;
+        foreach (range(1, 12) as $m) {
+            $amount = (float)($this->monthData[$m]['new_leasing_fee'] ?? 0);
+            $newLeasingRow[] = $amount > 0 ? $amount : '-';
+            $newLeasingYTD += $amount;
+            $expenseTotalsByMonth[$m] += $amount;
+        }
+        $newLeasingRow[] = $newLeasingYTD ?: '-';
+        $rows[] = $newLeasingRow;
+
         // Total Expenses
         $totalExpRow = ['', 'Total Expenses'];
         foreach ($expenseTotalsByMonth as $v) {
