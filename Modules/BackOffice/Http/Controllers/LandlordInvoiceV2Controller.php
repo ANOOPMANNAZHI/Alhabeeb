@@ -69,12 +69,25 @@ class LandlordInvoiceV2Controller extends Controller
         $vendor   = Vendor::findOrFail($request->vendor_id);
         $contract = LandlordContract::with('buildingInfo')->findOrFail($request->landlord_contract_id);
 
+        abort_if((int) $contract->vendor_id !== (int) $vendor->id, 422, 'The selected contract does not belong to the selected vendor.');
+
         $prefixKey = $request->invoice_type === 'tax_invoice'
             ? 'landlord_invoice_v2_tax_invoice_prefix'
             : 'landlord_invoice_v2_other_deductions_prefix';
 
         $setting = Setting::where('configuration_settings', $prefixKey)->first();
         abort_if(!$setting, 500, 'Invoice numbering is not configured for this invoice type.');
+
+        // Year-rollover guard: mirrors the $isYearCorrect pattern used by
+        // LandlordInvoiceController/add_invoice.blade.php, but since this
+        // feature only generates the invoice number at store() time (no
+        // create-page preview moment to alert the user beforehand), we
+        // auto-roll-over here instead of just warning.
+        if ((int) $setting->configuration_year !== (int) date('y')) {
+            $setting->configuration_year = (int) date('y');
+            $setting->configuration_increment_value = 1;
+            $setting->save();
+        }
 
         $nextCode = $setting->configuration_value . $setting->configuration_year
             . str_pad($setting->configuration_increment_value, 5, '0', STR_PAD_LEFT);
@@ -230,7 +243,7 @@ class LandlordInvoiceV2Controller extends Controller
             ];
         } else {
             $amounts = $this->calc->landlordOtherDeductionsLineAmounts($building, $fromDate, $toDate);
-            $subAmount = $this->calc->landlordSubcontractorRepairMaintenanceAmount($contract->vendor_id, $building->id, $fromDate, $toDate);
+            $subAmount = $this->calc->landlordSubcontractorRepairMaintenanceAmount($building->id, $fromDate, $toDate);
             $lines = [
                 ['description' => 'MUN TAX CHARGES', 'amount' => $amounts['mun_tax_charges']],
                 ['description' => 'ELECT. AND WATER CHARGES', 'amount' => $amounts['elect_water_charges']],
