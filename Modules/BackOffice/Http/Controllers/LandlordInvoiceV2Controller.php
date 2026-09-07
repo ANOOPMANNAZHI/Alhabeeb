@@ -122,4 +122,58 @@ class LandlordInvoiceV2Controller extends Controller
         session()->flash('success', 'Landlord Invoice Created: ' . $nextCode);
         return redirect()->route('landlord-invoice-v2.index');
     }
+
+    public function edit(LandlordInvoiceV2 $landlordInvoiceV2)
+    {
+        abort_if($landlordInvoiceV2->status === 'voided', 403, 'Voided invoices cannot be edited.');
+        $landlordInvoiceV2->load('lines');
+        return view('backoffice::LandlordInvoiceV2.edit', compact('landlordInvoiceV2'));
+    }
+
+    public function update(Request $request, LandlordInvoiceV2 $landlordInvoiceV2)
+    {
+        abort_if($landlordInvoiceV2->status === 'voided', 403, 'Voided invoices cannot be edited.');
+
+        $request->validate([
+            'invoice_date'    => 'required|date',
+            'lines'           => 'required|array|min:1',
+            'lines.*.id'      => 'required|exists:landlord_invoice_v2_lines,id',
+            'lines.*.amount'  => 'required|numeric',
+        ]);
+
+        $subtotal = 0.0;
+        $vatTotal = 0.0;
+        foreach ($request->lines as $line) {
+            $lineModel = $landlordInvoiceV2->lines()->findOrFail($line['id']);
+            $amount = round((float) $line['amount'], 3);
+            $vat = $landlordInvoiceV2->invoice_type === 'tax_invoice' ? round($amount * 0.05, 3) : 0.0;
+            $lineModel->update(['amount' => $amount, 'vat_amount' => $vat]);
+            $subtotal += $amount;
+            $vatTotal += $vat;
+        }
+
+        $landlordInvoiceV2->update([
+            'invoice_date' => $request->invoice_date,
+            'subtotal'     => round($subtotal, 3),
+            'vat_total'    => round($vatTotal, 3),
+            'grand_total'  => round($subtotal + $vatTotal, 3),
+        ]);
+
+        session()->flash('success', 'Landlord Invoice Updated');
+        return redirect()->route('landlord-invoice-v2.index');
+    }
+
+    public function destroy(LandlordInvoiceV2 $landlordInvoiceV2)
+    {
+        abort_if($landlordInvoiceV2->status === 'voided', 403, 'This invoice is already voided.');
+
+        $landlordInvoiceV2->update([
+            'status'    => 'voided',
+            'voided_at' => now(),
+            'voided_by' => \Auth::user()->id,
+        ]);
+
+        session()->flash('success', 'Landlord Invoice Voided: ' . $landlordInvoiceV2->invoice_no);
+        return redirect()->route('landlord-invoice-v2.index');
+    }
 }
