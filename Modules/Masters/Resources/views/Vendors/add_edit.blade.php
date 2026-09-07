@@ -157,6 +157,15 @@
           </div>
            <div class="col-sm-6">
             <div class="form-group">
+                <label for="vatin_no">VATIN No</label>
+                 <div class="p-relative">
+                <i class="fa fa-id-card icn-add" aria-hidden="true"></i>
+                <input type="text" class="form-control" id="vatin_no" name="vatin_no" value="{{ old('vatin_no', isset($vendor)? $vendor->vatin_no : '' )}}" placeholder="Enter VATIN No">
+              </div>
+            </div>
+          </div>
+           <div class="col-sm-6">
+            <div class="form-group">
                 <label for="location_id">Location<small class="textRed">*</small> </label>
                  <div class="p-relative">
                 <i class="fa fa-map-marker icn-add" aria-hidden="true"></i>

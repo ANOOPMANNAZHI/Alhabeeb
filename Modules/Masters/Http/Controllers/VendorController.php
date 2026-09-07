@@ -145,7 +145,8 @@ class VendorController extends Controller
          'vendor_acc_no' => $request->vendor_acc_no,
          'vendor_status' => $request->vendor_status,
          'bank_id' => $request->bank_id,
-         'created_by' =>  \Auth::user()->id        
+         'vatin_no' => $request->vatin_no,
+         'created_by' =>  \Auth::user()->id
         ]);  
 		
 		if($request->vendor_type == 1){	
@@ -238,8 +239,9 @@ class VendorController extends Controller
          'vendor_fax_no' => $request->vendor_fax_no,
          'vendor_acc_no' => $request->vendor_acc_no,
          'vendor_status' => $request->vendor_status,
-         'bank_id' => $request->bank_id,  
-         'updated_by' =>  \Auth::user()->id,      
+         'bank_id' => $request->bank_id,
+         'vatin_no' => $request->vatin_no,
+         'updated_by' =>  \Auth::user()->id,
         ]);  
 
 		// log
