@@ -29,7 +29,7 @@
 
 <div id="identity">
   <div id="logo">
-    <img src="{{asset('public/img/logo-print.png')}}" alt="logo">
+    <img src="{{public_path('img/logo-print.png')}}" alt="logo">
   </div>
   <div id="address">
     <b style="text-align:right">الحبيب وشركاه ش . م .م</b></br>
