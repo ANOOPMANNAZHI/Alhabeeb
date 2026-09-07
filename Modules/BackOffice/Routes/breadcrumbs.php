@@ -791,6 +791,21 @@ Breadcrumbs::for('showLandlordTaxInvoiceReport', function ($trail) {
     $trail->push('Landlord Tax Invoice Report', route('showLandlordTaxInvoiceReport'));
 });
 
+Breadcrumbs::for('landlord-invoice-v2.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Landlord Invoice v2', route('landlord-invoice-v2.index'));
+});
+
+Breadcrumbs::for('landlord-invoice-v2.create', function ($trail) {
+    $trail->parent('landlord-invoice-v2.index');
+    $trail->push('Add Invoice', route('landlord-invoice-v2.create'));
+});
+
+Breadcrumbs::for('landlord-invoice-v2.edit', function ($trail) {
+    $trail->parent('landlord-invoice-v2.index');
+    $trail->push('Edit Invoice', route('landlord-invoice-v2.index'));
+});
+
 Breadcrumbs::for('showchequeReturnReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Cheque Return Statement',route('showchequeReturnReport'));
