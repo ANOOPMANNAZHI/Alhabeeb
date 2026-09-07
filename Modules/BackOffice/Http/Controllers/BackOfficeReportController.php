@@ -4167,10 +4167,7 @@ private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Buildin
             foreach ($data['expenses'] ?? [] as $exp) {
                 $totalExpenses += (float) $exp->expense_amount;
             }
-            $totalCleaning   += (float) ($data['cleaning_charge'] ?? 0);
-            $totalFacility   += (float) ($data['facility_management_fee'] ?? 0);
-            $totalRenewal    += (float) ($data['renewal_fee'] ?? 0);
-            $totalNewLeasing += (float) ($data['new_leasing_fee'] ?? 0);
+            $totalCleaning += (float) ($data['cleaning_charge'] ?? 0);
 
             $lc = $data['landlord_contract'] ?? null;
             if ($lc === null) continue;
@@ -4179,6 +4176,13 @@ private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Buildin
             // changed landlords) — skip the management-fee accumulation for this
             // month rather than billing using another landlord's contract terms.
             if ((int) $lc->vendor_id !== (int) $vendorId) continue;
+
+            // Facility Management Fee, Renewal Fee, and New Leasing Fee are also
+            // contract-derived (like Management Fee), so they must respect the
+            // same vendor-ownership guard — accumulate only after it, not before.
+            $totalFacility   += (float) ($data['facility_management_fee'] ?? 0);
+            $totalRenewal    += (float) ($data['renewal_fee'] ?? 0);
+            $totalNewLeasing += (float) ($data['new_leasing_fee'] ?? 0);
 
             if ((int) $lc->management_method === 2) {
                 $managementFee += (float) $lc->landlord_contract_management_fee;
