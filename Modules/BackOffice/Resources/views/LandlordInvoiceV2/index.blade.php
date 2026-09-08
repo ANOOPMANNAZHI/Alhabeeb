@@ -1,6 +1,26 @@
 @extends('layouts.plms-app')
 @section('css')
 <link href="{{asset('public/css/custom.css')}}" rel="stylesheet">
+<style>
+    #liv2_list_table thead th {
+        background: #f7fdfb;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        color: #666;
+        border-top: none;
+    }
+    #liv2_list_table td { vertical-align: middle; }
+    .liv2-filter-box .form-group { margin-right: 12px; margin-bottom: 10px; }
+    .liv2-filter-box label {
+        display: block;
+        font-size: 11px;
+        color: #8c8c8c;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        margin-bottom: 3px;
+    }
+</style>
 @endsection
 
 @section('content')
@@ -17,33 +37,50 @@
     <div class="col-md-12">
         <div class="card card-box">
             <div class="card-body">
-                <a href="{{ route('landlord-invoice-v2.create') }}" class="btn btn-primary pull-right">Add Invoice</a>
+                <a href="{{ route('landlord-invoice-v2.create') }}" class="btn btn-primary pull-right"><i class="fa fa-plus" aria-hidden="true"></i> Add Invoice</a>
                 <div class="clearfix"></div>
 
-                <form method="GET" class="form-inline" style="margin-bottom:15px;">
-                    <select name="invoice_type" class="form-control" style="margin-right:10px;">
-                        <option value="">All Types</option>
-                        <option value="tax_invoice" {{ request('invoice_type') == 'tax_invoice' ? 'selected' : '' }}>Tax Invoice</option>
-                        <option value="other_deductions" {{ request('invoice_type') == 'other_deductions' ? 'selected' : '' }}>Other Deductions</option>
-                    </select>
-                    <select name="vendor_id" class="form-control" style="margin-right:10px;">
-                        <option value="">All Vendors</option>
-                        @foreach($vendors as $v)
-                        <option value="{{ $v->id }}" {{ request('vendor_id') == $v->id ? 'selected' : '' }}>{{ $v->vendor_name }}</option>
-                        @endforeach
-                    </select>
-                    <select name="status" class="form-control" style="margin-right:10px;">
-                        <option value="">All Statuses</option>
-                        <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
-                        <option value="voided" {{ request('status') == 'voided' ? 'selected' : '' }}>Voided</option>
-                    </select>
-                    <input type="date" name="from_date" class="form-control" style="margin-right:10px;" value="{{ request('from_date') }}" placeholder="From Date">
-                    <input type="date" name="to_date" class="form-control" style="margin-right:10px;" value="{{ request('to_date') }}" placeholder="To Date">
-                    <button type="submit" class="btn btn-default">Filter</button>
+                <form method="GET" class="form-inline liv2-filter-box dataSearchBox" style="margin-bottom:15px;">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select name="invoice_type" class="form-control">
+                            <option value="">All Types</option>
+                            <option value="tax_invoice" {{ request('invoice_type') == 'tax_invoice' ? 'selected' : '' }}>Tax Invoice</option>
+                            <option value="other_deductions" {{ request('invoice_type') == 'other_deductions' ? 'selected' : '' }}>Other Deductions</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Vendor</label>
+                        <select name="vendor_id" class="form-control">
+                            <option value="">All Vendors</option>
+                            @foreach($vendors as $v)
+                            <option value="{{ $v->id }}" {{ request('vendor_id') == $v->id ? 'selected' : '' }}>{{ $v->vendor_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status" class="form-control">
+                            <option value="">All Statuses</option>
+                            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
+                            <option value="voided" {{ request('status') == 'voided' ? 'selected' : '' }}>Voided</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>From Date</label>
+                        <input type="date" name="from_date" class="form-control" value="{{ request('from_date') }}">
+                    </div>
+                    <div class="form-group">
+                        <label>To Date</label>
+                        <input type="date" name="to_date" class="form-control" value="{{ request('to_date') }}">
+                    </div>
+                    <div class="form-group" style="margin-top:18px;">
+                        <button type="submit" class="btn btn-primary"><i class="fa fa-search" aria-hidden="true"></i> Filter</button>
+                    </div>
                 </form>
 
                 <div class="table-responsive">
-                    <table class="table table-striped">
+                    <table class="table table-striped" id="liv2_list_table">
                         <thead>
                             <tr>
                                 <th>Invoice No.</th>
@@ -73,13 +110,13 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <a href="{{ route('landlordInvoiceV2Print', $inv) }}" target="_blank" class="btn btn-sm btn-default">Print</a>
+                                    <a href="{{ route('landlordInvoiceV2Print', $inv) }}" target="_blank" class="btn btn-sm btn-default"><i class="fa fa-print" aria-hidden="true"></i> Print</a>
                                     @if($inv->status != 'voided')
-                                        <a href="{{ route('landlord-invoice-v2.edit', $inv) }}" class="btn btn-sm btn-primary">Edit</a>
+                                        <a href="{{ route('landlord-invoice-v2.edit', $inv) }}" class="btn btn-sm btn-primary"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</a>
                                         <form action="{{ route('landlord-invoice-v2.destroy', $inv) }}" method="POST" style="display:inline-block" onsubmit="return confirm('Void this invoice? The invoice number will be permanently reserved.');">
                                             {{ csrf_field() }}
                                             {{ method_field('DELETE') }}
-                                            <button type="submit" class="btn btn-sm btn-danger">Void</button>
+                                            <button type="submit" class="btn btn-sm btn-danger"><i class="fa fa-ban" aria-hidden="true"></i> Void</button>
                                         </form>
                                     @endif
                                 </td>

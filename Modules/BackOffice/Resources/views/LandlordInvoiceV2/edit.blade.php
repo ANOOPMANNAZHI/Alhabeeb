@@ -2,6 +2,26 @@
 @section('css')
 <link href="{{asset('public/css/custom.css')}}" rel="stylesheet">
 <link href="{{asset('public/css/formlayout.css')}}" rel="stylesheet" type="text/css" />
+<style>
+    .liv2-section-head {
+        font-size: 15px;
+        font-weight: 700;
+        color: #222;
+        border-left: 4px solid #18c98e;
+        padding: 6px 12px;
+        margin: 20px 0 10px;
+        background: #f7fdfb;
+        border-radius: 4px;
+    }
+    .liv2-section-head:first-child { margin-top: 0; }
+    #liv2_edit_lines_table thead th {
+        background: #f7fdfb;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        color: #666;
+    }
+</style>
 @endsection
 
 @section('content')
@@ -20,46 +40,63 @@
 <div class="row">
 <div class="col">
 <div class="card card-box salesSearchBox">
+
+<div class="liv2-section-head">Invoice Details</div>
 <div class="dataSearchBox">
     <div class="row">
         <div class="col-sm-6">
             <div class="form-group">
                 <label>Invoice No.</label>
-                <input type="text" class="form-control" value="{{ $landlordInvoiceV2->invoice_no }}" disabled>
+                <div class="p-relative">
+                    <i class="fa fa-hashtag icn-add" aria-hidden="true"></i>
+                    <input type="text" class="form-control" value="{{ $landlordInvoiceV2->invoice_no }}" disabled>
+                </div>
             </div>
         </div>
         <div class="col-sm-6">
             <div class="form-group">
                 <label>Invoice Type</label>
-                <input type="text" class="form-control" value="{{ $landlordInvoiceV2->invoice_type_label }}" disabled>
+                <div class="p-relative">
+                    <i class="fa fa-file-text-o icn-add" aria-hidden="true"></i>
+                    <input type="text" class="form-control" value="{{ $landlordInvoiceV2->invoice_type_label }}" disabled>
+                </div>
             </div>
         </div>
         <div class="col-sm-6">
             <div class="form-group">
                 <label>Vendor</label>
-                <input type="text" class="form-control" value="{{ $landlordInvoiceV2->vendor_name }}" disabled>
+                <div class="p-relative">
+                    <i class="icon icon-landlord" aria-hidden="true"></i>
+                    <input type="text" class="form-control" value="{{ $landlordInvoiceV2->vendor_name }}" disabled>
+                </div>
             </div>
         </div>
         <div class="col-sm-6">
             <div class="form-group">
                 <label>Building</label>
-                <input type="text" class="form-control" value="{{ $landlordInvoiceV2->building_name }}" disabled>
+                <div class="p-relative">
+                    <i class="icon icon-building" aria-hidden="true"></i>
+                    <input type="text" class="form-control" value="{{ $landlordInvoiceV2->building_name }}" disabled>
+                </div>
             </div>
         </div>
         <div class="col-sm-6">
             <div class="form-group">
                 <label>Invoice Date<small class="textRed">*</small></label>
-                <input type="date" class="form-control" name="invoice_date" required value="{{ old('invoice_date', \Carbon\Carbon::parse($landlordInvoiceV2->invoice_date)->format('Y-m-d')) }}">
+                <div class="p-relative">
+                    <i class="fa fa-calendar-o icn-add" aria-hidden="true"></i>
+                    <input type="date" class="form-control" name="invoice_date" required value="{{ old('invoice_date', \Carbon\Carbon::parse($landlordInvoiceV2->invoice_date)->format('Y-m-d')) }}">
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<h3>Invoice Lines</h3>
+<div class="liv2-section-head">Invoice Lines</div>
 <div class="dataSearchBox">
     <div class="row">
-        <table class="table">
-            <thead><tr><th>Description</th><th>Amount (OMR)</th></tr></thead>
+        <table class="table" id="liv2_edit_lines_table">
+            <thead><tr><th>Description</th><th style="width:220px">Amount (OMR)</th></tr></thead>
             <tbody>
                 @foreach($landlordInvoiceV2->lines as $i => $line)
                 <tr>
