@@ -49,9 +49,8 @@
                                             <option value="other_deductions" {{ request('invoice_type') == 'other_deductions' ? 'selected' : '' }}>Other Deductions</option>
                                         </select>
                                     </td>
-                                    <td style="white-space:nowrap;">
-                                        <input type="date" name="from_date" id="liv2_from_date" class="contract_search_field" style="display:inline-block;width:auto;" value="{{ request('from_date') }}" title="From Date">
-                                        <input type="date" name="to_date" id="liv2_to_date" class="contract_search_field" style="display:inline-block;width:auto;" value="{{ request('to_date') }}" title="To Date">
+                                    <td>
+                                        <input type="date" name="invoice_date" id="liv2_invoice_date" class="contract_search_field" value="{{ request('invoice_date') }}">
                                     </td>
                                     <td>
                                         <input type="text" name="vendor_name" id="liv2_vendor_name" class="contract_search_field" value="{{ request('vendor_name') }}" placeholder="Vendor">
@@ -95,8 +94,7 @@ $(document).ready(function () {
 
     $(document).on('change keyup paste', '.contract_search_field', function () {
         var invoiceType  = $('select[name="invoice_type"]').val();
-        var fromDate     = $('#liv2_from_date').val();
-        var toDate       = $('#liv2_to_date').val();
+        var invoiceDate  = $('#liv2_invoice_date').val();
         var vendorName   = $('#liv2_vendor_name').val();
         var buildingName = $('#liv2_building_name').val();
         var status       = $('select[name="status"]').val();
@@ -106,8 +104,7 @@ $(document).ready(function () {
             url: quickUrl,
             data: {
                 invoice_type: invoiceType,
-                from_date: fromDate,
-                to_date: toDate,
+                invoice_date: invoiceDate,
                 vendor_name: vendorName,
                 building_name: buildingName,
                 status: status,
@@ -130,8 +127,7 @@ $(document).ready(function () {
 
                 var href_txt = $.param({
                     invoice_type: invoiceType,
-                    from_date: fromDate,
-                    to_date: toDate,
+                    invoice_date: invoiceDate,
                     vendor_name: vendorName,
                     building_name: buildingName,
                     status: status

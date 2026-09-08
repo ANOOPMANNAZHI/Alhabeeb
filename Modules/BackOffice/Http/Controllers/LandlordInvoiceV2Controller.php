@@ -36,11 +36,8 @@ class LandlordInvoiceV2Controller extends Controller
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-        if ($request->filled('from_date')) {
-            $query->where('invoice_date', '>=', $request->from_date);
-        }
-        if ($request->filled('to_date')) {
-            $query->where('invoice_date', '<=', $request->to_date);
+        if ($request->filled('invoice_date')) {
+            $query->whereDate('invoice_date', $request->invoice_date);
         }
 
         $landlordInvoicesV2 = $query->sortable(['id' => 'desc'])->paginate(20)->appends($request->query());
