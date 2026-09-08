@@ -36,20 +36,6 @@
         color: #222;
     }
     .liv2-stat-tile.liv2-stat-accent .liv2-stat-value { color: #18c98e; }
-    .liv2-tabs.nav-tabs { border-bottom: 2px solid #ebebeb; margin-bottom: 15px; }
-    .liv2-tabs.nav-tabs > li > a {
-        border: none;
-        color: #8c8c8c;
-        font-weight: 600;
-        padding: 10px 18px;
-    }
-    .liv2-tabs.nav-tabs > li > a.active,
-    .liv2-tabs.nav-tabs > li > a:hover {
-        color: #18c98e;
-        border: none;
-        border-bottom: 2px solid #18c98e;
-        background: transparent;
-    }
     #liv2_lines_table thead th {
         background: #f7fdfb;
         font-size: 12px;
@@ -158,21 +144,26 @@
     </div>
 </div>
 
-<div class="dataSearchBox">
-    <ul class="nav nav-tabs liv2-tabs">
+<div class="dashboardtab1">
+<div class="card card-box">
+<div class="card-body">
+<header class="panel-heading custom-tab">
+    <ul class="nav nav-tabs">
         <li class="nav-item"><a href="#liv2_tab_details" data-toggle="tab" class="active">Contract &amp; Building Details</a></li>
         <li class="nav-item"><a href="#liv2_tab_overview" data-toggle="tab">Overview</a></li>
     </ul>
-    <div class="tab-content">
-        <div class="tab-pane active" id="liv2_tab_details">
-            <div class="row">
-                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vendor Name: </b><span id="disp_vendor_name">-</span></h5></div>
-                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Building Name: </b><span id="disp_building_name">-</span></h5></div>
-                <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vendor Address: </b><span id="disp_vendor_address">-</span></h5></div>
-                <div class="col-lg-6 p-t-20"><h5 class="details"><b>VATIN No: </b><span id="disp_vatin_no">-</span></h5></div>
-            </div>
+</header>
+<div class="panel-body tab-color">
+<div class="tab-content">
+    <div class="tab-pane active" id="liv2_tab_details">
+        <div class="row">
+            <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vendor Name: </b><span id="disp_vendor_name">-</span></h5></div>
+            <div class="col-lg-6 p-t-20"><h5 class="details"><b>Building Name: </b><span id="disp_building_name">-</span></h5></div>
+            <div class="col-lg-6 p-t-20"><h5 class="details"><b>Vendor Address: </b><span id="disp_vendor_address">-</span></h5></div>
+            <div class="col-lg-6 p-t-20"><h5 class="details"><b>VATIN No: </b><span id="disp_vatin_no">-</span></h5></div>
         </div>
-        <div class="tab-pane" id="liv2_tab_overview">
+    </div>
+    <div class="tab-pane" id="liv2_tab_overview">
             <div class="row">
                 <div class="col-sm-6 col-md-3">
                     <div class="liv2-stat-tile liv2-stat-accent">
@@ -264,6 +255,9 @@
             </div>
         </div>
     </div>
+</div>
+</div>
+</div>
 </div>
 
 <div class="liv2-section-head">Invoice Lines</div>
