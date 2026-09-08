@@ -68,7 +68,7 @@
                                             <option value="voided" {{ request('status') == 'voided' ? 'selected' : '' }}>Voided</option>
                                         </select>
                                     </td>
-                                    <td><button type="submit" class="btn btn-tbl-view btn-xs" title="Filter"><i class="fa fa-search"></i></button></td>
+                                    <td></td>
                                 </tr>
                             </thead>
                             <tbody>
