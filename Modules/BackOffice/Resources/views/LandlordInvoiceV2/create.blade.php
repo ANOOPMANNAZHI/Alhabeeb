@@ -301,6 +301,12 @@
 @section('scripts')
 <script>
 $(document).ready(function () {
+    $('#vendor_id').select2({
+        placeholder: 'Select Vendor',
+        allowClear: true,
+        width: '100%'
+    });
+
     var contractsUrl = '{{ route("landlordInvoiceV2ContractsByVendor") }}';
     var detailsUrlBase = '{{ url("landlord-invoice-v2-contract-details") }}';
     var previewUrl = '{{ route("landlordInvoiceV2CalculationPreview") }}';
