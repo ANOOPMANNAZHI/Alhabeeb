@@ -26,7 +26,7 @@
                     <div class="clr"></div>
                 </h4>
 
-                <form method="GET">
+                <form method="GET" id="liv2_filter_form">
                 <div class="table-wrap">
                     <div class="table-responsive">
                         <table class="table display product-overview mb-30" id="liv2_list_table">
@@ -123,4 +123,24 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script>
+$(document).ready(function () {
+    var $form = $('#liv2_filter_form');
+    var keyupTimer = 0;
+
+    $form.find('select, input[type="date"]').on('change', function () {
+        $form.trigger('submit');
+    });
+
+    $form.find('input[type="text"]').on('keyup', function () {
+        window.clearTimeout(keyupTimer);
+        keyupTimer = window.setTimeout(function () {
+            $form.trigger('submit');
+        }, 600);
+    });
+});
+</script>
 @endsection
