@@ -50,19 +50,15 @@
                                             <option value="other_deductions" {{ request('invoice_type') == 'other_deductions' ? 'selected' : '' }}>Other Deductions</option>
                                         </select>
                                     </td>
-                                    <td>
-                                        <input type="date" name="from_date" class="contract_search_field" value="{{ request('from_date') }}" title="From Date">
+                                    <td style="white-space:nowrap;">
+                                        <input type="date" name="from_date" class="contract_search_field" style="display:inline-block;width:auto;" value="{{ request('from_date') }}" title="From Date">
+                                        <input type="date" name="to_date" class="contract_search_field" style="display:inline-block;width:auto;" value="{{ request('to_date') }}" title="To Date">
                                     </td>
                                     <td>
-                                        <select name="vendor_id" class="contract_search_field">
-                                            <option value="">Select</option>
-                                            @foreach($vendors as $v)
-                                            <option value="{{ $v->id }}" {{ request('vendor_id') == $v->id ? 'selected' : '' }}>{{ $v->vendor_name }}</option>
-                                            @endforeach
-                                        </select>
+                                        <input type="text" name="vendor_name" class="contract_search_field" value="{{ request('vendor_name') }}" placeholder="Vendor">
                                     </td>
                                     <td>
-                                        <input type="date" name="to_date" class="contract_search_field" value="{{ request('to_date') }}" title="To Date">
+                                        <input type="text" name="building_name" class="contract_search_field" value="{{ request('building_name') }}" placeholder="Building">
                                     </td>
                                     <td></td>
                                     <td>

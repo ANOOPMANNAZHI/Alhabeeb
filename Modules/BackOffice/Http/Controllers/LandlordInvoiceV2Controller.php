@@ -27,8 +27,11 @@ class LandlordInvoiceV2Controller extends Controller
         if ($request->filled('invoice_type')) {
             $query->where('invoice_type', $request->invoice_type);
         }
-        if ($request->filled('vendor_id')) {
-            $query->where('vendor_id', $request->vendor_id);
+        if ($request->filled('vendor_name')) {
+            $query->where('vendor_name', 'ilike', '%' . $request->vendor_name . '%');
+        }
+        if ($request->filled('building_name')) {
+            $query->where('building_name', 'ilike', '%' . $request->building_name . '%');
         }
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -41,9 +44,8 @@ class LandlordInvoiceV2Controller extends Controller
         }
 
         $landlordInvoicesV2 = $query->orderBy('id', 'desc')->paginate(20)->appends($request->query());
-        $vendors = Vendor::active()->orderBy('vendor_name')->get();
 
-        return view('backoffice::LandlordInvoiceV2.index', compact('landlordInvoicesV2', 'vendors'));
+        return view('backoffice::LandlordInvoiceV2.index', compact('landlordInvoicesV2'));
     }
 
     public function create()
