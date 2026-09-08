@@ -26,19 +26,18 @@
                     <div class="clr"></div>
                 </h4>
 
-                <form method="GET" id="liv2_filter_form">
                 <div class="table-wrap">
                     <div class="table-responsive">
                         <table class="table display product-overview mb-30" id="liv2_list_table">
                             <thead>
                                 <tr>
-                                    <th>Invoice No.</th>
+                                    <th>@sortablelink('invoice_no', 'Invoice No.', [], ['class' => 'sort_url'])</th>
                                     <th>Type</th>
-                                    <th>Date</th>
-                                    <th>Vendor</th>
-                                    <th>Building</th>
-                                    <th>Total</th>
-                                    <th width="12%">Status</th>
+                                    <th>@sortablelink('invoice_date', 'Date', [], ['class' => 'sort_url'])</th>
+                                    <th>@sortablelink('vendor_name', 'Vendor', [], ['class' => 'sort_url'])</th>
+                                    <th>@sortablelink('building_name', 'Building', [], ['class' => 'sort_url'])</th>
+                                    <th>@sortablelink('grand_total', 'Total', [], ['class' => 'sort_url'])</th>
+                                    <th width="12%">@sortablelink('status', 'Status', [], ['class' => 'sort_url'])</th>
                                     <th width="12%">Action</th>
                                 </tr>
                                 <tr>
@@ -51,14 +50,14 @@
                                         </select>
                                     </td>
                                     <td style="white-space:nowrap;">
-                                        <input type="date" name="from_date" class="contract_search_field" style="display:inline-block;width:auto;" value="{{ request('from_date') }}" title="From Date">
-                                        <input type="date" name="to_date" class="contract_search_field" style="display:inline-block;width:auto;" value="{{ request('to_date') }}" title="To Date">
+                                        <input type="date" name="from_date" id="liv2_from_date" class="contract_search_field" style="display:inline-block;width:auto;" value="{{ request('from_date') }}" title="From Date">
+                                        <input type="date" name="to_date" id="liv2_to_date" class="contract_search_field" style="display:inline-block;width:auto;" value="{{ request('to_date') }}" title="To Date">
                                     </td>
                                     <td>
-                                        <input type="text" name="vendor_name" class="contract_search_field" value="{{ request('vendor_name') }}" placeholder="Vendor">
+                                        <input type="text" name="vendor_name" id="liv2_vendor_name" class="contract_search_field" value="{{ request('vendor_name') }}" placeholder="Vendor">
                                     </td>
                                     <td>
-                                        <input type="text" name="building_name" class="contract_search_field" value="{{ request('building_name') }}" placeholder="Building">
+                                        <input type="text" name="building_name" id="liv2_building_name" class="contract_search_field" value="{{ request('building_name') }}" placeholder="Building">
                                     </td>
                                     <td></td>
                                     <td>
@@ -71,48 +70,12 @@
                                     <td></td>
                                 </tr>
                             </thead>
-                            <tbody>
-                                @forelse($landlordInvoicesV2 as $inv)
-                                <tr>
-                                    <td>{{ $inv->invoice_no }}</td>
-                                    <td>{{ $inv->invoice_type_label }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($inv->invoice_date)->format('d/m/Y') }}</td>
-                                    <td>{{ $inv->vendor_name }}</td>
-                                    <td>{{ $inv->building_name }}</td>
-                                    <td>{{ number_format($inv->grand_total, 3) }}</td>
-                                    <td>
-                                        @if($inv->status == 'voided')
-                                            <span class="btn-circle btn-danger btn-sm m-b-10"><b>Voided</b></span>
-                                        @else
-                                            <span class="btn-circle btn-success btn-sm m-b-10"><b>Active</b></span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <a title="Print" href="{{ route('landlordInvoiceV2Print', $inv) }}" target="_blank" class="btn btn-tbl-print btn-xs">
-                                            <i class="fa fa-print"></i>
-                                        </a>
-                                        @if($inv->status != 'voided')
-                                            <a title="Edit" href="{{ route('landlord-invoice-v2.edit', $inv) }}" class="btn btn-tbl-edit btn-xs">
-                                                <i class="fa fa-pencil"></i>
-                                            </a>
-                                            <form action="{{ route('landlord-invoice-v2.destroy', $inv) }}" method="POST" style="display:inline-block" onsubmit="return confirm('Void this invoice? The invoice number will be permanently reserved.');">
-                                                {{ csrf_field() }}
-                                                {{ method_field('DELETE') }}
-                                                <button type="submit" title="Void" class="btn btn-tbl-delete btn-xs">
-                                                    <i class="fa fa-ban"></i>
-                                                </button>
-                                            </form>
-                                        @endif
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr><td colspan="8" align="center"><p>No Record</p></td></tr>
-                                @endforelse
+                            <tbody id="liv2-search">
+                                @include('backoffice::LandlordInvoiceV2.index_ajax')
                             </tbody>
                         </table>
                     </div>
                 </div>
-                </form>
 
                 <div id="pagination">
                     <div class="text-center">
@@ -128,18 +91,60 @@
 @section('scripts')
 <script>
 $(document).ready(function () {
-    var $form = $('#liv2_filter_form');
-    var keyupTimer = 0;
+    var quickUrl = '{{ $route }}';
 
-    $form.find('select, input[type="date"]').on('change', function () {
-        $form.trigger('submit');
-    });
+    $(document).on('change keyup paste', '.contract_search_field', function () {
+        var invoiceType  = $('select[name="invoice_type"]').val();
+        var fromDate     = $('#liv2_from_date').val();
+        var toDate       = $('#liv2_to_date').val();
+        var vendorName   = $('#liv2_vendor_name').val();
+        var buildingName = $('#liv2_building_name').val();
+        var status       = $('select[name="status"]').val();
 
-    $form.find('input[type="text"]').on('keyup', function () {
-        window.clearTimeout(keyupTimer);
-        keyupTimer = window.setTimeout(function () {
-            $form.trigger('submit');
-        }, 600);
+        $.ajax({
+            method: 'GET',
+            url: quickUrl,
+            data: {
+                invoice_type: invoiceType,
+                from_date: fromDate,
+                to_date: toDate,
+                vendor_name: vendorName,
+                building_name: buildingName,
+                status: status,
+                ajax: true,
+                _token: $('meta[name="csrf-token"]').attr('content')
+            },
+            beforeSend: function () {
+                $('#liv2-search').html('<tr><td colspan="8" align="center"><img src="{{ url("/") }}/public/img/pre-loader.gif" width="75" height="75"></td></tr>');
+            },
+            success: function (data) {
+                var temp = $(data);
+                var paginateInfo = temp.find('.pagination_info').clone();
+                temp.find('.pagination_info').remove();
+                var paginate = temp.find('#pagination_ajax').clone();
+                temp.find('#pagination_ajax').remove();
+
+                $('#liv2-search').html(temp);
+                $('#pagination').html(paginate);
+                $('#pagination_info').html(paginateInfo);
+
+                var href_txt = $.param({
+                    invoice_type: invoiceType,
+                    from_date: fromDate,
+                    to_date: toDate,
+                    vendor_name: vendorName,
+                    building_name: buildingName,
+                    status: status
+                });
+
+                $('.sort_url').each(function (i, n) {
+                    var href = $(n).attr('href');
+                    var hashes = href.slice(href.indexOf('sort'));
+                    href = href.split('?')[0];
+                    $(n).attr('href', href + '?' + href_txt + '&' + hashes);
+                });
+            }
+        });
     });
 });
 </script>

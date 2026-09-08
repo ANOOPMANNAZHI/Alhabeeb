@@ -3,13 +3,17 @@
 namespace Modules\BackOffice\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Kyslik\ColumnSortable\Sortable;
 use Modules\Masters\Entities\Vendor;
 use Modules\Sales\Entities\LandlordContract;
 
 class LandlordInvoiceV2 extends Model
 {
+    use Sortable;
+
     protected $table = 'landlord_invoice_v2';
     protected $guarded = [];
+    public $sortable = ['invoice_no', 'invoice_date', 'vendor_name', 'building_name', 'grand_total', 'status'];
 
     public function vendor()
     {

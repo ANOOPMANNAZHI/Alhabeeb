@@ -43,9 +43,15 @@ class LandlordInvoiceV2Controller extends Controller
             $query->where('invoice_date', '<=', $request->to_date);
         }
 
-        $landlordInvoicesV2 = $query->orderBy('id', 'desc')->paginate(20)->appends($request->query());
+        $landlordInvoicesV2 = $query->sortable(['id' => 'desc'])->paginate(20)->appends($request->query());
 
-        return view('backoffice::LandlordInvoiceV2.index', compact('landlordInvoicesV2'));
+        $route = route('landlord-invoice-v2.index');
+
+        if (isset($request->ajax)) {
+            return view('backoffice::LandlordInvoiceV2.index_ajax', compact('landlordInvoicesV2', 'route', 'request'));
+        }
+
+        return view('backoffice::LandlordInvoiceV2.index', compact('landlordInvoicesV2', 'route'));
     }
 
     public function create()
