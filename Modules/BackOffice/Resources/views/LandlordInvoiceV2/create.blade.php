@@ -116,12 +116,8 @@
                 <label>Vendor<small class="textRed">*</small></label>
                 <div class="p-relative">
                     <i class="icon icon-landlord" aria-hidden="true"></i>
-                    <select class="form-control" id="vendor_id" name="vendor_id" required>
-                        <option value="">Select Vendor</option>
-                        @foreach($vendors as $v)
-                        <option value="{{ $v->id }}">{{ $v->vendor_name }}</option>
-                        @endforeach
-                    </select>
+                    <input type="text" class="form-control" id="vendor_name_search" placeholder="Type Vendor Name" required autocomplete="off">
+                    <input type="hidden" id="vendor_id" name="vendor_id">
                 </div>
             </div>
         </div>
@@ -301,10 +297,25 @@
 @section('scripts')
 <script>
 $(document).ready(function () {
-    $('#vendor_id').select2({
-        placeholder: 'Select Vendor',
-        allowClear: true,
-        width: '100%'
+    var vendorList = @json($vendors->map(function ($v) { return ['id' => $v->id, 'label' => $v->vendor_name, 'value' => $v->vendor_name]; }));
+
+    $('#vendor_name_search').autocomplete({
+        source: vendorList,
+        minLength: 0,
+        autoFocus: true,
+        select: function (event, ui) {
+            $('#vendor_name_search').val(ui.item.label);
+            $('#vendor_id').val(ui.item.id).trigger('change');
+            return false;
+        },
+        change: function (event, ui) {
+            if (!ui.item) {
+                $('#vendor_name_search').val('');
+                $('#vendor_id').val('').trigger('change');
+            }
+        }
+    }).on('focus', function () {
+        $(this).autocomplete('search', '');
     });
 
     var contractsUrl = '{{ route("landlordInvoiceV2ContractsByVendor") }}';
