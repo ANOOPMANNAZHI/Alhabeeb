@@ -79,7 +79,7 @@
 <div class="liv2-section-head">Invoice Details</div>
 <div class="dataSearchBox">
     <div class="row">
-        <div class="col-sm-6">
+        <div class="col-sm-4">
             <div class="form-group">
                 <label>Invoice Type<small class="textRed">*</small></label>
                 <div class="p-relative">
@@ -92,7 +92,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6">
+        <div class="col-sm-4">
             <div class="form-group">
                 <label>Invoice No.</label>
                 <div class="p-relative">
@@ -101,7 +101,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6">
+        <div class="col-sm-4">
             <div class="form-group">
                 <label>Invoice Date<small class="textRed">*</small></label>
                 <div class="p-relative">
@@ -111,7 +111,7 @@
             </div>
         </div>
         <div class="w-100"></div>
-        <div class="col-sm-6">
+        <div class="col-sm-3">
             <div class="form-group">
                 <label>Vendor<small class="textRed">*</small></label>
                 <div class="p-relative">
@@ -125,7 +125,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6">
+        <div class="col-sm-3">
             <div class="form-group">
                 <label>Contract<small class="textRed">*</small></label>
                 <div class="p-relative">
