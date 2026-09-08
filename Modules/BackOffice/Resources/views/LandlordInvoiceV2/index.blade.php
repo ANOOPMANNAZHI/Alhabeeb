@@ -41,7 +41,9 @@
                                     <th width="12%">Action</th>
                                 </tr>
                                 <tr>
-                                    <td></td>
+                                    <td>
+                                        <input type="text" name="invoice_no" id="liv2_invoice_no" class="contract_search_field" value="{{ request('invoice_no') }}" placeholder="Invoice No.">
+                                    </td>
                                     <td>
                                         <select name="invoice_type" class="contract_search_field">
                                             <option value="">Select</option>
@@ -93,6 +95,7 @@ $(document).ready(function () {
     var quickUrl = '{{ $route }}';
 
     $(document).on('change keyup paste', '.contract_search_field', function () {
+        var invoiceNo    = $('#liv2_invoice_no').val();
         var invoiceType  = $('select[name="invoice_type"]').val();
         var invoiceDate  = $('#liv2_invoice_date').val();
         var vendorName   = $('#liv2_vendor_name').val();
@@ -103,6 +106,7 @@ $(document).ready(function () {
             method: 'GET',
             url: quickUrl,
             data: {
+                invoice_no: invoiceNo,
                 invoice_type: invoiceType,
                 invoice_date: invoiceDate,
                 vendor_name: vendorName,
@@ -126,6 +130,7 @@ $(document).ready(function () {
                 $('#pagination_info').html(paginateInfo);
 
                 var href_txt = $.param({
+                    invoice_no: invoiceNo,
                     invoice_type: invoiceType,
                     invoice_date: invoiceDate,
                     vendor_name: vendorName,

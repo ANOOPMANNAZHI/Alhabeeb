@@ -24,6 +24,9 @@ class LandlordInvoiceV2Controller extends Controller
     {
         $query = LandlordInvoiceV2::with(['vendor', 'landlordContract.buildingInfo']);
 
+        if ($request->filled('invoice_no')) {
+            $query->where('invoice_no', 'ilike', '%' . $request->invoice_no . '%');
+        }
         if ($request->filled('invoice_type')) {
             $query->where('invoice_type', $request->invoice_type);
         }
