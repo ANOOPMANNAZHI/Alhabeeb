@@ -791,6 +791,11 @@ Breadcrumbs::for('showLandlordTaxInvoiceReport', function ($trail) {
     $trail->push('Landlord Tax Invoice Report', route('showLandlordTaxInvoiceReport'));
 });
 
+Breadcrumbs::for('showRentCollectionSummary', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Rent Collection Summary', route('showRentCollectionSummary'));
+});
+
 Breadcrumbs::for('landlord-invoice-v2.index', function ($trail) {
     $trail->parent('home');
     $trail->push('Landlord Invoice v2', route('landlord-invoice-v2.index'));
