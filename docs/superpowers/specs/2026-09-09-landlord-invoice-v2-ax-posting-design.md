@@ -14,7 +14,7 @@ Let an authorised BackOffice user push an active Landlord Invoice v2 into Micros
 | Journal | Same `PLM-INV` journal as v1 (`LANDLORD_INV_JOURNAL_NAME`). No new AX journal. |
 | Expense (debit) account | Read from the existing `acc_params` row `Comprehensive_Payable_Transaction` (`acc_params_dr_acc`, currently `12306`, type `LEDGER`). Same source v1 uses. |
 | Vendor (credit) account | Vendor's `vendor_code`, account type `VENDOR`. Same as v1. |
-| VAT line | Posted as a plain `LEDGER` line to a configurable account. The account number lives in the `configuration` table under key `landlord_invoice_v2_vat_account` (editable in General Settings → Settings tab, same mechanism as `tax_percentage`). If `vat_total > 0` and the setting is blank, posting is refused with a clear message. No AX-side tax code is sent, so no AX change is required. |
+| VAT line | Posted as a plain `LEDGER` line to a configurable account. The account number lives in the `configuration` table under key `landlord_invoice_v2_vat_account` (editable in General Settings → Settings tab, same mechanism as `tax_percentage`). If `vat_total > 0` and the setting is blank or `0` (the seeded placeholder), posting is refused with a clear message. No AX-side tax code is sent, so no AX change is required. |
 | Other Deductions type | Posted with the entries reversed: `VENDOR` debit for grand total, `LEDGER` credit for subtotal (and VAT). |
 | Approval | None. Any invoice with `status = 'active'` can be posted by a user holding the new permission `post_landlord_invoice_v2`. |
 | Posted state | New status value `posted`. Posted invoices cannot be edited or voided. |
@@ -30,7 +30,7 @@ New nullable columns on `landlord_invoice_v2`:
 - `posted_by` unsigned int.
 - `posted_at` timestamp.
 
-New `configuration` row: `configuration_settings = 'landlord_invoice_v2_vat_account'`, `configuration_name = 'settings'`, value blank.
+New `configuration` row: `configuration_settings = 'landlord_invoice_v2_vat_account'`, `configuration_name = 'settings'`, value `0` (placeholder, same convention as `tax_percentage`).
 
 New permission: `post_landlord_invoice_v2`, granted to `super_admin`, `finance_manager`, `accountant`, `backoffice_manager`.
 

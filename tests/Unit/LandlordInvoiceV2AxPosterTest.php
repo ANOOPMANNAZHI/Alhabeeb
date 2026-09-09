@@ -143,6 +143,16 @@ class LandlordInvoiceV2AxPosterTest extends TestCase
         $poster->post($this->invoice(), 7);
     }
 
+    public function test_refuses_when_vat_account_is_zero_placeholder()
+    {
+        $poster = new RecordingPoster;
+        $poster->vat = '0';
+
+        $this->expectException(AxPostingException::class);
+        $this->expectExceptionMessage('landlord_invoice_v2_vat_account');
+        $poster->post($this->invoice(), 7);
+    }
+
     public function test_allows_blank_vat_account_when_vat_is_zero()
     {
         $poster = new RecordingPoster;

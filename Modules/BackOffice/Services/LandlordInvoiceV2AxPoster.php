@@ -124,7 +124,7 @@ class LandlordInvoiceV2AxPoster
         }
 
         $vat = trim((string) $this->vatAccount());
-        if ((float) $invoice->vat_total > 0 && $vat === '') {
+        if ((float) $invoice->vat_total > 0 && ($vat === '' || $vat === '0')) {
             throw new AxPostingException('VAT ledger account is not configured (General Settings: landlord_invoice_v2_vat_account).');
         }
 

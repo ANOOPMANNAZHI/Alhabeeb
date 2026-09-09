@@ -30,7 +30,8 @@ class AddAxPostingToLandlordInvoiceV2 extends Migration
             DB::table('configuration')->insert([
                 'configuration_name'     => 'settings',
                 'configuration_settings' => 'landlord_invoice_v2_vat_account',
-                'configuration_value'    => '',
+                // '0' = not configured (same convention as tax_percentage); the poster refuses VAT invoices until a real account is set.
+                'configuration_value'    => '0',
                 'created_by'             => 1,
                 'created_at'             => now(),
                 'updated_at'             => now(),
