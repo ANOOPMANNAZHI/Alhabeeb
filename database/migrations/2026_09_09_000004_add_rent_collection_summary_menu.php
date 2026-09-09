@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Migrations\Migration;
 
 /**
- * Adds "Rent Collection Summary" under PLM Module -> Operations with its view
+ * Adds "Rent Collection Summary" under PLM Module -> Reports with its view
  * permission granted to every role. Resolves the parent by exact name under
  * PLM Module (same pattern as the Deposit Rent v2 menu migration).
  */
@@ -24,15 +24,15 @@ class AddRentCollectionSummaryMenu extends Migration
             ->where('parent_menu', 0)
             ->first();
 
-        $operations = $plmModule
+        $reportsMenu = $plmModule
             ? DB::table('menu')
-                ->where('menu_name', 'Operations')
+                ->where('menu_name', 'Reports')
                 ->where('parent_menu', $plmModule->id)
                 ->where('menutype', 1)
                 ->first()
             : null;
 
-        $parentMenuId = $operations ? $operations->id : 0;
+        $parentMenuId = $reportsMenu ? $reportsMenu->id : 0;
 
         $orderNext = DB::table('menu')
             ->where('parent_menu', $parentMenuId)
