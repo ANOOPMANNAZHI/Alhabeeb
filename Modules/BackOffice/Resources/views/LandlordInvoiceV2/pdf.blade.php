@@ -75,6 +75,14 @@
     <td class="label">PERIOD:</td>
     <td>{{ date('F', mktime(0,0,0,$invoice->period_month,1)) }} {{ $invoice->period_year }}</td>
   </tr>
+  @if($invoice->status === 'posted')
+  <tr>
+    <td class="label">AX BATCH:</td>
+    <td>{{ $invoice->ax_batch_id }}</td>
+    <td class="label">POSTED ON:</td>
+    <td>{{ $invoice->posted_at ? \Carbon\Carbon::parse($invoice->posted_at)->format('d.m.Y') : '' }}</td>
+  </tr>
+  @endif
   <tr>
     <td class="label">VATIN NO.</td>
     <td>{{ $invoice->vatin_no }}</td>
