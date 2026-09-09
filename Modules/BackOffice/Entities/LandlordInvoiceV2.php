@@ -30,6 +30,16 @@ class LandlordInvoiceV2 extends Model
         return $this->hasMany(LandlordInvoiceV2Line::class, 'landlord_invoice_v2_id')->orderBy('line_order');
     }
 
+    public function postedBy()
+    {
+        return $this->belongsTo(\App\User::class, 'posted_by');
+    }
+
+    public function isPosted()
+    {
+        return $this->status === 'posted';
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', 'active');

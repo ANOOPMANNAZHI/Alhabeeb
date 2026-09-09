@@ -1,4 +1,11 @@
 <?php
+// Laravel's config loader `require`s this file (not `require_once`) on every
+// application boot. Tests\TestCase boots a fresh application per test method,
+// so a test class with more than one test method re-requires this file in the
+// same PHP process. Guard the whole file so redefinition is a no-op instead
+// of a fatal error.
+if (!defined('PLMS_CONSTANTS_LOADED')) {
+define("PLMS_CONSTANTS_LOADED", true);
 define("PUBLIC_PATH", "public/");
 // Maintenance Invoice Purpose Make technican as group create  invoice
 define("INHOUSE", "SUB CONTRACTOR BILLS");
@@ -56,3 +63,4 @@ define("REPORT_URL", "http://134.0.205.114:2053/");
 define("INV_PREFIX", "CIR");
 //Tenant Code Constant
 define("TENANT_VAL", 102);
+}

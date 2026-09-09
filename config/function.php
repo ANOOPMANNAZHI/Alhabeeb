@@ -3,6 +3,14 @@ use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\Sales\Entities\TenantContract;
 use Modules\Maintenance\Entities\ComplaintServiceReport;
 use Modules\Masters\Entities\Unit;
+
+// Laravel's config loader `require`s this file (not `require_once`) on every
+// application boot. Tests\TestCase boots a fresh application per test method,
+// so a test class with more than one test method re-requires this file in
+// the same PHP process. Guard the function declarations so re-requiring is a
+// no-op instead of a "Cannot redeclare" fatal error.
+if (!defined('PLMS_FUNCTIONS_LOADED')) {
+define("PLMS_FUNCTIONS_LOADED", true);
 function prefixData($configuration_settings){
 
     return App\Setting::where('configuration_settings',$configuration_settings)->first();
@@ -590,6 +598,7 @@ $sumOfRent = $rentMonth+$rentDay;
 
 
 return number_format((float)$sumOfRent, 3, '.', '');
+}
 }
 
 
