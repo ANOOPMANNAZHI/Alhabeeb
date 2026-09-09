@@ -14,7 +14,8 @@ define("DIM_1", "2");
 /************** AX CONSTANTS*********************/
 // 1 -  Enable , 0 - Disble Status
 define("AX_ENABLE_DISABLE", 1);
-define("AX_URL", "http://alh-ax01:8018/Wrapper.asmx?wsdl");
+// Override per environment via AX_URL in .env (e.g. a local AX PC for testing).
+define("AX_URL", env('AX_URL', "http://alh-ax01:8018/Wrapper.asmx?wsdl"));
 define("VENDOR_GROUP_CONST", "TRADE-PSD");
 define("TENANT_GROUP_RENTAL_CONST", "RENTAL-PSD");
 define("LANDLORD_INV_JOURNAL_NAME", "PLM-INV");
