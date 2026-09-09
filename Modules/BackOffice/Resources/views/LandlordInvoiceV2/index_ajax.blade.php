@@ -11,6 +11,8 @@
             <span class="btn-circle btn-danger btn-sm m-b-10"><b>Voided</b></span>
         @elseif($inv->isPosted())
             <span class="btn-circle btn-info btn-sm m-b-10" title="AX Journal {{ $inv->ax_batch_id }}"><b>Posted</b></span>
+        @elseif($inv->status == 'posting')
+            <span class="btn-circle btn-warning btn-sm m-b-10"><b>Posting…</b></span>
         @else
             <span class="btn-circle btn-success btn-sm m-b-10"><b>Active</b></span>
         @endif

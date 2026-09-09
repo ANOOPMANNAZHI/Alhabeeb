@@ -20,6 +20,8 @@ class RecordingPoster extends LandlordInvoiceV2AxPoster
     public $vat = '21500';
     public $pushed = [];
     public $persisted = null;
+    public $claimResult = true;
+    public $released = false;
 
     protected function axEnabled() { return $this->enabled; }
     protected function expenseAccount() { return $this->expense; }
@@ -30,6 +32,8 @@ class RecordingPoster extends LandlordInvoiceV2AxPoster
     {
         $this->persisted = compact('journalNum', 'userId');
     }
+    protected function claim(LandlordInvoiceV2 $invoice) { return $this->claimResult; }
+    protected function release(LandlordInvoiceV2 $invoice) { $this->released = true; }
 }
 
 class LandlordInvoiceV2AxPosterTest extends TestCase
@@ -71,6 +75,21 @@ class LandlordInvoiceV2AxPosterTest extends TestCase
         $this->assertSame('V00042', $poster->pushed[0]['vendAccount']);
         $this->assertSame('Tax Invoice LTI2600007 ACME 09/2026', $poster->pushed[0]['Description']);
         $this->assertSame(['journalNum' => 'J000777', 'userId' => 7], $poster->persisted);
+        $this->assertFalse($poster->released);
+    }
+
+    public function test_refuses_when_row_already_claimed()
+    {
+        $poster = new RecordingPoster;
+        $poster->claimResult = false;
+
+        try {
+            $poster->post($this->invoice(), 7);
+            $this->fail('expected exception');
+        } catch (AxPostingException $e) {
+            $this->assertStringContainsString('already being posted', $e->getMessage());
+            $this->assertSame([], $poster->pushed);
+        }
     }
 
     public function test_refuses_when_ax_disabled()
@@ -145,6 +164,7 @@ class LandlordInvoiceV2AxPosterTest extends TestCase
         } catch (AxPostingException $e) {
             $this->assertSame([], $poster->pushed);
             $this->assertNull($poster->persisted);
+            $this->assertTrue($poster->released);
         }
     }
 
@@ -159,6 +179,7 @@ class LandlordInvoiceV2AxPosterTest extends TestCase
         } catch (AxPostingException $e) {
             $this->assertCount(1, $poster->pushed);
             $this->assertNull($poster->persisted);
+            $this->assertTrue($poster->released);
         }
     }
 

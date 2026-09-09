@@ -30,52 +30,27 @@ class LandlordInvoiceV2AxPoster
     {
         $facts = $this->facts($invoice);            // validates, throws on problems
 
-        try {
-            $journalNum = $this->openJournal();
-        } catch (AxPostingException $e) {
-            throw $e;
-        } catch (\Throwable $e) {
-            $message = 'Microsoft Dynamics API unreachable or failed: ' . $e->getMessage();
-            \Log::error('Landlord Invoice v2 AX post failed', [
-                'invoice'  => $invoice->invoice_no,
-                'journal'  => null,
-                'line'     => null,
-                'error'    => $message,
-            ]);
-            throw new AxPostingException($message, 0, $e);
+        if (!$this->claim($invoice)) {
+            throw new AxPostingException('This invoice is already being posted.');
         }
-        if ($journalNum === 'Error' || $journalNum === '' || $journalNum === null) {
-            $message = 'Microsoft Dynamics API Service Error while creating the journal header.';
-            \Log::error('Landlord Invoice v2 AX post failed', [
-                'invoice'  => $invoice->invoice_no,
-                'journal'  => isset($journalNum) ? $journalNum : null,
-                'line'     => isset($index) ? $index + 1 : null,
-                'error'    => $message,
-            ]);
-            throw new AxPostingException($message);
-        }
-        $facts['journal_num'] = $journalNum;
 
-        foreach (LandlordInvoiceV2AxLineBuilder::build($facts) as $index => $line) {
+        try {
             try {
-                $result = $this->pushLine($line);
+                $journalNum = $this->openJournal();
             } catch (AxPostingException $e) {
                 throw $e;
             } catch (\Throwable $e) {
                 $message = 'Microsoft Dynamics API unreachable or failed: ' . $e->getMessage();
                 \Log::error('Landlord Invoice v2 AX post failed', [
                     'invoice'  => $invoice->invoice_no,
-                    'journal'  => isset($journalNum) ? $journalNum : null,
-                    'line'     => isset($index) ? $index + 1 : null,
+                    'journal'  => null,
+                    'line'     => null,
                     'error'    => $message,
                 ]);
                 throw new AxPostingException($message, 0, $e);
             }
-            if ($result === 'Error') {
-                $message = sprintf(
-                    'Microsoft Dynamics API Service Error on line %d (journal %s). Invoice left unposted.',
-                    $index + 1, $journalNum
-                );
+            if ($journalNum === 'Error' || $journalNum === '' || $journalNum === null) {
+                $message = 'Microsoft Dynamics API Service Error while creating the journal header.';
                 \Log::error('Landlord Invoice v2 AX post failed', [
                     'invoice'  => $invoice->invoice_no,
                     'journal'  => isset($journalNum) ? $journalNum : null,
@@ -84,6 +59,40 @@ class LandlordInvoiceV2AxPoster
                 ]);
                 throw new AxPostingException($message);
             }
+            $facts['journal_num'] = $journalNum;
+
+            foreach (LandlordInvoiceV2AxLineBuilder::build($facts) as $index => $line) {
+                try {
+                    $result = $this->pushLine($line);
+                } catch (AxPostingException $e) {
+                    throw $e;
+                } catch (\Throwable $e) {
+                    $message = 'Microsoft Dynamics API unreachable or failed: ' . $e->getMessage();
+                    \Log::error('Landlord Invoice v2 AX post failed', [
+                        'invoice'  => $invoice->invoice_no,
+                        'journal'  => isset($journalNum) ? $journalNum : null,
+                        'line'     => isset($index) ? $index + 1 : null,
+                        'error'    => $message,
+                    ]);
+                    throw new AxPostingException($message, 0, $e);
+                }
+                if ($result === 'Error') {
+                    $message = sprintf(
+                        'Microsoft Dynamics API Service Error on line %d (journal %s). Invoice left unposted.',
+                        $index + 1, $journalNum
+                    );
+                    \Log::error('Landlord Invoice v2 AX post failed', [
+                        'invoice'  => $invoice->invoice_no,
+                        'journal'  => isset($journalNum) ? $journalNum : null,
+                        'line'     => isset($index) ? $index + 1 : null,
+                        'error'    => $message,
+                    ]);
+                    throw new AxPostingException($message);
+                }
+            }
+        } catch (AxPostingException $e) {
+            $this->release($invoice);
+            throw $e;
         }
 
         $this->persist($invoice, $journalNum, $userId);
@@ -170,6 +179,20 @@ class LandlordInvoiceV2AxPoster
     protected function pushLine(array $line)
     {
         return \Dynamics::LandlordInvoiceRegisterAxLineItemPushData(self::SOAP_LINE_SERVICE, [$line]);
+    }
+
+    /** Atomically move active -> posting. Returns false if someone else already claimed it. */
+    protected function claim(LandlordInvoiceV2 $invoice)
+    {
+        return LandlordInvoiceV2::where('id', $invoice->id)->where('status', 'active')
+            ->update(['status' => 'posting']) === 1;
+    }
+
+    /** Put the row back to active after a failed post. */
+    protected function release(LandlordInvoiceV2 $invoice)
+    {
+        LandlordInvoiceV2::where('id', $invoice->id)->where('status', 'posting')
+            ->update(['status' => 'active']);
     }
 
     protected function persist(LandlordInvoiceV2 $invoice, $journalNum, $userId)
