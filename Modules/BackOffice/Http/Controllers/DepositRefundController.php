@@ -31,6 +31,8 @@ use Modules\BackOffice\Events\DepositRefundApprove;
 use Modules\BackOffice\Events\DepositRefundReject;
 use Modules\Masters\Emails\LegalEmail;
 use Dynamics;
+use Modules\BackOffice\Entities\DepositRefundReceipt;
+use Modules\BackOffice\Services\DepositRefundReceiptIssuer;
 //use App\Setting;
 
 class DepositRefundController extends Controller
@@ -208,8 +210,52 @@ class DepositRefundController extends Controller
        Setting::where('configuration_settings','general_ledger_prefix')->update(['configuration_increment_value'=> $generateCode['inc'] + 1
         ]);
 
-      session()->flash('success', 'Deposit Refund Created Successfully');
+      // Customer receipt for whatever was withheld from the deposit.
+      // Issues nothing when the refund has no deduction. Never posts to AX.
+      $receipt = (new DepositRefundReceiptIssuer())->issueFor(
+          $depositRefund->fresh('depositRefundDimension'), \Auth::user()->id
+      );
+
+      session()->flash('success', $receipt
+          ? 'Deposit Refund Created Successfully. Deduction receipt ' . $receipt->receipt_no . ' issued.'
+          : 'Deposit Refund Created Successfully');
       return redirect()->route('depositRefund.index');
+    }
+
+    /**
+     * Issue the customer deduction receipt by hand, for a refund that
+     * qualifies but has none yet (for example one saved before this existed).
+     */
+    public function generateDepositReceipt(DepositRefund $depositRefund)
+    {
+        $issuer = new DepositRefundReceiptIssuer();
+
+        if ($issuer->existingFor($depositRefund)) {
+            session()->flash('error', 'A deduction receipt already exists for this refund.');
+            return redirect()->route('depositRefund.show', $depositRefund->id);
+        }
+
+        $receipt = $issuer->issueFor($depositRefund, \Auth::user()->id);
+
+        if (!$receipt) {
+            session()->flash('error', 'Nothing was deducted from this deposit, so there is no receipt to issue.');
+            return redirect()->route('depositRefund.show', $depositRefund->id);
+        }
+
+        session()->flash('success', 'Deduction receipt ' . $receipt->receipt_no . ' issued.');
+        return redirect()->route('depositRefund.show', $depositRefund->id);
+    }
+
+    /**
+     * The printable customer receipt.
+     */
+    public function viewDepositReceipt(DepositRefundReceipt $depositRefundReceipt)
+    {
+        $depositRefundReceipt->load(['lines', 'depositRefund', 'createdBy']);
+
+        return view('backoffice::Transaction.deposit_refund_receipt_print', [
+            'receipt' => $depositRefundReceipt,
+        ]);
     }
 
     /**
@@ -222,7 +268,14 @@ class DepositRefundController extends Controller
       readNotification('Modules\BackOffice\Notifications\DepositRefundNotification',$depositRefund->id);
       $creditAmount = DepositRefundDimension::where('deposit_refund_id',$depositRefund->id)->sum('credit_amount');
       $debitAmount = DepositRefundDimension::where('deposit_refund_id',$depositRefund->id)->sum('debit_amount');
-      return view('backoffice::Transaction.deposit_refund_view',compact('depositRefund','creditAmount','debitAmount'));
+
+      // Customer receipt for the amounts withheld from the deposit.
+      // Shown only when something was actually deducted.
+      $issuer = new DepositRefundReceiptIssuer();
+      $depositReceipt  = $issuer->existingFor($depositRefund);
+      $canIssueReceipt = !$depositReceipt && $issuer->qualifies($depositRefund);
+
+      return view('backoffice::Transaction.deposit_refund_view',compact('depositRefund','creditAmount','debitAmount','depositReceipt','canIssueReceipt'));
     }
 
     /**

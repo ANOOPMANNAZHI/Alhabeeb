@@ -60,6 +60,26 @@
        </a>
        @endif
        @endcan
+
+       {{-- Customer receipt for amounts withheld from the deposit.
+            Shown only when something was deducted. Once issued the
+            generate button is replaced by a view link. Never posts to AX. --}}
+       @if(!empty($depositReceipt))
+       <a href="{{ route('depositRefundReceiptView', $depositReceipt->id) }}" target="_blank"
+          title="Deduction receipt {{ $depositReceipt->receipt_no }}"
+          class="btn btn-circle btn-success align-right">
+         View Receipt
+       </a>
+       @elseif(!empty($canIssueReceipt))
+       <form action="{{ route('depositRefundReceiptGenerate', $depositRefund->id) }}" method="POST" style="display:inline-block"
+             onsubmit="return confirm('Issue the deduction receipt for this refund?');">
+         {{ csrf_field() }}
+         <button type="submit" title="Issue the customer receipt for the deducted amounts"
+                 class="btn btn-circle btn-warning align-right">
+           Generate Receipt
+         </button>
+       </form>
+       @endif
        {{-- @endif --}}
        @can('deposit_refund_cancel')
        @if(in_array($depositRefund->deposit_refund_approval_status,[0,1,5]))
