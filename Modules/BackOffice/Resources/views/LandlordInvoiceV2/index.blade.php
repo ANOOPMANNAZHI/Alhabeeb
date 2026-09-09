@@ -66,6 +66,7 @@
                                             <option value="">Select</option>
                                             <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
                                             <option value="voided" {{ request('status') == 'voided' ? 'selected' : '' }}>Voided</option>
+                                            <option value="posted" {{ request('status') == 'posted' ? 'selected' : '' }}>Posted</option>
                                         </select>
                                     </td>
                                     <td></td>

@@ -9,6 +9,8 @@
     <td>
         @if($inv->status == 'voided')
             <span class="btn-circle btn-danger btn-sm m-b-10"><b>Voided</b></span>
+        @elseif($inv->isPosted())
+            <span class="btn-circle btn-info btn-sm m-b-10" title="AX Journal {{ $inv->ax_batch_id }}"><b>Posted</b></span>
         @else
             <span class="btn-circle btn-success btn-sm m-b-10"><b>Active</b></span>
         @endif
@@ -17,7 +19,7 @@
         <a title="Print" href="{{ route('landlordInvoiceV2Print', $inv) }}" target="_blank" class="btn btn-tbl-print btn-xs">
             <i class="fa fa-print"></i>
         </a>
-        @if($inv->status != 'voided')
+        @if($inv->status == 'active')
             <a title="Edit" href="{{ route('landlord-invoice-v2.edit', $inv) }}" class="btn btn-tbl-edit btn-xs">
                 <i class="fa fa-pencil"></i>
             </a>
@@ -28,6 +30,14 @@
                     <i class="fa fa-ban"></i>
                 </button>
             </form>
+            @if(auth()->user()->can('post_landlord_invoice_v2'))
+            <form action="{{ route('landlordInvoiceV2Post', $inv) }}" method="POST" style="display:inline-block" onsubmit="return confirm('Post invoice {{ $inv->invoice_no }} to Microsoft Dynamics AX? This cannot be undone.');">
+                {{ csrf_field() }}
+                <button type="submit" title="Post to AX" class="btn btn-tbl-edit btn-xs" style="background:#0288d1;color:#fff;">
+                    <i class="fa fa-upload"></i>
+                </button>
+            </form>
+            @endif
         @endif
     </td>
 </tr>
