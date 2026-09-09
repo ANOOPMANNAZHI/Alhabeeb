@@ -123,4 +123,4 @@ Columns: Invoice No, Type, Date, Vendor, Building, Total, Status, Actions (View/
 - Any change to the existing v1 `LandlordInvoice` module or its approval workflow.
 - Any change to the existing Landlord Tax Invoice Report's own PDF/report flow, beyond extracting its calculation method into a shared, reusable service.
 - Populating `expense_head`-based categorization for new charge types — the mapping above uses only categories that already exist live in the `expense_head` table today.
-- Any AX/ERP integration or dimension mapping (v1-only concern).
+- ~~Any AX/ERP integration or dimension mapping (v1-only concern).~~ Superseded on 2026-09-09 by `2026-09-09-landlord-invoice-v2-ax-posting-design.md`, which adds AX posting to v2.
