@@ -30,14 +30,27 @@ class LandlordInvoiceV2AxPoster
     {
         $facts = $this->facts($invoice);            // validates, throws on problems
 
-        $journalNum = $this->openJournal();
+        try {
+            $journalNum = $this->openJournal();
+        } catch (AxPostingException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new AxPostingException('Microsoft Dynamics API unreachable or failed: ' . $e->getMessage(), 0, $e);
+        }
         if ($journalNum === 'Error' || $journalNum === '' || $journalNum === null) {
             throw new AxPostingException('Microsoft Dynamics API Service Error while creating the journal header.');
         }
         $facts['journal_num'] = $journalNum;
 
         foreach (LandlordInvoiceV2AxLineBuilder::build($facts) as $index => $line) {
-            if ($this->pushLine($line) === 'Error') {
+            try {
+                $result = $this->pushLine($line);
+            } catch (AxPostingException $e) {
+                throw $e;
+            } catch (\Throwable $e) {
+                throw new AxPostingException('Microsoft Dynamics API unreachable or failed: ' . $e->getMessage(), 0, $e);
+            }
+            if ($result === 'Error') {
                 throw new AxPostingException(sprintf(
                     'Microsoft Dynamics API Service Error on line %d (journal %s). Invoice left unposted.',
                     $index + 1, $journalNum

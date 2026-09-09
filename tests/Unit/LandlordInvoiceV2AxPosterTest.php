@@ -161,4 +161,22 @@ class LandlordInvoiceV2AxPosterTest extends TestCase
             $this->assertNull($poster->persisted);
         }
     }
+
+    public function test_soap_fault_from_open_journal_is_wrapped_as_ax_posting_exception()
+    {
+        $poster = new class extends RecordingPoster {
+            protected function openJournal()
+            {
+                throw new \SoapFault('HTTP', 'Could not connect to host');
+            }
+        };
+
+        try {
+            $poster->post($this->invoice(), 7);
+            $this->fail('expected exception');
+        } catch (AxPostingException $e) {
+            $this->assertStringContainsString('Could not connect to host', $e->getMessage());
+            $this->assertNull($poster->persisted);
+        }
+    }
 }
