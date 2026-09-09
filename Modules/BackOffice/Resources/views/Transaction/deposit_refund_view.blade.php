@@ -65,7 +65,7 @@
             Shown only when something was deducted. Once issued the
             generate button is replaced by a view link. Never posts to AX. --}}
        @if(!empty($depositReceipt))
-       <a href="{{ route('depositRefundReceiptView', $depositReceipt->id) }}" target="_blank"
+       <a href="{{ route('depositRefundReceiptShow', $depositReceipt->id) }}"
           title="Deduction receipt {{ $depositReceipt->receipt_no }}"
           class="btn btn-circle btn-success align-right">
          View Receipt

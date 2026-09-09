@@ -42,7 +42,8 @@ class DepositRefundController extends Controller
     $this->middleware('auth');  
     $this->middleware('permission:deposit_refund_add', ['only' => ['create','store']]);
     $this->middleware('permission:deposit_refund_edit', ['only' => ['edit','update']]); 
-    $this->middleware('permission:deposit_refund_view', ['only' => ['index','show']]); 
+    $this->middleware('permission:deposit_refund_view', ['only' => ['index','show']]);
+    $this->middleware('permission:deposit_refund_receipt_list', ['only' => ['depositRefundReceiptList']]);
 
     $this->noOfRecord  = prefixData('no_of_records_in_list_grid')->configuration_value;            
 
@@ -247,7 +248,59 @@ class DepositRefundController extends Controller
     }
 
     /**
-     * The printable customer receipt.
+     * List of issued deduction receipts (Operations -> Transaction).
+     * Display only: these receipts never post to AX.
+     */
+    public function depositRefundReceiptList(Request $request)
+    {
+        $query = DepositRefundReceipt::with('depositRefund');
+
+        if ($request->filled('receipt_no')) {
+            $query->where('receipt_no', 'ilike', '%' . $request->receipt_no . '%');
+        }
+        if ($request->filled('tenant_name')) {
+            $query->where('tenant_name', 'ilike', '%' . $request->tenant_name . '%');
+        }
+        if ($request->filled('building_name')) {
+            $query->where('building_name', 'ilike', '%' . $request->building_name . '%');
+        }
+        if ($request->filled('unit_code')) {
+            $query->where('unit_code', 'ilike', '%' . $request->unit_code . '%');
+        }
+        if ($request->filled('refund_no')) {
+            $query->whereHas('depositRefund', function ($q) use ($request) {
+                $q->where('deposit_refund_no', 'ilike', '%' . $request->refund_no . '%');
+            });
+        }
+        if ($request->filled('receipt_date')) {
+            $query->whereDate('receipt_date', $request->receipt_date);
+        }
+
+        $receipts = $query->orderBy('id', 'desc')->paginate(20)->appends($request->query());
+        $route = route('depositRefundReceiptList');
+
+        if ($request->ajax()) {
+            return view('backoffice::Transaction.deposit_refund_receipt_list_ajax', compact('receipts', 'route', 'request'));
+        }
+
+        return view('backoffice::Transaction.deposit_refund_receipt_list', compact('receipts', 'route'));
+    }
+
+    /**
+     * On-screen view of the receipt, inside the application layout.
+     */
+    public function showDepositReceipt(DepositRefundReceipt $depositRefundReceipt)
+    {
+        $depositRefundReceipt->load(['lines', 'depositRefund', 'createdBy']);
+
+        return view('backoffice::Transaction.deposit_refund_receipt_view', [
+            'receipt' => $depositRefundReceipt,
+            'inWords' => $this->amountInWords($depositRefundReceipt->net_refund),
+        ]);
+    }
+
+    /**
+     * The printable receipt, in the same voucher format as a general receipt.
      */
     public function viewDepositReceipt(DepositRefundReceipt $depositRefundReceipt)
     {
@@ -255,7 +308,19 @@ class DepositRefundController extends Controller
 
         return view('backoffice::Transaction.deposit_refund_receipt_print', [
             'receipt' => $depositRefundReceipt,
+            'inWords' => $this->amountInWords($depositRefundReceipt->net_refund),
         ]);
+    }
+
+    /**
+     * "Two Hundred And 500/1000" - same wording the receipt voucher uses.
+     */
+    private function amountInWords($amount)
+    {
+        $parts = explode('.', (string) numberFormat($amount));
+        $decimal = isset($parts[1]) ? $parts[1] . '/1000' : 'XXX /1000';
+
+        return numberToWords($parts[0]) . ' And ' . $decimal;
     }
 
     /**

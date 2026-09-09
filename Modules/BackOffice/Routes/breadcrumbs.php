@@ -791,6 +791,16 @@ Breadcrumbs::for('showLandlordTaxInvoiceReport', function ($trail) {
     $trail->push('Landlord Tax Invoice Report', route('showLandlordTaxInvoiceReport'));
 });
 
+Breadcrumbs::for('depositRefundReceiptList', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Deposit Refund Receipts', route('depositRefundReceiptList'));
+});
+
+Breadcrumbs::for('depositRefundReceiptShow', function ($trail, $receipt) {
+    $trail->parent('depositRefundReceiptList');
+    $trail->push($receipt->receipt_no, route('depositRefundReceiptShow', $receipt->id));
+});
+
 Breadcrumbs::for('showRentCollectionSummary', function ($trail) {
     $trail->parent('home');
     $trail->push('Rent Collection Summary', route('showRentCollectionSummary'));

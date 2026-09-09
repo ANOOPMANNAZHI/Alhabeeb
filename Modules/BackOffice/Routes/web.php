@@ -747,6 +747,8 @@ Route::get('landlord-invoice-v2-overview-preview', 'LandlordInvoiceV2Controller@
 	Route::get('landlord-invoice-v2/{landlordInvoiceV2}/print', 'LandlordInvoiceV2Controller@print')->name('landlordInvoiceV2Print');
 	Route::post('landlord-invoice-v2/{landlordInvoiceV2}/post', 'LandlordInvoiceV2Controller@post')->name('landlordInvoiceV2Post');
 Route::post('/depositRefund/{depositRefund}/deduction-receipt','DepositRefundController@generateDepositReceipt')->name('depositRefundReceiptGenerate');
+Route::get('/depositRefundReceipts','DepositRefundController@depositRefundReceiptList')->name('depositRefundReceiptList');
+Route::get('/depositRefundReceiptView/{depositRefundReceipt}','DepositRefundController@showDepositReceipt')->name('depositRefundReceiptShow');
 Route::get('/depositRefundReceipt/{depositRefundReceipt}','DepositRefundController@viewDepositReceipt')->name('depositRefundReceiptView');
 	Route::get('showRentCollectionSummary', 'RentCollectionSummaryController@index')->name('showRentCollectionSummary');
 
