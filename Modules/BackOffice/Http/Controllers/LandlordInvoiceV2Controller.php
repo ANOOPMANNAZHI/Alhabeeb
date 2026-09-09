@@ -8,6 +8,8 @@ use App\Setting;
 use Modules\Masters\Entities\Vendor;
 use Modules\Sales\Entities\LandlordContract;
 use Modules\BackOffice\Entities\LandlordInvoiceV2;
+use Modules\BackOffice\Exceptions\AxPostingException;
+use Modules\BackOffice\Services\LandlordInvoiceV2AxPoster;
 
 class LandlordInvoiceV2Controller extends Controller
 {
@@ -147,6 +149,7 @@ class LandlordInvoiceV2Controller extends Controller
     public function edit(LandlordInvoiceV2 $landlordInvoiceV2)
     {
         abort_if($landlordInvoiceV2->status === 'voided', 403, 'Voided invoices cannot be edited.');
+        abort_if($landlordInvoiceV2->isPosted(), 403, 'Invoices posted to AX cannot be edited.');
         $landlordInvoiceV2->load('lines');
         return view('backoffice::LandlordInvoiceV2.edit', compact('landlordInvoiceV2'));
     }
@@ -154,6 +157,7 @@ class LandlordInvoiceV2Controller extends Controller
     public function update(Request $request, LandlordInvoiceV2 $landlordInvoiceV2)
     {
         abort_if($landlordInvoiceV2->status === 'voided', 403, 'Voided invoices cannot be edited.');
+        abort_if($landlordInvoiceV2->isPosted(), 403, 'Invoices posted to AX cannot be edited.');
 
         $request->validate([
             'invoice_date'    => 'required|date',
@@ -187,6 +191,7 @@ class LandlordInvoiceV2Controller extends Controller
     public function destroy(LandlordInvoiceV2 $landlordInvoiceV2)
     {
         abort_if($landlordInvoiceV2->status === 'voided', 403, 'This invoice is already voided.');
+        abort_if($landlordInvoiceV2->isPosted(), 403, 'Invoices posted to AX cannot be voided.');
 
         $landlordInvoiceV2->update([
             'status'    => 'voided',
@@ -195,6 +200,27 @@ class LandlordInvoiceV2Controller extends Controller
         ]);
 
         session()->flash('success', 'Landlord Invoice Voided: ' . $landlordInvoiceV2->invoice_no);
+        return redirect()->route('landlord-invoice-v2.index');
+    }
+
+    /**
+     * Push an active invoice to Microsoft Dynamics AX (AP Invoice Journal).
+     * Route: POST landlord-invoice-v2/{landlordInvoiceV2}/post
+     */
+    public function post(LandlordInvoiceV2 $landlordInvoiceV2, LandlordInvoiceV2AxPoster $poster)
+    {
+        abort_unless(\Auth::user()->can('post_landlord_invoice_v2'), 403);
+
+        $landlordInvoiceV2->load(['vendor', 'landlordContract.buildingInfo']);
+
+        try {
+            $journalNum = $poster->post($landlordInvoiceV2, \Auth::user()->id);
+        } catch (AxPostingException $e) {
+            session()->flash('error', $e->getMessage());
+            return redirect()->route('landlord-invoice-v2.index');
+        }
+
+        session()->flash('success', 'Landlord Invoice ' . $landlordInvoiceV2->invoice_no . ' posted to AX. Journal: ' . $journalNum);
         return redirect()->route('landlord-invoice-v2.index');
     }
 
