@@ -127,6 +127,7 @@ class VendorController extends Controller
           'vendor_contact_email' => 'required|email' ,        
           'vendor_type' => 'required' ,               
           'vendor_status' => 'required',
+          'swift_code' => 'nullable|alpha_num|size:11',
        ]);   
 
 		
@@ -146,6 +147,7 @@ class VendorController extends Controller
          'vendor_status' => $request->vendor_status,
          'bank_id' => $request->bank_id,
          'vatin_no' => $request->vatin_no,
+         'swift_code' => $request->filled('swift_code') ? strtoupper($request->swift_code) : null,
          'created_by' =>  \Auth::user()->id
         ]);  
 		
@@ -223,6 +225,7 @@ class VendorController extends Controller
           'vendor_contact_email' => 'required|email' ,        
           'vendor_type' => 'required' ,               
           'vendor_status' => 'required',
+          'swift_code' => 'nullable|alpha_num|size:11',
        ]);  
 		
         $vendor->update([       
@@ -241,6 +244,7 @@ class VendorController extends Controller
          'vendor_status' => $request->vendor_status,
          'bank_id' => $request->bank_id,
          'vatin_no' => $request->vatin_no,
+         'swift_code' => $request->filled('swift_code') ? strtoupper($request->swift_code) : null,
          'updated_by' =>  \Auth::user()->id,
         ]);  
 

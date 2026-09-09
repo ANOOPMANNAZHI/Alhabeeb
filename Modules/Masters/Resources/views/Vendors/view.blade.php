@@ -109,6 +109,13 @@
                     <h5 class="details"><b>Account No :  </b><span>{{$vendor->vendor_acc_no}}</span></h5>
                 </div>
             </div>
+            @if(!empty($vendor->swift_code))
+            <div class="col-lg-6 p-t-20">
+                <div class = "txt-full-width">
+                    <h5 class="details"><b>Swift Code :  </b><span>{{$vendor->swift_code}}</span></h5>
+                </div>
+            </div>
+            @endif
             
 			</div>
 		</div>       

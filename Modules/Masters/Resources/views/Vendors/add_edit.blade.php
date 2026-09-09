@@ -212,6 +212,17 @@
           </div>
           <div class="w-100"></div>
 
+          <div class="col-sm-6">
+            <div class="form-group">
+                <label for="swift_code">Swift Code</label>
+                 <div class="p-relative">
+                <i class="fa fa-globe icn-add" aria-hidden="true"></i>
+                <input type="text" class="form-control" id="swift_code" name="swift_code" value="{{ old('swift_code', isset($vendor)? $vendor->swift_code : '' )}}" placeholder="11 character SWIFT / BIC code" pattern="^[A-Za-z0-9]{11}$" maxlength="11" title="Exactly 11 letters or digits" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+              </div>
+            </div>
+          </div>
+          <div class="w-100"></div>
+
       </div>
     </div>
       
