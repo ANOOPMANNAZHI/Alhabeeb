@@ -2,14 +2,14 @@
 @section('css')
 <link href="{{asset('public/css/custom.css')}}" rel="stylesheet">
 <link href="{{asset('public/css/formlayout.css')}}" rel="stylesheet" type="text/css" />
+@endsection
+@section('content')
+{{-- Styles live here, not in @section('css'): the plms-app layout only yields 'content' and 'scripts'. --}}
 <style>
     #rcs_table th { white-space: nowrap; }
     #rcs_table td.num, #rcs_table th.num { text-align: right; }
-    #rcs_table tfoot td { font-weight: 700; background: #f7fdfb; }
     .rcs-loading { opacity: .5; }
 </style>
-@endsection
-@section('content')
 <div class="page-bar">
   <div class="page-title-breadcrumb">
     <div class="pull-left">
@@ -87,7 +87,7 @@
   </div>
 </div>
 @endsection
-@section('js')
+@section('scripts')
 <script>
 $(function () {
     var url = "{{ route('showRentCollectionSummary') }}";
