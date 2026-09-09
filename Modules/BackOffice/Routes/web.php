@@ -745,6 +745,7 @@ Route::middleware('auth')->group(function () {
 	Route::get('landlord-invoice-v2-calculation-preview', 'LandlordInvoiceV2Controller@calculationPreview')->name('landlordInvoiceV2CalculationPreview');
 Route::get('landlord-invoice-v2-overview-preview', 'LandlordInvoiceV2Controller@overviewPreview')->name('landlordInvoiceV2OverviewPreview');
 	Route::get('landlord-invoice-v2/{landlordInvoiceV2}/print', 'LandlordInvoiceV2Controller@print')->name('landlordInvoiceV2Print');
+	Route::post('landlord-invoice-v2/{landlordInvoiceV2}/post', 'LandlordInvoiceV2Controller@post')->name('landlordInvoiceV2Post');
 
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 
