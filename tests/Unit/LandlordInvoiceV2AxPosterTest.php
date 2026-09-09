@@ -167,7 +167,7 @@ class LandlordInvoiceV2AxPosterTest extends TestCase
         $poster = new class extends RecordingPoster {
             protected function openJournal()
             {
-                throw new \SoapFault('HTTP', 'Could not connect to host');
+                throw new \RuntimeException('Could not connect to host');
             }
         };
 
