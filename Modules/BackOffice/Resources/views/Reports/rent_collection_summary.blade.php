@@ -26,6 +26,15 @@
           <div class="row">
             <div class="col-sm-4">
               <div class="form-group">
+                <label for="building_name">Building</label>
+                <div class="p-relative">
+                  <i class="fa fa-search icn-add" aria-hidden="true"></i>
+                  <input type="text" class="form-control" id="building_name" name="building_name" value="{{ $buildingName }}" placeholder="Search building name or code" autocomplete="off">
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="form-group">
                 <label for="month">Month</label>
                 <div class="p-relative">
                   <i class="fa fa-calendar-o icn-add" aria-hidden="true"></i>
@@ -51,7 +60,7 @@
                 <label>&nbsp;</label>
                 <div>
                   <button type="button" id="rcs_apply" class="btn btn-primary">APPLY</button>
-                  <button type="button" id="rcs_today" class="btn btn-default" title="Current month till today">CURRENT MONTH</button>
+                  <button type="button" id="rcs_reset" class="btn btn-default" title="Current month, all buildings">RESET</button>
                 </div>
               </div>
             </div>
@@ -92,9 +101,15 @@
 $(function () {
     var url = "{{ route('showRentCollectionSummary') }}";
 
+    var timer = null;
+
     function load() {
         var $tbody = $('#rcs_body').addClass('rcs-loading');
-        $.get(url, { month: $('#month').val(), year: $('#year').val() }, function (html) {
+        $.get(url, {
+            month: $('#month').val(),
+            year: $('#year').val(),
+            building_name: $('#building_name').val()
+        }, function (html) {
             $tbody.html(html).removeClass('rcs-loading');
         }).fail(function () {
             $tbody.removeClass('rcs-loading').html('<tr><td colspan="5" align="center" class="text-danger">Could not load data.</td></tr>');
@@ -104,9 +119,18 @@ $(function () {
     $('#rcs_apply').on('click', load);
     $('#month').on('change', load);
     $('#year').on('change', function () { if (this.value.length === 4) load(); });
-    $('#rcs_today').on('click', function () {
+
+    // Search as you type, settling briefly so one keystroke is not one request.
+    $('#building_name').on('keyup', function (e) {
+        if (e.key === 'Enter') { clearTimeout(timer); load(); return; }
+        clearTimeout(timer);
+        timer = setTimeout(load, 400);
+    });
+
+    $('#rcs_reset').on('click', function () {
         $('#month').val({{ (int) date('n') }});
         $('#year').val({{ (int) date('Y') }});
+        $('#building_name').val('');
         load();
     });
 });

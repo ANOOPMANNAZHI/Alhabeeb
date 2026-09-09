@@ -27,14 +27,15 @@ class RentCollectionSummaryController extends Controller
     public function index(Request $request)
     {
         list($month, $year) = $this->monthYear($request);
-        $rows = $this->summaryRows($month, $year);
+        $buildingName = trim((string) $request->input('building_name'));
+        $rows = $this->summaryRows($month, $year, $buildingName);
         $monthLabel = Carbon::createFromDate($year, $month, 1)->format('M Y');
 
         if ($request->ajax()) {
             return view('backoffice::Reports.rent_collection_summary_ajax', compact('rows', 'monthLabel'));
         }
 
-        return view('backoffice::Reports.rent_collection_summary', compact('rows', 'monthLabel', 'month', 'year'));
+        return view('backoffice::Reports.rent_collection_summary', compact('rows', 'monthLabel', 'month', 'year', 'buildingName'));
     }
 
     /** @return array [int $month, int $year] — falls back to the current month/year. */
@@ -57,9 +58,17 @@ class RentCollectionSummaryController extends Controller
      * expected_rent: SUM(tenant_contract_rent) of active contracts overlapping the month.
      * pending: GREATEST(expected_rent - collected, 0).
      */
-    private function summaryRows($month, $year)
+    private function summaryRows($month, $year, $buildingName = '')
     {
         $anchor = sprintf('%04d-%02d-01', $year, $month);
+        $bindings = [$anchor, $anchor];
+
+        // Free-text building search (name or code), same convention as the
+        // Landlord Contract / Landlord Invoice v2 list filters.
+        $buildingFilter = '';
+        if ($buildingName !== '') {
+            $buildingFilter = " AND (b.building_name ILIKE ? OR b.building_code ILIKE ?)";
+        }
 
         $sql = "
             WITH month_bounds AS (
@@ -93,9 +102,16 @@ class RentCollectionSummaryController extends Controller
             FROM buildings b
             LEFT JOIN collected c ON c.building_id = b.id
             LEFT JOIN expected  e ON e.building_id = b.id
-            WHERE c.building_id IS NOT NULL OR e.building_id IS NOT NULL
+            WHERE (c.building_id IS NOT NULL OR e.building_id IS NOT NULL)
+                  {$buildingFilter}
             ORDER BY b.building_name";
 
-        return DB::select($sql, [$anchor, $anchor]);
+        if ($buildingName !== '') {
+            $like = '%' . $buildingName . '%';
+            $bindings[] = $like;
+            $bindings[] = $like;
+        }
+
+        return DB::select($sql, $bindings);
     }
 }
