@@ -7,7 +7,7 @@ use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithTitle;
 
-class MeraRentReceiptReportExport implements FromView, ShouldAutoSize, WithTitle
+class PaymentHistoryV2Export implements FromView, ShouldAutoSize, WithTitle
 {
     protected $data;
 
@@ -18,14 +18,11 @@ class MeraRentReceiptReportExport implements FromView, ShouldAutoSize, WithTitle
 
     public function view(): View
     {
-        return view('backoffice::Reports.mera_rent_receipt_excel', $this->data);
+        return view('backoffice::Reports.payment_history_report_v2_excel', $this->data);
     }
 
     public function title(): string
     {
-        // Sheet tab name follows the Receipt Type filter.
-        $label = isset($this->data['receiptTypeLabel']) ? $this->data['receiptTypeLabel'] : 'Rent';
-
-        return 'MERA ' . $label . ' Receipt';
+        return 'Payment History';
     }
 }
