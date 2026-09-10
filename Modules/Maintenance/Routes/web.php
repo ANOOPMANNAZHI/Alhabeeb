@@ -311,6 +311,15 @@ Route::get('unitReportAutocompleteCode', 'MaintenanceReportController@unitReport
 */
 Route::get('showServiceReport', 'MaintenanceReportController@showServiceReport')->name('showServiceReport');
 Route::post('serviceReportPdf', 'MaintenanceReportController@serviceReportPdf')->name('serviceReportPdf');
+
+Route::get('showServiceReportV2', 'MaintenanceReportController@showServiceReportV2')->name('showServiceReportV2');
+Route::post('serviceReportPdfV2', 'MaintenanceReportController@serviceReportPdfV2')->name('serviceReportPdfV2');
+
+Route::get('showMaintenanceInvoiceReportV2', 'MaintenanceReportController@showMaintenanceInvoiceReportV2')->name('showMaintenanceInvoiceReportV2');
+Route::post('maintenanceInvoiceReportPdfV2', 'MaintenanceReportController@maintenanceInvoiceReportPdfV2')->name('maintenanceInvoiceReportPdfV2');
+Route::post('maintenanceInvoiceServiceReportsZip', 'MaintenanceReportController@maintenanceInvoiceServiceReportsZipDownload')->name('maintenanceInvoiceServiceReportsZip');
+Route::get('maintenanceInvoiceReportV2Stream', 'MaintenanceReportController@maintenanceInvoiceReportV2Stream')->name('maintenanceInvoiceReportV2Stream');
+Route::get('maintenanceInvoiceReportV2Download/{token}', 'MaintenanceReportController@maintenanceInvoiceReportV2Download')->name('maintenanceInvoiceReportV2Download');
 Route::get('servicecomplaintReportAutocompleteCode', 'MaintenanceReportController@servicecomplaintReportAutocompleteCode')->name('servicecomplaintReportAutocompleteCode');
 Route::get('servicecomplaintReportNoAutocompleteCode', 'MaintenanceReportController@servicecomplaintReportNoAutocompleteCode')->name('servicecomplaintReportNoAutocompleteCode');
 });

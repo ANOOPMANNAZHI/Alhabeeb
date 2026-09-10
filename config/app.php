@@ -166,6 +166,7 @@ return [
         SimpleSoftwareIO\QrCode\QrCodeServiceProvider::class,
 		Artisaninweb\SoapWrapper\ServiceProvider::class,
 		Maatwebsite\Excel\ExcelServiceProvider::class,
+		JasperPHP\JasperPHPServiceProvider::class,
     ],
 
     /*

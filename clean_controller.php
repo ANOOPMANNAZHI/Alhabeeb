@@ -28,8 +28,6 @@ use Modules\BackOffice\Exports\LegalReceivableV2Export;
 use Modules\BackOffice\Exports\NormalManagementV2Export;
 use Modules\BackOffice\Exports\NormalManagementMonthSheet;
 use Modules\BackOffice\Exports\NormalManagementConsolidateSheet;
-use Modules\BackOffice\Exports\ExpenseDetailsV2Export;
-use Modules\BackOffice\Exports\DepositRentReportV2Export;
 use Carbon\Carbon;
 use ZipArchive;
 
@@ -686,296 +684,6 @@ public function buildingsCodeReportAutocompleteCode(Request $request){
  /*
  *
  * Report on Deposit for rent / E,W ends
- *
- */
-
- /*
- *
- * Report on Deposit for rent / E,W v2 starts (same logic and layout as v1,
- * no JasperPHP/Java dependency - uses \FPDF directly, same technique as
- * Tenant Receivable v2 / Expense Details v2)
- *
- */
-
-public function showDepositRentReportV2(){
-  $buildings =   Building::active()
-  ->whereHas('tenantContract', function ($query) {
-    $query->where('tenant_contract_status',1)->whereHas('receiptGenerationList');
-  })->orderBy('building_name','asc')->get();
-  return view('backoffice::reports.deposit_rent_report_v2',compact('buildings'));
-}
-
-private function depositRentReportV2Query($date1, $date2, $buildingName)
-{
-  $refundJoin = "
-      LEFT JOIN (
-        SELECT receipts_generation_id,
-               SUM(deposit_refund_amt::numeric) AS refund_amt,
-               MAX(deposit_refund_date) AS refund_date,
-               STRING_AGG(deposit_refund_no, ', ') AS refund_no
-        FROM deposit_refund
-        WHERE deleted_at IS NULL
-        GROUP BY receipts_generation_id
-      ) dr ON dr.receipts_generation_id = rg.id
-  ";
-
-  if ($buildingName === '') {
-    $sql = "
-      SELECT DISTINCT bl.building_name, bl.building_no, un.unit_no, tn.tenant_name,
-             CASE WHEN rg.receipts_generation_payment_method = 1 THEN 'cheque'
-                  WHEN rg.receipts_generation_payment_method = 2 THEN 'cash' END AS by,
-             tc.tenant_contract_no AS agreementno,
-             rg.receipts_generation_amt, rg.receipts_generation_receipt_no,
-             COALESCE(NULLIF(dr.refund_amt, 0),
-               CASE WHEN dr.refund_no IS NOT NULL THEN rg.receipts_generation_amt ELSE 0 END
-             ) AS refund_amt, dr.refund_date, dr.refund_no
-      FROM tenant_contracts tc
-      LEFT JOIN termination tr ON tr.contract_id = tc.id
-      LEFT JOIN tenant tn ON tc.tenant_id = tn.id
-      LEFT JOIN units un ON tc.unit_id = un.id
-      LEFT JOIN buildings bl ON un.building_id = bl.id
-      LEFT JOIN receipts_generation rg ON rg.tenant_contract_id = tc.id
-      {$refundJoin}
-      WHERE rg.receipts_generation_type = '2' AND rg.receipts_generation_status = '3'
-        AND (rg.receipts_generation_receipt_date BETWEEN ? AND ?)
-      ORDER BY bl.building_name
-    ";
-    return DB::select($sql, [$date1, $date2]);
-  }
-
-  $sql = "
-    SELECT DISTINCT bl.building_name, bl.building_no, un.unit_no, tn.tenant_name,
-           CASE WHEN rg.receipts_generation_payment_method = 1 THEN 'cheque'
-                WHEN rg.receipts_generation_payment_method = 2 THEN 'cash' END AS by,
-           tc.tenant_contract_no AS agreementno,
-           rg.receipts_generation_amt, rg.receipts_generation_receipt_no,
-           COALESCE(NULLIF(dr.refund_amt, 0),
-             CASE WHEN dr.refund_no IS NOT NULL THEN rg.receipts_generation_amt ELSE 0 END
-           ) AS refund_amt, dr.refund_date, dr.refund_no
-    FROM receipts_generation rg
-    INNER JOIN tenant_contracts tc ON rg.tenant_contract_id = tc.id
-    INNER JOIN tenant tn ON tc.tenant_id = tn.id
-    INNER JOIN units un ON tc.unit_id = un.id
-    INNER JOIN buildings bl ON un.building_id = bl.id
-    {$refundJoin}
-    WHERE rg.receipts_generation_type = '2' AND rg.receipts_generation_status = '3'
-      AND (rg.receipts_generation_receipt_date BETWEEN ? AND ?)
-      AND bl.building_name = ?
-    ORDER BY bl.building_name
-  ";
-  return DB::select($sql, [$date1, $date2, $buildingName]);
-}
-
-public function depositRentReportPdfV2(Request $request){
-  $username     = Auth::user()->username;
-  $date1        = $request['start_date'];
-  $date2        = $request['end_date'];
-  $buildingId   = $request['building_name'] ?? '';
-  $downloadType = $request['download_type'];
-
-  $buildingName = '';
-  if (!empty($buildingId)) {
-    $building = Building::find($buildingId);
-    $buildingName = $building ? $building->building_name : '';
-  }
-
-  $rows = $this->depositRentReportV2Query($date1, $date2, $buildingName);
-
-  $data = [
-    'rows'         => $rows,
-    'date1'        => $date1,
-    'date2'        => $date2,
-    'username'     => $username,
-    'buildingName' => $buildingName,
-  ];
-
-  if ($downloadType == 'pdf') {
-    ini_set('memory_limit', '256M');
-    set_time_limit(300);
-    try {
-      require_once base_path('vendor/setasign/fpdf/fpdf.php');
-
-      $filename = 'deposit_rent_report_v2_' . $date2 . '.pdf';
-
-      $pdf = new \Modules\BackOffice\Pdf\DepositRentReportV2Pdf('L', 'mm', 'A3');
-      $pdf->AliasNbPages();
-      $pdf->SetAutoPageBreak(false);
-      $pdf->SetMargins(10, 10, 10);
-
-      $marginLeft = 10;
-      $pageW      = 420;
-      $usableW    = $pageW - 20; // 400
-      $pageBreakY = 280; // leave room for the footer on A3 landscape (297mm tall)
-      $lineH      = 5.2;
-      $headerRowH = 9;
-      $bodyRowH   = 8;
-
-      $logoPath = public_path('img/logo_pdf.jpg');
-
-      $drawHeader = function() use ($pdf, $marginLeft, $usableW, $date1, $date2, $buildingName, $username, $logoPath) {
-        $pdf->AddPage();
-
-        if (file_exists($logoPath)) {
-          $pdf->Image($logoPath, $marginLeft, 8, 32);
-        }
-
-        $pdf->SetXY($marginLeft, 10);
-        $pdf->SetFont('Arial', 'B', 18);
-        $pdf->Cell($usableW, 10, 'Deposit for rent/E&W', 0, 1, 'C');
-
-        $pdf->SetXY($marginLeft, 8);
-        $pdf->SetFont('Arial', 'B', 8);
-        $pdf->Cell($usableW - 40, 5, '', 0, 0);
-        $pdf->Cell(20, 5, 'Report Date :', 0, 0, 'L');
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->Cell(20, 5, date('d/m/Y H:i'), 0, 1, 'L');
-
-        $pdf->SetXY($marginLeft, 13);
-        $pdf->SetFont('Arial', 'B', 8);
-        $pdf->Cell($usableW - 40, 5, '', 0, 0);
-        $pdf->Cell(20, 5, 'User :', 0, 0, 'L');
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->Cell(20, 5, $username, 0, 1, 'L');
-
-        $pdf->SetXY($marginLeft, 20);
-        $pdf->SetFont('Arial', '', 9);
-        $pdf->Cell($usableW, 6, 'For the Period ' . date('d/m/Y', strtotime($date1)) . ' to ' . date('d/m/Y', strtotime($date2)), 0, 1, 'C');
-
-        $pdf->SetXY($marginLeft, 27);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(30, 6, 'Building Name :', 0, 0, 'L');
-        $pdf->SetFont('Arial', '', 9);
-        $pdf->Cell(0, 6, $buildingName, 0, 1, 'L');
-
-        $pdf->Ln(2);
-      };
-
-      $fit = function($text, $w) use ($pdf) {
-        $text = (string)$text;
-        $max = (int)($w / 1.35);
-        return mb_strlen($text) > $max ? mb_substr($text, 0, $max - 1) . '~' : $text;
-      };
-
-      $cols = ['Sl' => 12, 'Building' => 58, 'BldgNo' => 24, 'Unit' => 24, 'Tenant' => 58, 'By' => 18, 'AgrmtNo' => 28, 'PaymentNo' => 28, 'Amount' => 24, 'RefundAmount' => 26, 'RefundDate' => 24, 'RefundPaymentNo' => 48, 'NetAmount' => 28];
-      $refundCols = ['RefundAmount' => true, 'RefundDate' => true, 'RefundPaymentNo' => true];
-      $refundTextColor = [200, 0, 0];
-
-      $drawTableHeader = function() use ($pdf, $marginLeft, $cols, $lineH, $headerRowH) {
-        $pdf->SetFillColor(4, 93, 194);
-        $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('Arial', 'B', 9);
-        $labels = ['Sl' => 'Sl No:', 'Building' => 'Building Name', 'BldgNo' => 'Building No.', 'Unit' => 'Unit No.', 'Tenant' => 'Tenant Name', 'By' => 'By', 'AgrmtNo' => 'Agreement No', 'PaymentNo' => 'Payment No', 'Amount' => 'Deposit Amount', 'RefundAmount' => 'Refund Amount', 'RefundDate' => 'Refund Date', 'RefundPaymentNo' => 'Refund Payment No', 'NetAmount' => 'Net Amount'];
-        $x = $marginLeft;
-        $y = $pdf->GetY();
-        $rightAlign = ['Amount' => true, 'RefundAmount' => true, 'NetAmount' => true];
-        foreach ($cols as $key => $w) {
-          $pdf->Rect($x, $y, $w, $headerRowH, 'F');
-          $pdf->SetXY($x + 1, $y + ($headerRowH - $lineH) / 2);
-          $pdf->Cell($w - 2, $lineH, $labels[$key], 0, 0, isset($rightAlign[$key]) ? 'R' : 'L');
-          $x += $w;
-        }
-        $pdf->SetXY($marginLeft, $y + $headerRowH);
-        $pdf->SetTextColor(0, 0, 0);
-      };
-
-      $drawHeader();
-      $drawTableHeader();
-
-      $grandTotal = 0;
-      $grandRefund = 0;
-      $sl = 0;
-      $even = false;
-
-      foreach ($rows as $row) {
-        $sl++;
-        $amount = (float)$row->receipts_generation_amt;
-        $refundAmt = (float)($row->refund_amt ?? 0);
-        $netAmount = $amount - $refundAmt;
-        $grandTotal += $amount;
-        $grandRefund += $refundAmt;
-
-        if ($pdf->GetY() + $bodyRowH > $pageBreakY) {
-          $drawHeader();
-          $drawTableHeader();
-        }
-
-        $even = !$even;
-        $fill = $even ? [220, 235, 245] : [255, 255, 255];
-        $pdf->SetFillColor($fill[0], $fill[1], $fill[2]);
-        $pdf->SetFont('Arial', '', 8);
-
-        $x = $marginLeft; $y = $pdf->GetY();
-        $vals = [
-          'Sl'              => [$sl, 'L'],
-          'Building'        => [$fit($row->building_name, $cols['Building']), 'L'],
-          'BldgNo'          => [$row->building_no, 'L'],
-          'Unit'            => [$row->unit_no, 'L'],
-          'Tenant'          => [$fit($row->tenant_name, $cols['Tenant']), 'L'],
-          'By'              => [$row->by, 'L'],
-          'AgrmtNo'         => [$row->agreementno, 'L'],
-          'PaymentNo'       => [$row->receipts_generation_receipt_no, 'L'],
-          'Amount'          => [number_format($amount, 2), 'R'],
-          'RefundAmount'    => [number_format($refundAmt, 2), 'R'],
-          'RefundDate'      => [$row->refund_date ? date('d/m/Y', strtotime($row->refund_date)) : '-', 'L'],
-          'RefundPaymentNo' => [$fit($row->refund_no ?: '-', $cols['RefundPaymentNo']), 'L'],
-          'NetAmount'       => [number_format($netAmount, 2), 'R'],
-        ];
-        foreach ($vals as $key => [$val, $align]) {
-          $pdf->Rect($x, $y, $cols[$key], $bodyRowH, 'F');
-          if (isset($refundCols[$key])) {
-            $pdf->SetTextColor($refundTextColor[0], $refundTextColor[1], $refundTextColor[2]);
-          }
-          $pdf->SetXY($x + 1, $y + ($bodyRowH - $lineH) / 2);
-          $pdf->Cell($cols[$key] - 2, $lineH, $val, 0, 0, $align);
-          if (isset($refundCols[$key])) {
-            $pdf->SetTextColor(0, 0, 0);
-          }
-          $x += $cols[$key];
-        }
-        $pdf->SetXY($marginLeft, $y + $bodyRowH);
-      }
-
-      if ($pdf->GetY() + $headerRowH > $pageBreakY) {
-        $drawHeader();
-      }
-      $grandNet = $grandTotal - $grandRefund;
-      $x = $marginLeft; $y = $pdf->GetY() + 2;
-      $w = array_sum($cols);
-      $pdf->SetFillColor(4, 93, 194);
-      $pdf->SetTextColor(255, 255, 255);
-      $pdf->Rect($x, $y, $w, $headerRowH, 'F');
-      $pdf->SetFont('Arial', 'B', 10);
-      $preAmountW = $cols['Sl'] + $cols['Building'] + $cols['BldgNo'] + $cols['Unit'] + $cols['Tenant'] + $cols['By'] + $cols['AgrmtNo'] + $cols['PaymentNo'];
-      $pdf->SetXY($x, $y + ($headerRowH - $lineH) / 2);
-      $pdf->Cell($preAmountW - 2, $lineH, 'Total:', 0, 0, 'R');
-      $pdf->SetXY($x + $preAmountW, $y + ($headerRowH - $lineH) / 2);
-      $pdf->Cell($cols['Amount'] - 2, $lineH, number_format($grandTotal, 2), 0, 0, 'R');
-      $pdf->SetXY($x + $preAmountW + $cols['Amount'], $y + ($headerRowH - $lineH) / 2);
-      $pdf->Cell($cols['RefundAmount'] - 2, $lineH, number_format($grandRefund, 2), 0, 0, 'R');
-      $pdf->SetXY($x + $preAmountW + $cols['Amount'] + $cols['RefundAmount'] + $cols['RefundDate'] + $cols['RefundPaymentNo'], $y + ($headerRowH - $lineH) / 2);
-      $pdf->Cell($cols['NetAmount'] - 2, $lineH, number_format($grandNet, 2), 0, 0, 'R');
-      $pdf->SetTextColor(0, 0, 0);
-
-      $content = $pdf->Output('S');
-      return response($content, 200, [
-        'Content-Type'        => 'application/pdf',
-        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-      ]);
-    } catch (\Throwable $e) {
-      return response('PDF Error: ' . $e->getMessage(), 500);
-    }
-  } else {
-    $filename = 'deposit_rent_report_v2_' . $date2 . '.xlsx';
-    return \Excel::download(
-      new DepositRentReportV2Export($data),
-      $filename
-    );
-  }
-}
-
-/*
- *
- * Report on Deposit for rent / E,W v2 ends
  *
  */
 
@@ -2949,673 +2657,6 @@ print_r($a); */
 
 /*
  *
- * Expense Details v2 starts (same report logic as v1, no JasperPHP/Java dependency -
- * uses \FPDF directly for PDF, same as Tenant Receivable v2 / Legal Receivable v2)
- *
- */
-
-public function showExpenseDetailsReportV2(){
-  $buildings = Building::active()->orderBy('building_name','asc')->get();
-  return view('backoffice::reports.expense_details_report_v2', compact('buildings'));
-}
-
-/**
- * Same UNION query as the v1 Jasper templates (Expense_Details*.jrxml), ported
- * to PHP. Kept as two distinct branches on purpose: the unfiltered query derives
- * debit_amt via a case/vsr join (matches Expense_Details.jrxml / Expense_Details_Summary.jrxml),
- * while the building-filtered query uses mid.debit_amt directly (matches the
- * _Compo.jrxml variants) - this is how the original reports already behave.
- */
-private function expenseDetailsV2Query($date1, $date2, $buildingName, $expenseType = '')
-{
-  // General Ledger rows only appear when no expense type is chosen ("All").
-  // Selecting In-house or Subcontractor filters to maintenance-invoice rows
-  // of that type only - GL rows are excluded.
-  $expenseTypeFilter = '';
-  $params = [];
-  if ($expenseType === 'inhouse' || $expenseType === 'subcontractor') {
-    $expenseTypeFilter = " AND a.expense_type = ?";
-    $params[] = $expenseType === 'inhouse' ? 'In-house' : 'Subcontractor';
-  }
-
-  if ($buildingName === '') {
-    $sql = "
-      SELECT DISTINCT invoice_desc, id, building_name, acc_code_val, acc_code_desc,
-             maintenance_invoice_date, maintenance_invoice_no, maintenance_invoice_desc,
-             maintenance_invoice_refer_no, debit_amt::float, source, expense_type
-      FROM (
-        SELECT mid.invoice_desc, mi.id, b.building_name, ac.acc_code_val, ac.acc_code_desc,
-               mi.maintenance_invoice_date, mi.maintenance_invoice_no, mi.maintenance_invoice_desc,
-               mi.maintenance_invoice_refer_no,
-               CASE WHEN vsr.total_charge IS NULL THEN mi.maintenance_invoice_refer_amt::numeric ELSE vsr.total_charge END AS debit_amt,
-               'MI' AS source,
-               CASE WHEN mid.service_report_id IS NOT NULL THEN 'In-house' ELSE 'Subcontractor' END AS expense_type
-        FROM maintenance_invoices mi
-        RIGHT JOIN maintenance_invoice_details mid ON mid.maintenance_invoice_id = mi.id
-        LEFT JOIN view_complaint_service_report_details_test vsr ON vsr.service_report_no = mid.invoice_desc
-        RIGHT JOIN acc_codes ac ON ac.id = mid.ac_codes_id
-        INNER JOIN buildings b ON b.id = mid.building_id
-        WHERE mid.debit_amt <> '0' AND deleted_at IS NULL
-
-        UNION ALL
-
-        SELECT gld.description, gl.id, b.building_name, ac.acc_code_val, ac.acc_code_desc, gl.doc_date,
-               gl.voucher_no, gl.general_ledger_desc, gl.jv_refer_no, gld.debit_amt::float,
-               'GL' AS source, NULL AS expense_type
-        FROM general_ledgers gl
-        LEFT JOIN general_ledger_dim gld ON gld.general_ledger_id = gl.id
-        LEFT JOIN acc_codes ac ON ac.id = gld.account_id
-        INNER JOIN buildings b ON b.id = gld.building_id
-        WHERE gld.debit_amt <> '0' AND deleted_at IS NULL
-      ) a
-      WHERE acc_code_val::text ~~ '4%' AND (a.maintenance_invoice_date BETWEEN ? AND ?){$expenseTypeFilter}
-      ORDER BY acc_code_val, maintenance_invoice_no
-    ";
-    return DB::select($sql, array_merge([$date1, $date2], $params));
-  }
-
-  $sql = "
-    SELECT DISTINCT invoice_desc, id, building_name, acc_code_val, acc_code_desc,
-           maintenance_invoice_date, maintenance_invoice_no, maintenance_invoice_desc,
-           maintenance_invoice_refer_no, debit_amt::float, source, expense_type
-    FROM (
-      SELECT mid.invoice_desc, mi.id, b.building_name, ac.acc_code_val, ac.acc_code_desc,
-             mi.maintenance_invoice_date, mi.maintenance_invoice_no, mi.maintenance_invoice_desc,
-             mi.maintenance_invoice_refer_no,
-             mid.debit_amt::float AS debit_amt,
-             'MI' AS source,
-             CASE WHEN mid.service_report_id IS NOT NULL THEN 'In-house' ELSE 'Subcontractor' END AS expense_type
-      FROM maintenance_invoices mi
-      INNER JOIN maintenance_invoice_details mid ON mid.maintenance_invoice_id = mi.id
-      RIGHT JOIN acc_codes ac ON ac.id = mid.ac_codes_id
-      INNER JOIN buildings b ON b.id = mid.building_id
-      WHERE mid.debit_amt <> '0' AND deleted_at IS NULL
-
-      UNION
-
-      SELECT gld.description, gl.id, b.building_name, ac.acc_code_val, ac.acc_code_desc, gl.doc_date,
-             gl.voucher_no, gl.general_ledger_desc, gl.jv_refer_no, gld.debit_amt::float,
-             'GL' AS source, NULL AS expense_type
-      FROM general_ledgers gl
-      LEFT JOIN general_ledger_dim gld ON gld.general_ledger_id = gl.id
-      LEFT JOIN acc_codes ac ON ac.id = gld.account_id
-      INNER JOIN buildings b ON b.id = gld.building_id
-      WHERE gld.debit_amt <> '0' AND deleted_at IS NULL
-    ) a
-    WHERE acc_code_val::text ~~ '4%' AND (a.building_name = ?) AND (a.maintenance_invoice_date BETWEEN ? AND ?){$expenseTypeFilter}
-    ORDER BY acc_code_val, maintenance_invoice_no
-  ";
-  return DB::select($sql, array_merge([$buildingName, $date1, $date2], $params));
-}
-
-public function expenseDetailsReportPdfV2(Request $request){
-  $user         = Auth::user()->username;
-  $date1        = $request['start_date'];
-  $date2        = $request['end_date'];
-  $buildingId   = $request['building_name'] ?? '';
-  $reportType   = $request['report_type'];
-  $downloadType = $request['download_type'];
-  $expenseType  = $request['expense_type'] ?? '';
-
-  $buildingName = '';
-  if (!empty($buildingId)) {
-    $building = Building::find($buildingId);
-    $buildingName = $building ? $building->building_name : '';
-  }
-
-  $rows = $this->expenseDetailsV2Query($date1, $date2, $buildingName, $expenseType);
-
-  // Group by accounting code, same as the Jasper templates' Group1 (groupExpression: acc_code_val)
-  $grouped = [];
-  // Nested by building, then by accounting code (Group1 in the Jasper templates).
-  // When a single building is filtered, this collapses to one outer entry and
-  // renders identically to before. When unfiltered ("All Buildings"), each
-  // building gets its own banner so rows/subtotals are never ambiguous about
-  // which building they belong to.
-  foreach ($rows as $row) {
-    $grouped[$row->building_name][$row->acc_code_val]['desc'] = $row->acc_code_desc;
-    $grouped[$row->building_name][$row->acc_code_val]['rows'][] = $row;
-  }
-  ksort($grouped);
-  foreach ($grouped as &$buildingGroups) {
-    ksort($buildingGroups);
-  }
-  unset($buildingGroups);
-
-  $showBuildingBanner = count($grouped) > 1;
-
-  $data = [
-    'grouped'            => $grouped,
-    'showBuildingBanner' => $showBuildingBanner,
-    'date1'       => $date1,
-    'date2'       => $date2,
-    'user'        => $user,
-    'buildingName'=> $buildingName,
-    'reportType'  => $reportType,
-  ];
-
-  if ($downloadType == 'pdf') {
-    ini_set('memory_limit', '256M');
-    set_time_limit(300);
-    try {
-      require_once base_path('vendor/setasign/fpdf/fpdf.php');
-
-      $isSummary = $reportType == 1;
-      $filename = ($isSummary ? 'expense_details_summary_v2_' : 'expense_details_v2_') . $date2 . '.pdf';
-
-      $pdf = new \Modules\BackOffice\Pdf\ExpenseDetailsV2Pdf('P', 'mm', 'A3');
-      $pdf->AliasNbPages();
-      $pdf->SetAutoPageBreak(false);
-      $pdf->SetMargins(10, 10, 10);
-
-      $marginLeft  = 10;
-      $marginRight = 10;
-      $pageW       = 297;
-      $usableW     = $pageW - $marginLeft - $marginRight; // 277
-      $pageBreakY  = 405; // leave room for the footer
-
-      $lineH = 4.2;
-
-      $logoPath = public_path('img/logo_pdf.jpg');
-
-      $drawHeader = function() use ($pdf, $marginLeft, $usableW, $date1, $date2, $buildingName, $user, $logoPath, $isSummary) {
-        $pdf->AddPage();
-
-        if (file_exists($logoPath)) {
-          $pdf->Image($logoPath, $marginLeft, 8, 32);
-        }
-
-        $pdf->SetXY($marginLeft, 10);
-        $pdf->SetFont('Arial', 'B', 18);
-        $pdf->Cell($usableW, 10, 'Expense Details', 0, 1, 'C');
-
-        $pdf->SetXY($marginLeft, 8);
-        $pdf->SetFont('Arial', 'B', 8);
-        $pdf->Cell($usableW - 40, 5, '', 0, 0);
-        $pdf->Cell(20, 5, 'Report date :', 0, 0, 'L');
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->Cell(20, 5, date('d/m/Y H:i'), 0, 1, 'L');
-
-        $pdf->SetXY($marginLeft, 13);
-        $pdf->SetFont('Arial', 'B', 8);
-        $pdf->Cell($usableW - 40, 5, '', 0, 0);
-        $pdf->Cell(20, 5, 'User ID :', 0, 0, 'L');
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->Cell(20, 5, $user, 0, 1, 'L');
-
-        $pdf->SetXY($marginLeft, 28);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(30, 6, 'Date From :', 0, 0, 'L');
-        $pdf->SetFont('Arial', '', 9);
-        $pdf->Cell(0, 6, date('d/m/Y', strtotime($date1)), 0, 1, 'L');
-
-        $pdf->SetX($marginLeft);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(30, 6, 'Date To :', 0, 0, 'L');
-        $pdf->SetFont('Arial', '', 9);
-        $pdf->Cell(0, 6, date('d/m/Y', strtotime($date2)), 0, 1, 'L');
-
-        if ($buildingName !== '') {
-          $pdf->SetX($marginLeft);
-          $pdf->SetFont('Arial', 'B', 9);
-          $pdf->Cell(30, 6, 'Building Name :', 0, 0, 'L');
-          $pdf->SetFont('Arial', '', 9);
-          $pdf->Cell(0, 6, $buildingName, 0, 1, 'L');
-        }
-
-        $pdf->Ln(2);
-      };
-
-      // word-wrap helper: returns wrapped lines that fit within $w at the pdf's current font
-      $wrap = function($text, $w) use ($pdf) {
-        $text = (string)$text;
-        $words = preg_split('/\s+/', trim($text));
-        $lines = [];
-        $line = '';
-        foreach ($words as $word) {
-          $test = $line === '' ? $word : $line . ' ' . $word;
-          if ($pdf->GetStringWidth($test) > $w - 2 && $line !== '') {
-            $lines[] = $line;
-            $line = $word;
-          } else {
-            $line = $test;
-          }
-        }
-        if ($line !== '' || empty($lines)) $lines[] = $line;
-        return $lines;
-      };
-
-      // draws a single bordered/filled cell whose text is vertically centered within a given row height
-      $vCell = function($x, $y, $w, $rowH, $text, $align, $fill, $border = true) use ($pdf, $lineH) {
-        if ($fill !== null) {
-          $pdf->SetFillColor($fill[0], $fill[1], $fill[2]);
-          $pdf->Rect($x, $y, $w, $rowH, 'F');
-        }
-        if ($border) {
-          $pdf->Rect($x, $y, $w, $rowH);
-        }
-        $pdf->SetXY($x + 1, $y + ($rowH - $lineH) / 2);
-        $pdf->Cell($w - 2, $lineH, $text, 0, 0, $align);
-      };
-
-      if ($isSummary) {
-        $cols = ['Code' => 30, 'Description' => 202, 'Amount' => 45];
-
-        $drawTableHeader = function() use ($pdf, $marginLeft, $cols, $lineH) {
-          $pdf->SetFillColor(4, 93, 194);
-          $pdf->SetTextColor(255, 255, 255);
-          $pdf->SetFont('Arial', 'B', 9);
-          $x = $marginLeft;
-          $y = $pdf->GetY();
-          foreach ($cols as $label => $w) {
-            $pdf->Rect($x, $y, $w, 7, 'F');
-            $pdf->SetXY($x + 1, $y + (7 - $lineH) / 2);
-            $pdf->Cell($w - 2, $lineH, $label, 0, 0, $label == 'Amount' ? 'R' : 'L');
-            $x += $w;
-          }
-          $pdf->SetXY($marginLeft, $y + 7);
-          $pdf->SetTextColor(0, 0, 0);
-        };
-
-        $drawBuildingBanner = function($buildingLabel) use ($pdf, $marginLeft, $cols, $lineH) {
-          $x = $marginLeft; $y = $pdf->GetY();
-          $w = array_sum($cols);
-          $pdf->SetFillColor(70, 70, 95);
-          $pdf->Rect($x, $y, $w, 7, 'F');
-          $pdf->SetTextColor(255, 255, 255);
-          $pdf->SetFont('Arial', 'B', 10);
-          $pdf->SetXY($x + 2, $y + (7 - $lineH) / 2);
-          $pdf->Cell($w - 4, $lineH, 'Building : ' . $buildingLabel, 0, 0, 'L');
-          $pdf->SetXY($marginLeft, $y + 7);
-          $pdf->SetTextColor(0, 0, 0);
-        };
-
-        $drawHeader();
-        $drawTableHeader();
-
-        $grandTotal = 0;
-
-        foreach ($grouped as $buildingLabel => $accGroups) {
-          if ($showBuildingBanner) {
-            if ($pdf->GetY() + 7 > $pageBreakY) {
-              $drawHeader();
-              $drawTableHeader();
-            }
-            $drawBuildingBanner($buildingLabel);
-          }
-
-          $buildingTotal = 0;
-          $even = false;
-          foreach ($accGroups as $accCode => $group) {
-            $subTotal = 0;
-            foreach ($group['rows'] as $row) {
-              $subTotal += (float)$row->debit_amt;
-            }
-            $buildingTotal += $subTotal;
-
-            if ($pdf->GetY() + 6 > $pageBreakY) {
-              $drawHeader();
-              $drawTableHeader();
-            }
-
-            $even = !$even;
-            $fill = $even ? [220, 235, 245] : [255, 255, 255];
-            $x = $marginLeft; $y = $pdf->GetY();
-            $pdf->SetFont('Arial', '', 8);
-            $vCell($x, $y, $cols['Code'], 6, $accCode, 'L', $fill); $x += $cols['Code'];
-            $vCell($x, $y, $cols['Description'], 6, $group['desc'], 'L', $fill); $x += $cols['Description'];
-            $vCell($x, $y, $cols['Amount'], 6, number_format($subTotal, 3), 'R', $fill);
-            $pdf->SetXY($marginLeft, $y + 6);
-          }
-
-          $grandTotal += $buildingTotal;
-
-          if ($showBuildingBanner) {
-            if ($pdf->GetY() + 7 > $pageBreakY) {
-              $drawHeader();
-              $drawTableHeader();
-            }
-            $x = $marginLeft; $y = $pdf->GetY();
-            $subW = $cols['Code'] + $cols['Description'];
-            $pdf->SetFont('Arial', 'B', 8);
-            $vCell($x, $y, $subW, 6, 'Building Total :', 'R', [232, 244, 252]);
-            $vCell($x + $subW, $y, $cols['Amount'], 6, number_format($buildingTotal, 3), 'R', [232, 244, 252]);
-            $pdf->SetXY($marginLeft, $y + 8);
-          }
-        }
-
-        if ($pdf->GetY() + 8 > $pageBreakY) {
-          $drawHeader();
-        }
-        $x = $marginLeft; $y = $pdf->GetY() + 2;
-        $subW = $cols['Code'] + $cols['Description'];
-        $pdf->SetFont('Arial', 'B', 9);
-        $vCell($x, $y, $subW, 7, 'Total :', 'R', [222, 235, 250]);
-        $vCell($x + $subW, $y, $cols['Amount'], 7, number_format($grandTotal, 3), 'R', [222, 235, 250]);
-      } else {
-        $cols = ['Sl' => 14, 'Invoice' => 36, 'Date' => 28, 'Description' => 105, 'RefNo' => 38, 'Type' => 26, 'Amount' => 30];
-
-        $expenseTypeLabel = function($row) {
-          if ($row->source === 'GL') return 'General Ledger';
-          return $row->expense_type ?: '-';
-        };
-
-        $drawTableHeader = function() use ($pdf, $marginLeft, $cols, $lineH) {
-          $pdf->SetFillColor(4, 93, 194);
-          $pdf->SetTextColor(255, 255, 255);
-          $pdf->SetFont('Arial', 'B', 8);
-          $labels = ['Sl' => 'Sl No:', 'Invoice' => 'Invoice No:', 'Date' => 'Invoice Date', 'Description' => 'Description', 'RefNo' => 'Reference No', 'Type' => 'Type', 'Amount' => 'Amount'];
-          $x = $marginLeft;
-          $y = $pdf->GetY();
-          foreach ($cols as $key => $w) {
-            $pdf->Rect($x, $y, $w, 7, 'F');
-            $pdf->SetXY($x + 1, $y + (7 - $lineH) / 2);
-            $pdf->Cell($w - 2, $lineH, $labels[$key], 0, 0, $key == 'Amount' ? 'R' : 'L');
-            $x += $w;
-          }
-          $pdf->SetXY($marginLeft, $y + 7);
-          $pdf->SetTextColor(0, 0, 0);
-        };
-
-        $drawBuildingBanner = function($buildingLabel) use ($pdf, $marginLeft, $cols, $lineH) {
-          $x = $marginLeft; $y = $pdf->GetY();
-          $w = array_sum($cols);
-          $pdf->SetFillColor(70, 70, 95);
-          $pdf->Rect($x, $y, $w, 7, 'F');
-          $pdf->SetTextColor(255, 255, 255);
-          $pdf->SetFont('Arial', 'B', 10);
-          $pdf->SetXY($x + 2, $y + (7 - $lineH) / 2);
-          $pdf->Cell($w - 4, $lineH, 'Building : ' . $buildingLabel, 0, 0, 'L');
-          $pdf->SetXY($marginLeft, $y + 7);
-          $pdf->SetTextColor(0, 0, 0);
-        };
-
-        $drawHeader();
-        $drawTableHeader();
-
-        $grandTotal = 0;
-        $sl = 0;
-
-        foreach ($grouped as $buildingLabel => $accGroups) {
-          if ($showBuildingBanner) {
-            if ($pdf->GetY() + 6 > $pageBreakY) {
-              $drawHeader();
-              $drawTableHeader();
-            }
-            $drawBuildingBanner($buildingLabel);
-          }
-
-          $buildingTotal = 0;
-
-          foreach ($accGroups as $accCode => $group) {
-            if ($pdf->GetY() + 6 > $pageBreakY) {
-              $drawHeader();
-              $drawTableHeader();
-            }
-
-            // group header row: "Expense Type | <code> | <description>"
-            $x = $marginLeft; $y = $pdf->GetY();
-            $groupFill = [160, 201, 242];
-            $pdf->SetFont('Arial', 'B', 8);
-            $vCell($x, $y, $cols['Sl'], 6, '', 'L', $groupFill); $x += $cols['Sl'];
-            $vCell($x, $y, $cols['Invoice'], 6, 'Expense Type', 'L', $groupFill); $x += $cols['Invoice'];
-            $vCell($x, $y, $cols['Date'], 6, $accCode, 'L', $groupFill); $x += $cols['Date'];
-            $vCell($x, $y, $cols['Description'], 6, $group['desc'], 'L', $groupFill); $x += $cols['Description'];
-            $vCell($x, $y, $cols['RefNo'], 6, '', 'L', $groupFill); $x += $cols['RefNo'];
-            $vCell($x, $y, $cols['Type'], 6, '', 'L', $groupFill); $x += $cols['Type'];
-            $vCell($x, $y, $cols['Amount'], 6, '', 'R', $groupFill);
-            $pdf->SetXY($marginLeft, $y + 6);
-
-            $subTotal = 0;
-            $even = false;
-
-            foreach ($group['rows'] as $row) {
-              $subTotal += (float)$row->debit_amt;
-              $sl++;
-
-              $pdf->SetFont('Arial', '', 7);
-              $descLines = $wrap($row->maintenance_invoice_desc, $cols['Description']);
-              $rowH = max(1, count($descLines)) * $lineH;
-
-              if ($pdf->GetY() + $rowH > $pageBreakY) {
-                $drawHeader();
-                $drawTableHeader();
-                $pdf->SetFont('Arial', '', 7);
-              }
-
-              $even = !$even;
-              $fill = $even ? [220, 235, 245] : [255, 255, 255];
-              $x = $marginLeft; $y = $pdf->GetY();
-
-              $pdf->SetFillColor($fill[0], $fill[1], $fill[2]);
-              $pdf->Rect($x, $y, array_sum($cols), $rowH, 'F');
-
-              $pdf->Rect($x, $y, $cols['Sl'], $rowH);
-              $pdf->SetXY($x + 1, $y + ($rowH - $lineH) / 2);
-              $pdf->Cell($cols['Sl'] - 2, $lineH, $sl, 0, 0, 'L');
-              $x += $cols['Sl'];
-
-              $pdf->Rect($x, $y, $cols['Invoice'], $rowH);
-              $pdf->SetXY($x + 1, $y + ($rowH - $lineH) / 2);
-              $pdf->Cell($cols['Invoice'] - 2, $lineH, $row->maintenance_invoice_no, 0, 0, 'L');
-              $x += $cols['Invoice'];
-
-              $pdf->Rect($x, $y, $cols['Date'], $rowH);
-              $pdf->SetXY($x + 1, $y + ($rowH - $lineH) / 2);
-              $pdf->Cell($cols['Date'] - 2, $lineH, $row->maintenance_invoice_date ? date('d/m/Y', strtotime($row->maintenance_invoice_date)) : '', 0, 0, 'L');
-              $x += $cols['Date'];
-
-              $pdf->Rect($x, $y, $cols['Description'], $rowH);
-              $ty = $y;
-              foreach ($descLines as $dl) {
-                $pdf->SetXY($x + 1, $ty);
-                $pdf->Cell($cols['Description'] - 2, $lineH, $dl, 0, 0, 'L');
-                $ty += $lineH;
-              }
-              $x += $cols['Description'];
-
-              $pdf->Rect($x, $y, $cols['RefNo'], $rowH);
-              $pdf->SetXY($x + 1, $y + ($rowH - $lineH) / 2);
-              $pdf->Cell($cols['RefNo'] - 2, $lineH, $row->maintenance_invoice_refer_no, 0, 0, 'L');
-              $x += $cols['RefNo'];
-
-              $pdf->Rect($x, $y, $cols['Type'], $rowH);
-              $pdf->SetXY($x + 1, $y + ($rowH - $lineH) / 2);
-              $pdf->Cell($cols['Type'] - 2, $lineH, $expenseTypeLabel($row), 0, 0, 'L');
-              $x += $cols['Type'];
-
-              $pdf->Rect($x, $y, $cols['Amount'], $rowH);
-              $pdf->SetXY($x + 1, $y + ($rowH - $lineH) / 2);
-              $pdf->Cell($cols['Amount'] - 2, $lineH, number_format((float)$row->debit_amt, 3), 0, 0, 'R');
-
-              $pdf->SetXY($marginLeft, $y + $rowH);
-            }
-
-            $buildingTotal += $subTotal;
-
-            if ($pdf->GetY() + 7 > $pageBreakY) {
-              $drawHeader();
-              $drawTableHeader();
-            }
-
-            $x = $marginLeft; $y = $pdf->GetY();
-            $subW = $cols['Sl'] + $cols['Invoice'] + $cols['Date'] + $cols['Description'] + $cols['RefNo'] + $cols['Type'];
-            $pdf->SetFont('Arial', 'B', 8);
-            $vCell($x, $y, $subW, 7, 'Total :', 'R', null, false);
-            $vCell($x + $subW, $y, $cols['Amount'], 7, number_format($subTotal, 3), 'R', null, false);
-            $pdf->SetXY($marginLeft, $y + 9);
-          }
-
-          $grandTotal += $buildingTotal;
-
-          if ($showBuildingBanner) {
-            if ($pdf->GetY() + 7 > $pageBreakY) {
-              $drawHeader();
-              $drawTableHeader();
-            }
-            $x = $marginLeft; $y = $pdf->GetY();
-            $subW = $cols['Sl'] + $cols['Invoice'] + $cols['Date'] + $cols['Description'] + $cols['RefNo'] + $cols['Type'];
-            $pdf->SetFont('Arial', 'B', 8);
-            $vCell($x, $y, $subW, 7, 'Building Total :', 'R', [232, 244, 252]);
-            $vCell($x + $subW, $y, $cols['Amount'], 7, number_format($buildingTotal, 3), 'R', [232, 244, 252]);
-            $pdf->SetXY($marginLeft, $y + 9);
-          }
-        }
-
-        if ($pdf->GetY() + 10 > $pageBreakY) {
-          $drawHeader();
-        }
-        $x = $marginLeft; $y = $pdf->GetY();
-        $subW = $cols['Sl'] + $cols['Invoice'] + $cols['Date'] + $cols['Description'] + $cols['RefNo'] + $cols['Type'];
-        $pdf->SetFont('Arial', 'B', 9);
-        $vCell($x, $y, $subW, 7, 'Total :', 'R', [222, 235, 250]);
-        $vCell($x + $subW, $y, $cols['Amount'], 7, number_format($grandTotal, 3), 'R', [222, 235, 250]);
-      }
-
-      $content = $pdf->Output('S');
-      return response($content, 200, [
-        'Content-Type'        => 'application/pdf',
-        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-      ]);
-    } catch (\Throwable $e) {
-      return response('PDF Error: ' . $e->getMessage(), 500);
-    }
-  } else {
-    $filename = ($reportType == 1 ? 'expense_details_summary_v2_' : 'expense_details_v2_') . $date2 . '.xlsx';
-    return \Excel::download(
-      new ExpenseDetailsV2Export($data),
-      $filename
-    );
-  }
-}
-
-/**
- * Bundles one PDF per in-house service report (identified via
- * maintenance_invoice_details.service_report_id, same signal used by the
- * Expense Details v2 In-house filter) into a ZIP, grouped into a folder
- * per building.
- */
-public function expenseDetailsServiceReportsZip(Request $request){
-  $user       = Auth::user()->username;
-  $date1      = $request['start_date'];
-  $date2      = $request['end_date'];
-  $buildingId = $request['building_name'] ?? '';
-
-  $buildingName = '';
-  if (!empty($buildingId)) {
-    $building = Building::find($buildingId);
-    $buildingName = $building ? $building->building_name : '';
-  }
-
-  $params = [$date1, $date2];
-  $buildingFilter = '';
-  if ($buildingName !== '') {
-    $buildingFilter = ' AND b.building_name = ?';
-    $params[] = $buildingName;
-  }
-
-  $serviceReportIds = DB::select("
-    SELECT DISTINCT mid.service_report_id
-    FROM maintenance_invoices mi
-    INNER JOIN maintenance_invoice_details mid ON mid.maintenance_invoice_id = mi.id
-    INNER JOIN buildings b ON b.id = mid.building_id
-    WHERE mid.debit_amt <> '0' AND mi.deleted_at IS NULL
-      AND mid.service_report_id IS NOT NULL
-      AND mi.maintenance_invoice_date BETWEEN ? AND ?{$buildingFilter}
-  ", $params);
-
-  if (empty($serviceReportIds)) {
-    return response('No in-house service reports found for the selected filters.', 404);
-  }
-
-  $logoPath = public_path('img/logo_pdf.jpg');
-  $logo = file_exists($logoPath) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath)) : null;
-
-  $tempDir = storage_path('app/temp/service_reports_' . time());
-  if (!file_exists($tempDir)) {
-    mkdir($tempDir, 0755, true);
-  }
-
-  $files = [];
-
-  foreach ($serviceReportIds as $ref) {
-    $srId = $ref->service_report_id;
-
-    $header = DB::selectOne("
-      SELECT csr.id AS service_report_id, csr.service_report_no, csr.created_at AS report_date,
-             b.building_name, u.unit_no, ce.complaint_no, cc.checklist_desc
-      FROM complaint_service_report csr
-      LEFT JOIN complaint_service_report_checklist csrc ON csrc.complaint_service_report_id = csr.id
-      LEFT JOIN complaint_checklists cc ON cc.id = csrc.checklist_id
-      LEFT JOIN complaint_enquiries ce ON ce.id = cc.complaint_enquiries_id
-      LEFT JOIN buildings b ON b.id = ce.building_id
-      LEFT JOIN units u ON u.id = ce.unit_id
-      WHERE csr.id = ?
-    ", [$srId]);
-
-    if (!$header) {
-      continue;
-    }
-
-    $items = DB::select("
-      SELECT csri.quantity, csri.material_charge, csri.labour_charge, csri.total_charge,
-             csri.tax_percentage, csri.tax_amount, i.inventories_name
-      FROM complaint_service_report_inv csri
-      LEFT JOIN inventories i ON i.id = csri.inventory_id
-      WHERE csri.complaint_service_report_id = ?
-    ", [$srId]);
-
-    $reportBuildingName = $header->building_name ?: 'Unassigned';
-
-    $data = [
-      'header' => $header,
-      'items'  => $items,
-      'user'   => $user,
-      'logo'   => $logo,
-    ];
-
-    $pdf = \PDF::loadView('backoffice::Reports.service_report_pdf', $data)->setPaper('a4', 'portrait');
-
-    $safeBuilding = preg_replace('/[^A-Za-z0-9_\-]/', '_', $reportBuildingName);
-    $safeReportNo = preg_replace('/[^A-Za-z0-9_\-]/', '_', $header->service_report_no ?: ('SR' . $srId));
-    $fileName = $safeReportNo . '.pdf';
-    $filePath = $tempDir . '/' . $safeBuilding . '_' . $fileName;
-    $pdf->save($filePath);
-
-    $files[] = ['path' => $filePath, 'zipEntry' => $reportBuildingName . '/' . $fileName];
-  }
-
-  if (empty($files)) {
-    return response('No in-house service reports found for the selected filters.', 404);
-  }
-
-  $zipFileName = 'Service_Reports_' . $date2 . '.zip';
-  $zipPath = $tempDir . '/' . $zipFileName;
-  $zip = new ZipArchive();
-  if ($zip->open($zipPath, ZipArchive::CREATE) === true) {
-    foreach ($files as $file) {
-      $zip->addFile($file['path'], $file['zipEntry']);
-    }
-    $zip->close();
-  }
-
-  foreach ($files as $file) {
-    if (file_exists($file['path'])) {
-      unlink($file['path']);
-    }
-  }
-
-  return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
-}
-
-/*
- *
- * Expense Details v2 ends
- *
- */
-
-/*
- *
  * Monthly Tenancy Details starts
  *
  */
@@ -4927,7 +3968,7 @@ public function landlordTaxInvoiceReportStream(Request $request)
             exit;
         }
 
-        $contracts = $this->landlordTaxInvoiceEligibleContracts($vendorId, $fromDate, $toDate);
+        $contracts = $this->landlordTaxInvoiceEligibleContracts($vendorId);
         if ($contracts->isEmpty()) {
             $send(['pct' => 100, 'msg' => 'No eligible (Normal-management) buildings found for this landlord.', 'done' => true, 'error' => true]);
             exit;
@@ -4952,31 +3993,16 @@ public function landlordTaxInvoiceReportStream(Request $request)
 
             $amounts = $this->landlordTaxInvoiceLineAmounts($building, $fromDate, $toDate, $vendorId);
 
-            $mgmtAmount     = $amounts['management_fee'];
-            $cleanAmount    = $amounts['cleaning_charge'];
-            $repairAmount   = $amounts['repair_maintenance'];
-            $facilityAmount = $amounts['facility_management_fee'];
-            $renewalAmount  = $amounts['renewal_fee'];
-            $newLeaseAmount = $amounts['new_leasing_fee'];
-            $periodLabel    = $amounts['period_label'];
+            $mgmtAmount    = $amounts['management_fee'];
+            $cleanAmount   = $amounts['cleaning_charge'];
+            $repairAmount  = $amounts['repair_maintenance'];
+            $periodLabel   = $amounts['period_label'];
 
             $lines = [
                 ['desc' => 'MANAGEMENT FEES FOR ' . $periodLabel, 'amount' => $mgmtAmount],
                 ['desc' => "CLEANING CHARGES FOR " . $periodLabel, 'amount' => $cleanAmount],
                 ['desc' => 'REPAIR AND MAINTENANCE CHARGES', 'amount' => $repairAmount],
             ];
-            // Only printed when non-zero for the invoiced period — e.g. no
-            // "Renewal Fee" line if no renewal happened in this building
-            // during the requested from_date/to_date range.
-            if ($facilityAmount > 0) {
-                $lines[] = ['desc' => 'FACILITY MANAGEMENT FEE FOR ' . $periodLabel, 'amount' => $facilityAmount];
-            }
-            if ($renewalAmount > 0) {
-                $lines[] = ['desc' => 'RENEWAL FEE FOR ' . $periodLabel, 'amount' => $renewalAmount];
-            }
-            if ($newLeaseAmount > 0) {
-                $lines[] = ['desc' => 'NEW LEASING FEE FOR ' . $periodLabel, 'amount' => $newLeaseAmount];
-            }
             foreach ($lines as &$line) {
                 $line['qty']   = 1.000;
                 $line['unit_price'] = $line['amount'];
@@ -4998,7 +4024,7 @@ public function landlordTaxInvoiceReportStream(Request $request)
                 'totalDue'     => $totalDue,
                 'invoiceDate'  => date('d.m.Y', strtotime($toDate)),
                 'deliveryDate' => date('d.m.Y', strtotime($toDate)),
-                'paymentDate'  => Carbon::parse($toDate)->addMonthNoOverflow()->format('d.m.Y'),
+                'paymentDate'  => date('d.m.Y', strtotime($toDate . ' +1 month')),
                 'amountInWords' => $this->landlordTaxInvoiceAmountInWords($totalDue),
             ];
 
@@ -5050,28 +4076,17 @@ public function landlordTaxInvoiceReportStream(Request $request)
     }
 }
 
-public function landlordTaxInvoiceReportDownload(string $token)
-{
-    $info = cache()->get('ltir_dl_' . $token);
-    abort_if(!$info || !file_exists($info['path']), 404, 'File not found or expired.');
-    return response()->download($info['path'], $info['name'])->deleteFileAfterSend(true);
-}
-
 /**
  * Landlord contracts for the given vendor, restricted to buildings in the
- * Normal Management Report v2 building list. All management types
- * (Comprehensive, Normal, Commission) are included.
+ * Normal Management Report v2 building list and excluding Comprehensive
+ * management (management_id == 1), per the report's explicit scope.
  */
-private function landlordTaxInvoiceEligibleContracts(int $vendorId, string $fromDate, string $toDate): \Illuminate\Support\Collection
+private function landlordTaxInvoiceEligibleContracts(int $vendorId): \Illuminate\Support\Collection
 {
     return LandlordContract::with('buildingInfo')
         ->where('vendor_id', $vendorId)
-        ->where('landlord_contract_status', 1)
+        ->where('management_id', '!=', 1)
         ->whereIn('building_id', self::$nmrV2BuildingIds)
-        ->where('landlord_contract_valid_from_date', '<=', $toDate)
-        ->where(function ($q) use ($fromDate) {
-            $q->whereNull('landlord_contract_valid_to_date')->orWhere('landlord_contract_valid_to_date', '>=', $fromDate);
-        })
         ->get()
         ->unique('building_id')
         ->values();
@@ -5081,7 +4096,7 @@ private function landlordTaxInvoiceEligibleContracts(int $vendorId, string $from
  * Every {year, month} pair the given date range touches, in order.
  * E.g. 2026-06-15..2026-07-10 returns [{2026,6}, {2026,7}].
  */
-public function monthsTouchedByRange(string $fromDate, string $toDate): array
+private function monthsTouchedByRange(string $fromDate, string $toDate): array
 {
     $result = [];
     $cursor = new \DateTime(date('Y-m-01', strtotime($fromDate)));
@@ -5102,7 +4117,7 @@ public function monthsTouchedByRange(string $fromDate, string $toDate): array
  * ['management_fee' => float, 'cleaning_charge' => float, 'repair_maintenance' => float,
  *  'period_label' => string].
  */
-public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate, int $vendorId): array
+private function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate, int $vendorId): array
 {
     $monthsTouched = $this->monthsTouchedByRange($fromDate, $toDate);
 
@@ -5114,24 +4129,14 @@ public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building
     $managementFee = 0.0;
     $totalCleaning = 0.0;
     $totalExpenses = 0.0;
-    $totalFacility = 0.0;
-    $totalRenewal = 0.0;
-    $totalNewLeasing = 0.0;
     foreach ($byYear as $yr => $months) {
         $monthData = $this->buildNormalManagementMonthData($building, $yr, $months);
         foreach ($months as $m) {
             $data = $monthData[$m] ?? null;
             if (!$data) continue;
 
-            // Only the Routine & Maintenance expense category feeds this line
-            // (matches the "Routine & Maintenance Expenses" row in Normal
-            // Management Report v2) - other expense heads (A/C Maintenance,
-            // Dewatering, Electricity & Water, Municipal Tax, etc.) are not
-            // part of "Repair & Maintenance Charges" and must not be summed in.
             foreach ($data['expenses'] ?? [] as $exp) {
-                if (in_array($exp->expense_name, ['ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES'], true)) {
-                    $totalExpenses += (float) $exp->expense_amount;
-                }
+                $totalExpenses += (float) $exp->expense_amount;
             }
             $totalCleaning += (float) ($data['cleaning_charge'] ?? 0);
 
@@ -5142,13 +4147,6 @@ public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building
             // changed landlords) — skip the management-fee accumulation for this
             // month rather than billing using another landlord's contract terms.
             if ((int) $lc->vendor_id !== (int) $vendorId) continue;
-
-            // Facility Management Fee, Renewal Fee, and New Leasing Fee are also
-            // contract-derived (like Management Fee), so they must respect the
-            // same vendor-ownership guard — accumulate only after it, not before.
-            $totalFacility   += (float) ($data['facility_management_fee'] ?? 0);
-            $totalRenewal    += (float) ($data['renewal_fee'] ?? 0);
-            $totalNewLeasing += (float) ($data['new_leasing_fee'] ?? 0);
 
             if ((int) $lc->management_method === 2) {
                 $managementFee += (float) $lc->landlord_contract_management_fee;
@@ -5165,11 +4163,7 @@ public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building
             foreach ($data['old_outstanding'] ?? [] as $u) {
                 $monthCollection += (float) ($u->collection_amount ?? 0);
             }
-            $percentageBasis = (int) $lc->landlord_contract_percentage;
-            if ($percentageBasis !== 1 && $percentageBasis !== 2) {
-                continue; // out-of-domain percentage basis on this contract; skip this month's fee rather than guess
-            }
-            $basis = ($percentageBasis === 2) ? $monthCollection : $monthIncome;
+            $basis = ((int) $lc->landlord_contract_percentage === 2) ? $monthCollection : $monthIncome;
             $managementFee += round($basis * ((float) $lc->landlord_contract_management_fee / 100), 3);
         }
     }
@@ -5199,114 +4193,11 @@ public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building
     }
 
     return [
-        'management_fee'          => round($managementFee, 3),
-        'cleaning_charge'         => round($totalCleaning, 3),
-        'repair_maintenance'      => round($totalExpenses, 3),
-        'facility_management_fee' => round($totalFacility, 3),
-        'renewal_fee'             => round($totalRenewal, 3),
-        'new_leasing_fee'         => round($totalNewLeasing, 3),
-        'period_label'            => $periodLabel,
+        'management_fee'     => round($managementFee, 3),
+        'cleaning_charge'    => round($totalCleaning, 3),
+        'repair_maintenance' => round($totalExpenses, 3),
+        'period_label'       => $periodLabel,
     ];
-}
-
-/**
- * Sums Mun Tax, Elect & Water, Dewatering, AMC/Repair for A/C Units, and
- * AMC for F.A.S for one building over the given date range, reusing
- * buildNormalManagementMonthData() the same way landlordTaxInvoiceLineAmounts()
- * does for Repair & Maintenance - same building-level expense source, just
- * matched against different expense_name categories. No vendor-ownership
- * guard is applied here (unlike Management Fee) because these are
- * building-level utility/AMC expenses, not contract-derived fees.
- */
-public function landlordOtherDeductionsLineAmounts(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate): array
-{
-    $monthsTouched = $this->monthsTouchedByRange($fromDate, $toDate);
-
-    $byYear = [];
-    foreach ($monthsTouched as $mt) {
-        $byYear[$mt['year']][] = $mt['month'];
-    }
-
-    $munTax = $electWater = $dewatering = $acMaintenance = $fas = 0.0;
-    foreach ($byYear as $yr => $months) {
-        $monthData = $this->buildNormalManagementMonthData($building, $yr, $months);
-        foreach ($months as $m) {
-            $data = $monthData[$m] ?? null;
-            if (!$data) continue;
-
-            foreach ($data['expenses'] ?? [] as $exp) {
-                switch ($exp->expense_name) {
-                    case 'MUNICIPAL TAX':
-                        $munTax += (float) $exp->expense_amount;
-                        break;
-                    case 'ELECTRICITY & WATER':
-                        $electWater += (float) $exp->expense_amount;
-                        break;
-                    case 'DEWATERING':
-                        $dewatering += (float) $exp->expense_amount;
-                        break;
-                    case 'A C MAINTENANCE':
-                    case 'CIT - AC MAINTENANCE':
-                        $acMaintenance += (float) $exp->expense_amount;
-                        break;
-                    case 'FIRE ALARM SYSTEM MAINT.':
-                    case 'CIT - FIRE ALARAM SYSTEM MAINT.':
-                        $fas += (float) $exp->expense_amount;
-                        break;
-                }
-            }
-        }
-    }
-
-    return [
-        'mun_tax_charges'       => round($munTax, 3),
-        'elect_water_charges'   => round($electWater, 3),
-        'dewatering_charges'    => round($dewatering, 3),
-        'ac_amc_repair_charges' => round($acMaintenance, 3),
-        'fas_amc_charges'       => round($fas, 3),
-    ];
-}
-
-/**
- * Sums Repair & Maintenance charges billed by a sub-contractor (i.e. NOT
- * generated from an in-house technician service report) for one building
- * over the given date range - same in-house/sub-contractor signal
- * (mid.service_report_id) as Maintenance Invoice Report v2
- * (MaintenanceReportController::maintenanceInvoiceReportV2Query()).
- *
- * NOTE: no vendor filter here. maintenance_invoices.vendor_id only ever
- * holds CONTRACTOR vendor ids, never the LANDLORD vendor id this method's
- * caller has on hand (landlord_contract.vendor_id points at a vendor with
- * vendor_type_id = 2, disjoint from the vendor_type_id = 1 contractors on
- * maintenance_invoices) - filtering on it can never match anything.
- * Repair & Maintenance expenses are billed against the building, not tied
- * to which landlord owns it, matching how the in-house Repair &
- * Maintenance line (landlordTaxInvoiceLineAmounts()) and the other
- * Other-Deductions lines (landlordOtherDeductionsLineAmounts()) already
- * work - both scope by building only. Scoping is instead done by expense
- * category (same two Routine & Maintenance expense_name values as the
- * in-house R&M line) joined the same way buildNormalManagementMonthData()
- * joins maintenance_invoice_details -> maintenance_invoices -> acc_codes
- * -> expense_head, plus mid.service_report_id IS NULL to select only the
- * sub-contractor-billed portion (the in-house line implicitly gets the
- * service_report_id IS NOT NULL portion via technician service reports).
- */
-public function landlordSubcontractorRepairMaintenanceAmount(int $buildingId, string $fromDate, string $toDate): float
-{
-    $row = DB::selectOne("
-        SELECT COALESCE(SUM(CAST(mid.debit_amt AS NUMERIC)), 0) AS total
-        FROM maintenance_invoice_details mid
-        JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
-        JOIN acc_codes ac ON ac.id = mid.ac_codes_id
-        JOIN expense_head eh ON eh.acc_codes_id = ac.id
-        WHERE mid.building_id = ?
-          AND eh.expense_name IN ('ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES')
-          AND mi.maintenance_invoice_date BETWEEN ? AND ?
-          AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
-          AND mid.service_report_id IS NULL
-    ", [$buildingId, $fromDate, $toDate]);
-
-    return round((float) ($row->total ?? 0), 3);
 }
 
 /**
@@ -5315,7 +4206,7 @@ public function landlordSubcontractorRepairMaintenanceAmount(int $buildingId, st
  * (config/function.php) also used by RentReceiptGenerationController::printPreview()
  * for a similar amount-in-words line.
  */
-public function landlordTaxInvoiceAmountInWords(float $total): string
+private function landlordTaxInvoiceAmountInWords(float $total): string
 {
     $parts   = explode('.', number_format($total, 3, '.', ''));
     $whole   = (int) $parts[0];
@@ -5335,7 +4226,7 @@ public function landlordTaxInvoiceAmountInWords(float $total): string
  * exactly as normalManagementReportV2Stream() computes it. Shared with
  * the Landlord Tax Invoice Report so both reuse the same figures.
  */
-public function buildNormalManagementMonthData(\Modules\Masters\Entities\Building $building, int $year, array $monthsToPopulate): array
+private function buildNormalManagementMonthData(\Modules\Masters\Entities\Building $building, int $year, array $monthsToPopulate): array
 {
     $monthData = [];
 
@@ -5396,11 +4287,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                management_method,
                landlord_contract_percentage,
                landlord_contract_management_fee,
-               vendor_id,
-               landlord_contract_facility_management_fee AS facility_management_fee,
-               landlord_contract_renewal_fee AS renewal_fee,
-               landlord_contract_new_leasing_fee_type AS new_leasing_fee_type,
-               landlord_contract_new_leasing_fee AS new_leasing_fee
+               vendor_id
         FROM landlord_contract
         WHERE building_id = ?
         ORDER BY landlord_contract_valid_from_date
@@ -5456,31 +4343,6 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
         $newLeasedByMonth[(int) $nlRow->month] = [
             'new_leased_residential' => (int) $nlRow->new_leased_residential,
             'new_leased_commercial'  => (int) $nlRow->new_leased_commercial,
-        ];
-    }
-
-    // ── Batch renewal/new-lease counts + new-lease rent sum for the year ──
-    // A tenant contract is a renewal when tenant_contract_old_no is populated
-    // (it references the prior contract it renews), and a genuine new lease
-    // when it is null/empty. Used to compute the Renewal Fee and New Leasing
-    // Fee components below.
-    $renewalNewLeaseRows = DB::select("
-        SELECT EXTRACT(MONTH FROM tc.tenant_contract_start_date)::int AS month,
-            COUNT(DISTINCT CASE WHEN tc.tenant_contract_old_no IS NOT NULL AND tc.tenant_contract_old_no != '' THEN tc.id END) AS renewal_count,
-            COUNT(DISTINCT CASE WHEN tc.tenant_contract_old_no IS NULL OR tc.tenant_contract_old_no = '' THEN tc.id END) AS new_lease_count,
-            SUM(CASE WHEN tc.tenant_contract_old_no IS NULL OR tc.tenant_contract_old_no = '' THEN tc.tenant_contract_rent ELSE 0 END) AS new_lease_rent_sum
-        FROM tenant_contracts tc
-        JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
-        WHERE tc.tenant_contract_status != 2 AND EXTRACT(YEAR FROM tc.tenant_contract_start_date) = ?
-        GROUP BY month ORDER BY month
-    ", [$building->id, $year]);
-
-    $renewalNewLeaseByMonth = [];
-    foreach ($renewalNewLeaseRows as $rlRow) {
-        $renewalNewLeaseByMonth[(int) $rlRow->month] = [
-            'renewal_count'      => (int) $rlRow->renewal_count,
-            'new_lease_count'    => (int) $rlRow->new_lease_count,
-            'new_lease_rent_sum' => (float) $rlRow->new_lease_rent_sum,
         ];
     }
 
@@ -5942,44 +4804,20 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             if ($matched !== null) {
                 $cleaningCharge = (float) $matched->cleaning_charge;
             }
-
-            // Facility Management Fee, Renewal Fee, New Leasing Fee — all
-            // derived from the matched landlord contract, same date-range
-            // matching as Cleaning Charges above.
-            $facilityManagementFee = 0.0;
-            $renewalFee = 0.0;
-            $newLeasingFee = 0.0;
-            if ($matched !== null) {
-                $facilityManagementFee = (float) ($matched->facility_management_fee ?? 0);
-
-                $rn = $renewalNewLeaseByMonth[$m] ?? ['renewal_count' => 0, 'new_lease_count' => 0, 'new_lease_rent_sum' => 0];
-                $renewalFee = $rn['renewal_count'] * (float) ($matched->renewal_fee ?? 0);
-
-                $newLeasingFeeType = (int) ($matched->new_leasing_fee_type ?? 0);
-                if ($newLeasingFeeType === 1) {
-                    $newLeasingFee = round($rn['new_lease_rent_sum'] * ((float) ($matched->new_leasing_fee ?? 0) / 100), 3);
-                } elseif ($newLeasingFeeType === 2) {
-                    $newLeasingFee = $rn['new_lease_count'] * (float) ($matched->new_leasing_fee ?? 0);
-                }
-            }
         } else {
             $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0; $matched = null;
-            $facilityManagementFee = 0.0; $renewalFee = 0.0; $newLeasingFee = 0.0;
             $occupancy = ['total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
                 'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
                 'vacant_commercial' => 0, 'evacuation_residential' => 0, 'evacuation_commercial' => 0];
         }
 
         $monthData[$m] = [
-            'units'                   => $units,
-            'old_outstanding'         => $oldOutstanding ?? [],
-            'expenses'                => $expenses,
-            'occupancy'               => $occupancy,
-            'cleaning_charge'         => $cleaningCharge,
-            'landlord_contract'       => $matched,
-            'facility_management_fee' => $facilityManagementFee,
-            'renewal_fee'             => $renewalFee,
-            'new_leasing_fee'         => $newLeasingFee,
+            'units'             => $units,
+            'old_outstanding'   => $oldOutstanding ?? [],
+            'expenses'          => $expenses,
+            'occupancy'         => $occupancy,
+            'cleaning_charge'   => $cleaningCharge,
+            'landlord_contract' => $matched,
         ];
     }
 

@@ -53,7 +53,7 @@
             <td style="text-align:center; {{ $rowStyle }}">{{ $row->unit_vaccant_status != 0 ? $row->tenant_contact_no : '' }}</td>
             <td style="text-align:center; {{ $rowStyle }}">{{ $row->unit_vaccant_status != 0 && $row->tenant_contract_start_date ? date('d/m/Y', strtotime($row->tenant_contract_start_date)) : '' }}</td>
             <td style="text-align:center; {{ $rowStyle }}">{{ $row->unit_vaccant_status != 0 && $row->tenant_contract_valid_to_date ? date('d/m/Y', strtotime($row->tenant_contract_valid_to_date)) : '' }}</td>
-            <td style="text-align:right; {{ $rowStyle }}">{{ $row->unit_vaccant_status != 0 ? number_format((float)$row->tenant_contract_rent, 2) : '' }}</td>
+            <td style="text-align:right; {{ $rowStyle }}">{{ number_format((float)$row->tenant_contract_rent, 2) }}</td>
             <td style="text-align:center; {{ $rowStyle }}">{{ $row->unit_vaccant_status != 0 ? $row->payment_method_code : '' }}</td>
             <td style="text-align:center; {{ $rowStyle }}">{{ $row->unit_vaccant_status != 0 && $row->tenant_contract_last_paid_date ? date('d/m/Y', strtotime($row->tenant_contract_last_paid_date)) : '' }}</td>
             <td style="text-align:center; {{ $rowStyle }}">{{ $row->unit_usage }}</td>

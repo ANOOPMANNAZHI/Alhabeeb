@@ -744,6 +744,26 @@ Breadcrumbs::for('showDepositRentReport', function ($trail) {
     $trail->push('Report on Deposit for rent / E,W',route('showDepositRentReport'));
 });
 
+Breadcrumbs::for('depositRefundReceiptList', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Deposit Refund Receipts', route('depositRefundReceiptList'));
+});
+
+Breadcrumbs::for('depositRefundReceiptShow', function ($trail, $receipt) {
+    $trail->parent('depositRefundReceiptList');
+    $trail->push($receipt->receipt_no, route('depositRefundReceiptShow', $receipt->id));
+});
+
+Breadcrumbs::for('showRentCollectionSummary', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Rent Collection Summary', route('showRentCollectionSummary'));
+});
+
+Breadcrumbs::for('showDepositRentReportV2', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Report on Deposit for rent / E,W v2', route('showDepositRentReportV2'));
+});
+
 Breadcrumbs::for('showRentReceiptReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Rent Receipt',route('showRentReceiptReport'));
@@ -789,21 +809,6 @@ Breadcrumbs::for('showNormalManagementReportV2', function ($trail) {
 Breadcrumbs::for('showLandlordTaxInvoiceReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Landlord Tax Invoice Report', route('showLandlordTaxInvoiceReport'));
-});
-
-Breadcrumbs::for('depositRefundReceiptList', function ($trail) {
-    $trail->parent('home');
-    $trail->push('Deposit Refund Receipts', route('depositRefundReceiptList'));
-});
-
-Breadcrumbs::for('depositRefundReceiptShow', function ($trail, $receipt) {
-    $trail->parent('depositRefundReceiptList');
-    $trail->push($receipt->receipt_no, route('depositRefundReceiptShow', $receipt->id));
-});
-
-Breadcrumbs::for('showRentCollectionSummary', function ($trail) {
-    $trail->parent('home');
-    $trail->push('Rent Collection Summary', route('showRentCollectionSummary'));
 });
 
 Breadcrumbs::for('landlord-invoice-v2.index', function ($trail) {
@@ -852,6 +857,11 @@ Breadcrumbs::for('showRentalIncomeReport', function ($trail) {
 Breadcrumbs::for('showExpenseDetailsReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Expense Details',route('showExpenseDetailsReport'));
+});
+
+Breadcrumbs::for('showExpenseDetailsReportV2', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Expense Details v2', route('showExpenseDetailsReportV2'));
 });
 
 //newly added ends

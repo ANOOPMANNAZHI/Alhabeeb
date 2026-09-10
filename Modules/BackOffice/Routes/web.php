@@ -519,6 +519,10 @@ Route::get('/depositRefundAction/{deposit_id}/{status}/{stage}','DepositRefundCo
 Route::get('depositRefundApproval/{id}', 'DepositRefundController@depositRefundApprovalShow')->name('depositRefundApprovalShow');
 Route::match(['get', 'post'],'depositRefundApprovalSearch/depositRefund', 'DepositRefundController@depositRefundApprovalSearch')->name('depositRefundApprovalSearch');
 Route::get('/depositRefundPost/{deposit_id}/{status}','DepositRefundController@depositRefundPost')->name('depositRefundPost');
+Route::post('/depositRefund/{depositRefund}/deduction-receipt','DepositRefundController@generateDepositReceipt')->name('depositRefundReceiptGenerate');
+Route::get('/depositRefundReceipts','DepositRefundController@depositRefundReceiptList')->name('depositRefundReceiptList');
+Route::get('/depositRefundReceiptView/{depositRefundReceipt}','DepositRefundController@showDepositReceipt')->name('depositRefundReceiptShow');
+Route::get('/depositRefundReceipt/{depositRefundReceipt}','DepositRefundController@viewDepositReceipt')->name('depositRefundReceiptView');
 Route::post('depositRefund/tenantDetailsByBuildingUnit','DepositRefundController@tenantDetailsByBuildingUnit')->name('tenantDetailsByBuildingUnit');
 Route::get('/depositReceiptAutocompleteCode', 'DepositRefundController@depositReceiptAutocompleteCode')->name('depositReceiptAutocompleteCode');
 Route::post('depositRefund/receiptDetailsByTenantContract','DepositRefundController@receiptDetailsByTenantContract')->name('receiptDetailsByTenantContract');
@@ -677,6 +681,9 @@ Route::middleware('auth')->group(function () {
 	Route::post('employeeTenantContractReportPdf', 'BackOfficeReportController@employeeTenantContractReportPdf')->name('employeeTenantContractReportPdf');
 
 	Route::get('showDepositRentReport', 'BackOfficeReportController@showDepositRentReport')->name('showDepositRentReport');
+	Route::get('showRentCollectionSummary', 'RentCollectionSummaryController@index')->name('showRentCollectionSummary');
+	Route::get('showDepositRentReportV2', 'BackOfficeReportController@showDepositRentReportV2')->name('showDepositRentReportV2');
+	Route::post('depositRentReportPdfV2', 'BackOfficeReportController@depositRentReportPdfV2')->name('depositRentReportPdfV2');
 
 	Route::post('depositRentReportPdf', 'BackOfficeReportController@depositRentReportPdf')->name('depositRentReportPdf');
 
@@ -746,11 +753,6 @@ Route::middleware('auth')->group(function () {
 Route::get('landlord-invoice-v2-overview-preview', 'LandlordInvoiceV2Controller@overviewPreview')->name('landlordInvoiceV2OverviewPreview');
 	Route::get('landlord-invoice-v2/{landlordInvoiceV2}/print', 'LandlordInvoiceV2Controller@print')->name('landlordInvoiceV2Print');
 	Route::post('landlord-invoice-v2/{landlordInvoiceV2}/post', 'LandlordInvoiceV2Controller@post')->name('landlordInvoiceV2Post');
-Route::post('/depositRefund/{depositRefund}/deduction-receipt','DepositRefundController@generateDepositReceipt')->name('depositRefundReceiptGenerate');
-Route::get('/depositRefundReceipts','DepositRefundController@depositRefundReceiptList')->name('depositRefundReceiptList');
-Route::get('/depositRefundReceiptView/{depositRefundReceipt}','DepositRefundController@showDepositReceipt')->name('depositRefundReceiptShow');
-Route::get('/depositRefundReceipt/{depositRefundReceipt}','DepositRefundController@viewDepositReceipt')->name('depositRefundReceiptView');
-	Route::get('showRentCollectionSummary', 'RentCollectionSummaryController@index')->name('showRentCollectionSummary');
 
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 
@@ -810,6 +812,10 @@ Route::post('/getBuildingCompleteDetails', 'TenantContractDetailsController@getB
 	Route::post('rentalIncomeReportPdf', 'BackOfficeReportController@rentalIncomeReportPdf')->name('rentalIncomeReportPdf');
 	Route::get('showExpenseDetailsReport', 'BackOfficeReportController@showExpenseDetailsReport')->name('showExpenseDetailsReport');
 	Route::post('expenseDetailsReportPdf', 'BackOfficeReportController@expenseDetailsReportPdf')->name('expenseDetailsReportPdf');
+
+	Route::get('showExpenseDetailsReportV2', 'BackOfficeReportController@showExpenseDetailsReportV2')->name('showExpenseDetailsReportV2');
+	Route::post('expenseDetailsReportPdfV2', 'BackOfficeReportController@expenseDetailsReportPdfV2')->name('expenseDetailsReportPdfV2');
+	Route::post('expenseDetailsServiceReportsZip', 'BackOfficeReportController@expenseDetailsServiceReportsZip')->name('expenseDetailsServiceReportsZip');
 	//newly added ends
 
     Route::match(['get', 'post'],'contractGlobleSearch', 'GlobalSearchController@contractGlobleSearch')->name('contractGlobleSearch');

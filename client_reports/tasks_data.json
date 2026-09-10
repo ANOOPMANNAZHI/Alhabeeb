@@ -12,29 +12,21 @@
     },
     {
         "date": "2026-09-02",
-        "module": "BackOffice - Reports (Tenancy Details MERA)",
-        "description": "New 'Tenancy Details MERA' report: lists all buildings registered under MERA, lets the user select one or more buildings and download a per-building Tenancy Details report (unit, tenant, rent, contract dates, vacancy status, payment method, assigned employee, etc.) as PDF or Excel; multiple buildings are bundled into a ZIP. Added as a new menu item under Reports with its own permission.",
+        "module": "BackOffice - Reports (Tenancy Details / MERA)",
+        "description": "New 'Tenancy Details MERA' report: lists all buildings registered under MERA, lets the user select one or more buildings and download a per-building Tenancy Details report (unit, tenant, rent, contract dates, vacancy status, payment method, assigned employee, etc.) as PDF or Excel, bundled as a ZIP for multiple buildings, with its own Reports menu item and permission. Since building this, five issues found during review were fixed: (1) 'Total Rent' was inflated because it summed historical/terminated contract rows shown for reference on vacant units instead of only currently occupied units (Karama Bldg showed 6045.00 instead of the correct 3675.00); (2) a unit could go missing from the report entirely if it was occupied but had no currently-active contract, e.g. mid-renewal (Matar Al Kadeem Bldg-MERA Unit 51) - the report now shows such units using their latest contract on file; (3) vacant units and these 'pending contract' units are now color-highlighted (red / yellow) with a legend, so they stand out for review; (4) the menu-placement logic could attach the new menu item under the wrong 'Reports' menu (it was resolving to 'Finance Reports') - now resolves PLM Module -> Reports exactly; (5) the Rent column was blank for every vacant unit - it now shows the unit's last known rent (still excluded from the Total Rent figure, which only counts currently occupied units).",
         "files": [
-            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (showtenancyDetailsMeraReport, tenancyDetailsMeraReportDownload)",
+            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (showtenancyDetailsMeraReport, tenancyDetailsMeraReportDownload, tenancyDetailsReportPdf)",
             "Modules/BackOffice/Resources/views/Reports/tenancy_details_mera_report.blade.php",
+            "Modules/BackOffice/Resources/views/Reports/tenancy_details_report_pdf.blade.php",
+            "Modules/BackOffice/Resources/views/Reports/tenancy_details_report_excel.blade.php",
             "Modules/BackOffice/Routes/web.php",
             "Modules/BackOffice/Routes/breadcrumbs.php",
             "database/migrations/2026_08_15_000001_add_tenancy_details_mera_report_menu.php",
-            "tenancy_details_mera_report_menu.sql (manual DB script alternative to the migration)"
+            "tenancy_details_mera_report_menu.sql (manual DB script alternative to the migration)",
+            "server_upload_files/ (all of the above mirrored for deployment)"
         ],
         "status": "In Progress",
-        "remarks": "Code complete and staged in server_upload_files/ for deployment. Pending: run the menu migration/SQL on the production database and verify the report end-to-end on the live server."
-    },
-    {
-        "date": "2026-09-02",
-        "module": "BackOffice - Reports (Tenancy Details / MERA)",
-        "description": "Fixed incorrect 'Total Rent' figure on the Tenancy Details report (also affects the Tenancy Details MERA report, which reuses the same logic). The total was summing rent from every row returned for a building, including historical/terminated contract rows kept on screen for reference on now-vacant units. This inflated the total (e.g. Karama Bldg showed 6045.00 instead of the correct 3675.00). Total Rent is now summed only from currently occupied units.",
-        "files": [
-            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (tenancyDetailsReportPdf, tenancyDetailsMeraReportDownload)",
-            "server_upload_files/Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (mirrored fix in the deployment-staging copy)"
-        ],
-        "status": "Completed",
-        "remarks": "Verified by replaying the report's SQL for Karama Bldg: occupied-only rows sum to 3675.00, matching the client's manual calculation."
+        "remarks": "All fixes verified individually (SQL replay against Karama Bldg and Matar Al Kadeem Bldg-MERA, rolled-back test transaction for the menu placement). Note: checked showing the Unit master's own 'base rent' field instead of last-known rent, but 99% of units (6,237/6,288) have that field at 0/blank, so it was rejected in favor of last-known rent, which is populated for far more units - worth fixing the base rent data entry separately if that field is meant to be used elsewhere. Code complete and staged in server_upload_files/ for deployment. Pending: run the menu migration/SQL on the production database and do one final end-to-end verification of the deployed report."
     },
     {
         "date": "2026-09-02",
@@ -50,38 +42,143 @@
     },
     {
         "date": "2026-09-02",
-        "module": "BackOffice - Reports (Tenancy Details / MERA)",
-        "description": "Fixed a unit going missing entirely from the Tenancy Details report. Matar Al Kadeem Bldg-MERA, Unit 51 was marked occupied but its previous contract had expired and its renewal contract was still pending approval (not yet active) - a gap state the report's query did not account for, so the unit was silently dropped instead of appearing. Added a 4th case to the report query: an occupied unit with no currently-active contract now shows using its latest contract on file (e.g. the pending renewal), so it no longer disappears.",
+        "module": "BackOffice - Reports (Expense Details)",
+        "description": "Investigated 'Class JasperPHP not found' error on the Expense Details report. Root cause: this local backup copy of the project was missing the JasperPHP package's PHP source entirely (only the bundled JasperStarter.exe binary survived) and never had its Laravel service provider registered - confirmed local-only, not present on production. Restored the missing vendor files and provider registration locally. While testing, also found and fixed a real SQL bug in the underlying report templates (Expense_Details.jrxml / Expense_Details_Summary.jrxml): a cast of a decimal amount column to ::int failed whenever the amount had a fractional part, causing 'Your report has an error' for real data. Changed to ::numeric. Separately diagnosed a report hang as a stuck local java/jasperstarter process wedging the single-threaded local dev server (unrelated to the SQL fix); killed it and freed port 8000.",
         "files": [
-            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (tenancyDetailsReportPdf, tenancyDetailsMeraReportDownload)",
-            "server_upload_files/Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (mirrored fix in the deployment-staging copy)"
+            "vendor/cossou/jasperphp/... (local-only vendor restoration, not tracked by git)",
+            "config/app.php (local-only ServiceProvider registration, not tracked by git)",
+            "vendor/cossou/jasperphp/examples/Expense_Details.jrxml (::int -> ::numeric fix)",
+            "vendor/cossou/jasperphp/examples/Expense_Details_Summary.jrxml (::int -> ::numeric fix)"
         ],
         "status": "Completed",
-        "remarks": "Verified Unit 51 now appears (pending renewal contract TAG2601880, rent 200.000) with no duplicate rows for the building. Checked system-wide: only 1 unit was in this gap state, so the fix has a small, well-understood scope."
+        "remarks": "Confirmed by the client the JasperPHP/vendor issue is local-only - no production deployment needed for that part. The .jrxml SQL cast fix and its production status were not yet confirmed before the client asked to build a v2 replacement instead (see next entry) - flag for follow-up only if v1 stays in use."
     },
     {
         "date": "2026-09-02",
-        "module": "BackOffice - Reports (Tenancy Details / MERA)",
-        "description": "Added row highlighting on the Tenancy Details / MERA report (PDF and Excel) so units needing attention stand out visually: vacant units stay highlighted red (existing), and the newly-added 'occupied but no active contract / pending renewal' units (see Unit 51 fix above) are now highlighted yellow. A small color-key legend was added below the table in both formats explaining what each color means.",
+        "module": "BackOffice - Reports (Expense Details v2)",
+        "description": "New 'Expense Details v2' report, added as a separate menu item next to the existing v1 report (v1 left untouched) - same underlying SQL/business logic as v1 (Summary and Detailed report types, optional building filter, same expense data sources: maintenance invoices + general ledger), but built without any JasperPHP/Java dependency. PDF is generated with \\FPDF directly (same technique already used successfully for Tenant Receivable v2 / Legal Receivable v2), Excel via Maatwebsite\\Excel. Before building, load-tested FPDF against the full ~8,300-row unfiltered Detailed report: 0.2 seconds, 12MB memory (a DomPDF/Blade equivalent was tested first and failed, exhausting 3GB of memory) - so the full dataset renders reliably with no size-based fallback needed. PDF layout was then reworked to match the client's reference PDF exactly: logo header, Date From/To/Building Name block, blue table header, per-accounting-code group header and subtotal rows, wrapped multi-line descriptions, zebra-striped rows, a bordered grand-total box, and 'Page X of Y' footer, using the full page width with wider columns and rows.",
         "files": [
-            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (tags each row with 'active'/'pending'/'vacant' via a new row_flag column)",
-            "Modules/BackOffice/Resources/views/Reports/tenancy_details_report_pdf.blade.php",
-            "Modules/BackOffice/Resources/views/Reports/tenancy_details_report_excel.blade.php",
-            "server_upload_files/ (all three files mirrored for deployment)"
+            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (showExpenseDetailsReportV2, expenseDetailsReportPdfV2, expenseDetailsV2Query)",
+            "Modules/BackOffice/Pdf/ExpenseDetailsV2Pdf.php (FPDF subclass for the 'Page X of Y' footer)",
+            "Modules/BackOffice/Exports/ExpenseDetailsV2Export.php",
+            "Modules/BackOffice/Resources/views/Reports/expense_details_report_v2.blade.php",
+            "Modules/BackOffice/Resources/views/Reports/expense_details_v2_excel.blade.php",
+            "Modules/BackOffice/Resources/views/Reports/expense_details_summary_v2_excel.blade.php",
+            "Modules/BackOffice/Routes/web.php",
+            "Modules/BackOffice/Routes/breadcrumbs.php",
+            "database/migrations/2026_09_02_000001_add_expense_details_report_v2_menu.php",
+            "expense_details_report_v2_menu.sql (manual DB script alternative to the migration)",
+            "server_upload_files/ (all of the above mirrored for deployment)"
         ],
-        "status": "Completed",
-        "remarks": "Verified row_flag values via SQL for Matar Al Kadeem Bldg-MERA (Unit 51 tagged 'pending', vacant units tagged 'vacant', rest 'active') and confirmed no regressions on Karama Bldg's row count/structure."
+        "status": "In Progress",
+        "remarks": "SQL verified directly against the database for both the unfiltered (8,269 rows) and building-filtered (80 rows for Karama Bldg) branches - matches v1's row counts. Menu migration tested in a rolled-back transaction: correctly lands under PLM Module -> Finance Reports (same parent as v1's 'Expense details'), not the unrelated 'Reports' menu. PDF layout verified directly against the client-supplied reference PDF using real data for Merbat-1 Tower (Aug 2026). Load-tested against the 8,269-row unfiltered dataset: 175 pages, 0.7 seconds, 22MB memory, grand total 772,116.272 - matches the SQL total exactly. Not yet verified end-to-end in the browser - the local dev server repeatedly became unresponsive during testing (an existing local environment issue, unrelated to this new code, already seen on other reports). Pending: a live click-through once the local server is stable, then production deployment."
     },
     {
         "date": "2026-09-02",
-        "module": "BackOffice - Reports (Tenancy Details MERA)",
-        "description": "Fixed the menu placement logic in the MERA menu setup (migration + manual SQL script). It matched any menu whose name contained 'report', which is ambiguous - the system has multiple 'Reports' menus (one per module) plus similarly-named menus like 'Finance Reports', so it could attach the new menu item under the wrong module (confirmed it was picking 'Finance Reports' instead). Now resolves 'PLM Module' first, then its exact 'Reports' child, so the menu item reliably lands under PLM Module -> Reports.",
+        "module": "BackOffice - Reports (Expense Details v2)",
+        "description": "Two follow-up fixes to the Expense Details v2 PDF after client review: (1) switched page size from A4 to A3 and widened all columns/rows so a single building's full monthly report now fits on one page instead of two, with no cramped text; (2) the 'All Buildings' (unfiltered) report grouped every row by Expense Type only, so rows from different buildings with the same accounting code (e.g. 41102 MUNICIPAL TAX) were interleaved with no way to tell which building each one belonged to. Report now groups by Building first, then Expense Type within each building, with a distinct 'Building : <name>' banner row and a Building Total per building (grand total unchanged). This banner is skipped automatically when a single building is already filtered, so the original single-building layout is unaffected. Applied to both PDF and Excel, Summary and Detailed.",
         "files": [
-            "database/migrations/2026_08_15_000001_add_tenancy_details_mera_report_menu.php",
-            "server_upload_files/database/migrations/2026_08_15_000001_add_tenancy_details_mera_report_menu.php (mirrored)",
-            "server_upload_files/tenancy_details_mera_report_menu.sql"
+            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (expenseDetailsReportPdfV2: A3 page size, wider columns, building-then-accounting-code grouping)",
+            "Modules/BackOffice/Resources/views/Reports/expense_details_v2_excel.blade.php (building banner + building total rows)",
+            "Modules/BackOffice/Resources/views/Reports/expense_details_summary_v2_excel.blade.php (building banner + building total rows)",
+            "server_upload_files/ (all of the above re-synced for deployment)"
         ],
         "status": "Completed",
-        "remarks": "Verified by running the corrected SQL script in a rolled-back test transaction: the new menu now resolves parent_menu=183 ('Reports' under 'PLM Module'), not 'Finance Reports'."
+        "remarks": "Verified with real data: a single-building report (Merbat-1 Tower, Aug 2026) now fits on 1 A3 page instead of 2 A4 pages, with no building banner shown (matches the original reference layout exactly). An unfiltered multi-building run (60 rows across 38 buildings) correctly shows a 'Building : <name>' banner and Building Total before each building's Expense Type sections, plus the correct grand total."
+    },
+    {
+        "date": "2026-09-03",
+        "module": "BackOffice - Reports (Deposit Rent v2)",
+        "description": "New 'Report on Deposit for rent / E,W v2' report, added as a separate menu item next to the existing v1 report (v1 left completely untouched). Same SQL/business logic as v1, ported exactly from the original JasperReports template (two query branches: an unfiltered all-buildings query and a building-filtered query), and same PDF/Excel visual layout as v1 - client specifically asked for the format to stay unchanged this time, unlike Expense Details v2. Built without any JasperPHP/Java dependency, using \\FPDF directly for the PDF (landscape A4, since this report only needs 9 relatively narrow columns) and Maatwebsite\\Excel for the Excel export, following the same v2 pattern established for the other reports this session.",
+        "files": [
+            "Modules/BackOffice/Http/Controllers/BackOfficeReportController.php (showDepositRentReportV2, depositRentReportPdfV2, depositRentReportV2Query)",
+            "Modules/BackOffice/Pdf/DepositRentReportV2Pdf.php (FPDF subclass for the 'Page X of Y' footer)",
+            "Modules/BackOffice/Exports/DepositRentReportV2Export.php",
+            "Modules/BackOffice/Resources/views/Reports/deposit_rent_report_v2.blade.php",
+            "Modules/BackOffice/Resources/views/Reports/deposit_rent_report_v2_excel.blade.php",
+            "Modules/BackOffice/Routes/web.php",
+            "Modules/BackOffice/Routes/breadcrumbs.php",
+            "database/migrations/2026_09_03_000000_add_deposit_rent_report_v2_menu.php",
+            "deposit_rent_report_v2_menu.sql (manual DB script alternative to the migration)",
+            "server_upload_files/ (all of the above mirrored for deployment)"
+        ],
+        "status": "In Progress",
+        "remarks": "SQL and PDF logic verified with a standalone test script against real data: computed grand total (102,197.18) matched the SQL sum exactly, and the generated PDF's header layout, colors, column headers, zebra striping, grand-total bar and footer format were confirmed to match the v1 reference PDF. Menu migration applied locally (PLM Module -> Reports, same parent as v1's menu item). Pending: a live click-through in the browser once the local dev server is stable, then production deployment via the SQL script."
+    },
+    {
+        "date": "2026-09-09",
+        "module": "BackOffice - Landlord Invoice v2 (Post to AX)",
+        "description": "New 'Post to AX' action on the Landlord Invoice v2 list: an active invoice can be pushed to Microsoft Dynamics AX as an AP Invoice Journal (PLM-INV) using the same SOAP wrapper as v1 Landlord Invoice. Posts a vendor credit for the grand total, a ledger debit for the subtotal (account from Account Params 'Comprehensive_Payable_Transaction'), and a ledger debit for VAT to a configurable account (General Settings key 'landlord_invoice_v2_vat_account'); Other Deductions invoices post with debits and credits reversed. Building code and AX division are sent as dimensions exactly as v1. The invoice is claimed atomically before posting (prevents double posting), the returned AX journal number is stored in ax_batch_id, status becomes 'posted', and posted invoices can no longer be edited or voided. New permission 'post_landlord_invoice_v2' (granted to super_admin, finance_manager, accountant, backoffice_manager) controls the button. Posting failures (validation, AX unreachable, AX line error) show a clear message and are logged server-side. AX_URL can now be overridden from .env for testing.",
+        "files": [
+            "Modules/BackOffice/Services/LandlordInvoiceV2AxLineBuilder.php (new)",
+            "Modules/BackOffice/Services/LandlordInvoiceV2AxPoster.php (new)",
+            "Modules/BackOffice/Exceptions/AxPostingException.php (new)",
+            "Modules/BackOffice/Http/Controllers/LandlordInvoiceV2Controller.php",
+            "Modules/BackOffice/Entities/LandlordInvoiceV2.php",
+            "Modules/BackOffice/Resources/views/LandlordInvoiceV2/index.blade.php",
+            "Modules/BackOffice/Resources/views/LandlordInvoiceV2/index_ajax.blade.php",
+            "Modules/BackOffice/Resources/views/LandlordInvoiceV2/pdf.blade.php",
+            "Modules/BackOffice/Routes/web.php",
+            "Modules/BackOffice/Database/Migrations/2026_09_09_000001_add_ax_posting_to_landlord_invoice_v2.php",
+            "database/migrations/2026_09_09_000002_add_post_landlord_invoice_v2_permission.php",
+            "config/constants.php, config/function.php (AX_URL env override; re-require guards)",
+            "tests/Unit/LandlordInvoiceV2AxLineBuilderTest.php, tests/Unit/LandlordInvoiceV2AxPosterTest.php (new, 15 tests)",
+            "server_upload_files/ (all of the above mirrored for deployment)",
+            "server_upload_files/landlord_invoice_v2_ax_posting_columns.sql, post_landlord_invoice_v2_permission.sql (manual DB scripts, alternative to the migrations)"
+        ],
+        "status": "In Progress",
+        "remarks": "Unit tests cover the AX payload (tax invoice, other deductions, zero VAT, missing building, dimension fallbacks) and the posting flow (validation refusals, header/line failure, AX unreachable, double-submit claim) — 18/18 passing. No AX call has been made yet: AX is currently on a local PC, so pending are (1) point AX_URL at that PC, (2) finance to enter the VAT ledger account in General Settings (seeded as 0 = not configured), (3) confirm with the AX team that the VAT line is accepted as a plain LEDGER line with no tax code, (4) post one Tax Invoice and one Other Deductions and verify three balanced lines in the PLM-INV journal in AX. No change required on the AX server."
+    },
+    {
+        "date": "2026-09-09",
+        "module": "Masters - Vendors (Landlord bank details)",
+        "description": "Added a 'Swift Code' field to the Masters -> Vendors add/edit screen (used for landlords), next to the existing Bank dropdown and Account No. Optional, exactly 11 letters/digits (SWIFT/BIC), stored uppercase; shown on the vendor view page when set.",
+        "files": [
+            "Modules/Masters/Database/Migrations/2026_09_09_000003_add_swift_code_to_vendors.php (new column vendors.swift_code)",
+            "Modules/Masters/Http/Controllers/VendorController.php",
+            "Modules/Masters/Resources/views/Vendors/add_edit.blade.php",
+            "Modules/Masters/Resources/views/Vendors/view.blade.php",
+            "server_upload_files/ (all of the above mirrored for deployment)",
+            "server_upload_files/add_swift_code_to_vendors.sql (manual DB script, alternative to the migration)"
+        ],
+        "status": "Completed",
+        "remarks": "Verified with a script: column created, validation accepts a valid 11-character code and blank, rejects short or punctuated values; value saves and clears correctly. Bank and Account No already existed on this form."
+    },
+    {
+        "date": "2026-09-09",
+        "module": "BackOffice - Reports (Rent Collection Summary)",
+        "description": "New \"Rent Collection Summary\" screen under PLM Module -> Reports showing, for every building, the rent collected and the pending collection for a selected month. Filters are a free-text Building search (matches building name or code, searching as you type) plus Month and Year, defaulting to the current month and all buildings (so on opening it shows this month's collection till today); the table reloads without a page refresh when the filter changes, and a RESET button returns to the current month and all buildings. Columns: Building, Month, Total Rent Collection, Pending Collection, with a totals row across all buildings. Collection is the sum of rent receipts dated within the month (cancelled and deleted receipts excluded); pending is the total monthly rent of the tenant contracts active in that month minus the collection, never shown below zero. Buildings with no contracts and no receipts in the month are omitted. Display only - no PDF or Excel download, as requested.",
+        "files": [
+            "Modules/BackOffice/Http/Controllers/RentCollectionSummaryController.php (new)",
+            "Modules/BackOffice/Resources/views/Reports/rent_collection_summary.blade.php (new)",
+            "Modules/BackOffice/Resources/views/Reports/rent_collection_summary_ajax.blade.php (new)",
+            "Modules/BackOffice/Routes/web.php, Modules/BackOffice/Routes/breadcrumbs.php",
+            "database/migrations/2026_09_09_000004_add_rent_collection_summary_menu.php (menu + view_rent_collection_summary permission)",
+            "server_upload_files/rent_collection_summary_menu.sql (manual DB script, alternative to the migration)",
+            "server_upload_files/ (all of the above mirrored for deployment)"
+        ],
+        "status": "Completed",
+        "remarks": "SQL verified against live data: a building's monthly collection matched a direct sum of its receipts exactly, and its expected rent matched a direct sum of active contract rents. Page rendered end-to-end as super_admin (HTTP 200): default filter showed the current month, an explicit Jun 2026 filter returned 159 buildings with the right month label, invalid month/year input fell back to the current month, and the AJAX request returned only the table rows. Menu created under PLM Module -> Reports with the permission granted to all 27 roles. Building search verified: blank returns all 159 buildings for Jun 2026, \"Falaj\" narrows to 4, a lowercase name matches case-insensitively, a building code matches, no-match shows an empty state, search combines correctly with the month filter, and the query uses parameter bindings (an injection attempt is treated as literal text)."
+    },
+    {
+        "date": "2026-09-09",
+        "module": "BackOffice - Deposit Refund (Customer deduction receipt)",
+        "description": "When a deposit refund withholds money from the tenant's security deposit (electricity and water, municipal tax, outstanding rent and similar), the customer now gets a numbered receipt showing the deposit held, each amount deducted, any deposit balance retained, and the net amount refunded. The receipt is issued automatically when the refund is saved, and a Generate Receipt button on the refund view covers refunds entered before this existed; once issued the button is replaced by View Receipt, which opens the printable document. Refunds with no deduction show no button at all. Which accounts represent money handed back (cash, cheque, bank) is a General Settings entry, so finance can adjust it without a code change; every other credited account is treated as a deduction and printed on the receipt. A Deposit Refund Receipts list was added under Operations -> Transaction, beside the existing Deposit Refund screens, searchable by receipt number, refund number, tenant, building, unit and date. Each receipt opens as an on-screen page inside the application, and prints in the same voucher format as the general receipt, with the company header, the amount in words and the deduction table showing the deposit held, each amount withheld, the total and the net refunded.",
+        "files": [
+            "Modules/BackOffice/Services/DepositRefundReceiptBuilder.php (new, pure calculation)",
+            "Modules/BackOffice/Services/DepositRefundReceiptIssuer.php (new)",
+            "Modules/BackOffice/Entities/DepositRefundReceipt.php, DepositRefundReceiptLine.php (new)",
+            "Modules/BackOffice/Http/Controllers/DepositRefundController.php",
+            "Modules/BackOffice/Resources/views/Transaction/deposit_refund_view.blade.php",
+            "Modules/BackOffice/Resources/views/Transaction/deposit_refund_receipt_print.blade.php (new)",
+            "Modules/BackOffice/Routes/web.php",
+            "Modules/BackOffice/Database/Migrations/2026_09_09_000005_create_deposit_refund_receipt_tables.php (new tables + settings)",
+            "server_upload_files/deposit_refund_receipt_setup.sql (manual DB script, alternative to the migration)",
+            "server_upload_files/ (all of the above mirrored for deployment)",
+            "Modules/BackOffice/Resources/views/Transaction/deposit_refund_receipt_list.blade.php, deposit_refund_receipt_list_ajax.blade.php, deposit_refund_receipt_view.blade.php (new)",
+            "database/migrations/2026_09_09_000006_add_deposit_refund_receipt_menu.php + server_upload_files/deposit_refund_receipt_menu.sql"
+        ],
+        "status": "Completed",
+        "remarks": "Deliberately kept in its own tables rather than the existing receipts table: the AX receipt posting routine selects receipts purely by date range and status without filtering by type, so a row added there would have been posted to AX. These receipts never reach AX and cannot affect any collection figure or report. Verified end to end against live data: 8 unit tests on the calculation (deduction split, retained deposit balance, rounding, no-deduction case), and a full request test confirming no button on a refund without deductions, Generate Receipt on one with deductions, the button flipping to View Receipt after issuing, the printable receipt rendering with correct figures (deposit 700.000, deducted 100.250, net 599.750, balanced), and zero rows added to receipts_generation. 87 of the 1160 existing refunds qualify for a receipt. The list, the on-screen view and the print page were all rendered end to end as an admin and verified, including the search filters returning the right rows and the amount in words reading Five Hundred Ninety-nine And 750/1000 for a net refund of 599.750."
     }
 ]

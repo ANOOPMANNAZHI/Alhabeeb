@@ -190,7 +190,9 @@ class ComplaintStageController extends Controller
         ]);
       $material_charge = isset($request['material_charge'])?$request['material_charge']:0;
       $labour_charge  = isset($request['labour_charge'])?$request['labour_charge']:0;
-      $total_charge     = $material_charge + $labour_charge ;
+      $tax_percentage = (float)prefixData('tax_percentage')->configuration_value;
+      $tax_amount     = round(($material_charge + $labour_charge) * $tax_percentage / 100, 3);
+      $total_charge     = $material_charge + $labour_charge + $tax_amount;
 
       //get servicelist checklist id by checklist_id
       $cmp_checklist = ComplaintServiceReportChecklist::where('checklist_id','=',$request['checklist'])->first();
@@ -202,6 +204,8 @@ class ComplaintStageController extends Controller
         'quantity' =>$request['quantity'],
         'material_charge' =>$material_charge,
         'labour_charge' =>$labour_charge,
+        'tax_percentage' =>$tax_percentage,
+        'tax_amount' =>$tax_amount,
         'total_charge' =>$total_charge,
         'checklist_id' => $request['checklist'],
         'service_report_checklist_id' => $cmp_checklist['id'],
@@ -232,7 +236,8 @@ class ComplaintStageController extends Controller
       $inventory_items = Inventory::orderBy('inventories_name')->get(); //$inventory_items = Inventory::get();
 
       $reportInventory = ComplaintServiceReportInv::where('id',$id)->first();
-      return view('maintenance::ComplaintStages.service_report_item_edit_modal',compact('inventory_items','nowUrl','reportInventory'));
+      $taxPercentage = prefixData('tax_percentage')->configuration_value;
+      return view('maintenance::ComplaintStages.service_report_item_edit_modal',compact('inventory_items','nowUrl','reportInventory','taxPercentage'));
     }
 
     /**
@@ -250,12 +255,16 @@ class ComplaintStageController extends Controller
       $nowUrl = $request['url'];
       $material_charge = isset($request['material_charge'])?$request['material_charge']:0;
       $labour_charge  = isset($request['labour_charge'])?$request['labour_charge']:0;
-      $total_charge     = $material_charge + $labour_charge ;
+      $tax_percentage = (float)prefixData('tax_percentage')->configuration_value;
+      $tax_amount     = round(($material_charge + $labour_charge) * $tax_percentage / 100, 3);
+      $total_charge     = $material_charge + $labour_charge + $tax_amount;
       $checklist = ComplaintServiceReportInv::where('id',$id)->update([
         'inventory_id' =>$request['item'],
         'quantity' =>$request['quantity'],
         'material_charge' =>$request['material_charge'],
         'labour_charge' =>$request['labour_charge'],
+        'tax_percentage' =>$tax_percentage,
+        'tax_amount' =>$tax_amount,
         'total_charge' =>$total_charge
         ]);
       session()->flash('success', 'Items Updated Successfully');
@@ -1607,8 +1616,9 @@ class ComplaintStageController extends Controller
       }
       $upload_size       = prefixData('upload_size_in_mb')->configuration_value * 1000000;
       $supported_image = array('pdf','docx','doc');
-      
-      return view('maintenance::ComplaintStages.technician_service_report_closed',compact('ticket','complaintServiceReportInv','inventory_items','ServiceReportNotes','checklists','tickets','work_flow','images','upload_size','supported_image'));
+      $taxPercentage = prefixData('tax_percentage')->configuration_value;
+
+      return view('maintenance::ComplaintStages.technician_service_report_closed',compact('ticket','complaintServiceReportInv','inventory_items','ServiceReportNotes','checklists','tickets','work_flow','images','upload_size','supported_image','taxPercentage'));
 
     }
     /*

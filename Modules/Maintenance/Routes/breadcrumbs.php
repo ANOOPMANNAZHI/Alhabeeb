@@ -248,4 +248,12 @@ Breadcrumbs::for('showServiceReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Service Report',route('showServiceReport'));
 });
+Breadcrumbs::for('showServiceReportV2', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Service Report v2', route('showServiceReportV2'));
+});
+Breadcrumbs::for('showMaintenanceInvoiceReportV2', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Maintenance Invoice Report v2', route('showMaintenanceInvoiceReportV2'));
+});
 

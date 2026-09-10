@@ -49,6 +49,15 @@
                        </div>
                      </div>
                    </div>
+                   <div class="col-sm-6">
+                      <div class="form-group">
+                        <label for="tax_percentage_display">Tax %</label>
+                        <div class="p-relative">
+                         <i class="fa fa-percent icn-add" aria-hidden="true"></i>
+                         <input type="text" class="form-control" id="tax_percentage_display" value="{{numberFormat($taxPercentage)}}" readonly>
+                       </div>
+                     </div>
+                   </div>
                     <div class="col-sm-4">
                         <div class="dataSearchLabel w-100"></div>
                             <input type="hidden" name="url" id="url" value="{{ isset($reportInventory)? old('url',$nowUrl):old('url')}}">

@@ -16,7 +16,7 @@
 <div class="row">
   <div class="col">
     <div class="card card-box salesSearchBox">
-           @can('view_tenant_receivables_v2')
+          
       <form action="{{route('tenantReceivablesReportPdfV2')}}" target="_blank" method="POST" id="form_sample_2" class="form-horizontal" enctype="multipart/form-data" data-toggle="validator">
         <div class="dataSearchBox ">
             {{csrf_field()}}
@@ -90,7 +90,7 @@
         </div>
         <div class="clearfix"></div>
       </form>
-         @endcan
+        
     </div>
   </div>
 </div>
