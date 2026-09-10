@@ -179,6 +179,7 @@
         <!-- <th>Rented By</th>
         <th>Duration</th> -->
         <th>Rent</th>
+        <th>Payment Term</th>
         <th>Last Paid</th>
         <th>Terminated Date</th>
         <th>Status</th>
@@ -204,8 +205,11 @@
                   {{$duration[1]}} Month
                   {{$duration[2]}} Days
       @endif</td>  -->  
-        <td>{{ numberFormat($tenantContract->tenant_contract_rent)}}</td>  
-        <td>{{isset($tenantContract->tenant_contract_last_paid_date)?$tenantContract->tenant_contract_last_paid_date->format('d/m/Y'):"NA"}} </td>   
+        <td>{{ numberFormat($tenantContract->tenant_contract_rent)}}</td>
+        <td>{{ $tenantContract->tenant_contract_payment_name ?: "NA" }}</td>
+        {{-- display_last_paid_date falls back to the latest rent receipt when the
+             contract column is still empty because the receipt is not posted to AX --}}
+        <td>{{isset($tenantContract->display_last_paid_date)?$tenantContract->display_last_paid_date->format('d/m/Y'):"NA"}} </td>
         <td>{{isset($tenantContract->terminationContract)?$tenantContract->terminationContract->termination_date->format('d/m/Y'): "NA"}}</td>   
         <td>
             @if($tenantContract->tenant_contract_status == 0 &&
@@ -271,7 +275,7 @@
     @php $i++; @endphp
     @empty 
     <tr>
-      <td colspan="8" align="center">
+      <td colspan="10" align="center">
         <p>No Record</p>
     </td>
 </tr>

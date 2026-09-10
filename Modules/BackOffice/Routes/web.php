@@ -682,6 +682,10 @@ Route::middleware('auth')->group(function () {
 
 	Route::get('showDepositRentReport', 'BackOfficeReportController@showDepositRentReport')->name('showDepositRentReport');
 	Route::get('showRentCollectionSummary', 'RentCollectionSummaryController@index')->name('showRentCollectionSummary');
+
+	// Cash Tenant Report - active contracts with no PDC on record
+	Route::get('showCashTenantReport', 'CashTenantReportController@index')->name('showCashTenantReport');
+	Route::get('cashTenantReportDownload', 'CashTenantReportController@download')->name('cashTenantReportDownload');
 	Route::get('showDepositRentReportV2', 'BackOfficeReportController@showDepositRentReportV2')->name('showDepositRentReportV2');
 	Route::post('depositRentReportPdfV2', 'BackOfficeReportController@depositRentReportPdfV2')->name('depositRentReportPdfV2');
 

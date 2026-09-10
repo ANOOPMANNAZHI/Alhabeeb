@@ -108,13 +108,19 @@ $curr_url = route('tenant-contract.show',$contract->id);
         @endcan
         @endif
         @if(empty($pendingPage))
-        @can('edit_tenant_contract_direct')
-        @if($contract->work_flow_processes_code <= 107   && $contract->tennat_contract_direct_indirect_status == 1 && $contract->tenant_contract_status == 0 && $contract->tenant_renewal_termination_status != 8) 
+        {{-- Normally Edit is only offered on direct contracts still at stage 107.
+             Holders of edit_active_tenant_contract (admin) also get it on ACTIVE
+             contracts. Terminated contracts stay locked for everyone. --}}
+        @if(auth()->user()->can('edit_tenant_contract_direct') || auth()->user()->can('edit_active_tenant_contract'))
+        @if(
+             ($contract->work_flow_processes_code <= 107   && $contract->tennat_contract_direct_indirect_status == 1 && $contract->tenant_contract_status == 0 && $contract->tenant_renewal_termination_status != 8)
+             || (auth()->user()->can('edit_active_tenant_contract') && $contract->tenant_renewal_termination_status != 8)
+           )
         <a title="Edit" href="{{route('tenant-contract.edit',$contract->id)}}" class="btn btn-tbl-edit btn-xs" >
           <i class="fa fa-pencil"></i>
         </a>
         @endif
-        @endcan
+        @endif
         @endif
         @if(isset($title))
         <a  href="{{route('leadAssign.revokeProcess',[$route,$contract->sale_enquiry_id,$contract->work_flow_processes_code])}}" class="btn btn-tbl-view btn-xs" title="View">

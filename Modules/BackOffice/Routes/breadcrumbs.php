@@ -759,6 +759,11 @@ Breadcrumbs::for('showRentCollectionSummary', function ($trail) {
     $trail->push('Rent Collection Summary', route('showRentCollectionSummary'));
 });
 
+Breadcrumbs::for('showCashTenantReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Cash Tenant Report', route('showCashTenantReport'));
+});
+
 Breadcrumbs::for('showDepositRentReportV2', function ($trail) {
     $trail->parent('home');
     $trail->push('Report on Deposit for rent / E,W v2', route('showDepositRentReportV2'));

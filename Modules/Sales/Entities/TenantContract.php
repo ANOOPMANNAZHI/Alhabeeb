@@ -71,14 +71,53 @@ class TenantContract extends Model
     *  Tenant payment Method
     */
     public function getTenantContractPaymentNameAttribute()
-    {     
+    {
         switch($this->tenant_contract_payment_type){
           case '1' : return 'Monthly';
-          case '2' : return 'Bi-Monthly'; 
-          case '3' : return 'Quarterly';  
-          case '4' : return 'Half Yearly'; 
-          case '5' : return 'Yearly';       
+          case '2' : return 'Bi-Monthly';
+          case '3' : return 'Quarterly';
+          case '4' : return 'Half Yearly';
+          case '5' : return 'Yearly';
         }
+    }
+
+    /*
+    *
+    * Last Paid Date for display.
+    *
+    * tenant_contract_last_paid_date is only written when a rent receipt is
+    * POSTED to AX (RentReceiptGenerationController.php:1606 and
+    * RoutinesController.php:917), so a receipt that was generated but not yet
+    * posted left the screen showing "NA" even though the tenant had paid.
+    * This also looks at the receipts themselves, so the date appears as soon
+    * as the receipt exists.
+    *
+    * Only type 0 (tenant/rent) receipts count - type 1 general and type 2
+    * deposit receipts do not represent rent paid-up-to. Cancelled receipts
+    * (status 2) are ignored. The later of the two values wins, so this can
+    * only move the date forward, never behind the posted figure.
+    */
+    public function getDisplayLastPaidDateAttribute()
+    {
+        $storedDate = $this->tenant_contract_last_paid_date;
+
+        $receiptDate = \Modules\BackOffice\Entities\ReceiptsGeneration::where('tenant_contract_id', $this->id)
+            ->where('receipts_generation_type', 0)
+            ->where('receipts_generation_status', '!=', 2)
+            ->whereNotNull('receipts_generation_eff_to')
+            ->max('receipts_generation_eff_to');
+
+        if (empty($receiptDate)) {
+            return $storedDate;
+        }
+
+        $receiptDate = Carbon::parse($receiptDate);
+
+        if (empty($storedDate)) {
+            return $receiptDate;
+        }
+
+        return $receiptDate->gt($storedDate) ? $receiptDate : $storedDate;
     }
     
     /*

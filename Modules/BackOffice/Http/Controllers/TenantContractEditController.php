@@ -60,7 +60,10 @@ class TenantContractEditController extends Controller
     {
       $this->middleware('auth');    
     //  $this->middleware('permission:tenant_contract_direct_list', ['only' => ['index','show']]);   
-      $this->middleware('permission:edit_tenant_contract_direct', ['only' => ['edit','update']]);
+      // "|" is OR in spatie's permission middleware: admins holding
+      // edit_active_tenant_contract may edit active contracts too, so they must
+      // be allowed through here as well or the Edit button would 403.
+      $this->middleware('permission:edit_tenant_contract_direct|edit_active_tenant_contract', ['only' => ['edit','update']]);
       $this->middleware('permission:add_tenant_contract_direct', ['only' => ['create','store']]);   
       $this->noOfRecord  = prefixData('no_of_records_in_list_grid')->configuration_value; 
         /*
@@ -512,6 +515,20 @@ class TenantContractEditController extends Controller
     }
 
     $data = $contract->getContractData();
+
+    // getContractData() reads tenant_contract_last_paid_date / _amt straight
+    // from the request, but the edit form does not render either field, so they
+    // would be overwritten with NULL on every save. That was harmless while Edit
+    // was limited to stage-107 contracts (no payments yet); now that admins can
+    // edit ACTIVE contracts it would erase a real payment record. Keep whatever
+    // is stored unless the form actually submits a value.
+    if (!$request->filled('tenant_contract_last_paid_date')) {
+        unset($data['tenant_contract_last_paid_date']);
+    }
+    if (!$request->filled('tenant_contract_last_paid_amt')) {
+        unset($data['tenant_contract_last_paid_amt']);
+    }
+
     $data['tenant_id'] = $tenantId;
     $data['occupant_id'] = $request['occupant_id'];
     $data['unit_usage'] = $request['unit_usage'];
