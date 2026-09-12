@@ -15,8 +15,8 @@ use Modules\BackOffice\Exports\CashTenantReportExport;
  * i.e. no row at all in the pdc table - which in practice means the tenant is
  * paying by cash.
  *
- * No filters by design: the screen is the list, with Excel and PDF downloads
- * covering the whole result set rather than the current page.
+ * Column filters run server side, so the Excel and PDF downloads export exactly
+ * what is on screen rather than the whole report.
  *
  * NOTE a contract whose cheques have simply not been entered yet looks the same
  * as a genuine cash tenant, which is why the Start date is on the report.
@@ -62,14 +62,28 @@ class CashTenantReportController extends Controller
 
         // Dropdown options, and the current filter values so the inputs keep
         // what was typed after the page reloads.
-        $unitTypes    = DB::table('unit_types')->orderBy('unit_types_name')->get();
+        // Only AREs that actually hold a building, so the list stays short.
+        $ares = DB::table('are_buildings as ab')
+            ->join('preferred_buildings as pb', function ($join) {
+                $join->on('pb.are_building_id', '=', 'ab.id')->whereNull('pb.assign_to');
+            })
+            ->join('users as au', 'au.id', '=', 'ab.user_id')
+            ->leftJoin('employees as ae', 'ae.id', '=', 'au.user_type_id')
+            ->select([
+                'au.id',
+                DB::raw("COALESCE(NULLIF(TRIM(ae.employee_name), ''), au.username) AS are_name"),
+            ])
+            ->distinct()
+            ->orderBy('are_name')
+            ->get();
+
         $paymentTerms = self::PAYMENT_TERMS;
         $filters      = $request->only(
             array_merge(array_keys(self::TEXT_FILTERS), array_keys(self::EXACT_FILTERS))
         );
 
         return view('backoffice::Reports.cash_tenant_report',
-            compact('rows', 'total', 'unitTypes', 'paymentTerms', 'filters'));
+            compact('rows', 'total', 'ares', 'paymentTerms', 'filters'));
     }
 
     /**
@@ -102,16 +116,9 @@ class CashTenantReportController extends Controller
     }
 
     /**
-     * Active tenant contracts with no PDC row.
-     *
-     * "No PDC" is NOT EXISTS against the pdc table rather than the contract's
-     * pdc_check flag: pdc_check only ever holds Full (1) or Partial (2), so a
-     * NULL there means "not recorded", not "pays cash".
-     */
-    /**
      * The column filters the screen offers, mapped to the column each one
-     * searches. Text columns are matched with ILIKE, the two id/code columns
-     * with "=" - ILIKE against an integer column makes Postgres abort with
+     * searches. Text columns are matched with ILIKE, the id columns with "=" -
+     * ILIKE against an integer column makes Postgres abort with
      * "operator does not exist: integer ~~* unknown".
      */
     const TEXT_FILTERS = [
@@ -123,7 +130,7 @@ class CashTenantReportController extends Controller
     ];
 
     const EXACT_FILTERS = [
-        'f_unit_type'    => 'u.unit_type_id',
+        'f_are'          => 'ab.user_id',
         'f_payment_term' => 'tc.tenant_contract_payment_type',
     ];
 
@@ -131,11 +138,31 @@ class CashTenantReportController extends Controller
     {
         $areBuildingIds = $this->areBuildingIds();
 
+        // Rent paid-up-to per contract. A grouped join rather than a correlated
+        // MAX() per row - the subquery form takes minutes across 236k receipts.
+        $lastPaid = DB::raw(
+            '(SELECT rg.tenant_contract_id, MAX(rg.receipts_generation_eff_to) AS paid_up_to
+              FROM receipts_generation rg
+              WHERE rg.receipts_generation_type = \'0\'
+                AND rg.receipts_generation_status <> 2
+              GROUP BY rg.tenant_contract_id) as lp'
+        );
+
         return DB::table('tenant_contracts as tc')
             ->leftJoin('buildings as b', 'b.id', '=', 'tc.building_id')
             ->leftJoin('units as u', 'u.id', '=', 'tc.unit_id')
             ->leftJoin('tenant as t', 't.id', '=', 'tc.tenant_id')
             ->leftJoin('unit_types as ut', 'ut.id', '=', 'u.unit_type_id')
+            // ARE currently assigned to the building. assign_to IS NULL marks the
+            // live assignment; at most one ARE holds a building, so this cannot
+            // multiply rows.
+            ->leftJoin('preferred_buildings as pb', function ($join) {
+                $join->on('pb.building_id', '=', 'b.id')->whereNull('pb.assign_to');
+            })
+            ->leftJoin('are_buildings as ab', 'ab.id', '=', 'pb.are_building_id')
+            ->leftJoin('users as au', 'au.id', '=', 'ab.user_id')
+            ->leftJoin('employees as ae', 'ae.id', '=', 'au.user_type_id')
+            ->leftJoin($lastPaid, 'lp.tenant_contract_id', '=', 'tc.id')
             ->where('tc.tenant_contract_status', 1)
             ->whereNotExists(function ($q) {
                 $q->select(DB::raw(1))
@@ -177,6 +204,14 @@ class CashTenantReportController extends Controller
                 'b.building_name',
                 'u.unit_code',
                 'ut.unit_types_name',
+                // Fall back to the login name when the ARE has no employee record.
+                DB::raw("COALESCE(NULLIF(TRIM(ae.employee_name), ''), au.username) AS are_name"),
+                // Later of the value AX posting stores on the contract and the
+                // period end of the newest rent receipt, so a receipt that has
+                // been taken but not yet posted still shows. Same rule as
+                // TenantContract::getDisplayLastPaidDateAttribute(). Postgres
+                // GREATEST ignores NULLs, so one side being empty is fine.
+                DB::raw('GREATEST(tc.tenant_contract_last_paid_date::date, lp.paid_up_to::date) AS paid_up_to'),
             ]);
     }
 

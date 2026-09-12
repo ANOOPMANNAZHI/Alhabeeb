@@ -122,11 +122,12 @@
                 <th>Tenant</th>
                 <th>Building</th>
                 <th>Unit No</th>
-                <th>Unit Type</th>
+                <th>ARE</th>
                 <th width="9%">Start</th>
                 <th width="9%">End</th>
                 <th class="num" width="8%">Rent</th>
                 <th width="9%">Payment Term</th>
+                <th width="9%">Paid Up To</th>
                 <th>Mobile No</th>
               </tr>
               <tr class="ctr-filters">
@@ -136,10 +137,10 @@
                 <th><input type="text" name="f_building" value="{{ isset($filters['f_building']) ? $filters['f_building'] : '' }}" placeholder="Building"></th>
                 <th><input type="text" name="f_unit" value="{{ isset($filters['f_unit']) ? $filters['f_unit'] : '' }}" placeholder="Unit"></th>
                 <th>
-                  <select name="f_unit_type">
+                  <select name="f_are">
                     <option value="">All</option>
-                    @foreach($unitTypes as $ut)
-                    <option value="{{ $ut->id }}" {{ (string) (isset($filters['f_unit_type']) ? $filters['f_unit_type'] : '') === (string) $ut->id ? 'selected' : '' }}>{{ $ut->unit_types_name }}</option>
+                    @foreach($ares as $are)
+                    <option value="{{ $are->id }}" {{ (string) (isset($filters['f_are']) ? $filters['f_are'] : '') === (string) $are->id ? 'selected' : '' }}>{{ $are->are_name }}</option>
                     @endforeach
                   </select>
                 </th>
@@ -154,6 +155,7 @@
                     @endforeach
                   </select>
                 </th>
+                <th><span class="ctr-nofilter">&mdash;</span></th>
                 <th><input type="text" name="f_mobile" value="{{ isset($filters['f_mobile']) ? $filters['f_mobile'] : '' }}" placeholder="Mobile"></th>
               </tr>
             </thead>
