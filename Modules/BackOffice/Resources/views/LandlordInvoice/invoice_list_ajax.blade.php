@@ -18,7 +18,7 @@
                     <td><a class="no-link" href="{{route('landlordInvoiceApprovalShow',$landlordInvoice->landlord_contract_id)}}">{{$landlordInvoice->landlordInfo->vendor_name}}</a></td>
                     <td><a class="no-link" href="{{route('landlordInvoiceApprovalShow',$landlordInvoice->landlord_contract_id)}}">{{$landlordInvoice->landlordInfo->vendor_code}}</a></td>
                     <td><a class="no-link" href="{{route('landlordInvoiceApprovalShow',$landlordInvoice->landlord_contract_id)}}">{{$landlordInvoice->landlordContractInfo->landlord_contract_no}}</a></td>     
-                    <td><a class="no-link" href="{{route('landlordInvoiceApprovalShow',$landlordInvoice->landlord_contract_id)}}">{{$landlordInvoice->landlordContractInfo->paymentMethodInfo->payment_method_code}}</a></td>
+                    <td><a class="no-link" href="{{route('landlordInvoiceApprovalShow',$landlordInvoice->landlord_contract_id)}}">{{ optional(optional($landlordInvoice->landlordContractInfo)->paymentMethodInfo)->payment_method_code }}</a></td>
                     <td><a class="no-link" href="{{route('landlordInvoiceApprovalShow',$landlordInvoice->landlord_contract_id)}}">Invoice</a></td> 
                     <td><a class="no-link" href="{{route('landlordInvoiceApprovalShow',$landlordInvoice->landlord_contract_id)}}">{{$landlordInvoice->landlord_given_invoice_no}}</a></td> 
                     <td><a class="no-link" href="{{route('landlordInvoiceApprovalShow',$landlordInvoice->landlord_contract_id)}}">{{$landlordInvoice->landlordContractInfo->landlord_contract_amt}}</a></td> 

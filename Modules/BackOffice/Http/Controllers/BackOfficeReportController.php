@@ -2002,6 +2002,7 @@ public function tenantReceivablesReportPdfV2(Request $request){
   $tenantname   = $request['tenant_name'] ?? '';
   $managetype   = $request['management_type'] ?? '';
   $are          = $request['are'] ?? '';
+  $pdcFilter    = $request['pdc_filter'] ?? ''; // '', 'have' or 'no'
   $date2        = $request['end_date'];
   $downloadType = $request['download_type'];
 
@@ -2019,6 +2020,14 @@ public function tenantReceivablesReportPdfV2(Request $request){
     );
   }
 
+  // pdc column is '' / 'Full' / 'Partial'; Full and Partial both count as having a PDC
+  if ($pdcFilter === 'have') {
+    $rows = array_values(array_filter($rows, function ($r) { return trim($r->pdc ?? '') !== ''; }));
+  } elseif ($pdcFilter === 'no') {
+    $rows = array_values(array_filter($rows, function ($r) { return trim($r->pdc ?? '') === ''; }));
+  }
+  $pdcLabel = ['have' => 'Have PDC', 'no' => 'No PDC'][$pdcFilter] ?? '';
+
   $data = [
     'rows'    => $rows,
     'date'    => $date2,
@@ -2030,6 +2039,7 @@ public function tenantReceivablesReportPdfV2(Request $request){
       'tenant_name'     => $tenantname,
       'management_type' => $managetype,
       'are'             => $are,
+      'pdc'             => $pdcLabel,
     ],
   ];
 
@@ -2092,6 +2102,7 @@ public function tenantReceivablesReportPdfV2(Request $request){
       if ($tenantname)   $filters[] = 'Tenant: '   . $tenantname;
       if ($managetype)   $filters[] = 'Mgmt: '     . $managetype;
       if ($are)          $filters[] = 'ARE: '      . $are;
+      if ($pdcLabel)     $filters[] = 'PDC: '      . $pdcLabel;
       if ($filters) {
         $pdf->SetFont('Arial', 'B', 7);
         $pdf->Cell($totalW, 5, implode('   ', $filters), 0, 1, 'L');
@@ -3559,7 +3570,7 @@ public function expenseDetailsServiceReportsZip(Request $request){
 
     $items = DB::select("
       SELECT csri.quantity, csri.material_charge, csri.labour_charge, csri.total_charge,
-             csri.tax_percentage, csri.tax_amount, i.inventories_name
+             i.inventories_name
       FROM complaint_service_report_inv csri
       LEFT JOIN inventories i ON i.id = csri.inventory_id
       WHERE csri.complaint_service_report_id = ?
@@ -4900,7 +4911,30 @@ public function normalManagementReportV2Generate(Request $request)
 
 public function showLandlordTaxInvoiceReport()
 {
-    return view('backoffice::Reports.landlord_tax_invoice_report');
+    // Building dropdown: every building the report can invoice (NMR v2 list
+    // with an active landlord contract), each carrying its landlord so the
+    // form can auto-fill the Landlord field when a building is chosen.
+    $buildings = LandlordContract::with(['buildingInfo', 'vendorInfo'])
+        ->where('landlord_contract_status', 1)
+        ->whereIn('building_id', self::$nmrV2BuildingIds)
+        ->orderBy('landlord_contract_valid_from_date', 'desc')
+        ->get()
+        ->unique('building_id')
+        ->filter(function ($c) { return $c->buildingInfo && $c->vendorInfo; })
+        ->map(function ($c) {
+            // label/value are what jQuery UI autocomplete expects
+            return [
+                'id'          => $c->building_id,
+                'label'       => $c->buildingInfo->building_name,
+                'value'       => $c->buildingInfo->building_name,
+                'vendor_id'   => $c->vendor_id,
+                'vendor_name' => $c->vendorInfo->vendor_name,
+            ];
+        })
+        ->sortBy('label')
+        ->values();
+
+    return view('backoffice::Reports.landlord_tax_invoice_report', compact('buildings'));
 }
 
 public function landlordTaxInvoiceReportStream(Request $request)
@@ -4955,6 +4989,13 @@ public function landlordTaxInvoiceReportStream(Request $request)
         }
 
         $contracts = $this->landlordTaxInvoiceEligibleContracts($vendorId, $fromDate, $toDate);
+
+        // Optional building filter — blank means all of the landlord's buildings.
+        $buildingId = (int) $request->input('building_id');
+        if ($buildingId) {
+            $contracts = $contracts->where('building_id', $buildingId)->values();
+        }
+
         if ($contracts->isEmpty()) {
             $send(['pct' => 100, 'msg' => 'No eligible (Normal-management) buildings found for this landlord.', 'done' => true, 'error' => true]);
             exit;

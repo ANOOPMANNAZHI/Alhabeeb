@@ -45,7 +45,7 @@ class LandlordContract extends Model
     */
     public function paymentMethodInfo(){
     
-      return $this->belongsTo('Modules\Masters\Entities\PaymentMethod','landlord_contract_payment_type','payment_method_index');
+      return $this->belongsTo('Modules\Masters\Entities\PaymentMethod','landlord_contract_payment_type','id');
     }
     /*
     *

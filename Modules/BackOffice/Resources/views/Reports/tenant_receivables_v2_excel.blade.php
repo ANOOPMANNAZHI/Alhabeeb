@@ -12,6 +12,7 @@
             @if($filters['tenant_name']) Tenant: {{ $filters['tenant_name'] }} @endif
             @if($filters['management_type']) Management: {{ $filters['management_type'] }} @endif
             @if($filters['are']) ARE: {{ $filters['are'] }} @endif
+            @if(!empty($filters['pdc'])) PDC: {{ $filters['pdc'] }} @endif
         </td>
         <td colspan="5"></td>
         <td colspan="2" style="font-weight:bold;">User: {{ $user }}</td>

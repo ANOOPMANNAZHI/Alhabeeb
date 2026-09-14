@@ -107,7 +107,7 @@
 
     <div class="col-lg-6 p-t-20"> 
             <div class = "txt-full-width">
-            <h5 class="details"><b>Payment Term:  </b><span>{{$landlordContract->paymentMethodInfo->payment_method_code}}</span></h5>
+            <h5 class="details"><b>Payment Term:  </b><span>{{ optional($landlordContract->paymentMethodInfo)->payment_method_code }}</span></h5>
            </div>
     </div>
 

@@ -68,6 +68,19 @@
             </div>
             <div class="col-sm-6 val2">
               <div class="form-group">
+                <label for="pdc_filter">PDC</label>
+                <div class="p-relative">
+                 <i class="fa fa-cubes icn-add" aria-hidden="true"></i>
+                 <select class="form-control" id="pdc_filter"  name="pdc_filter">
+                  <option value="">All</option>
+                  <option value="have">Have PDC</option>
+                  <option value="no">No PDC</option>
+                </select>
+              </div>
+            </div>
+          </div>
+            <div class="col-sm-6 val2">
+              <div class="form-group">
                 <label for="download_type">Download Type<small class="textRed">*</small>  </label>
                 <div class="p-relative">
                  <i class="fa fa-cubes icn-add" aria-hidden="true"></i>

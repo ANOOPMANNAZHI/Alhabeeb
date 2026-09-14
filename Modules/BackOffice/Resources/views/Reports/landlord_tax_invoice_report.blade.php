@@ -78,10 +78,20 @@
             </div>
             <div class="col-sm-6">
               <div class="form-group">
-                <label for="vendor_name">Landlord<small class="textRed">*</small></label>
+                <label for="building_id">Building<small class="textRed">*</small></label>
+                <div class="p-relative">
+                  <i class="fa fa-building-o icn-add" aria-hidden="true"></i>
+                  <input type="text" class="form-control" id="building_name" placeholder="Type to search building" required autocomplete="off">
+                  <input type="hidden" id="building_id" name="building_id">
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="form-group">
+                <label for="vendor_name">Landlord</label>
                 <div class="p-relative">
                   <i class="fa fa-user icn-add" aria-hidden="true"></i>
-                  <input type="text" class="form-control" id="vendor_name" placeholder="Enter Landlord Name" required autocomplete="off">
+                  <input type="text" class="form-control" id="vendor_name" placeholder="Auto-filled from building" readonly>
                   <input type="hidden" id="vendor_id" name="vendor_id">
                 </div>
               </div>
@@ -114,19 +124,30 @@
       rules: { to_date: { greaterThan: '#from_date' } }
     });
 
-    $('#vendor_name').autocomplete({
-      source: '{!!URL::route('landlordAutocompleteCode')!!}',
-      minLength: 2,
+    // Searchable building picker (jQuery UI autocomplete over a local list).
+    // Landlord is derived from the chosen building's active contract.
+    var buildings = @json($buildings);
+
+    function setBuilding(item) {
+      $('#building_id').val(item ? item.id : '');
+      $('#vendor_id').val(item ? item.vendor_id : '');
+      $('#vendor_name').val(item ? item.vendor_name : '');
+    }
+
+    $('#building_name').autocomplete({
+      source: function (request, response) {
+        var term = request.term.toLowerCase();
+        response($.grep(buildings, function (b) {
+          return b.label.toLowerCase().indexOf(term) !== -1;
+        }));
+      },
+      minLength: 0,
       autoFocus: true,
+      select: function (e, ui) { setBuilding(ui.item); },
       change: function (e, ui) {
-        if (ui.item == null || ui.item == undefined) {
-          $('#vendor_name').val('');
-          $('#vendor_id').val('');
-        } else {
-          $('#vendor_id').val(ui.item.ids);
-        }
+        if (!ui.item) { $('#building_name').val(''); setBuilding(null); }
       }
-    });
+    }).on('focus', function () { $(this).autocomplete('search', $(this).val()); });
 
     var $overlay = $('#ltir-overlay');
     var $bar     = $('#ltir-bar');
@@ -146,14 +167,15 @@
 
       if (!$(this).valid()) return;
       if (!$('#vendor_id').val()) {
-        alert('Please select a landlord from the suggestions list.');
+        alert('Please select a building from the suggestions list.');
         return;
       }
 
       var params = new URLSearchParams({
         from_date: $('#from_date').val(),
         to_date:   $('#to_date').val(),
-        vendor_id: $('#vendor_id').val()
+        vendor_id: $('#vendor_id').val(),
+        building_id: $('#building_id').val() || ''
       });
 
       setProgress(0, 'Preparing…');

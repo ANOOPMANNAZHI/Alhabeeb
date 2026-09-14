@@ -326,16 +326,7 @@
        </div>
        <div class="col-sm-2">
           <div class="form-group">
-            <label for="tax_percentage_display">Tax %</label>
-            <div class="p-relative">
-             <i class="fa fa-percent icn-add" aria-hidden="true"></i>
-             <input type="text" class="form-control" id="tax_percentage_display" value="{{numberFormat($taxPercentage)}}" readonly>
-           </div>
-         </div>
-       </div>
-       <div class="col-sm-2">
-          <div class="form-group">
-            <label for="total_charge_display">Total (with Tax)</label>
+            <label for="total_charge_display">Total</label>
             <div class="p-relative">
              <i class="fa fa-money icn-add" aria-hidden="true"></i>
              <input type="text" class="form-control" id="total_charge_display" value="0.000" readonly>
@@ -357,14 +348,10 @@
 <!-- ends-->
 <script>
   (function() {
-    var taxPercentage = parseFloat(@json($taxPercentage)) || 0;
-
     function recalcItemTotal() {
       var material = parseFloat(document.getElementById('material_charge').value) || 0;
       var labour = parseFloat(document.getElementById('labour_charge').value) || 0;
-      var taxAmount = (material + labour) * taxPercentage / 100;
-      var total = material + labour + taxAmount;
-      document.getElementById('total_charge_display').value = total.toFixed(3);
+      document.getElementById('total_charge_display').value = (material + labour).toFixed(3);
     }
 
     document.getElementById('material_charge').addEventListener('keyup', recalcItemTotal);
@@ -382,8 +369,7 @@
             <th>Quantity</th>
             <th>Material Charge</th>
             <th>Labour Charge</th>
-            <th>Tax</th>
-            <th>Total (with Tax)</th>
+            <th>Total</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -396,7 +382,6 @@
           <td>{{$item->quantity}}</td>
           <td>{{numberFormat($item->material_charge)}} OMR</td>
           <td>{{numberFormat($item->labour_charge)}} OMR</td>
-          <td>{{numberFormat($item->tax_amount)}} OMR ({{numberFormat($item->tax_percentage)}}%)</td>
           <td>{{numberFormat($item->total_charge)}} OMR</td>
           <td> 
 
@@ -409,7 +394,7 @@
         </tr>                     
         @empty
         <tr>
-          <td colspan="7" >
+          <td colspan="6" >
             <p  align="center">No Record</p>
           </td>
         </tr>

@@ -63,8 +63,6 @@
                 <th>Qty</th>
                 <th>Material Charge</th>
                 <th>Labour Charge</th>
-                <th>Tax %</th>
-                <th>Tax Amount</th>
                 <th>Total</th>
             </tr>
         </thead>
@@ -77,17 +75,15 @@
                     <td class="num">{{ $item->quantity }}</td>
                     <td class="num">{{ numberFormat($item->material_charge) }}</td>
                     <td class="num">{{ numberFormat($item->labour_charge) }}</td>
-                    <td class="num">{{ numberFormat($item->tax_percentage) }}</td>
-                    <td class="num">{{ numberFormat($item->tax_amount) }}</td>
                     <td class="num">{{ numberFormat($item->total_charge) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="7" style="text-align:center;">No items found</td></tr>
+                <tr><td colspan="5" style="text-align:center;">No items found</td></tr>
             @endforelse
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="6">Grand Total</td>
+                <td colspan="4">Grand Total</td>
                 <td>{{ numberFormat($grandTotal) }}</td>
             </tr>
         </tfoot>
