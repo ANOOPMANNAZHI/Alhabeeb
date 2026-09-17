@@ -40,53 +40,64 @@ class TerminationDuesController extends Controller
         return $teams;
     }
 
+    /**
+     * One list for both teams, laid out like the other list pages
+     * (quick column filters + advance search + AJAX refresh + sortable).
+     */
     public function index(Request $request)
     {
-        $teams = $this->visibleTeams();
-        $tab = $request->get('team', count($teams) === 1 ? $teams[0] : 'all');
-        if ($tab !== 'all' && !in_array($tab, $teams, true)) {
-            $tab = count($teams) === 1 ? $teams[0] : 'all';
+        // Default to records that still have a balance; "all" clears it
+        if (!$request->has('status')) {
+            $request->merge(['status' => 'outstanding']);
         }
-        $status = $request->get('status', 'outstanding'); // outstanding | open | partial | settled | written_off | all
-        $q = trim((string) $request->get('q', ''));
-
-        $balanceColumn = $tab === Cat::TEAM_MAINTENANCE ? 'maintenance_balance' : ($tab === Cat::TEAM_BACKOFFICE ? 'backoffice_balance' : 'balance');
-
-        $query = TerminationDues::with(['tenantContract.tenant', 'tenantContract.building', 'tenantContract.unit']);
-        if ($status === 'outstanding') {
-            $query->where($balanceColumn, '>', 0);
-        } elseif ($status !== 'all') {
-            $query->where('status', $status);
-            if ($tab !== 'all') {
-                if (in_array($status, ['open', 'partial'], true)) {
-                    $query->where($balanceColumn, '>', 0);
-                } else {
-                    // settled / written_off: balances are 0 by definition, so filter by
-                    // team ownership instead of balance.
-                    $query->whereHas('lines', function ($l) use ($tab) { $l->where('owner_team', $tab); });
-                }
-            }
-        } elseif ($tab !== 'all') {
-            // "all" statuses but a single team: only records that ever had this team's lines
-            $query->whereHas('lines', function ($l) use ($tab) { $l->where('owner_team', $tab); });
-        }
-        if ($q !== '') {
-            $query->whereHas('tenantContract', function ($c) use ($q) {
-                $c->where('tenant_contract_no', 'ILIKE', '%' . $q . '%')
-                  ->orWhereHas('tenant', function ($t) use ($q) {
-                      $t->where('tenant_name', 'ILIKE', '%' . $q . '%')->orWhere('tenant_contact_no', 'ILIKE', '%' . $q . '%');
-                  });
-            });
-        }
-        $dues = $query->orderBy($balanceColumn, 'desc')->orderBy('termination_date')->paginate(self::PER_PAGE)->appends($request->query());
-
-        $counts = [];
-        foreach (array_merge($teams, ['all']) as $t) {
-            $col = $t === Cat::TEAM_MAINTENANCE ? 'maintenance_balance' : ($t === Cat::TEAM_BACKOFFICE ? 'backoffice_balance' : 'balance');
-            $counts[$t] = TerminationDues::where($col, '>', 0)->count();
+        if ($request->input('status') === 'all') {
+            $request->merge(['status' => '']);
         }
 
-        return view('backoffice::TerminationDues.index', compact('dues', 'teams', 'tab', 'status', 'q', 'counts', 'balanceColumn'));
+        $dues = TerminationDues::with(['tenantContract.tenant', 'tenantContract.building', 'tenantContract.unit'])
+            ->filter($request)
+            ->sortable(['balance' => 'desc'])
+            ->paginate(self::PER_PAGE);
+
+        $enquiry_fields = [
+            'tenantContract__tenant_contract_no' => 'Contract No',
+            'tenant__tenant_name'                => 'Tenant Name',
+            'tenant__tenant_contact_no'          => 'Tenant Mobile',
+            'building__building_name'            => 'Building Name',
+            'unit__unit_no'                      => 'Unit No',
+            'termination_date'                   => 'Terminated On',
+            'total_owed'                         => 'Owed',
+            'total_settled'                      => 'Settled',
+            'balance'                            => 'Balance',
+            'status'                             => 'Status (open / partial / settled / written_off)',
+            'next_promise_date'                  => 'Promised Date',
+        ];
+        $operations = [
+            '='         => ' Is equal to ',
+            '!='        => ' Is not equal to ',
+            '>'         => ' Is greater than ',
+            '>='        => ' Is greater than or equal to ',
+            '<'         => ' Is less than ',
+            '<='        => ' Is less than or equal to',
+            'ilike'     => ' Like ',
+            'ilike%...%' => ' Like%...% ',
+        ];
+        $request->flash();
+
+        $quick_url = $route = route('termination-dues.index');
+        $statuses = [
+            'outstanding' => 'With balance',
+            'open'        => 'Open',
+            'partial'     => 'Partially paid',
+            'settled'     => 'Settled',
+            'written_off' => 'Written off',
+            'all'         => 'All',
+        ];
+
+        if (isset($request->ajax)) {
+            return view('backoffice::TerminationDues.index_ajax', compact('dues', 'request', 'route'));
+        }
+        return view('backoffice::TerminationDues.index', compact('dues', 'enquiry_fields', 'operations', 'quick_url', 'statuses'));
     }
 
     public function show(TerminationDues $terminationDues)
