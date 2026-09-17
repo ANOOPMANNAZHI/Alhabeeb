@@ -86,10 +86,10 @@
         <small>Back Office {{ numberFormat($r['teams']['backoffice']['balance']) }} · Maintenance {{ numberFormat($r['teams']['maintenance']['balance']) }}</small>
       </div>
     </div>
+    @php $waivable = $dues->lines->filter(function ($line) use ($canTeam, $r) { return $canTeam($line->owner_team) && $r['lines'][$line->id]['balance'] > 0; }); @endphp
     <div class="tdue-actions">
-      <a class="btn btn-primary" href="{{ route('rentReceiptGeneration.create') }}?contract_id={{ $dues->tenant_contract_id }}">Collect rent</a>
-      <a class="btn btn-outline-secondary" href="{{ route('addGeneralReceipt') }}?contract_id={{ $dues->tenant_contract_id }}">Collect other charges</a>
-      <a class="btn btn-outline-secondary" href="{{ route('depositRefund.create') }}?contract_id={{ $dues->tenant_contract_id }}">Deposit refund</a>
+      <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#fu-modal"><i class="fa fa-phone" aria-hidden="true"></i>&nbsp; Add follow-up</button>
+      <button type="button" class="btn btn-outline-danger" data-toggle="modal" data-target="#wv-modal" @if($waivable->isEmpty()) disabled title="No open balance you can waive" @endif><i class="fa fa-hand-paper-o" aria-hidden="true"></i>&nbsp; Waive amount</button>
     </div>
   </div>
 
@@ -192,26 +192,14 @@
   <div class="tdue-grid" style="margin-top:32px">
     <section class="tdue-panel">
       <h5>Follow-up log</h5>
-      <form method="post" action="{{ route('termination-dues.followup', $dues->id) }}">
-        @csrf
-        <p class="tdue-muted" style="margin-bottom:8px">Recorded as {{ optional(optional(Auth::user())->employee)->employee_name ?: Auth::user()->username }} ({{ implode(' / ', array_map(function ($t) use ($teamLabels) { return $teamLabels[$t]; }, $teams)) }}).</p>
-        <div class="form-row">
-          <div class="form-group col-sm-6"><label for="fu-date">Date</label><input id="fu-date" type="date" name="followup_date" class="form-control" value="{{ date('Y-m-d') }}" required></div>
-          <div class="form-group col-sm-6"><label for="fu-method">How</label>
-            <select id="fu-method" name="method" class="form-control" required>@foreach($methods as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach</select></div>
-        </div>
-        <div class="form-group"><label for="fu-note">What was said</label><textarea id="fu-note" name="note" class="form-control" rows="2" maxlength="2000"></textarea></div>
-        <div class="form-group"><label for="fu-promise">Tenant promised to pay by</label><input id="fu-promise" type="date" name="promise_date" class="form-control"></div>
-        <button type="submit" class="btn btn-primary">Record follow-up</button>
-      </form>
-      <ul class="tdue-log" style="margin-top:24px">
+      <ul class="tdue-log">
         @forelse($dues->followups as $f)
           <li><strong>{{ $f->followup_date->format('d/m/Y') }}</strong> · {{ $methods[$f->method] ?? $f->method }} · {{ $teamLabels[$f->owner_team] ?? $f->owner_team }}
             @if($f->promise_date)<span class="tdue-muted"> · promised {{ $f->promise_date->format('d/m/Y') }}</span>@endif
             <div>{{ $f->note }}</div>
             <div class="who">{{ optional(optional($f->creator)->employee)->employee_name ?: optional($f->creator)->username }} · {{ $f->created_at->format('d/m/Y H:i') }}</div></li>
         @empty
-          <li class="tdue-muted">No follow-ups recorded yet.</li>
+          <li class="tdue-muted">No follow-ups recorded yet. Use <strong>Add follow-up</strong> above.</li>
         @endforelse
       </ul>
     </section>
@@ -222,68 +210,115 @@
         @forelse($manual as $m)
           <li>{{ $m->source_type === 'waiver' ? 'Waived' : 'Assigned ' . ($kindLabel[$m->source_type] ?? $m->source_type) . ' #' . $m->source_id }} {{ numberFormat($m->amount) }} → {{ optional($lineById->get($m->termination_dues_line_id))->description }}
             @if($m->remark)<div class="tdue-muted">{{ $m->remark }}</div>@endif
-            <div class="who">{{ optional($m->creator)->username }} · {{ $m->created_at->format('d/m/Y') }}
+            <div class="who">{{ optional(optional($m->creator)->employee)->employee_name ?: optional($m->creator)->username }} · {{ $m->created_at->format('d/m/Y') }}
               @if($canTeam(optional($lineById->get($m->termination_dues_line_id))->owner_team))
               <form method="post" action="{{ route('termination-dues.allocation.destroy', [$dues->id, $m->id]) }}" class="tdue-inline" onsubmit="return confirm('Remove this decision? The balance will be recalculated.');">
                 @csrf @method('DELETE')<button type="submit" class="btn btn-link btn-sm">Remove</button></form>
               @endif</div></li>
         @empty
-          <li class="tdue-muted">None.</li>
+          <li class="tdue-muted">None. Use <strong>Waive amount</strong> above or assign an unallocated receipt.</li>
         @endforelse
       </ul>
-      @php $waivable = $dues->lines->filter(function ($line) use ($canTeam, $r) { return $canTeam($line->owner_team) && $r['lines'][$line->id]['balance'] > 0; }); @endphp
-      <h5 style="margin-top:24px">Waive amounts</h5>
-      @if($waivable->isEmpty())
-        <p class="tdue-muted">No line with an open balance that you can waive.</p>
-      @else
-      <form method="post" action="{{ route('termination-dues.waive', $dues->id) }}" id="wv-form">
-        @csrf
-        <p class="tdue-muted" style="margin-bottom:8px">Tick the lines to waive. Each amount is pre-filled with the open balance and can be reduced.</p>
-        <table class="table tdue-waive" style="margin-bottom:16px">
-          <thead><tr><th style="width:40px"><span class="sr-only">Select</span></th><th>Line</th><th class="num">Balance</th><th class="num" style="width:160px">Waive</th></tr></thead>
-          <tbody>
-          @foreach($waivable as $line)
-            @php $bal = $r['lines'][$line->id]['balance']; @endphp
-            <tr>
-              <td><input type="checkbox" class="wv-pick" name="lines[{{ $line->id }}][selected]" value="1" id="wv-pick-{{ $line->id }}" aria-label="Waive {{ $line->description }}"></td>
-              <td><label for="wv-pick-{{ $line->id }}" style="font-weight:600; margin:0; cursor:pointer">{{ $line->description }}</label><span class="tdue-muted" style="display:block; font-size:12px">{{ \Modules\BackOffice\Services\TerminationDuesCategory::label($line->category) }} · {{ $teamLabels[$line->owner_team] ?? $line->owner_team }}</span></td>
-              <td class="num">{{ numberFormat($bal) }}</td>
-              <td class="num"><input type="number" step="0.001" min="0.001" max="{{ $bal }}" name="lines[{{ $line->id }}][amount]" value="{{ $bal }}" class="form-control wv-amt" disabled aria-label="Amount to waive on {{ $line->description }}"></td>
-            </tr>
-          @endforeach
-          </tbody>
-          <tfoot><tr><th colspan="3" style="text-align:right">Total to waive</th><th class="num" id="wv-total">0.000</th></tr></tfoot>
-        </table>
-        <div class="form-group"><label for="wv-remark">Approval / reason (applies to every ticked line)</label><input id="wv-remark" type="text" name="remark" class="form-control" maxlength="1000" required placeholder="e.g. approved by Finance Manager on 17/09"></div>
-        <button type="submit" class="btn btn-outline-danger" id="wv-submit" disabled>Waive selected</button>
-      </form>
-      <script>
-      (function () {
-        var form = document.getElementById('wv-form');
-        if (!form) return;
-        function fmt(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }); }
-        function refresh() {
-          var total = 0, any = false;
-          form.querySelectorAll('tr').forEach(function (tr) {
-            var pick = tr.querySelector('.wv-pick'), amt = tr.querySelector('.wv-amt');
-            if (!pick || !amt) return;
-            amt.disabled = !pick.checked;
-            if (pick.checked) { any = true; total += parseFloat(amt.value) || 0; }
-          });
-          document.getElementById('wv-total').textContent = fmt(total);
-          document.getElementById('wv-submit').disabled = !any;
-        }
-        form.addEventListener('change', refresh);
-        form.addEventListener('input', refresh);
-        form.addEventListener('submit', function (e) {
-          var n = form.querySelectorAll('.wv-pick:checked').length;
-          if (n && !window.confirm('Waive the selected ' + n + ' line' + (n === 1 ? '' : 's') + ' for a total of ' + document.getElementById('wv-total').textContent + ' OMR?')) e.preventDefault();
-        });
-        refresh();
-      })();
-      </script>
-      @endif
     </section>
   </div>
 </div></div>
+
+{{-- ── Add follow-up (modal) ─────────────────────────────────────── --}}
+<div class="modal fade tdue" id="fu-modal" tabindex="-1" role="dialog" aria-labelledby="fu-modal-title" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="post" action="{{ route('termination-dues.followup', $dues->id) }}">
+        @csrf
+        <div class="modal-header">
+          <h4 class="modal-title" id="fu-modal-title">Add follow-up · {{ $tenant->tenant_name }}</h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="tdue-muted" style="margin-bottom:16px">Recorded as {{ optional(optional(Auth::user())->employee)->employee_name ?: Auth::user()->username }} ({{ implode(' / ', array_map(function ($t) use ($teamLabels) { return $teamLabels[$t]; }, $teams)) }}) · outstanding {{ numberFormat($r['total']['balance']) }} OMR.</p>
+          <div class="form-row">
+            <div class="form-group col-sm-6"><label for="fu-date">Date</label><input id="fu-date" type="date" name="followup_date" class="form-control" value="{{ date('Y-m-d') }}" required></div>
+            <div class="form-group col-sm-6"><label for="fu-method">How</label>
+              <select id="fu-method" name="method" class="form-control" required>@foreach($methods as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach</select></div>
+          </div>
+          <div class="form-group"><label for="fu-note">What was said</label><textarea id="fu-note" name="note" class="form-control" rows="3" maxlength="2000"></textarea></div>
+          <div class="form-group" style="margin-bottom:0"><label for="fu-promise">Tenant promised to pay by</label><input id="fu-promise" type="date" name="promise_date" class="form-control"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Record follow-up</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{{-- ── Waive amounts (modal) ─────────────────────────────────────── --}}
+@if(!$waivable->isEmpty())
+<div class="modal fade tdue" id="wv-modal" tabindex="-1" role="dialog" aria-labelledby="wv-modal-title" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <form method="post" action="{{ route('termination-dues.waive', $dues->id) }}" id="wv-form">
+        @csrf
+        <div class="modal-header">
+          <h4 class="modal-title" id="wv-modal-title">Waive amounts · {{ $tenant->tenant_name }}</h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="tdue-muted" style="margin-bottom:8px">Tick the lines to waive. Each amount is pre-filled with the open balance and can be reduced.</p>
+          <div class="table-responsive">
+          <table class="table tdue-waive" style="margin-bottom:16px">
+            <thead><tr><th style="width:40px"><span class="sr-only">Select</span></th><th>Line</th><th class="num">Balance</th><th class="num" style="width:160px">Waive</th></tr></thead>
+            <tbody>
+            @foreach($waivable as $line)
+              @php $bal = $r['lines'][$line->id]['balance']; @endphp
+              <tr>
+                <td><input type="checkbox" class="wv-pick" name="lines[{{ $line->id }}][selected]" value="1" id="wv-pick-{{ $line->id }}" aria-label="Waive {{ $line->description }}"></td>
+                <td><label for="wv-pick-{{ $line->id }}" style="font-weight:600; margin:0; cursor:pointer">{{ $line->description }}</label><span class="tdue-muted" style="display:block; font-size:12px">{{ \Modules\BackOffice\Services\TerminationDuesCategory::label($line->category) }} · {{ $teamLabels[$line->owner_team] ?? $line->owner_team }}</span></td>
+                <td class="num">{{ numberFormat($bal) }}</td>
+                <td class="num"><input type="number" step="0.001" min="0.001" max="{{ $bal }}" name="lines[{{ $line->id }}][amount]" value="{{ $bal }}" class="form-control wv-amt" disabled aria-label="Amount to waive on {{ $line->description }}"></td>
+              </tr>
+            @endforeach
+            </tbody>
+            <tfoot><tr><th colspan="3" style="text-align:right">Total to waive</th><th class="num" id="wv-total">0.000</th></tr></tfoot>
+          </table>
+          </div>
+          <div class="form-group" style="margin-bottom:0"><label for="wv-remark">Approval / reason (applies to every ticked line)</label><input id="wv-remark" type="text" name="remark" class="form-control" maxlength="1000" required placeholder="e.g. approved by Finance Manager on 17/09"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-outline-danger" id="wv-submit" disabled>Waive selected</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+@endif
+@endsection
+
+@section('scripts')
+<script>
+(function () {
+  var form = document.getElementById('wv-form');
+  if (!form) return;
+  function fmt(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }); }
+  function refresh() {
+    var total = 0, any = false;
+    form.querySelectorAll('tr').forEach(function (tr) {
+      var pick = tr.querySelector('.wv-pick'), amt = tr.querySelector('.wv-amt');
+      if (!pick || !amt) return;
+      amt.disabled = !pick.checked;
+      if (pick.checked) { any = true; total += parseFloat(amt.value) || 0; }
+    });
+    document.getElementById('wv-total').textContent = fmt(total);
+    document.getElementById('wv-submit').disabled = !any;
+  }
+  form.addEventListener('change', refresh);
+  form.addEventListener('input', refresh);
+  form.addEventListener('submit', function (e) {
+    var n = form.querySelectorAll('.wv-pick:checked').length;
+    if (n && !window.confirm('Waive the selected ' + n + ' line' + (n === 1 ? '' : 's') + ' for a total of ' + document.getElementById('wv-total').textContent + ' OMR?')) e.preventDefault();
+  });
+  refresh();
+})();
+</script>
 @endsection
