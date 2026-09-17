@@ -173,6 +173,7 @@
            </div>
          </div>
        </div> 
+       @include('backoffice::TerminationDues._summary_box', ['selector' => '#tenant_contract_id'])
        <div class="col-sm-6">
         <div class="form-group">
           <label for="tenant_contract_no">Agreement No<small class="textRed">*</small></label>
