@@ -61,3 +61,14 @@ termination_dues_followups
 - No AX posting changes.
 - No automatic cancellation or reversal of historical receipts.
 - No change to how the termination workflow itself progresses.
+
+## Deployment notes
+
+1. Run migrations: `Modules/BackOffice/Database/Migrations/2026_09_17_000001_create_termination_dues_tables.php`, then `database/migrations/2026_09_17_000002_add_termination_dues_menu.php`.
+2. Review `configuration.termination_dues_account_map` against the live chart of accounts; edit the JSON if finance uses other codes.
+3. Prune the two permissions per role (the migration grants both to every role): Back Office roles keep `view_termination_dues_backoffice`, Maintenance roles keep `view_termination_dues_maintenance`.
+4. `php artisan termination-dues:backfill --since=2024-01-01` (dry run), review, then `--apply`.
+5. Confirm the scheduler runs (`termination-dues:refresh --open-only` at 01:30).
+6. Hand `storage/reports_tmp/rent_receipts_past_termination_date.csv` to finance for the historical receipts that were used as IOUs.
+7. Receipts count as settlements when `receipts_generation_approval_status` is 3 (approved) or 6 (posted); the legacy outstanding calculation in `TenantTerminationController` still uses `= 3` only — consider aligning it.
+8. The backfill dry run on the local copy (`--since=2025-01-01`) reported 184 to create, 9 already settled, 870 with nothing owed.
