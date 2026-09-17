@@ -745,6 +745,10 @@ Route::middleware('auth')->group(function () {
 
 	Route::post('legalReceivablesReportPdfV2', 'BackOfficeReportController@legalReceivablesReportPdfV2')->name('legalReceivablesReportPdfV2');
 
+	Route::get('showTenantAgingReport', 'BackOfficeReportController@showTenantAgingReport')->name('showTenantAgingReport');
+
+	Route::post('tenantAgingReportPdf', 'BackOfficeReportController@tenantAgingReportPdf')->name('tenantAgingReportPdf');
+
 	Route::get('showNormalManagementReportV2', 'BackOfficeReportController@showNormalManagementReportV2')->name('showNormalManagementReportV2');
 
 	Route::post('normalManagementReportV2Generate', 'BackOfficeReportController@normalManagementReportV2Generate')->name('normalManagementReportV2Generate');

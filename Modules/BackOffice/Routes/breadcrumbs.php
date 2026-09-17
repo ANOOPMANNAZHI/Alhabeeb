@@ -811,6 +811,11 @@ Breadcrumbs::for('showLegalReceivablesReportV2', function ($trail) {
     $trail->push('Legal Receivable v2', route('showLegalReceivablesReportV2'));
 });
 
+Breadcrumbs::for('showTenantAgingReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Tenant Aging Report', route('showTenantAgingReport'));
+});
+
 Breadcrumbs::for('showNormalManagementReportV2', function ($trail) {
     $trail->parent('home');
     $trail->push('Normal Management Report v2', route('showNormalManagementReportV2'));

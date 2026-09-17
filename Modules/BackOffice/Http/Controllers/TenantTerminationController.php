@@ -40,6 +40,8 @@ use Illuminate\Support\Facades\Mail;
 use Modules\BackOffice\Emails\TerminationTenantEmail;
 use Modules\BackOffice\Emails\InspectionSendEmail;
 use Modules\BackOffice\Events\TenantTerminationReferBack;
+use Modules\BackOffice\Services\MunicipalTaxCalculator;
+use Modules\BackOffice\Services\UnpaidRentPeriod;
 
 class TenantTerminationController extends Controller
 {
@@ -1682,9 +1684,58 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
       }
     }
 
-     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt'));
+     $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $outstandingOs, $totalOutstanding);
+
+     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
 
    }
+
+    /**
+     * Pre-filled values for the "Other charges" tab of the inspection:
+     * rent = outstanding rent as on the termination date (already computed
+     * for the page), municipal tax = MunicipalTaxCalculator rule using the
+     * municipal_tax_percentage setting.
+     *
+     * @return array ['rent' => ['amount', 'note'], 'municipal_tax' => ['amount', 'note']]
+     */
+    private function inspectionOtherChargeSuggestions($tenantContract, $termination, $outstandingOs, $previousContractsOs = 0)
+    {
+      $setting = prefixData(MunicipalTaxCalculator::SETTING_KEY);
+      $rate    = $setting ? (float) $setting->configuration_value : 0;
+      $tax     = MunicipalTaxCalculator::forTermination($tenantContract, $termination, $rate);
+
+      $rent = max((float) $outstandingOs, 0);
+
+      // Which months make up the outstanding rent, so the inspector can verify it
+      $paidTill = ReceiptsGeneration::where('tenant_contract_id', $tenantContract->id)
+        ->where('receipts_generation_type', 0)
+        ->where('receipts_generation_approval_status', 3)
+        ->whereNull('deleted_at')
+        ->max('receipts_generation_eff_to');
+      $period = UnpaidRentPeriod::describe(
+        $tenantContract->tenant_contract_effective_date, $paidTill, $termination->termination_date
+      );
+      $thisContractOs = round((float) $outstandingOs - (float) $previousContractsOs, 3);
+      $rentDetail = $period['label'];
+      if ($previousContractsOs > 0) {
+        $rentDetail .= ($rentDetail ? ' · ' : '') . 'includes ' . number_format($previousContractsOs, 3) . ' outstanding from earlier contract(s) on this unit';
+      }
+
+      return [
+        'rent' => [
+          'amount' => round($rent, 3),
+          'note'   => $rent > 0
+            ? 'Outstanding rent as on ' . ($termination->termination_date ? date('d/m/Y', strtotime($termination->termination_date)) : 'termination date')
+            : 'No outstanding rent',
+          'detail' => $rentDetail,
+          'this_contract' => $thisContractOs,
+        ],
+        'municipal_tax' => [
+          'amount' => $tax['amount'],
+          'note'   => $rate > 0 ? $tax['note'] : 'Municipal tax percentage not set in General Settings',
+        ],
+      ];
+    }
     /*
     *
     *
@@ -1740,7 +1791,9 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
         $totalOtherAmt+= $total;
       }
     }
-      return view('backoffice::Termination.tenant_termination_handover_assigned_inspection_edit',compact('tenantContract','works','termination','terminationDocument','groupedWork','arry','otherArray','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt'));
+      $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $outstandingOs, $totalOutstanding);
+
+      return view('backoffice::Termination.tenant_termination_handover_assigned_inspection_edit',compact('tenantContract','works','termination','terminationDocument','groupedWork','arry','otherArray','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
 
     }
     /*

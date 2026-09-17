@@ -25,6 +25,8 @@ use Modules\BackOffice\Exports\TenancyDetailsReportExport;
 use Modules\BackOffice\Exports\MeraRentReceiptReportExport;
 use Modules\BackOffice\Exports\TenantReceivableV2Export;
 use Modules\BackOffice\Exports\LegalReceivableV2Export;
+use Modules\BackOffice\Exports\TenantAgingExport;
+use Modules\BackOffice\Services\TenantAgingCalculator;
 use Modules\BackOffice\Exports\NormalManagementV2Export;
 use Modules\BackOffice\Exports\NormalManagementMonthSheet;
 use Modules\BackOffice\Exports\NormalManagementConsolidateSheet;
@@ -2245,6 +2247,243 @@ public function tenantReceivablesReportPdfV2(Request $request){
 /*
  *
  *Tenant receivable v2 ends
+ *
+ */
+
+/*
+ *
+ *Tenant Aging Report starts
+ *
+ */
+public function showTenantAgingReport(){
+  $managementTypes = ManagementType::active()->get();
+  return view('backoffice::reports.tenant_aging_report', compact('managementTypes'));
+}
+
+public function tenantAgingReportPdf(Request $request){
+  $user         = Auth::user()->username;
+  $buildingname = $request['building_name'] ?? '';
+  $buildingno   = $request['building_no'] ?? '';
+  $tenantname   = $request['tenant_name'] ?? '';
+  $managetype   = $request['management_type'] ?? '';
+  $are          = $request['are'] ?? '';
+  $pdcFilter    = $request['pdc_filter'] ?? ''; // '', 'have' or 'no'
+  $date2        = $request['end_date'];
+  $downloadType = $request['download_type'];
+
+  $dateOnly = !empty($date2) && empty($buildingname) && empty($buildingno) && empty($tenantname) && empty($managetype) && empty($are);
+
+  if ($dateOnly) {
+    $rows = DB::select("SELECT * FROM tenantrentreceivable_v2(?::date) ORDER BY buildingname, unit_code", [$date2]);
+  } else {
+    $rows = DB::select(
+      "SELECT * FROM tenantrentreceivablecompo_v2(?::date,?,?,?,?,?) ORDER BY buildingname, unit_code",
+      [$date2, $tenantname, $buildingname, $buildingno, $managetype, $are]
+    );
+  }
+
+  // pdc column is '' / 'Full' / 'Partial'; Full and Partial both count as having a PDC
+  if ($pdcFilter === 'have') {
+    $rows = array_values(array_filter($rows, function ($r) { return trim($r->pdc ?? '') !== ''; }));
+  } elseif ($pdcFilter === 'no') {
+    $rows = array_values(array_filter($rows, function ($r) { return trim($r->pdc ?? '') === ''; }));
+  }
+  $pdcLabel = ['have' => 'Have PDC', 'no' => 'No PDC'][$pdcFilter] ?? '';
+
+  // Derive the aging split for every row; buckets always sum to netamtdue
+  $buckets = TenantAgingCalculator::buckets($date2);
+  $keys    = array_keys($buckets);
+  foreach ($rows as $row) {
+    $row->aging = TenantAgingCalculator::age($row, $date2);
+  }
+
+  $data = [
+    'rows'    => $rows,
+    'buckets' => $buckets,
+    'date'    => $date2,
+    'user'    => $user,
+    'filters' => [
+      'building_name'   => $buildingname,
+      'building_no'     => $buildingno,
+      'tenant_name'     => $tenantname,
+      'management_type' => $managetype,
+      'are'             => $are,
+      'pdc'             => $pdcLabel,
+    ],
+  ];
+
+  if ($downloadType == 'pdf') {
+    ini_set('memory_limit', '256M');
+    set_time_limit(300);
+    try {
+      $fmtDate = function($d) { return $d ? date('d/m/Y', strtotime($d)) : ''; };
+
+      require_once base_path('vendor/setasign/fpdf/fpdf.php');
+
+      // Column widths in mm (A4 landscape = 297mm, margins 10 each = 277mm usable)
+      $cols = [
+        'Sl'      => 8,
+        'Tenant'  => 55,
+        'AgrmtNo' => 26,
+        'Unit'    => 16,
+        'Balance' => 24,
+      ];
+      foreach ($keys as $k) {
+        $cols[$k] = 24;
+      }
+      $totalW = array_sum($cols); // 273
+
+      // Truncate text to fit cell (Arial 7pt ≈ 1.5mm/char)
+      $fit = function($text, $w) {
+        $max = (int)($w / 1.5);
+        return mb_strlen($text) > $max ? mb_substr($text, 0, $max - 1) . '~' : $text;
+      };
+
+      $pdf = new \FPDF('L', 'mm', 'A4');
+      $pdf->SetAutoPageBreak(true, 10);
+      $pdf->SetMargins(10, 10, 10);
+      $pdf->AddPage();
+
+      // --- Header ---
+      $pdf->SetFont('Arial', 'B', 14);
+      $pdf->Cell($totalW, 7, 'Tenant Aging Report as on Date', 0, 1, 'C');
+      $pdf->SetFont('Arial', 'B', 11);
+      $pdf->Cell($totalW, 6, date('d/m/Y', strtotime($date2)), 0, 1, 'C');
+      $pdf->SetFont('Arial', '', 7);
+      $pdf->Cell($totalW, 5, 'Generated: ' . date('d/m/Y H:i') . '   User: ' . $user, 0, 1, 'R');
+
+      $filters = [];
+      if ($buildingname) $filters[] = 'Building: ' . $buildingname;
+      if ($buildingno)   $filters[] = 'Bldg No: '  . $buildingno;
+      if ($tenantname)   $filters[] = 'Tenant: '   . $tenantname;
+      if ($managetype)   $filters[] = 'Mgmt: '     . $managetype;
+      if ($are)          $filters[] = 'ARE: '      . $are;
+      if ($pdcLabel)     $filters[] = 'PDC: '      . $pdcLabel;
+      if ($filters) {
+        $pdf->SetFont('Arial', 'B', 7);
+        $pdf->Cell($totalW, 5, implode('   ', $filters), 0, 1, 'L');
+      }
+      $pdf->Ln(1);
+
+      // --- Table header: two rows, bucket label then its date window ---
+      $pdf->SetFillColor(4, 93, 194);
+      $pdf->SetTextColor(255, 255, 255);
+      $pdf->SetFont('Arial', 'B', 7);
+      $pdf->SetLineWidth(0.2);
+      $fixedLabels = ['Sl' => 'Sl', 'Tenant' => 'Tenant Name', 'AgrmtNo' => 'Agreement No', 'Unit' => 'Unit', 'Balance' => 'Balance as on'];
+      foreach ($fixedLabels as $key => $label) {
+        $pdf->Cell($cols[$key], 5, $label, 'LTR', 0, 'C', true);
+      }
+      foreach ($keys as $k) {
+        $pdf->Cell($cols[$k], 5, $buckets[$k]['label'], 'LTR', 0, 'C', true);
+      }
+      $pdf->Ln();
+      $pdf->SetFont('Arial', '', 6);
+      foreach ($fixedLabels as $key => $label) {
+        $pdf->Cell($cols[$key], 5, $key === 'Balance' ? $fmtDate($date2) : '', 'LBR', 0, 'C', true);
+      }
+      foreach ($keys as $k) {
+        $b = $buckets[$k];
+        $range = $b['from'] ? $fmtDate($b['from']) . '-' . $fmtDate($b['to']) : '<= ' . $fmtDate($b['to']);
+        $pdf->Cell($cols[$k], 5, $range, 'LBR', 0, 'C', true);
+      }
+      $pdf->Ln();
+      $pdf->SetTextColor(0, 0, 0);
+
+      // --- Group rows by building ---
+      $grouped = [];
+      foreach ($rows as $row) {
+        $grouped[$row->buildingname][] = $row;
+      }
+      unset($rows);
+
+      $sl         = 0;
+      $grandBal   = 0;
+      $grandAging = array_fill_keys($keys, 0);
+      $even       = false;
+      $subW       = $cols['Sl'] + $cols['Tenant'] + $cols['AgrmtNo'] + $cols['Unit'];
+
+      foreach ($grouped as $buildingName => $buildingRows) {
+        // Building header row
+        $pdf->SetFillColor(160, 201, 242);
+        $pdf->SetFont('Arial', 'B', 7);
+        $pdf->Cell($totalW, 5, $fit($buildingName, $totalW), 1, 1, 'L', true);
+
+        $bBal   = 0;
+        $bAging = array_fill_keys($keys, 0);
+        $pdf->SetFont('Arial', '', 7);
+
+        foreach ($buildingRows as $row) {
+          $sl++;
+          $bBal += $row->netamtdue ?? 0;
+          foreach ($keys as $k) {
+            $bAging[$k] += $row->aging[$k];
+          }
+
+          $even = !$even;
+          if ($even) {
+            $pdf->SetFillColor(220, 235, 245);
+          } else {
+            $pdf->SetFillColor(255, 255, 255);
+          }
+
+          $pdf->Cell($cols['Sl'],      5, $sl,                                              1, 0, 'C', true);
+          $pdf->Cell($cols['Tenant'],  5, $fit($row->tenant_name ?? '', $cols['Tenant']),   1, 0, 'L', true);
+          $pdf->Cell($cols['AgrmtNo'], 5, $row->contract_no ?? '',                          1, 0, 'C', true);
+          $pdf->Cell($cols['Unit'],    5, $row->unit_code ?? '',                            1, 0, 'C', true);
+          $pdf->Cell($cols['Balance'], 5, number_format($row->netamtdue ?? 0, 3),           1, 0, 'R', true);
+          foreach ($keys as $k) {
+            $pdf->Cell($cols[$k], 5, $row->aging[$k] != 0 ? number_format($row->aging[$k], 3) : '-', 1, 0, 'R', true);
+          }
+          $pdf->Ln();
+        }
+
+        // Building subtotal
+        $grandBal += $bBal;
+        foreach ($keys as $k) {
+          $grandAging[$k] += $bAging[$k];
+        }
+
+        $pdf->SetFillColor(232, 244, 252);
+        $pdf->SetFont('Arial', 'B', 7);
+        $pdf->Cell($subW, 5, 'Total :', 1, 0, 'R', true);
+        $pdf->Cell($cols['Balance'], 5, number_format($bBal, 3), 1, 0, 'R', true);
+        foreach ($keys as $k) {
+          $pdf->Cell($cols[$k], 5, number_format($bAging[$k], 3), 1, 0, 'R', true);
+        }
+        $pdf->Ln();
+
+        unset($buildingRows);
+      }
+
+      // Grand total
+      $pdf->SetFillColor(197, 220, 237);
+      $pdf->SetFont('Arial', 'B', 7);
+      $pdf->Cell($subW, 6, 'Grand Total :', 1, 0, 'R', true);
+      $pdf->Cell($cols['Balance'], 6, number_format($grandBal, 3), 1, 0, 'R', true);
+      foreach ($keys as $k) {
+        $pdf->Cell($cols[$k], 6, number_format($grandAging[$k], 3), 1, 0, 'R', true);
+      }
+      $pdf->Ln();
+
+      $content = $pdf->Output('S');
+      return response($content, 200, [
+        'Content-Type'        => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="tenant_aging_' . $date2 . '.pdf"',
+      ]);
+    } catch (\Throwable $e) {
+      return response('PDF Error: ' . $e->getMessage(), 500);
+    }
+  } else {
+    return \Excel::download(
+      new TenantAgingExport($data),
+      'tenant_aging_' . $date2 . '.xlsx'
+    );
+  }
+}
+/*
+ *
+ *Tenant Aging Report ends
  *
  */
 

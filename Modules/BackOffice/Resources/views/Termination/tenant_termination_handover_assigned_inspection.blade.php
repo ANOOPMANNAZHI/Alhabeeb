@@ -46,6 +46,8 @@
   .insp .i-section-head:first-child { margin-top:0; }
   .insp .i-step-no { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--i-blue); color:#fff; font-size:12px; font-weight:700; }
   .insp .i-section-head .i-hint { margin-left:auto; font-size:12px; font-weight:500; color:var(--i-muted); }
+  .insp .i-auto-hint { font-size:11px; font-weight:500; color:var(--i-muted); margin-top:2px; }
+  .insp .i-auto-detail { color:#991b1b; }
   .insp .i-field label { display:block; font-size:12px; font-weight:600; color:var(--i-muted); margin-bottom:4px; }
   .insp .form-control { min-height:var(--i-tap); border-radius:6px; }
   .insp .form-control:focus { border-color:var(--i-blue); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
@@ -365,11 +367,23 @@
             <table class="table i-check" id="insp_other_table">
               <thead><tr><th style="width:56px"><span class="sr-only">Select</span></th><th>Charge</th><th style="width:120px">Qty</th><th class="num" style="width:160px">Amount (OMR)</th></tr></thead>
               <tbody>
+              @php
+                // Rent and Municipal Tax are pre-filled from the contract (see
+                // TenantTerminationController::inspectionOtherChargeSuggestions);
+                // a submitted (old) value always wins over the suggestion.
+                $suggestKey = ['Rent' => 'rent', 'Muncipal Tax' => 'municipal_tax'];
+              @endphp
               @foreach([['Others', true], ['Rent', false], ['Muncipal Tax', false], ['Any Other Charges', true]] as $j => $other)
+                @php
+                  $hint = isset($suggestKey[$other[0]]) ? ($suggested[$suggestKey[$other[0]]] ?? null) : null;
+                  $suggestedAmt = ($hint && $hint['amount'] > 0) ? number_format($hint['amount'], 3, '.', '') : '';
+                  $amtValue = old('addinspectionAmount_' . $j, old('_token') ? '' : $suggestedAmt);
+                  $checked  = old('_token') ? (bool) old('addinspectionOther_' . $j) : $suggestedAmt !== '';
+                @endphp
                 <tr class="i-row i-other-row">
                   <td>
                     <label class="i-tick" for="insp_other_{{ $j }}">
-                      <input type="checkbox" id="insp_other_{{ $j }}" name="addinspectionOther_{{ $j }}" value="{{ old('addinspectionOther_' . $j, $other[0]) }}" class="i-chk i-other-chk" {{ old('addinspectionOther_' . $j) ? 'checked' : '' }}>
+                      <input type="checkbox" id="insp_other_{{ $j }}" name="addinspectionOther_{{ $j }}" value="{{ old('addinspectionOther_' . $j, $other[0]) }}" class="i-chk i-other-chk" {{ $checked ? 'checked' : '' }}>
                       <span class="i-box"></span>
                       <span class="sr-only">Select {{ $other[0] }}</span>
                     </label>
@@ -379,10 +393,12 @@
                       <input type="text" class="form-control i-desc i-other-desc" value="{{ old('addinspectionOther_' . $j, $other[0]) }}" data-default="{{ $other[0] }}" aria-label="Description" placeholder="{{ $other[0] }} — describe">
                     @else
                       {{ $other[0] === 'Muncipal Tax' ? 'Municipal Tax' : $other[0] }}
+                      @if($hint)<div class="i-hint i-auto-hint">{{ $hint['note'] }}</div>@endif
+                      @if(!empty($hint['detail']))<div class="i-hint i-auto-hint i-auto-detail">{{ $hint['detail'] }}</div>@endif
                     @endif
                   </td>
                   <td><input type="text" inputmode="decimal" name="addinspectionQuantity_{{ $j }}" class="form-control num i-qty" value="{{ old('addinspectionQuantity_' . $j) }}" aria-label="Quantity"></td>
-                  <td><input type="text" inputmode="decimal" name="addinspectionAmount_{{ $j }}" class="form-control num i-money i-other-amt" value="{{ old('addinspectionAmount_' . $j) }}" placeholder="0.000" aria-label="Amount"></td>
+                  <td><input type="text" inputmode="decimal" name="addinspectionAmount_{{ $j }}" class="form-control num i-money i-other-amt" value="{{ $amtValue }}" placeholder="0.000" aria-label="Amount"></td>
                 </tr>
               @endforeach
               </tbody>
