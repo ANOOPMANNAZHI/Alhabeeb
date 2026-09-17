@@ -384,6 +384,8 @@ e     */
 
             ReceiptsGeneration::where('receipts_generation_receipt_no',$isPosted->pdc_receipt_no)->update(['receipts_generation_cancel_date'=>date('Y-m-d'),'receipts_generation_status'=>2,'receipts_generation_reason_cancel'=>'PDC Bounce','receipts_generation_cancel_by' => \Auth::user()->id]);
 
+            \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
+
             /*-----------Tenant Email Starts--------------------
             if(!empty($isPosted->tenantContractInfo->tenant->tenant_personal_email) || !empty($isPosted->tenantContractInfo->tenant->tenant_contact_email)){
                 $tenant_email = $isPosted->tenantContractInfo->tenant->tenant_personal_email ?
@@ -414,6 +416,8 @@ e     */
             Pdc::where('id',$pdc_id)->update(['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_cancel_by' => \Auth::user()->id]);
 
             ReceiptsGeneration::where('receipts_generation_receipt_no',$isPosted->pdc_receipt_no)->update(['receipts_generation_cancel_date'=>date('Y-m-d'),'receipts_generation_status'=>2,'receipts_generation_reason_cancel'=>'PDC Bounce','receipts_generation_cancel_by' => \Auth::user()->id]);
+
+            \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
             /*-----------Tenant Email Starts--------------------
             if(!empty($isPosted->tenantContractInfo->tenant->tenant_personal_email) || !empty($isPosted->tenantContractInfo->tenant->tenant_contact_email )){
@@ -485,6 +489,8 @@ e     */
 
            ReceiptsGeneration::where('receipts_generation_receipt_no',$isPosted->pdc_receipt_no)->update(['receipts_generation_cancel_date'=>date('Y-m-d'),'receipts_generation_status'=>2,'receipts_generation_reason_cancel'=>'PDC Exchange','receipts_generation_cancel_by' => \Auth::user()->id]);
 
+           \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
+
            return response()->json(['success'=>'Data is successfully added']);
        }
        else{
@@ -492,6 +498,8 @@ e     */
         Pdc::where('id',$isPosted->id)->update(['pdc_cancel_date'=>date('Y-m-d'),'pdc_cancel_reason'=>2,'pdc_cancel_by' => \Auth::user()->id]);
 
         ReceiptsGeneration::where('receipts_generation_receipt_no',$isPosted->pdc_receipt_no)->update(['receipts_generation_cancel_date'=>date('Y-m-d'),'receipts_generation_status'=>2,'receipts_generation_reason_cancel'=>'PDC Exchange','receipts_generation_cancel_by' => \Auth::user()->id]);
+
+        \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
         return response()->json(['success'=>'Data is successfully added']);
     }

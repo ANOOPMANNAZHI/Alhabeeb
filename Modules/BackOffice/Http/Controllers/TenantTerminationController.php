@@ -42,6 +42,7 @@ use Modules\BackOffice\Emails\InspectionSendEmail;
 use Modules\BackOffice\Events\TenantTerminationReferBack;
 use Modules\BackOffice\Services\MunicipalTaxCalculator;
 use Modules\BackOffice\Services\UnpaidRentPeriod;
+use Modules\BackOffice\Services\TerminationDuesService;
 
 class TenantTerminationController extends Controller
 {
@@ -582,6 +583,15 @@ class TenantTerminationController extends Controller
 
     $contracts = TenantContract::where('id',$termination->contract_id)->first();
     $contractUpdate = TenantContract::where('id',$termination->contract_id)->update(['tenant_contract_status'=>0,'tenant_renewal_termination_status'=>8]);
+
+    // Outstanding rent / tax / E&W / maintenance becomes a tracked receivable
+    // instead of a receipt nobody has paid. Never blocks the termination.
+    try {
+      (new TerminationDuesService)->createForTermination($termination, \Auth::user()->id);
+    } catch (\Exception $e) {
+      \Log::error('TerminationDues create failed for contract '.$termination->contract_id.': '.$e->getMessage());
+    }
+
     $unitUpdate = Unit::where('id',$contracts->unit_id)->update(['unit_vaccant_status'=>0]);
 
           //Remaining pdc and invoices cancel    

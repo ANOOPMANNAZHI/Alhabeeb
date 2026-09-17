@@ -26,6 +26,7 @@ use App\User;
 use Carbon\Carbon;
 use Dynamics;
 use App\Setting;
+use Modules\BackOffice\Services\TerminationDuesService;
 
 class RentReceiptGenerationController extends Controller
 {
@@ -160,6 +161,7 @@ class RentReceiptGenerationController extends Controller
 
 		//Update next increment value
 		$this->incrementSequenceNo($configIncKey);
+        TerminationDuesService::touchContract($request->tenant_contract_no);
 
         session()->flash('success', 'Saved Successfully');
         return redirect()->route('receiptsTabViewListtab','rent');
@@ -266,6 +268,8 @@ class RentReceiptGenerationController extends Controller
             ]);
         }
 
+        TerminationDuesService::touchReceipt($id);
+
         session()->flash('success', 'Saved Successfully');
         return redirect()->route('receiptsTabViewListtab','rent');
     }
@@ -288,6 +292,7 @@ class RentReceiptGenerationController extends Controller
         try {
                         
             ReceiptsGeneration::where('id',$id)->delete();
+            TerminationDuesService::touchReceipt($id);
             session()->flash('success', 'Receipt Deleted Successfully');
         }
         catch (\Exception $e) {
@@ -897,8 +902,9 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
 
           }
         
-		//Update next increment value   	
+		//Update next increment value
         $this->incrementSequenceNo($configIncKey);
+        TerminationDuesService::touchContract($request->tenant_contract_no);
 
         session()->flash('success', 'Saved Successfully');
         return redirect()->route('receiptsTabViewListtab','general');
@@ -1011,10 +1017,12 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
 
           }
 
-              
+
+        TerminationDuesService::touchReceipt($id);
+
         session()->flash('success', 'Update Successfully');
         return redirect()->route('receiptsTabViewListtab','general');
-    }    
+    }
 
     /*  
         List Reuest for Approval - tab
@@ -1212,13 +1220,15 @@ $receiptslist = ViewReceipt::filter($request)
                             'receipts_generation_approval_status'=> 1,
                             'receipts_generation_status'=>0
                         ]);
+                        TerminationDuesService::touchReceipt($receiptId);
                     }
                     else{
                     ReceiptsGeneration::where('id',$receiptId)->update([
                             'receipts_generation_approval_status'=> $processStatus,'receipts_generation_status'=>1
                         ]);
+                        TerminationDuesService::touchReceipt($receiptId);
                     }
-                                       
+
                     return redirect()->back()->with('success', 'Approved Receipt');
                     break;
 
@@ -1230,6 +1240,7 @@ $receiptslist = ViewReceipt::filter($request)
                             'receipts_generation_approval_status'=> 3,
                             'receipts_generation_status'=> 1
                         ]);
+                        TerminationDuesService::touchReceipt($receiptId);
 
                     }
                     else{
@@ -1237,9 +1248,10 @@ $receiptslist = ViewReceipt::filter($request)
                             'receipts_generation_approval_status'=> $processStatus,
                             'receipts_generation_status'=>0
                         ]);
+                        TerminationDuesService::touchReceipt($receiptId);
                     }
-                    
-                    $users = User::role(['accountant'])->get(); 
+
+                    $users = User::role(['accountant'])->get();
                     $users = array_flatten($users);
 
                     $receiptInfo->href = url('rentReceiptGeneration'.'/'.$receiptId);   
@@ -1603,6 +1615,7 @@ $receiptslist = ViewReceipt::filter($request)
                                     'receipts_generation_posted_date'=>date("Y-m-d"),
                                     'receipts_generation_posted_by' => \Auth::user()->id
                                 ]);
+                TerminationDuesService::touchReceipt($receiptId);
                 if($receiptInfo->receipts_generation_type == 0){
                     TenantContract::where('id',$receiptInfo->tenant_contract_id)->update([
                                 'tenant_contract_last_paid_date' => $receiptInfo->receipts_generation_eff_to,

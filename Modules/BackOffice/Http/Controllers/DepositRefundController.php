@@ -217,6 +217,8 @@ class DepositRefundController extends Controller
           $depositRefund->fresh('depositRefundDimension'), \Auth::user()->id
       );
 
+      \Modules\BackOffice\Services\TerminationDuesService::touchContract($request['tenant_contract_id']);
+
       session()->flash('success', $receipt
           ? 'Deposit Refund Created Successfully. Deduction receipt ' . $receipt->receipt_no . ' issued.'
           : 'Deposit Refund Created Successfully');
@@ -441,6 +443,7 @@ class DepositRefundController extends Controller
 
         }
       }
+      \Modules\BackOffice\Services\TerminationDuesService::touchDepositRefund($depositRefund->id);
       session()->flash('success', 'Deposit Refund Updated Successfully');
       return redirect()->route('depositRefund.index');
     }
@@ -747,7 +750,9 @@ public function cancelDepositRefundStore(Request $request,DepositRefund $deposit
     'action' => 6,
     'created_by' => \Auth::user()->id]);
 
+  $duesContractId = DepositRefund::where('id',$deposit_refund_id)->value('tenant_contract_id');
   DepositRefund::where('id',$deposit_refund_id)->delete();
+  \Modules\BackOffice\Services\TerminationDuesService::touchContract($duesContractId);
 
   session()->flash('success', 'Deposit Refund Cancelled Successfully');
   return redirect()->route('depositRefund.index');
