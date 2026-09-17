@@ -15,6 +15,8 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
          Commands\NotificationCommand::class,
+         \Modules\BackOffice\Console\TerminationDuesBackfill::class,
+         \Modules\BackOffice\Console\TerminationDuesRefresh::class,
     ];
 
     /**
@@ -30,7 +32,9 @@ class Kernel extends ConsoleKernel
         
 
        $schedule->command('taskOverDuenotify:command')->everyMinute();
-        
+
+       $schedule->command('termination-dues:refresh --open-only')->dailyAt('01:30');
+
     }
 
     /**
