@@ -194,8 +194,7 @@
       <h5>Follow-up log</h5>
       <form method="post" action="{{ route('termination-dues.followup', $dues->id) }}">
         @csrf
-        <div class="form-group"><label for="fu-team">Team</label>
-          <select id="fu-team" name="owner_team" class="form-control" required>@foreach($teams as $t)<option value="{{ $t }}">{{ $teamLabels[$t] }}</option>@endforeach</select></div>
+        <p class="tdue-muted" style="margin-bottom:8px">Recorded as {{ optional(optional(Auth::user())->employee)->employee_name ?: Auth::user()->username }} ({{ implode(' / ', array_map(function ($t) use ($teamLabels) { return $teamLabels[$t]; }, $teams)) }}).</p>
         <div class="form-row">
           <div class="form-group col-sm-6"><label for="fu-date">Date</label><input id="fu-date" type="date" name="followup_date" class="form-control" value="{{ date('Y-m-d') }}" required></div>
           <div class="form-group col-sm-6"><label for="fu-method">How</label>
@@ -210,7 +209,7 @@
           <li><strong>{{ $f->followup_date->format('d/m/Y') }}</strong> · {{ $methods[$f->method] ?? $f->method }} · {{ $teamLabels[$f->owner_team] ?? $f->owner_team }}
             @if($f->promise_date)<span class="tdue-muted"> · promised {{ $f->promise_date->format('d/m/Y') }}</span>@endif
             <div>{{ $f->note }}</div>
-            <div class="who">{{ optional($f->creator)->username }} · {{ $f->created_at->format('d/m/Y H:i') }}</div></li>
+            <div class="who">{{ optional(optional($f->creator)->employee)->employee_name ?: optional($f->creator)->username }} · {{ $f->created_at->format('d/m/Y H:i') }}</div></li>
         @empty
           <li class="tdue-muted">No follow-ups recorded yet.</li>
         @endforelse

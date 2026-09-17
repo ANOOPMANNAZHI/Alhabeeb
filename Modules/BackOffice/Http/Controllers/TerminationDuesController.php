@@ -108,16 +108,17 @@ class TerminationDuesController extends Controller
     public function storeFollowup(Request $request, TerminationDues $terminationDues)
     {
         $this->validate($request, [
-            'owner_team'    => 'required|in:backoffice,maintenance',
             'followup_date' => 'required|date',
             'method'        => 'required|in:call,sms,whatsapp,email,visit,other',
             'note'          => 'nullable|string|max:2000',
             'promise_date'  => 'nullable|date',
         ]);
-        $this->authorizeTeam($request->owner_team);
+        // The team is the signed-in user's own; users with both permissions are filed under Back Office.
+        $teams = $this->visibleTeams();
+        $ownerTeam = in_array(Cat::TEAM_BACKOFFICE, $teams, true) ? Cat::TEAM_BACKOFFICE : (count($teams) ? $teams[0] : Cat::TEAM_BACKOFFICE);
 
         $terminationDues->followups()->create([
-            'owner_team'    => $request->owner_team,
+            'owner_team'    => $ownerTeam,
             'followup_date' => $request->followup_date,
             'method'        => $request->method,
             'note'          => $request->note,
