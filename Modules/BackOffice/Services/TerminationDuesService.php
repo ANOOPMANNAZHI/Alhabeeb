@@ -49,6 +49,7 @@ class TerminationDuesService
             ->where('tenant_contract_id', $termination->contract_id)
             ->where('receipts_generation_type', 0)
             ->where('receipts_generation_approval_status', 3)
+            ->where('receipts_generation_status', '<>', 2)
             ->whereNull('deleted_at')
             ->max('id');
 
@@ -107,6 +108,7 @@ class TerminationDuesService
                 ->where('receipts_generation_type', 0)
                 ->where('tenant_contract_id', $contractId)
                 ->where('receipts_generation_approval_status', 3)
+                ->where('receipts_generation_status', '<>', 2)
                 ->whereNull('deleted_at')
                 ->sum('receipts_generation_amt');
             $rentOs = (float) totalContractRentCountCalculation($contractId, $terminationDate) - (float) $sumOfReceipt;
@@ -182,13 +184,23 @@ class TerminationDuesService
 
     public static function touchReceipt($receiptId)
     {
-        $contractId = DB::table('receipts_generation')->where('id', $receiptId)->value('tenant_contract_id');
+        try {
+            $contractId = DB::table('receipts_generation')->where('id', $receiptId)->value('tenant_contract_id');
+        } catch (\Exception $e) {
+            Log::warning('TerminationDues touchReceipt lookup failed for receipt ' . $receiptId . ': ' . $e->getMessage());
+            return;
+        }
         self::touchContract($contractId);
     }
 
     public static function touchDepositRefund($depositRefundId)
     {
-        $contractId = DB::table('deposit_refund')->where('id', $depositRefundId)->value('tenant_contract_id');
+        try {
+            $contractId = DB::table('deposit_refund')->where('id', $depositRefundId)->value('tenant_contract_id');
+        } catch (\Exception $e) {
+            Log::warning('TerminationDues touchDepositRefund lookup failed for deposit refund ' . $depositRefundId . ': ' . $e->getMessage());
+            return;
+        }
         self::touchContract($contractId);
     }
 
