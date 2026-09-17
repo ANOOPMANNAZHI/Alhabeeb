@@ -161,27 +161,70 @@ class TerminationDuesController extends Controller
         return redirect()->route('termination-dues.show', $terminationDues->id)->with('success', 'Receipt assigned to "' . $line->description . '".');
     }
 
+    /**
+     * Waive amounts on one or more lines in a single approval.
+     * Form posts lines[<line_id>][selected]=1 and lines[<line_id>][amount].
+     */
     public function storeWaiver(Request $request, TerminationDues $terminationDues)
     {
         $this->validate($request, [
-            'line_id' => 'required|integer',
-            'amount'  => 'required|numeric|min:0.001',
-            'remark'  => 'required|string|max:1000',
+            'lines'            => 'required|array',
+            'lines.*.amount'   => 'nullable|numeric|min:0.001',
+            'remark'           => 'required|string|max:1000',
         ]);
-        $line = TerminationDuesLine::where('termination_dues_id', $terminationDues->id)->where('id', $request->line_id)->firstOrFail();
-        $this->authorizeTeam($line->owner_team);
 
-        TerminationDuesAllocation::create([
-            'termination_dues_line_id' => $line->id,
-            'source_type'              => 'waiver',
-            'source_id'                => null,
-            'amount'                   => $request->amount,
-            'remark'                   => $request->remark,
-            'created_by'               => \Auth::user()->id,
-        ]);
-        (new TerminationDuesService)->refresh($terminationDues);
+        $picked = [];
+        foreach ((array) $request->input('lines', []) as $lineId => $row) {
+            if (!empty($row['selected'])) {
+                $picked[(int) $lineId] = isset($row['amount']) ? (float) $row['amount'] : 0.0;
+            }
+        }
+        if (empty($picked)) {
+            return redirect()->route('termination-dues.show', $terminationDues->id)->with('error', 'Tick at least one line to waive.');
+        }
 
-        return redirect()->route('termination-dues.show', $terminationDues->id)->with('success', numberFormat($request->amount) . ' waived on "' . $line->description . '".');
+        $service  = new TerminationDuesService;
+        $balances = $service->refresh($terminationDues)['lines'];
+        $lines    = TerminationDuesLine::where('termination_dues_id', $terminationDues->id)->whereIn('id', array_keys($picked))->get()->keyBy('id');
+
+        $errors = [];
+        foreach ($picked as $lineId => $amount) {
+            if (!isset($lines[$lineId])) {
+                $errors[] = 'Line #' . $lineId . ' does not belong to this record.';
+                continue;
+            }
+            $line = $lines[$lineId];
+            $this->authorizeTeam($line->owner_team);
+            $balance = isset($balances[$lineId]) ? (float) $balances[$lineId]['balance'] : 0.0;
+            if ($amount <= 0) {
+                $errors[] = 'Enter an amount for "' . $line->description . '".';
+            } elseif ($amount > $balance + 0.005) {
+                $errors[] = 'Waiver on "' . $line->description . '" (' . numberFormat($amount) . ') exceeds its open balance of ' . numberFormat($balance) . '.';
+            }
+        }
+        if ($errors) {
+            return redirect()->route('termination-dues.show', $terminationDues->id)->with('error', implode(' ', $errors));
+        }
+
+        $total = 0.0;
+        \DB::transaction(function () use ($picked, $lines, $request, &$total) {
+            foreach ($picked as $lineId => $amount) {
+                TerminationDuesAllocation::create([
+                    'termination_dues_line_id' => $lineId,
+                    'source_type'              => 'waiver',
+                    'source_id'                => null,
+                    'amount'                   => round($amount, 3),
+                    'remark'                   => $request->remark,
+                    'created_by'               => \Auth::user()->id,
+                ]);
+                $total += $amount;
+            }
+        });
+        $service->refresh($terminationDues);
+
+        $names = $lines->only(array_keys($picked))->pluck('description')->all();
+        return redirect()->route('termination-dues.show', $terminationDues->id)
+            ->with('success', numberFormat($total) . ' OMR waived on ' . count($picked) . ' line' . (count($picked) === 1 ? '' : 's') . ': ' . implode(', ', $names) . '.');
     }
 
     public function destroyAllocation(TerminationDues $terminationDues, $allocation)

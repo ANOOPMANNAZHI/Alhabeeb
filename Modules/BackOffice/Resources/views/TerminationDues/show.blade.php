@@ -232,15 +232,58 @@
           <li class="tdue-muted">None.</li>
         @endforelse
       </ul>
-      <h5 style="margin-top:24px">Waive an amount</h5>
-      <form method="post" action="{{ route('termination-dues.waive', $dues->id) }}">
+      @php $waivable = $dues->lines->filter(function ($line) use ($canTeam, $r) { return $canTeam($line->owner_team) && $r['lines'][$line->id]['balance'] > 0; }); @endphp
+      <h5 style="margin-top:24px">Waive amounts</h5>
+      @if($waivable->isEmpty())
+        <p class="tdue-muted">No line with an open balance that you can waive.</p>
+      @else
+      <form method="post" action="{{ route('termination-dues.waive', $dues->id) }}" id="wv-form">
         @csrf
-        <div class="form-group"><label for="wv-line">Line</label>
-          <select id="wv-line" name="line_id" class="form-control" required>@foreach($dues->lines as $line)@if($canTeam($line->owner_team) && $r['lines'][$line->id]['balance'] > 0)<option value="{{ $line->id }}">{{ $line->description }} — balance {{ numberFormat($r['lines'][$line->id]['balance']) }}</option>@endif @endforeach</select></div>
-        <div class="form-group"><label for="wv-amt">Amount</label><input id="wv-amt" type="number" step="0.001" min="0.001" name="amount" class="form-control" required></div>
-        <div class="form-group"><label for="wv-remark">Approval / reason</label><input id="wv-remark" type="text" name="remark" class="form-control" maxlength="1000" required placeholder="e.g. approved by Finance Manager on 17/09"></div>
-        <button type="submit" class="btn btn-outline-danger">Waive</button>
+        <p class="tdue-muted" style="margin-bottom:8px">Tick the lines to waive. Each amount is pre-filled with the open balance and can be reduced.</p>
+        <table class="table tdue-waive" style="margin-bottom:16px">
+          <thead><tr><th style="width:40px"><span class="sr-only">Select</span></th><th>Line</th><th class="num">Balance</th><th class="num" style="width:160px">Waive</th></tr></thead>
+          <tbody>
+          @foreach($waivable as $line)
+            @php $bal = $r['lines'][$line->id]['balance']; @endphp
+            <tr>
+              <td><input type="checkbox" class="wv-pick" name="lines[{{ $line->id }}][selected]" value="1" id="wv-pick-{{ $line->id }}" aria-label="Waive {{ $line->description }}"></td>
+              <td><label for="wv-pick-{{ $line->id }}" style="font-weight:600; margin:0; cursor:pointer">{{ $line->description }}</label><span class="tdue-muted" style="display:block; font-size:12px">{{ \Modules\BackOffice\Services\TerminationDuesCategory::label($line->category) }} · {{ $teamLabels[$line->owner_team] ?? $line->owner_team }}</span></td>
+              <td class="num">{{ numberFormat($bal) }}</td>
+              <td class="num"><input type="number" step="0.001" min="0.001" max="{{ $bal }}" name="lines[{{ $line->id }}][amount]" value="{{ $bal }}" class="form-control wv-amt" disabled aria-label="Amount to waive on {{ $line->description }}"></td>
+            </tr>
+          @endforeach
+          </tbody>
+          <tfoot><tr><th colspan="3" style="text-align:right">Total to waive</th><th class="num" id="wv-total">0.000</th></tr></tfoot>
+        </table>
+        <div class="form-group"><label for="wv-remark">Approval / reason (applies to every ticked line)</label><input id="wv-remark" type="text" name="remark" class="form-control" maxlength="1000" required placeholder="e.g. approved by Finance Manager on 17/09"></div>
+        <button type="submit" class="btn btn-outline-danger" id="wv-submit" disabled>Waive selected</button>
       </form>
+      <script>
+      (function () {
+        var form = document.getElementById('wv-form');
+        if (!form) return;
+        function fmt(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }); }
+        function refresh() {
+          var total = 0, any = false;
+          form.querySelectorAll('tr').forEach(function (tr) {
+            var pick = tr.querySelector('.wv-pick'), amt = tr.querySelector('.wv-amt');
+            if (!pick || !amt) return;
+            amt.disabled = !pick.checked;
+            if (pick.checked) { any = true; total += parseFloat(amt.value) || 0; }
+          });
+          document.getElementById('wv-total').textContent = fmt(total);
+          document.getElementById('wv-submit').disabled = !any;
+        }
+        form.addEventListener('change', refresh);
+        form.addEventListener('input', refresh);
+        form.addEventListener('submit', function (e) {
+          var n = form.querySelectorAll('.wv-pick:checked').length;
+          if (n && !window.confirm('Waive the selected ' + n + ' line' + (n === 1 ? '' : 's') + ' for a total of ' + document.getElementById('wv-total').textContent + ' OMR?')) e.preventDefault();
+        });
+        refresh();
+      })();
+      </script>
+      @endif
     </section>
   </div>
 </div></div>
