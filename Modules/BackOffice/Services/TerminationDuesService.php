@@ -48,7 +48,8 @@ class TerminationDuesService
         $uptoId = DB::table('receipts_generation')
             ->where('tenant_contract_id', $termination->contract_id)
             ->where('receipts_generation_type', 0)
-            ->where('receipts_generation_approval_status', 3)
+            // 3 = approved, 6 = approved and posted to AX; both are real money
+            ->whereIn('receipts_generation_approval_status', [3, 6])
             ->where('receipts_generation_status', '<>', 2)
             ->whereNull('deleted_at')
             ->max('id');
@@ -107,7 +108,7 @@ class TerminationDuesService
             $sumOfReceipt = DB::table('receipts_generation')
                 ->where('receipts_generation_type', 0)
                 ->where('tenant_contract_id', $contractId)
-                ->where('receipts_generation_approval_status', 3)
+                ->whereIn('receipts_generation_approval_status', [3, 6])
                 ->where('receipts_generation_status', '<>', 2)
                 ->whereNull('deleted_at')
                 ->sum('receipts_generation_amt');
@@ -259,7 +260,7 @@ class TerminationDuesService
         }
         if ($ignoreReceiptId) {
             // Editing an approved receipt that is already counted: give its amount back to the balance
-            $current = DB::table('receipts_generation')->where('id', $ignoreReceiptId)->where('receipts_generation_approval_status', 3)->value('receipts_generation_amt');
+            $current = DB::table('receipts_generation')->where('id', $ignoreReceiptId)->whereIn('receipts_generation_approval_status', [3, 6])->where('receipts_generation_status', '<>', 2)->value('receipts_generation_amt');
             $rentBalance += (float) $current;
         }
         $amount = (float) $amount;

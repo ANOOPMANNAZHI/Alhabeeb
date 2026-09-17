@@ -55,7 +55,8 @@ class TerminationDuesSources
         $q = DB::table('receipts_generation')
             ->where('tenant_contract_id', $dues->tenant_contract_id)
             ->where('receipts_generation_type', 0)
-            ->where('receipts_generation_approval_status', 3)
+            // 3 = approved, 6 = approved and posted to AX; both are real money
+            ->whereIn('receipts_generation_approval_status', [3, 6])
             ->where('receipts_generation_status', '<>', 2)
             ->whereNull('deleted_at');
         if ($dues->rent_receipts_upto_id) {
@@ -85,7 +86,7 @@ class TerminationDuesSources
             ->join('receipts_generation as r', 'r.id', '=', 'd.receipts_generation_id')
             ->where('r.tenant_contract_id', $dues->tenant_contract_id)
             ->where('r.receipts_generation_type', 1)
-            ->where('r.receipts_generation_approval_status', 3)
+            ->whereIn('r.receipts_generation_approval_status', [3, 6])
             ->where('r.receipts_generation_status', '<>', 2)
             ->whereNull('r.deleted_at')
             ->where('d.credit_amount', '>', 0);
