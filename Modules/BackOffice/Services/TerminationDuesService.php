@@ -134,18 +134,11 @@ class TerminationDuesService
             }
         }
 
-        // Rent outstanding as on the termination date, same formula as the termination flow
+        // Rent outstanding as on the termination date — same rule as the termination screens (RentOutstanding)
         $rentOs = 0;
         $terminationDate = $finalRow->termination_date ? date('Y-m-d', strtotime($finalRow->termination_date)) : date('Y-m-d');
         try {
-            $sumOfReceipt = DB::table('receipts_generation')
-                ->where('receipts_generation_type', 0)
-                ->where('tenant_contract_id', $contractId)
-                ->whereIn('receipts_generation_approval_status', [3, 6])
-                ->where('receipts_generation_status', '<>', 2)
-                ->whereNull('deleted_at')
-                ->sum('receipts_generation_amt');
-            $rentOs = (float) totalContractRentCountCalculation($contractId, $terminationDate) - (float) $sumOfReceipt;
+            $rentOs = RentOutstanding::amountForContract($contractId, $terminationDate);
         } catch (\Exception $e) {
             Log::warning('TerminationDues: rent OS calculation failed for contract ' . $contractId . ': ' . $e->getMessage());
         }

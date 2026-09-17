@@ -575,27 +575,20 @@ $path = 'http://plms.alhabib.om:8086/';
 return $path;
 }
 
+/**
+ * Rent due on a contract from its effective date up to $terminationDate.
+ * Whole months, a started month counts as a month — see
+ * Modules\BackOffice\Services\RentOutstanding. (The previous version used
+ * the %m component only, so tenancies over a year lost whole years, and
+ * charged part months by days.)
+ */
 function totalContractRentCountCalculation($contractId,$terminationDate){
 $tenantContract =  TenantContract::where('id',$contractId)->first();
-$effectiveDate = $tenantContract->tenant_contract_effective_date;
-$rentPerMonth = $tenantContract->tenant_contract_rent;
-$rentPerDay = $rentPerMonth/30;
-
-$diff = date_diff(date_create($effectiveDate),date_create($terminationDate));
-
-
-     //count Months
-$monthsDiff = $diff->format("%m");
-//count days remaining
-$daysDiff = $diff->format("%d");
-
-$rentMonth = $rentPerMonth*$monthsDiff;
-
-$rentDay = $rentPerDay*$daysDiff;
-
-$sumOfRent = $rentMonth+$rentDay;
-
-
+if (!$tenantContract) {
+    return number_format(0, 3, '.', '');
+}
+$effectiveDate = $tenantContract->tenant_contract_effective_date ?: $tenantContract->tenant_contract_start_date;
+$sumOfRent = \Modules\BackOffice\Services\RentOutstanding::rentDue($effectiveDate, $terminationDate, $tenantContract->tenant_contract_rent);
 
 return number_format((float)$sumOfRent, 3, '.', '');
 }
