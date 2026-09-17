@@ -12,7 +12,10 @@
   .tov .t-head .t-actions { margin-left:auto; display:flex; flex-wrap:wrap; gap:8px; }
   .tov .t-head .t-actions .btn { min-height:40px; display:inline-flex; align-items:center; gap:6px; margin:0; }
   .tov .t-status { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:4px 10px; border-radius:999px; background:var(--t-line); color:var(--t-ink); }
+  .tov .t-head .t-title { font-size:22px; }
+  .tov .t-os { margin-top:8px; font-size:14px; }
   .tov .t-os-yes { color:#991b1b; font-weight:700; } .tov .t-os-no { color:#166534; font-weight:700; }
+  .tov .t-id-tile .t-meta .t-status { margin-top:2px; }
 
   /* Identity strip: who / where — the three facts staff look for first */
   .tov .t-id { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
@@ -85,15 +88,17 @@
   <div class="card card-box">
     <div class="t-head">
       <div>
-        <h3 class="t-title">{{ $tc->tenant_contract_no }} <span class="t-status">{{ $tc->tenant_contract_status_name }}</span></h3>
-        <div class="t-sub">Contract taken over for termination</div>
+        <h3 class="t-title">{{ $tc->tenant->tenant_name }}</h3>
+        <div class="t-sub">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</div>
+        <div class="t-os">
+          @if($outstandingOs > 0)
+            <span class="t-os-yes" title="Outstanding rent">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
+          @else
+            <span class="t-os-no">No outstanding</span>
+          @endif
+        </div>
       </div>
       <div class="t-actions">
-        @if($outstandingOs > 0)
-          <span class="t-os-yes" title="Outstanding rent">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
-        @else
-          <span class="t-os-no">No outstanding</span>
-        @endif
         @can('takenover_resubmit')
         <button type="button" class="btn btn-circle btn-default resubmit" data-toggle="modal" data-target="#myModal" data-id="RESUB" title="Resubmit" id="{{ $termination->tenantContract->id }}" datas-id="{{ $termination->id }}" datas-enid="{{ $termination->work_flow_processes_code }}" data-backdrop="static" data-keyboard="false">
           <i class="fa fa-undo" aria-hidden="true"></i> Resubmit
@@ -106,14 +111,9 @@
         @endcan
       </div>
     </div>
-    {{-- Who and where: the three facts staff look for first --}}
+    {{-- Where and which contract: building / unit / contract --}}
     <div class="t-id">
       <div class="t-id-tile t-id-primary">
-        <span class="t-lbl">Tenant</span>
-        <span class="t-big">{{ $tc->tenant->tenant_name }}</span>
-        <span class="t-meta">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</span>
-      </div>
-      <div class="t-id-tile">
         <span class="t-lbl">Building</span>
         <span class="t-big">{{ $tc->building->building_name }}</span>
         <span class="t-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_address) ? ' · Way ' . $tc->building->building_address : '' }}</span>
@@ -122,6 +122,11 @@
         <span class="t-lbl">Unit</span>
         <span class="t-big">{{ $tc->unit->unit_no }}</span>
         <span class="t-meta">{{ $tc->unit->vacant_status_name ?? 'Status NA' }} · Key {{ !empty($tc->unit->key) ? $tc->unit->key->status_name : 'NA' }}</span>
+      </div>
+      <div class="t-id-tile">
+        <span class="t-lbl">Contract</span>
+        <span class="t-big">{{ $tc->tenant_contract_no }}</span>
+        <span class="t-meta"><span class="t-status">{{ $tc->tenant_contract_status_name }}</span></span>
       </div>
     </div>
 
