@@ -777,6 +777,7 @@ Route::middleware('auth')->group(function () {
 	Route::post('termination-dues/{terminationDues}/allocate', 'TerminationDuesController@storeAllocation')->name('termination-dues.allocate');
 	Route::post('termination-dues/{terminationDues}/waive', 'TerminationDuesController@storeWaiver')->name('termination-dues.waive');
 	Route::delete('termination-dues/{terminationDues}/allocation/{allocation}', 'TerminationDuesController@destroyAllocation')->name('termination-dues.allocation.destroy');
+	Route::get('termination-dues/{terminationDues}/print', 'TerminationDuesController@print')->name('termination-dues.print');
 
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 

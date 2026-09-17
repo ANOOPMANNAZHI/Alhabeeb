@@ -88,6 +88,7 @@
     </div>
     @php $waivable = $dues->lines->filter(function ($line) use ($canTeam, $r) { return $canTeam($line->owner_team) && $r['lines'][$line->id]['balance'] > 0; }); @endphp
     <div class="tdue-actions">
+      <a class="btn btn-outline-secondary" href="{{ route('termination-dues.print', $dues->id) }}" target="_blank" rel="noopener"><i class="fa fa-print" aria-hidden="true"></i>&nbsp; Print statement</a>
       <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#fu-modal"><i class="fa fa-phone" aria-hidden="true"></i>&nbsp; Add follow-up</button>
       <button type="button" class="btn btn-outline-danger" data-toggle="modal" data-target="#wv-modal" @if($waivable->isEmpty()) disabled title="No open balance you can waive" @endif><i class="fa fa-hand-paper-o" aria-hidden="true"></i>&nbsp; Waive amount</button>
     </div>

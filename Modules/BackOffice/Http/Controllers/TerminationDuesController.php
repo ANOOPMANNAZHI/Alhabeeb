@@ -238,6 +238,63 @@ class TerminationDuesController extends Controller
         return redirect()->route('termination-dues.show', $terminationDues->id)->with('success', 'Assignment removed.');
     }
 
+    /**
+     * Printable statement: tenant / building / unit / contract, then one flat
+     * settlement table (no team split) and the balance.
+     */
+    public function print(TerminationDues $terminationDues)
+    {
+        $terminationDues->load(['lines', 'tenantContract.tenant', 'tenantContract.building.location', 'tenantContract.unit']);
+        $r = (new TerminationDuesService)->refresh($terminationDues);
+        $c = $terminationDues->tenantContract;
+
+        $lines = [];
+        $total = ['owed' => 0.0, 'deposit' => 0.0, 'receipts' => 0.0, 'waived' => 0.0, 'balance' => 0.0];
+        foreach ($terminationDues->lines as $line) {
+            $l = isset($r['lines'][$line->id]) ? $r['lines'][$line->id] : null;
+            if (!$l) {
+                continue;
+            }
+            $credit = !empty($l['credit']);
+            // Older maintenance lines were stored as "- Sub work" when the work had no description
+            $desc  = trim(preg_replace('/^[\s\-–·]+/u', '', $line->description));
+            $label = Cat::label($line->category);
+            $lines[] = [
+                'description' => strcasecmp($desc, $label) === 0 ? $desc : $desc . ' (' . $label . ')',
+                'owed'        => $l['owed'],
+                'deposit'     => $l['deposit'],
+                'receipts'    => $l['receipts'],
+                'waived'      => $l['waived'],
+                'balance'     => $l['balance'],
+                'credit'      => $credit,
+            ];
+            $total['owed']     += $l['owed'];
+            if (!$credit) {
+                $total['deposit']  += $l['deposit'];
+                $total['receipts'] += $l['receipts'];
+                $total['waived']   += $l['waived'];
+                $total['balance']  += $l['balance'];
+            }
+        }
+
+        $data = [
+            'tenantName'      => optional(optional($c)->tenant)->tenant_name ?: '-',
+            'tenantMobile'    => optional(optional($c)->tenant)->tenant_contact_no,
+            'buildingName'    => optional(optional($c)->building)->building_name ?: '-',
+            'location'        => optional(optional(optional($c)->building)->location)->locations_name,
+            'unitNo'          => optional(optional($c)->unit)->unit_no ?: (optional(optional($c)->unit)->unit_code ?: '-'),
+            'contractNo'      => optional($c)->tenant_contract_no ?: ('#' . $terminationDues->tenant_contract_id),
+            'terminationDate' => $terminationDues->termination_date ? $terminationDues->termination_date->format('d/m/Y') : null,
+            'status'          => $r['status'],
+            'printedAt'       => date('d/m/Y H:i'),
+            'lines'           => $lines,
+            'total'           => array_map(function ($v) { return round($v, 3); }, $total),
+        ];
+
+        $pdf = \PDF::loadView('backoffice::TerminationDues.pdf', $data)->setPaper('a4', 'portrait');
+        return $pdf->stream('termination-dues-' . preg_replace('/[^A-Za-z0-9_-]/', '', $data['contractNo']) . '.pdf');
+    }
+
     /** JSON for the summary box on receipt / deposit refund forms. */
     public function summary(Request $request)
     {

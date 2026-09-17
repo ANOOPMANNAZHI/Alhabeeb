@@ -126,7 +126,7 @@ class TerminationDuesService
                 $sub  = trim((string) (optional($row->subWorks)->sub_work));
                 $works[] = [
                     'id'          => $row->id,
-                    'description' => trim($desc . ($sub !== '' ? ' - ' . $sub : '')) ?: 'Maintenance item',
+                    'description' => implode(' - ', array_filter([$desc, $sub], 'strlen')) ?: 'Maintenance item',
                     'amount'      => $row->termination_amount,
                 ];
             } elseif ($row->termination_other_work) {
