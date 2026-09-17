@@ -22,7 +22,8 @@ class TerminationDuesController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('permission:view_termination_dues_backoffice|view_termination_dues_maintenance');
+        // summary feeds the box on the receipt / deposit refund forms; any signed-in user may read it
+        $this->middleware('permission:view_termination_dues_backoffice|view_termination_dues_maintenance')->except('summary');
     }
 
     /** Teams the current user may see, in tab order. */

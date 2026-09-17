@@ -1190,6 +1190,7 @@ $receiptslist = ViewReceipt::filter($request)
                     ReceiptsGeneration::where('id',$receiptId)->update([
                             'receipts_generation_approval_status'=> $processStatus,'receipts_generation_status'=> 0
                         ]);
+                    TerminationDuesService::touchReceipt($receiptId);
 
                                     //Notification 
                     clearNotification('Modules\BackOffice\Notifications\ReceiptApprovalNotification',$receiptId);
@@ -1287,6 +1288,7 @@ $receiptslist = ViewReceipt::filter($request)
                     ReceiptsGeneration::where('id',$receiptId)->update([
                             'receipts_generation_approval_status'=> $processStatus,
                         ]);
+                    TerminationDuesService::touchReceipt($receiptId);
 
                                   //Notification 
                     clearNotification('Modules\BackOffice\Notifications\ReceiptApprovalNotification',$receiptId);
