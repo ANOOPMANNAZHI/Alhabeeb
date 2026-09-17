@@ -57,7 +57,13 @@ class TerminationDuesController extends Controller
         } elseif ($status !== 'all') {
             $query->where('status', $status);
             if ($tab !== 'all') {
-                $query->where($balanceColumn, '>', 0);
+                if (in_array($status, ['open', 'partial'], true)) {
+                    $query->where($balanceColumn, '>', 0);
+                } else {
+                    // settled / written_off: balances are 0 by definition, so filter by
+                    // team ownership instead of balance.
+                    $query->whereHas('lines', function ($l) use ($tab) { $l->where('owner_team', $tab); });
+                }
             }
         } elseif ($tab !== 'all') {
             // "all" statuses but a single team: only records that ever had this team's lines
@@ -89,19 +95,10 @@ class TerminationDuesController extends Controller
         $manual = TerminationDuesAllocation::with('creator')->whereIn('termination_dues_line_id', $terminationDues->lines->pluck('id'))->orderBy('id')->get();
         $teams = $this->visibleTeams();
 
-        // Which source keys are pinned manually (for the source list)
-        $pinnedKeys = [];
-        foreach ($manual as $m) {
-            if ($m->source_type !== 'waiver') {
-                $pinnedKeys[$m->source_type . ':' . $m->source_id] = $m;
-            }
-        }
-
         return view('backoffice::TerminationDues.show', [
             'dues'       => $terminationDues,
             'r'          => $result,
             'manual'     => $manual,
-            'pinnedKeys' => $pinnedKeys,
             'teams'      => $teams,
             'methods'    => ['call' => 'Phone call', 'sms' => 'SMS', 'whatsapp' => 'WhatsApp', 'email' => 'Email', 'visit' => 'Visit', 'other' => 'Other'],
         ]);

@@ -104,7 +104,7 @@
       <tr><td>{{ $s['date'] ? date('d/m/Y', strtotime($s['date'])) : '—' }}</td><td>{{ $kindLabel[$s['kind']] }}</td>
         <td><a href="{{ $s['url'] }}">{{ $s['ref'] }}</a></td><td>{{ $s['description'] }}</td><td>{{ $s['account_code'] }}</td>
         <td class="num">{{ numberFormat($s['amount']) }}</td>
-        <td>@forelse($applied as $a){{ $lineById[$a['line_id']]->description }} ({{ numberFormat($a['amount']) }}){{ $a['manual'] ? ' · manual' : '' }}@if(!$loop->last), @endif
+        <td>@forelse($applied as $a){{ optional($lineById->get($a['line_id']))->description }} ({{ numberFormat($a['amount']) }}){{ $a['manual'] ? ' · manual' : '' }}@if(!$loop->last), @endif
             @empty <span class="tdue-muted">unallocated</span> @endforelse</td></tr>
     @empty
       <tr><td colspan="7" class="tdue-muted">Nothing received yet.</td></tr>
