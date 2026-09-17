@@ -846,6 +846,16 @@ Breadcrumbs::for('landlord-invoice-v2.show', function ($trail, $invoice) {
     $trail->push($invoice->invoice_no, route('landlord-invoice-v2.show', $invoice));
 });
 
+Breadcrumbs::for('termination-dues.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Termination Dues', route('termination-dues.index'));
+});
+
+Breadcrumbs::for('termination-dues.show', function ($trail, $dues) {
+    $trail->parent('termination-dues.index');
+    $trail->push(optional($dues->tenantContract)->tenant_contract_no ?: ('Dues #' . $dues->id), route('termination-dues.show', $dues->id));
+});
+
 Breadcrumbs::for('showchequeReturnReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Cheque Return Statement',route('showchequeReturnReport'));

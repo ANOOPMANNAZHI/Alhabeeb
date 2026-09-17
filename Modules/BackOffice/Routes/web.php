@@ -769,6 +769,15 @@ Route::middleware('auth')->group(function () {
 	Route::get('landlord-invoice-v2/{landlordInvoiceV2}/print', 'LandlordInvoiceV2Controller@print')->name('landlordInvoiceV2Print');
 	Route::post('landlord-invoice-v2/{landlordInvoiceV2}/post', 'LandlordInvoiceV2Controller@post')->name('landlordInvoiceV2Post');
 
+	// Termination dues: what terminated tenants still owe, by team
+	Route::get('termination-dues', 'TerminationDuesController@index')->name('termination-dues.index');
+	Route::get('termination-dues-summary', 'TerminationDuesController@summary')->name('terminationDuesSummary');
+	Route::get('termination-dues/{terminationDues}', 'TerminationDuesController@show')->name('termination-dues.show');
+	Route::post('termination-dues/{terminationDues}/followup', 'TerminationDuesController@storeFollowup')->name('termination-dues.followup');
+	Route::post('termination-dues/{terminationDues}/allocate', 'TerminationDuesController@storeAllocation')->name('termination-dues.allocate');
+	Route::post('termination-dues/{terminationDues}/waive', 'TerminationDuesController@storeWaiver')->name('termination-dues.waive');
+	Route::delete('termination-dues/{terminationDues}/allocation/{allocation}', 'TerminationDuesController@destroyAllocation')->name('termination-dues.allocation.destroy');
+
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 
 	Route::post('chequeReturnReportPdf', 'BackOfficeReportController@chequeReturnReportPdf')->name('chequeReturnReportPdf');
