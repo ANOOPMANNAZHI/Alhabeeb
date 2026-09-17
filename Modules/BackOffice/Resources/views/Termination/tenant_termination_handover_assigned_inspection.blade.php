@@ -230,7 +230,7 @@
         </tr>
         <tr>
           <th>Last paid up to</th><td>{{ $fmtDate($tc->tenant_contract_last_paid_date) }}</td>
-          <th>Prev. deposit cheque</th><td>{{ !empty($depositeCheque) ? $depositeCheque->pdc_check_no . ' · ' . numberFormat($depositeCheque->pdc_amt) . ' OMR' : 'N/A' }}</td>
+          <th>Deposit cheque no &amp; amount</th><td>{{ !empty($depositeCheque) ? $depositeCheque->pdc_check_no . ' · ' . numberFormat($depositeCheque->pdc_amt) . ' OMR' : 'N/A' }}</td>
         </tr>
       </table>
 
