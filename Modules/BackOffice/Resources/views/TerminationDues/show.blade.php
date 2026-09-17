@@ -3,13 +3,31 @@
 <link href="{{ asset('public/css/custom.css') }}" rel="stylesheet">
 <style>
   .tdue { --tdue-ink:#0f172a; --tdue-muted:#475569; --tdue-line:#e2e8f0; --tdue-fill:#f1f5f9; --tdue-accent:#FF9800; --tdue-danger:#dc2626; --tdue-success:#16a34a; }
-  .tdue .tdue-head { display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start; justify-content:space-between; margin-bottom:24px; }
-  .tdue .tdue-meta { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; }
-  .tdue .tdue-meta .k { display:block; font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:.04em; color:var(--tdue-muted); margin-bottom:4px; }
-  .tdue .tdue-meta .v { font-size:16px; color:var(--tdue-ink); }
-  .tdue .tdue-balance { text-align:right; }
-  .tdue .tdue-balance .amt { font-size:31px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; }
-  .tdue .tdue-balance .amt.zero { color:var(--tdue-success); }
+  /* Header: tenant, mobile, balance — same shape as the termination screens */
+  .tdue .tdue-head { display:flex; flex-wrap:wrap; gap:16px 24px; align-items:flex-start; justify-content:space-between; margin-bottom:16px; }
+  .tdue .tdue-head .tdue-title { font-size:22px; font-weight:800; margin:0; line-height:1.3; }
+  .tdue .tdue-head .tdue-sub { color:var(--tdue-muted); font-size:14px; margin-top:4px; }
+  .tdue .tdue-head .tdue-bal { margin-top:8px; font-size:16px; font-weight:700; color:var(--tdue-danger); font-variant-numeric:tabular-nums; }
+  .tdue .tdue-head .tdue-bal.zero { color:var(--tdue-success); }
+  .tdue .tdue-head .tdue-bal small { display:block; font-size:12px; font-weight:500; color:var(--tdue-muted); margin-top:2px; }
+  /* Identity strip: building / unit / contract */
+  .tdue .tdue-id { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; margin-bottom:16px; }
+  .tdue .tdue-id-tile { border:1px solid var(--tdue-line); border-radius:8px; padding:16px; background:#fff; min-width:0; }
+  .tdue .tdue-id-tile .k { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--tdue-muted); margin-bottom:8px; }
+  .tdue .tdue-id-tile .big { display:block; font-size:20px; line-height:1.3; font-weight:800; color:var(--tdue-ink); word-break:break-word; }
+  .tdue .tdue-id-tile .meta { display:block; font-size:13px; color:var(--tdue-muted); margin-top:4px; word-break:break-word; }
+  .tdue .tdue-id-tile.primary { border-color:var(--tdue-accent); background:#fff7ed; }
+  @media (max-width: 900px) { .tdue .tdue-id { grid-template-columns:1fr; } }
+  /* Record details as label/value pairs */
+  .tdue table.tdue-details { width:100%; margin:0 0 8px; border-collapse:collapse; }
+  .tdue table.tdue-details th, .tdue table.tdue-details td { padding:8px 12px; border-bottom:1px solid var(--tdue-line); vertical-align:top; font-size:14px; }
+  .tdue table.tdue-details th { width:18%; font-size:12px; font-weight:600; color:var(--tdue-muted); text-align:left; white-space:nowrap; background:var(--tdue-fill); }
+  .tdue table.tdue-details td { width:32%; font-weight:600; word-break:break-word; }
+  .tdue table.tdue-details tr:last-child th, .tdue table.tdue-details tr:last-child td { border-bottom:0; }
+  @media (max-width: 900px) {
+    .tdue table.tdue-details, .tdue table.tdue-details tbody, .tdue table.tdue-details tr, .tdue table.tdue-details th, .tdue table.tdue-details td { display:block; width:auto; }
+    .tdue table.tdue-details th { border-bottom:0; padding-bottom:2px; background:transparent; }
+  }
   .tdue h4 { font-size:20px; font-weight:600; margin:32px 0 16px; }
   .tdue table.product-overview th { font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:.04em; color:var(--tdue-muted); white-space:nowrap; }
   .tdue table.product-overview td { padding:12px 16px; vertical-align:middle; }
@@ -52,25 +70,57 @@
 <div class="card tdue"><div class="card-body">
   @if(session('error'))<div class="alert alert-danger" role="alert">{{ session('error') }}</div>@endif
 
+  @php
+    $tenant = optional(optional($c)->tenant);
+    $bldg = optional(optional($c)->building);
+    $unit = optional(optional($c)->unit);
+    $zero = $r['total']['balance'] <= 0.005;
+    $lastFu = $dues->followups->first();
+  @endphp
   <div class="tdue-head">
-    <div class="tdue-meta">
-      <div><span class="k">Tenant</span><span class="v">{{ optional(optional($c)->tenant)->tenant_name }}<br><small>{{ optional(optional($c)->tenant)->tenant_contact_no }}</small></span></div>
-      <div><span class="k">Building / unit</span><span class="v">{{ optional(optional($c)->building)->building_name }}<br><small>{{ optional(optional($c)->unit)->unit_code }}</small></span></div>
-      <div><span class="k">Terminated on</span><span class="v">{{ $dues->termination_date ? $dues->termination_date->format('d/m/Y') : '—' }}<br><small>{{ $dues->termination_date ? $dues->termination_date->diffInDays(now()) . ' days ago' : '' }}</small></span></div>
-      <div><span class="k">Status</span><span class="v"><span class="tdue-status tdue-status-{{ $r['status'] }}">{{ str_replace('_', ' ', $r['status']) }}</span></span></div>
+    <div>
+      <h3 class="tdue-title">{{ $tenant->tenant_name ?: 'Tenant NA' }}</h3>
+      <div class="tdue-sub">{{ $tenant->tenant_contact_no ? 'Mobile ' . $tenant->tenant_contact_no : 'No mobile on file' }}</div>
+      <div class="tdue-bal {{ $zero ? 'zero' : '' }}">
+        {{ $zero ? 'Nothing outstanding' : 'Outstanding ' . numberFormat($r['total']['balance']) . ' OMR' }}
+        <small>Back Office {{ numberFormat($r['teams']['backoffice']['balance']) }} · Maintenance {{ numberFormat($r['teams']['maintenance']['balance']) }}</small>
+      </div>
     </div>
-    <div class="tdue-balance">
-      <span class="k tdue-muted">Balance outstanding (OMR)</span>
-      <div class="amt {{ $r['total']['balance'] <= 0.005 ? 'zero' : '' }}">{{ numberFormat($r['total']['balance']) }}</div>
-      <div class="tdue-muted">Back Office {{ numberFormat($r['teams']['backoffice']['balance']) }} · Maintenance {{ numberFormat($r['teams']['maintenance']['balance']) }}</div>
+    <div class="tdue-actions">
+      <a class="btn btn-primary" href="{{ route('rentReceiptGeneration.create') }}?contract_id={{ $dues->tenant_contract_id }}">Collect rent</a>
+      <a class="btn btn-outline-secondary" href="{{ route('addGeneralReceipt') }}?contract_id={{ $dues->tenant_contract_id }}">Collect other charges</a>
+      <a class="btn btn-outline-secondary" href="{{ route('depositRefund.create') }}?contract_id={{ $dues->tenant_contract_id }}">Deposit refund</a>
     </div>
   </div>
 
-  <div class="tdue-actions">
-    <a class="btn btn-primary" href="{{ route('rentReceiptGeneration.create') }}?contract_id={{ $dues->tenant_contract_id }}">Collect rent</a>
-    <a class="btn btn-outline-secondary" href="{{ route('addGeneralReceipt') }}?contract_id={{ $dues->tenant_contract_id }}">Collect other charges</a>
-    <a class="btn btn-outline-secondary" href="{{ route('depositRefund.create') }}?contract_id={{ $dues->tenant_contract_id }}">Deposit refund</a>
+  <div class="tdue-id">
+    <div class="tdue-id-tile primary">
+      <span class="k">Building</span>
+      <span class="big">{{ $bldg->building_name ?: '—' }}</span>
+      <span class="meta">{{ optional($bldg->location)->locations_name ?? 'Location NA' }}{{ $bldg->building_address ? ' · Way ' . $bldg->building_address : '' }}</span>
+    </div>
+    <div class="tdue-id-tile">
+      <span class="k">Unit</span>
+      <span class="big">{{ $unit->unit_no ?: ($unit->unit_code ?: '—') }}</span>
+      <span class="meta">{{ $unit->unit_code ?: '' }}{{ !empty($unit->vacant_status_name) ? ' · ' . $unit->vacant_status_name : '' }}</span>
+    </div>
+    <div class="tdue-id-tile">
+      <span class="k">Contract</span>
+      <span class="big">{{ optional($c)->tenant_contract_no ?: '#' . $dues->tenant_contract_id }}</span>
+      <span class="meta">Terminated {{ $dues->termination_date ? $dues->termination_date->format('d/m/Y') : '—' }}{{ $dues->termination_date ? ' · ' . $dues->termination_date->diffInDays(now()) . ' days ago' : '' }}</span>
+    </div>
   </div>
+
+  <table class="tdue-details">
+    <tr>
+      <th>Dues status</th><td><span class="tdue-status tdue-status-{{ $r['status'] }}">{{ str_replace('_', ' ', $r['status']) }}</span></td>
+      <th>Total owed</th><td>{{ numberFormat($r['total']['owed']) }} OMR</td>
+    </tr>
+    <tr>
+      <th>Settled so far</th><td>{{ numberFormat($r['total']['settled']) }} OMR{{ $r['total']['waived'] > 0 ? ' · waived ' . numberFormat($r['total']['waived']) : '' }}</td>
+      <th>Last follow-up</th><td>{{ $lastFu ? $lastFu->followup_date->format('d/m/Y') . ' · ' . ($methods[$lastFu->method] ?? $lastFu->method) : 'None yet' }}{{ $lastFu && $lastFu->promise_date ? ' · promised ' . $lastFu->promise_date->format('d/m/Y') : '' }}</td>
+    </tr>
+  </table>
 
   <h4>Settlement</h4>
   <div class="table-responsive"><table class="table product-overview">
