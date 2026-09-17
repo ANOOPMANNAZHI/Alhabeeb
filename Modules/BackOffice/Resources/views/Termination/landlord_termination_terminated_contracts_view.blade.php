@@ -74,7 +74,7 @@
   </div> 
   <div class="col-lg-6 p-t-20"> 
     <div class = "txt-full-width">
-     <h5 class="details"><b>Start Date :  </b><span>{{$termination->landlordContract->landlord_contract_valid_from_date->format('d/m/Y')}}</span></h5>
+     <h5 class="details"><b>Start Date :  </b><span>{{optional($termination->landlordContract->landlord_contract_valid_from_date)->format('d/m/Y') ?: '-'}}</span></h5>
    </div>
  </div> 
  <div class="col-lg-6 p-t-20"> 
@@ -104,13 +104,13 @@
   <div class="card-body row">
     <div class="col-lg-6 p-t-20"> 
       <div class = "txt-full-width">
-       <h5 class="details"><b>Valid From :  </b><span>{{$termination->landlordContract->landlord_contract_valid_from_date->format('d/m/Y')}}</span></h5>
+       <h5 class="details"><b>Valid From :  </b><span>{{optional($termination->landlordContract->landlord_contract_valid_from_date)->format('d/m/Y') ?: '-'}}</span></h5>
      </div>
    </div>
    @if($termination->landlordContract->landlord_contract_valid_to_date != null)
    <div class="col-lg-6 p-t-20"> 
       <div class = "txt-full-width">
-       <h5 class="details"><b>Valid To :  </b><span>{{$termination->landlordContract->landlord_contract_valid_to_date->format('d/m/Y')}}</span></h5>
+       <h5 class="details"><b>Valid To :  </b><span>{{optional($termination->landlordContract->landlord_contract_valid_to_date)->format('d/m/Y') ?: '-'}}</span></h5>
      </div>
    </div>
    @endif
@@ -128,7 +128,7 @@
  </div> 
  <div class="col-lg-6 p-t-20"> 
     <div class = "txt-full-width">
-     <h5 class="details"><b>Terminated Date :  </b><span>{{$termination->landlordContract->end_date->format('d/m/Y')}}</span></h5>
+     <h5 class="details"><b>Terminated Date :  </b><span>{{optional($termination->landlordContract->end_date)->format('d/m/Y') ?: '-'}}</span></h5>
    </div>
  </div> 
 
