@@ -18,6 +18,10 @@ use Modules\BackOffice\Entities\TerminationDues;
  * until each line's balance is zero; what is left over in a category is
  * reported as over-collected. Sources without a category, or whose category
  * has no line, are reported as unallocated for a person to assign.
+ *
+ * Negative lines (discounts) are credits: they reduce the room of the positive
+ * lines in the same category before any source is applied, so balances and
+ * status are net of the discount. They are returned with 'credit' => true.
  */
 class TerminationDuesSettlement
 {
@@ -43,9 +47,42 @@ class TerminationDuesSettlement
                 'deposit'     => 0.0,
                 'receipts'    => 0.0,
                 'waived'      => 0.0,
+                'credit'      => false,
+                'credit_applied' => 0.0,
             ];
             if ($state[$id]['owed'] > 0) {
                 $byCategory[$l['category']][] = $id;
+            }
+        }
+
+        // Negative lines (discounts) are credits against their category: fold
+        // each one into the positive lines of the same category, consuming the
+        // room of the LAST positive line backwards, so FIFO allocation,
+        // balances and status all use net figures. The credit line itself is
+        // kept for display (owed = its negative amount, balance 0, credit =
+        // true). Its negative `owed` still enters the team/total owed sums, so
+        // the positive lines keep their gross `owed` and carry the credit in
+        // `credit_applied` (subtracted in balance()) — that way the owed
+        // column ties out with the team figure. Credit beyond the category's
+        // positive total is dropped (the Builder already caps discounts).
+        foreach ($state as $id => $l) {
+            if ($l['owed'] >= 0) {
+                continue;
+            }
+            $state[$id]['credit'] = true;
+            $remainingCredit = -$l['owed'];
+            $targets = isset($byCategory[$l['category']]) ? array_reverse($byCategory[$l['category']]) : [];
+            foreach ($targets as $targetId) {
+                if ($remainingCredit <= self::EPS) {
+                    break;
+                }
+                $room = self::balance($state[$targetId]);
+                if ($room <= self::EPS) {
+                    continue;
+                }
+                $take = min($room, $remainingCredit);
+                $state[$targetId]['credit_applied'] += $take;
+                $remainingCredit -= $take;
             }
         }
 
@@ -115,7 +152,8 @@ class TerminationDuesSettlement
         $total = ['owed' => 0.0, 'settled' => 0.0, 'waived' => 0.0, 'balance' => 0.0];
         foreach ($state as $id => &$l) {
             $l['settled'] = round($l['deposit'] + $l['receipts'], 3);
-            $l['balance'] = round(max(self::balance($l), 0), 3);
+            $l['balance'] = $l['credit'] ? 0.0 : round(max(self::balance($l), 0), 3);
+            $l['credit_applied'] = round($l['credit_applied'], 3);
             $l['deposit'] = round($l['deposit'], 3);
             $l['receipts'] = round($l['receipts'], 3);
             $l['waived'] = round($l['waived'], 3);
@@ -149,7 +187,7 @@ class TerminationDuesSettlement
 
     private static function balance(array $line)
     {
-        return $line['owed'] - $line['deposit'] - $line['receipts'] - $line['waived'];
+        return $line['owed'] - $line['credit_applied'] - $line['deposit'] - $line['receipts'] - $line['waived'];
     }
 
     private static function status(array $total)

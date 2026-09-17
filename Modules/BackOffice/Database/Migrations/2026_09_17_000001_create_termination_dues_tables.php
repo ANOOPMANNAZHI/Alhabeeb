@@ -22,7 +22,10 @@ class CreateTerminationDuesTables extends Migration
             $table->timestamp('terminated_at')->nullable();
             // Inspection (503) row created_at: general receipts from here on settle the charges.
             $table->timestamp('charges_fixed_at')->nullable();
-            // Highest approved rent receipt already netted into the rent outstanding.
+            // Highest counted rent receipt (approval 3/6, not cancelled) already netted into
+            // the rent outstanding: for a computed rent line the max id at creation; for a
+            // checklist "Rent" row the max id of receipts created on/before charges_fixed_at.
+            // Rent receipts with a higher id settle the rent line.
             $table->unsignedInteger('rent_receipts_upto_id')->nullable();
             $table->string('status', 20)->default('open'); // open | partial | settled | written_off
             $table->decimal('total_owed', 12, 3)->default(0);

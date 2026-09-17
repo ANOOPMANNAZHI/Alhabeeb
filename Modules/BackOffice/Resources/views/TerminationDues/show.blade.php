@@ -82,9 +82,15 @@
           <td class="num">{{ numberFormat($r['teams'][$team]['owed']) }}</td><td class="num" colspan="2">{{ numberFormat($r['teams'][$team]['settled']) }} settled</td><td></td>
           <td class="num">{{ numberFormat($r['teams'][$team]['balance']) }}</td></tr>
         @foreach($byTeam[$team] as $l)
+          @if(!empty($l['credit']))
+          <tr class="credit-row"><td>&nbsp;&nbsp;<span class="tdue-muted">{{ $l['description'] }} · {{ \Modules\BackOffice\Services\TerminationDuesCategory::label($l['category']) }} · credit</span></td>
+            <td class="num tdue-muted">{{ numberFormat($l['owed']) }}</td><td class="num tdue-muted">—</td><td class="num tdue-muted">—</td>
+            <td class="num tdue-muted">—</td><td class="num tdue-muted">—</td></tr>
+          @else
           <tr><td>&nbsp;&nbsp;{{ $l['description'] }} <span class="tdue-muted">· {{ \Modules\BackOffice\Services\TerminationDuesCategory::label($l['category']) }}</span></td>
             <td class="num">{{ numberFormat($l['owed']) }}</td><td class="num">{{ numberFormat($l['deposit']) }}</td><td class="num">{{ numberFormat($l['receipts']) }}</td>
             <td class="num">{{ numberFormat($l['waived']) }}</td><td class="num">{{ numberFormat($l['balance']) }}</td></tr>
+          @endif
         @endforeach
       @endif
     @endforeach
@@ -124,7 +130,7 @@
         <span><a href="{{ $s['url'] }}">{{ $s['ref'] }}</a> · {{ $s['description'] ?: $kindLabel[$s['kind']] }} · acc {{ $s['account_code'] ?: '—' }} · <strong>{{ numberFormat($s['amount']) }}</strong></span>
         <label class="sr-only" for="line-{{ $s['id'] }}">Assign to line</label>
         <select id="line-{{ $s['id'] }}" name="line_id" class="form-control" required>
-          @foreach($dues->lines as $line)@if($canTeam($line->owner_team))<option value="{{ $line->id }}">{{ $line->description }} ({{ $teamLabels[$line->owner_team] }})</option>@endif @endforeach
+          @foreach($dues->lines as $line)@if($canTeam($line->owner_team) && empty($r['lines'][$line->id]['credit']))<option value="{{ $line->id }}">{{ $line->description }} ({{ $teamLabels[$line->owner_team] }})</option>@endif @endforeach
         </select>
         <input type="number" step="0.001" min="0.001" name="amount" class="form-control" value="{{ $s['amount'] }}" aria-label="Amount to apply" required>
         <input type="text" name="remark" class="form-control" placeholder="Why (optional)" aria-label="Remark">

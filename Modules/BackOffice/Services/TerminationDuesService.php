@@ -35,32 +35,26 @@ class TerminationDuesService
             return $existing;
         }
 
+        $inspection = Termination::where('contract_id', $termination->contract_id)
+            ->where('work_flow_processes_code', self::INSPECTION_STAGE)
+            ->orderBy('id', 'desc')->first();
+        $chargesFixedAt = $inspection && $inspection->created_at ? $inspection->created_at : ($termination->created_at ?: now());
+
         $input = $this->buildInputFor($termination->contract_id, $termination);
         $lines = TerminationDuesBuilder::build($input);
         if (empty($lines)) {
             return null;
         }
 
-        $inspection = Termination::where('contract_id', $termination->contract_id)
-            ->where('work_flow_processes_code', self::INSPECTION_STAGE)
-            ->orderBy('id', 'desc')->first();
+        $uptoId = $this->rentReceiptsUptoId($termination->contract_id, $lines, $chargesFixedAt);
 
-        $uptoId = DB::table('receipts_generation')
-            ->where('tenant_contract_id', $termination->contract_id)
-            ->where('receipts_generation_type', 0)
-            // 3 = approved, 6 = approved and posted to AX; both are real money
-            ->whereIn('receipts_generation_approval_status', [3, 6])
-            ->where('receipts_generation_status', '<>', 2)
-            ->whereNull('deleted_at')
-            ->max('id');
-
-        return DB::transaction(function () use ($termination, $lines, $inspection, $uptoId, $userId) {
+        return DB::transaction(function () use ($termination, $lines, $chargesFixedAt, $uptoId, $userId) {
             $dues = TerminationDues::create([
                 'tenant_contract_id'   => $termination->contract_id,
                 'termination_id'       => $termination->id,
                 'termination_date'     => $termination->termination_date,
                 'terminated_at'        => $termination->created_at ?: now(),
-                'charges_fixed_at'     => $inspection && $inspection->created_at ? $inspection->created_at : ($termination->created_at ?: now()),
+                'charges_fixed_at'     => $chargesFixedAt,
                 'rent_receipts_upto_id'=> $uptoId,
                 'status'               => TerminationDues::STATUS_OPEN,
                 'created_by'           => $userId,
@@ -71,6 +65,45 @@ class TerminationDuesService
             $this->refresh($dues);
             return $dues;
         });
+    }
+
+    /**
+     * Highest counted rent receipt (type 0, approval 3 or 6, not cancelled,
+     * not deleted) that is already netted into the "Outstanding rent" line.
+     * Rent receipts with a higher id are settlements of that line.
+     *
+     * Two semantics, depending on where the rent figure came from:
+     *  - `computed`: buildInputFor() subtracts ALL counted rent receipts that
+     *    exist right now, so the cut-off is the current max(id).
+     *  - `termination_checklist`: the inspector typed the figure at stage 503
+     *    (`charges_fixed_at`). Receipts created after that were not in the
+     *    figure, so the cut-off is the max(id) of receipts created on/before
+     *    `charges_fixed_at`; later receipts then show up as settlements
+     *    instead of vanishing.
+     * When there is no rent line at all the computed rule applies (nothing
+     * can be settled against it anyway).
+     *
+     * @return int|null
+     */
+    public function rentReceiptsUptoId($contractId, array $lines, $chargesFixedAt = null)
+    {
+        $q = DB::table('receipts_generation')
+            ->where('tenant_contract_id', $contractId)
+            ->where('receipts_generation_type', 0)
+            // 3 = approved, 6 = approved and posted to AX; both are real money
+            ->whereIn('receipts_generation_approval_status', [3, 6])
+            ->where('receipts_generation_status', '<>', 2)
+            ->whereNull('deleted_at');
+
+        foreach ($lines as $l) {
+            if ($l['category'] === Cat::RENT && isset($l['source_type']) && $l['source_type'] === 'termination_checklist' && $chargesFixedAt) {
+                $q->where('created_at', '<=', $chargesFixedAt);
+                break;
+            }
+        }
+
+        $id = $q->max('id');
+        return $id ? (int) $id : null;
     }
 
     /**
@@ -247,9 +280,25 @@ class TerminationDuesService
         if (!$contract || (int) $contract->tenant_renewal_termination_status !== 8) {
             return null;
         }
+        $amount = (float) $amount;
         $dues = TerminationDues::where('tenant_contract_id', $contractId)->first();
         if (!$dues) {
-            return 'Contract ' . $contract->tenant_contract_no . ' is terminated and has no termination dues on record. Rent receipts cannot be created on it; if rent is genuinely outstanding ask an administrator to run the termination dues backfill.';
+            if (!$ignoreReceiptId) {
+                return 'Contract ' . $contract->tenant_contract_no . ' is terminated and has no termination dues on record. Rent receipts cannot be created on it; if rent is genuinely outstanding ask an administrator to run the termination dues backfill.';
+            }
+            // Legacy receipt on a terminated contract without dues: allow corrections that
+            // do not increase the amount and do not push the period past the termination date.
+            $existing = DB::table('receipts_generation')->where('id', $ignoreReceiptId)->first(['receipts_generation_amt', 'receipts_generation_eff_to']);
+            $finalRow = Termination::where('contract_id', $contractId)->where('work_flow_processes_code', self::FINAL_STAGE)->orderBy('id', 'desc')->first();
+            $terminationDate = $finalRow && $finalRow->termination_date ? $finalRow->termination_date : null;
+            $amountOk = $existing && $amount <= (float) $existing->receipts_generation_amt + TerminationDuesSettlement::EPS;
+            $dateOk = !$effTo || !$terminationDate || strtotime($effTo) <= $terminationDate->getTimestamp();
+            if ($amountOk && $dateOk) {
+                return null;
+            }
+            return 'Contract ' . $contract->tenant_contract_no . ' is terminated and has no termination dues on record. Only non-increasing edits are allowed on its existing rent receipts: keep the amount at or below '
+                . numberFormat($existing ? $existing->receipts_generation_amt : 0)
+                . ($terminationDate ? ' and the effective-to date on or before the termination date ' . $terminationDate->format('d/m/Y') : '') . '.';
         }
         $r = $this->refresh($dues);
         $rentBalance = 0.0;
@@ -258,17 +307,33 @@ class TerminationDuesService
                 $rentBalance += $l['balance'];
             }
         }
-        if ($ignoreReceiptId) {
-            // Editing an approved receipt that is already counted: give its amount back to the balance
+        if ($ignoreReceiptId && $ignoreReceiptId > (int) $dues->rent_receipts_upto_id) {
+            // Editing a counted receipt that settles the rent line: give its amount back to the
+            // balance. Receipts at or below the cut-off are already netted into the owed figure.
             $current = DB::table('receipts_generation')->where('id', $ignoreReceiptId)->whereIn('receipts_generation_approval_status', [3, 6])->where('receipts_generation_status', '<>', 2)->value('receipts_generation_amt');
             $rentBalance += (float) $current;
         }
-        $amount = (float) $amount;
+        // Rent receipts awaiting approval are not settlements yet, but the money is spoken for.
+        $pendingQ = DB::table('receipts_generation')
+            ->where('tenant_contract_id', $contractId)
+            ->where('receipts_generation_type', 0)
+            ->whereNotIn('receipts_generation_approval_status', [3, 6])
+            ->where('receipts_generation_status', '<>', 2)
+            ->whereNull('deleted_at')
+            ->where('id', '>', (int) $dues->rent_receipts_upto_id);
+        if ($ignoreReceiptId) {
+            $pendingQ->where('id', '<>', $ignoreReceiptId);
+        }
+        $pending = (float) $pendingQ->sum('receipts_generation_amt');
+        $grossBalance = round($rentBalance, 3);
+        $rentBalance = round($rentBalance - $pending, 3);
+        $pendingNote = $pending > TerminationDuesSettlement::EPS ? ' (' . numberFormat($grossBalance) . ' open less ' . numberFormat($pending) . ' pending approval)' : '';
+
         if ($rentBalance <= TerminationDuesSettlement::EPS) {
-            return 'Contract ' . $contract->tenant_contract_no . ' is terminated and its rent dues are fully settled (see Termination Dues). No further rent receipt can be created.';
+            return 'Contract ' . $contract->tenant_contract_no . ' is terminated and its rent dues are fully settled' . ($pendingNote ? ' or covered by receipts awaiting approval' . $pendingNote : '') . ' (see Termination Dues). No further rent receipt can be created.';
         }
         if ($amount > $rentBalance + TerminationDuesSettlement::EPS) {
-            return 'Receipt amount ' . numberFormat($amount) . ' exceeds the open rent dues of ' . numberFormat($rentBalance) . ' on terminated contract ' . $contract->tenant_contract_no . '. Enter at most ' . numberFormat($rentBalance) . '.';
+            return 'Receipt amount ' . numberFormat($amount) . ' exceeds the open rent dues of ' . numberFormat($rentBalance) . $pendingNote . ' on terminated contract ' . $contract->tenant_contract_no . '. Enter at most ' . numberFormat($rentBalance) . '.';
         }
         if ($effTo && $dues->termination_date && strtotime($effTo) > $dues->termination_date->getTimestamp()) {
             return 'Effective-to date ' . date('d/m/Y', strtotime($effTo)) . ' is after the termination date ' . $dues->termination_date->format('d/m/Y') . '. Rent cannot be collected for a period after termination.';

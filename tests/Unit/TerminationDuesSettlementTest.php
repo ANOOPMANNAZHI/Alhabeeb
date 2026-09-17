@@ -140,5 +140,55 @@ class TerminationDuesSettlementTest extends TestCase
         $r = S::compute($lines, [], []);
         $this->assertSame(100.0, $r['teams']['maintenance']['owed']);
         $this->assertSame(725.0, $r['total']['owed']);
+        $this->assertSame(100.0, $r['teams']['maintenance']['balance']);
+        $this->assertSame(725.0, $r['total']['balance']);
+
+        // the credit is folded into the last positive maintenance line first
+        $this->assertTrue($r['lines'][6]['credit']);
+        $this->assertSame(-25.0, $r['lines'][6]['owed']);
+        $this->assertSame(0.0, $r['lines'][6]['balance']);
+        $this->assertFalse($r['lines'][4]['credit']);
+        $this->assertSame(5.0, $r['lines'][5]['credit_applied']);
+        $this->assertSame(0.0, $r['lines'][5]['balance']);
+        $this->assertSame(20.0, $r['lines'][4]['credit_applied']);
+        $this->assertSame(100.0, $r['lines'][4]['balance']);
+    }
+
+    public function test_paying_the_net_maintenance_amount_settles_the_category()
+    {
+        $lines = $this->lines();
+        $lines[] = ['id' => 6, 'category' => Cat::MAINTENANCE, 'owner_team' => 'maintenance', 'description' => 'Maintenance discount', 'amount' => -25.0];
+
+        $r = S::compute($lines, [
+            $this->src('general_receipt_line', 70, 100.0, Cat::MAINTENANCE),
+        ], []);
+
+        $this->assertSame(0.0, $r['teams']['maintenance']['balance']);
+        $this->assertSame([], $r['over_collected']);
+        $this->assertSame('partial', $r['status']);
+
+        $r = S::compute($lines, [
+            $this->src('general_receipt_line', 70, 100.0, Cat::MAINTENANCE),
+            $this->src('rent_receipt', 100, 500.0, Cat::RENT),
+            $this->src('general_receipt_line', 71, 45.0, Cat::MUNICIPAL),
+            $this->src('general_receipt_line', 72, 80.0, Cat::EW),
+        ], []);
+
+        $this->assertSame('settled', $r['status']);
+        $this->assertSame(0.0, $r['total']['balance']);
+        $this->assertSame(725.0, $r['total']['settled']);
+    }
+
+    public function test_credit_larger_than_its_category_is_capped()
+    {
+        $lines = $this->lines();
+        $lines[] = ['id' => 6, 'category' => Cat::MAINTENANCE, 'owner_team' => 'maintenance', 'description' => 'Huge discount', 'amount' => -200.0];
+
+        $r = S::compute($lines, [], []);
+
+        $this->assertSame(0.0, $r['lines'][4]['balance']);
+        $this->assertSame(0.0, $r['lines'][5]['balance']);
+        $this->assertSame(0.0, $r['teams']['maintenance']['balance']);
+        $this->assertSame(625.0, $r['total']['balance']);
     }
 }
