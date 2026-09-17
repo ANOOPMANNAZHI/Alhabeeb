@@ -14,11 +14,27 @@
   .tov .t-status { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:4px 10px; border-radius:999px; background:var(--t-line); color:var(--t-ink); }
   .tov .t-os-yes { color:#991b1b; font-weight:700; } .tov .t-os-no { color:#166534; font-weight:700; }
 
-  .tov .t-snap { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px 24px; padding:6px 0 4px; }
-  .tov .t-snap-item .t-lbl { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--t-muted); margin-bottom:2px; }
-  .tov .t-snap-item .t-val { font-size:14px; font-weight:600; word-break:break-word; }
-  .tov .t-group { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--t-blue); border-top:1px solid var(--t-line); padding-top:12px; margin:14px 0 8px; }
+  /* Identity strip: who / where — the three facts staff look for first */
+  .tov .t-id { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
+  .tov .t-id-tile { border:1px solid var(--t-line); border-radius:var(--t-radius); padding:16px; background:#fff; min-width:0; }
+  .tov .t-id-tile .t-lbl { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--t-muted); margin-bottom:8px; }
+  .tov .t-id-tile .t-big { display:block; font-size:20px; line-height:1.3; font-weight:800; color:var(--t-ink); word-break:break-word; }
+  .tov .t-id-tile .t-meta { display:block; font-size:13px; color:var(--t-muted); margin-top:4px; word-break:break-word; }
+  .tov .t-id-tile.t-id-primary { border-color:var(--t-blue); background:var(--t-blue-soft); }
+  @media (max-width: 900px) { .tov .t-id { grid-template-columns:1fr; } }
+
+  /* Details: label/value table, two pairs per row on wide screens */
+  .tov .t-group { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--t-blue); border-top:1px solid var(--t-line); padding-top:12px; margin:16px 0 8px; }
   .tov .t-group:first-child { border-top:0; margin-top:0; padding-top:0; }
+  .tov table.t-details { width:100%; margin:0; border-collapse:collapse; }
+  .tov table.t-details th, .tov table.t-details td { padding:8px 12px; border-bottom:1px solid var(--t-line); vertical-align:top; font-size:14px; }
+  .tov table.t-details th { width:18%; font-size:12px; font-weight:600; color:var(--t-muted); text-align:left; white-space:nowrap; background:var(--t-bg); }
+  .tov table.t-details td { width:32%; font-weight:600; word-break:break-word; }
+  .tov table.t-details tr:last-child th, .tov table.t-details tr:last-child td { border-bottom:0; }
+  @media (max-width: 900px) {
+    .tov table.t-details, .tov table.t-details tbody, .tov table.t-details tr, .tov table.t-details th, .tov table.t-details td { display:block; width:auto; }
+    .tov table.t-details th { border-bottom:0; padding-bottom:2px; background:transparent; }
+  }
 
   /* Inline termination-date edit (same ids/classes the existing JS uses) */
   .tov .t-edit { display:inline-flex; align-items:center; gap:6px; }
@@ -69,8 +85,8 @@
   <div class="card card-box">
     <div class="t-head">
       <div>
-        <h3 class="t-title">{{ $tc->tenant_contract_no }} <small class="t-sub">· {{ $tc->tenant->tenant_name }}</small></h3>
-        <div class="t-sub">{{ $tc->building->building_name }} · Unit {{ $tc->unit->unit_no }} · <span class="t-status">{{ $tc->tenant_contract_status_name }}</span></div>
+        <h3 class="t-title">{{ $tc->tenant_contract_no }} <span class="t-status">{{ $tc->tenant_contract_status_name }}</span></h3>
+        <div class="t-sub">Contract taken over for termination</div>
       </div>
       <div class="t-actions">
         @if($outstandingOs > 0)
@@ -90,44 +106,72 @@
         @endcan
       </div>
     </div>
-    <div class="card-body">
-      <div class="t-group">Tenant &amp; unit</div>
-      <div class="t-snap">
-        <div class="t-snap-item"><span class="t-lbl">Mobile</span><span class="t-val">{{ $tc->tenant->tenant_contact_no ?: 'NA' }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Location</span><span class="t-val">{{ optional(optional($tc->building)->location)->locations_name ?? 'NA' }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Way No</span><span class="t-val">{{ $tc->building->building_address ?? 'NA' }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Tenant status</span><span class="t-val">{{ $tc->tenant->tenant_status_name ?? 'NA' }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Unit status</span><span class="t-val">{{ $tc->unit->vacant_status_name ?? 'NA' }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Key status</span><span class="t-val">{{ !empty($tc->unit->key) ? $tc->unit->key->status_name : 'NA' }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Municipality registration</span><span class="t-val">{{ $tc->tenant_contract_is_reg_municipality == null ? 'No' : 'Yes' }}</span></div>
+    {{-- Who and where: the three facts staff look for first --}}
+    <div class="t-id">
+      <div class="t-id-tile t-id-primary">
+        <span class="t-lbl">Tenant</span>
+        <span class="t-big">{{ $tc->tenant->tenant_name }}</span>
+        <span class="t-meta">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</span>
       </div>
+      <div class="t-id-tile">
+        <span class="t-lbl">Building</span>
+        <span class="t-big">{{ $tc->building->building_name }}</span>
+        <span class="t-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_address) ? ' · Way ' . $tc->building->building_address : '' }}</span>
+      </div>
+      <div class="t-id-tile">
+        <span class="t-lbl">Unit</span>
+        <span class="t-big">{{ $tc->unit->unit_no }}</span>
+        <span class="t-meta">{{ $tc->unit->vacant_status_name ?? 'Status NA' }} · Key {{ !empty($tc->unit->key) ? $tc->unit->key->status_name : 'NA' }}</span>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="t-group">Contract</div>
+      <table class="t-details">
+        <tr>
+          <th>Start date</th><td>{{ $fmtDate($tc->tenant_contract_start_date) }}</td>
+          <th>Valid to</th><td>{{ $fmtDate($tc->tenant_contract_valid_to_date) }}</td>
+        </tr>
+        <tr>
+          <th>Rent</th><td>{{ $tc->tenant_contract_rent ? numberFormat($tc->tenant_contract_rent) . ' OMR' : 'NA' }}{{ !empty($tc->tenant_contract_payment_name) ? ' · ' . $tc->tenant_contract_payment_name : '' }}</td>
+          <th>Municipality registration</th><td>{{ $tc->tenant_contract_is_reg_municipality == null ? 'No' : 'Yes' }}</td>
+        </tr>
+      </table>
 
       <div class="t-group">Rent</div>
-      <div class="t-snap">
-        <div class="t-snap-item"><span class="t-lbl">Rent paid up to</span><span class="t-val">{{ $fmtDate($tc->tenant_contract_last_paid_date) }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Last paid date</span><span class="t-val">{{ isset($tc->tenant->tenant_contract_last_paid_date) ? $tc->tenant->tenant_contract_last_paid_date->format('d/m/Y') : 'NA' }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Last paid amount</span><span class="t-val">{{ isset($tc->tenant->tenant_contract_last_paid_amt) ? numberFormat($tc->tenant->tenant_contract_last_paid_amt) . ' OMR' : 'NA' }}</span></div>
-        <div class="t-snap-item"><span class="t-lbl">Remaining days to expiry</span><span class="t-val">{{ $remainingDays }}</span></div>
-      </div>
+      <table class="t-details">
+        <tr>
+          <th>Rent paid up to</th><td>{{ $fmtDate($tc->tenant_contract_last_paid_date) }}</td>
+          <th>Remaining days to expiry</th><td>{{ $remainingDays }}</td>
+        </tr>
+        <tr>
+          <th>Last paid date</th><td>{{ isset($tc->tenant->tenant_contract_last_paid_date) ? $tc->tenant->tenant_contract_last_paid_date->format('d/m/Y') : 'NA' }}</td>
+          <th>Last paid amount</th><td>{{ isset($tc->tenant->tenant_contract_last_paid_amt) ? numberFormat($tc->tenant->tenant_contract_last_paid_amt) . ' OMR' : 'NA' }}</td>
+        </tr>
+      </table>
 
       <div class="t-group">Termination</div>
-      <div class="t-snap">
-        <div class="t-snap-item"><span class="t-lbl">Taken over date</span><span class="t-val closeTaken">{{ !empty($lastTerm->termination_takenover_date) ? $lastTerm->termination_takenover_date->format('d/m/Y') : 'NA' }}</span></div>
-        <div class="t-snap-item">
-          <span class="t-lbl">Termination date</span>
-          <span class="t-val t-edit">
-            <span class="closeTermination">{{ !empty($lastTerm->termination_date) ? $lastTerm->termination_date->format('d/m/Y') : 'NA' }}</span>
-            <span class="openTermination" style="display:none"><input type="date" name="termination_date" id="termination_date" class="form-controll"></span>
-            <button type="button" class="editTermination" title="Edit termination date"><i class="fa fa-pencil"></i></button>
-            <button type="button" class="saveTerminationbtn" title="Save" style="display:none"><i class="fa fa-save"></i></button>
-            <button type="button" class="closeTerminationbtn" title="Cancel" style="display:none"><i class="fa fa-close"></i></button>
-          </span>
-          <input type="hidden" name="termination_id" id="termination_id" value="{{ optional($lastTerm)->id }}">
-          <span class="openTaken" style="display:none"><input type="date" name="termination_takenover_date" id="termination_takenover_date" class="form-controll"></span>
-        </div>
-        <div class="t-snap-item"><span class="t-lbl">Assigned to</span><span class="t-val">{{ isset($lastTerm->assignedTo) ? $lastTerm->assignedTo->employee->employee_name : 'NA' }}</span></div>
-        <div class="t-snap-item" style="grid-column: span 2"><span class="t-lbl">Remark</span><span class="t-val">{{ optional($lastTerm)->termination_remark ?? 'NA' }}</span></div>
-      </div>
+      <table class="t-details">
+        <tr>
+          <th>Taken over date</th><td><span class="closeTaken">{{ !empty($lastTerm->termination_takenover_date) ? $lastTerm->termination_takenover_date->format('d/m/Y') : 'NA' }}</span></td>
+          <th>Termination date</th>
+          <td>
+            <span class="t-edit">
+              <span class="closeTermination">{{ !empty($lastTerm->termination_date) ? $lastTerm->termination_date->format('d/m/Y') : 'NA' }}</span>
+              <span class="openTermination" style="display:none"><input type="date" name="termination_date" id="termination_date" class="form-controll"></span>
+              <button type="button" class="editTermination" title="Edit termination date"><i class="fa fa-pencil"></i></button>
+              <button type="button" class="saveTerminationbtn" title="Save" style="display:none"><i class="fa fa-save"></i></button>
+              <button type="button" class="closeTerminationbtn" title="Cancel" style="display:none"><i class="fa fa-close"></i></button>
+            </span>
+            <input type="hidden" name="termination_id" id="termination_id" value="{{ optional($lastTerm)->id }}">
+            <span class="openTaken" style="display:none"><input type="date" name="termination_takenover_date" id="termination_takenover_date" class="form-controll"></span>
+          </td>
+        </tr>
+        <tr>
+          <th>Assigned to</th><td>{{ isset($lastTerm->assignedTo) ? $lastTerm->assignedTo->employee->employee_name : 'NA' }}</td>
+          <th>Remark</th><td>{{ optional($lastTerm)->termination_remark ?? 'NA' }}</td>
+        </tr>
+      </table>
     </div>
   </div>
 
