@@ -7,6 +7,9 @@
 
 
 @section('content')
+@if(session('error'))
+  <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
+@endif
 <!-- start widget -->
 <div class="page-bar">
   <div class="page-title-breadcrumb">

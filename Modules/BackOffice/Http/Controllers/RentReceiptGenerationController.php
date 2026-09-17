@@ -91,10 +91,20 @@ class RentReceiptGenerationController extends Controller
             'tenant_contract_no' => 'required',                    
             'receipts_generation_payment_method'   => 'required',
             'receipts_generation_amt'   => 'required',
-            
+
          ]);
+
+        // Terminated contracts: only the open rent dues may be collected, and never for a period after termination.
+        $duesError = (new TerminationDuesService)->rentReceiptError(
+            $request->tenant_contract_no,
+            replaceCommaWithDot($request->receipts_generation_amt),
+            $request->receipts_generation_eff_to
+        );
+        if ($duesError) {
+            return redirect()->back()->withInput()->with('error', $duesError);
+        }
          // 1 - cheque, 2 - cash - receipt No sequence
-        // 1 - cheque, 2 - cash - receipt No sequence        	
+        // 1 - cheque, 2 - cash - receipt No sequence
         if($request->receipts_generation_payment_method == 1){	
             $receiptId  = $this->receiptGenerateCode('receipt_cheque');	
             $configIncKey = 'receipt_cheque';
@@ -228,9 +238,19 @@ class RentReceiptGenerationController extends Controller
             'receipts_generation_receipt_date'=> 'required',
             'tenant_contract_no' => 'required',  
             'receipts_generation_amt'   => 'required',
-            
+
          ]);
-		 
+
+        $duesError = (new TerminationDuesService)->rentReceiptError(
+            $request->tenant_contract_no,
+            replaceCommaWithDot($request->receipts_generation_amt),
+            $request->receipts_generation_eff_to,
+            $id
+        );
+        if ($duesError) {
+            return redirect()->back()->withInput()->with('error', $duesError);
+        }
+
 		 $rentReceiptInfo = ReceiptsGeneration::where('id', $id)->first();
 		 
 		$dimList           = DimDetail::all();	
