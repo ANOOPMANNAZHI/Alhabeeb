@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class MassMails extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'mass_mails';
-    protected $dates = ['created_at'];
+    protected $casts = ['created_at' => 'datetime'];
     /*
     * Preferred Mails -To
     *

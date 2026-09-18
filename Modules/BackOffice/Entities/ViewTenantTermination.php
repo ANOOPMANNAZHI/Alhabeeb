@@ -7,6 +7,7 @@ use Kyslik\ColumnSortable\Sortable;
 
 class ViewTenantTermination extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 
 	protected $table 	= 'view_tenant_termination';

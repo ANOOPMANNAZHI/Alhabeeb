@@ -7,11 +7,12 @@ use Kyslik\ColumnSortable\Sortable;
 
 class ViewDueRenewal extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
 	protected $table = 'view_renewal_due_approval';
 	public $sortable = ['id','tenant_contract_start_date', 'tenant_contract_valid_to_date', 'tenant_contract_rent', 'email_count', 'building_name','tenant_name','category','tenant_contract_no'];
-	protected $dates = ['tenant_contract_start_date','tenant_contract_valid_to_date'];
+	protected $casts = ['tenant_contract_start_date' => 'datetime', 'tenant_contract_valid_to_date' => 'datetime'];
 
 	 /*
     *

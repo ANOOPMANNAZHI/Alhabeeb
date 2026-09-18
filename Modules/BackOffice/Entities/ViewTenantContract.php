@@ -8,11 +8,12 @@ use Carbon\Carbon;
 use DB;
 class ViewTenantContract extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
 	protected $table   = 'view_tenant_contract';
 	public $sortable   = ['id','tenant_contract_no', 'tenant_contract_start_date', 'tenant_contract_valid_to_date','tenant_contract_rent','email_count', 'tenant_contract_status','tenant_renewal_termination_status','tenant_contract_is_reg_municipality','pdc_check','invoice_check','tenant_name','building_name','unit_code'];
-	protected $dates   = ['tenant_contract_valid_to_date','tenant_contract_start_date','tenant_contract_last_paid_date'];
+	protected $casts = ['tenant_contract_valid_to_date' => 'datetime', 'tenant_contract_start_date' => 'datetime', 'tenant_contract_last_paid_date' => 'datetime'];
 	
 	/*
   *  Scope are For Dashboard

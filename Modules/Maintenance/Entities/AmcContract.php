@@ -7,10 +7,11 @@ use Kyslik\ColumnSortable\Sortable;
 
 class AmcContract extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
     protected $guarded = [];
     protected $table = 'amc_contract';
-    protected $dates = ['amc_contract_period_from','amc_contract_period_to'];
+    protected $casts = ['amc_contract_period_from' => 'datetime', 'amc_contract_period_to' => 'datetime'];
     public $sortable = ['id','amc_contract_no','amc_contract_period_from','amc_contract_period_to','vendor_id','building_id','payment_method_id','amc_contract_cost'];
 
     /*

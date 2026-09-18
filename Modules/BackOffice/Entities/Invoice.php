@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Invoice extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $fillable = [];
     protected $guarded = [];
     protected $table = 'invoice';
-    protected $dates = ['tenant_invoice_date','tenant_invoice_posted_date','tenant_invoice_cancelled_date','created_at'];
+    protected $casts = ['tenant_invoice_date' => 'datetime', 'tenant_invoice_posted_date' => 'datetime', 'tenant_invoice_cancelled_date' => 'datetime', 'created_at' => 'datetime'];
 
 
     /*

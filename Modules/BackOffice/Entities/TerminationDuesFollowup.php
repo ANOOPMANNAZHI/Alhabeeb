@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class TerminationDuesFollowup extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $table = 'termination_dues_followups';
     protected $guarded = [];
-    protected $dates = ['followup_date', 'promise_date'];
+    protected $casts = ['followup_date' => 'datetime', 'promise_date' => 'datetime'];
 
     public function dues()
     {

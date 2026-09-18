@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
  
 
 class LandlordInvioceDistributionBreakup extends Model
-{ 
+{
+    use \App\Concerns\LegacyDateSerialization; 
 	protected $guarded = [];
 
 	protected $table = 'landlord_invioce_distribution_break_up';

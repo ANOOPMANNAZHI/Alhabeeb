@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class RenewalUser extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'renewal_users';
     public $timestamps = false;

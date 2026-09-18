@@ -8,11 +8,12 @@ use Carbon\Carbon;
 
 class Unit extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	
     protected $guarded = [];
 
-    protected $dates = [ 'unit_legal_date'];
+    protected $casts = ['unit_legal_date' => 'datetime'];
     // Every column offered as a @sortablelink in Unit/list.blade.php must appear
     // here or ColumnSortable ignores the click without any error.
     public $sortable = ['id','unit_code','unit_no','vacant_status','unit_vaccant_status','unit_status'];

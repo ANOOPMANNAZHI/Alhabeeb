@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class AccountParams extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $fillable = [];
     
     protected $guarded = [];

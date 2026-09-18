@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MaintenancePayment extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
   use SoftDeletes;
 	protected $guarded = [];
 	protected $table = 'maintenance_payment';
-	protected $dates = ['maintenance_payment_date','created_at','deleted_at'];
+	protected $casts = ['maintenance_payment_date' => 'datetime', 'created_at' => 'datetime', 'deleted_at' => 'datetime'];
 	 public $sortable = ['id','maintenance_payment_no','maintenance_payment_date','vendor_id','maintenance_payment_method','bank_id','maintenance_payment_amount'];
     /*
     * Bank Info

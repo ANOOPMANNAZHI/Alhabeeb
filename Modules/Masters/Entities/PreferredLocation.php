@@ -7,6 +7,7 @@ use Kyslik\ColumnSortable\Sortable;
 
 class PreferredLocation extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	
 	 use Sortable;
 	 

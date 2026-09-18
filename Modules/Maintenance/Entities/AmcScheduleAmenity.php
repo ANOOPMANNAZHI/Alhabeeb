@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class AmcScheduleAmenity extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	protected $guarded = [];
 	protected $fillable = [];
 	protected $table = 'amc_schedule_amenities';

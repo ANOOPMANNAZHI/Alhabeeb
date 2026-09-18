@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Menu extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 
 	protected $table = 'menu';
 	

@@ -13,6 +13,7 @@ use App\UserRoles;
 
 class Setting extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $fillable = [];
     protected $table = 'configuration';

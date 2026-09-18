@@ -7,12 +7,13 @@ use Kyslik\ColumnSortable\Sortable;
 
 class Termination extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     
     use Sortable;
     protected $guarded = [];
     protected $table = 'termination';
     public $sortable = ['id','contract_id'];
-    protected $dates = ['termination_takenover_date','termination_date'];
+    protected $casts = ['termination_takenover_date' => 'datetime', 'termination_date' => 'datetime'];
 
     
     /*

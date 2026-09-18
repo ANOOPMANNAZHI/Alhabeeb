@@ -8,10 +8,11 @@ use Carbon\Carbon;
 
 class ComplaintEnquiry extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
   use Sortable;
   protected $guarded = [];
   protected $table = 'complaint_enquiries';
-  protected $dates = ['complaint_date'];
+  protected $casts = ['complaint_date' => 'datetime'];
   public $sortable = ['id','complaint_no','complainer_name','complaint_mob_no','building_id','location_id',
   'unit_id','created_at','complaint_status'];
 

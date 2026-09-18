@@ -8,11 +8,12 @@ use App\User;
 
 class Key extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
     
  	protected $guarded = [];
     protected $table = 'key';
-    protected $dates = ['created_at'];
+    protected $casts = ['created_at' => 'datetime'];
     public $sortable = ['id'];
     /*
     *  Building

@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
  
 
 class LandlordInvoiceDimension extends Model
-{ 
+{
+    use \App\Concerns\LegacyDateSerialization; 
 	protected $guarded = [];
 
 	 public $timestamps = false; 

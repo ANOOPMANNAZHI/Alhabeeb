@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Kyslik\ColumnSortable\Sortable;
 class AmcSchedule extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
   use Sortable;
   protected $guarded = [];
   protected $table = 'amc_schedule';
-  protected $dates = ['amc_schedule_period_from','amc_schedule_period_to'];
+  protected $casts = ['amc_schedule_period_from' => 'datetime', 'amc_schedule_period_to' => 'datetime'];
   public $sortable = ['id','amc_contract_id','amc_schedule_period_from','amc_schedule_period_to','user_id','building_id','unit_id','vendor_id','payment_method_id','amc_schedule_description','amc_schedule_status'];
       /*
     *

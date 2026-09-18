@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class TerminationDuesAllocation extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $table = 'termination_dues_allocations';
     protected $guarded = [];
 

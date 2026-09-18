@@ -8,11 +8,12 @@ use Carbon\Carbon;
 
 class ViewTenantStage extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
 	protected $table   = 'view_tenant_stage';
 	public $sortable   = ['sales_enquiry_no','tenant_contract_no', 'tenant_contract_start_date', 'tenant_contract_valid_to_date','tenant_contract_rent','sales_enquiry_name','created_at','invoice_check','tenant_name','building_name','unit_code','unit_type','locations_name','sales_note','sales_created_at','inprogress_days','tenant_contract_duration'];
-	protected $dates   = ['created_at','tenant_contract_start_date','tenant_contract_valid_to_date'];
+	protected $casts = ['created_at' => 'datetime', 'tenant_contract_start_date' => 'datetime', 'tenant_contract_valid_to_date' => 'datetime'];
 
 
   /*

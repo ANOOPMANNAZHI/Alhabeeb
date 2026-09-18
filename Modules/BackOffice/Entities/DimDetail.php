@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class DimDetail extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $fillable = [];
     protected $guarded = [];
     protected $table = 'dim_details';

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class TerminationDuesLine extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $table = 'termination_dues_lines';
     protected $guarded = [];
 

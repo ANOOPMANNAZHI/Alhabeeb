@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class AmcContractAmenities extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
   protected $guarded = [];
   protected $table = 'amc_contract_amenities';
   public $timestamps = false;

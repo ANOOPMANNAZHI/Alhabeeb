@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class RequestHistory extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'approve_unapprove_request_history';
-    protected $dates = ['created_at'];
+    protected $casts = ['created_at' => 'datetime'];
 }

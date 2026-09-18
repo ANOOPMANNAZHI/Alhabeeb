@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BuildingEleWaterReading extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
 
     /*

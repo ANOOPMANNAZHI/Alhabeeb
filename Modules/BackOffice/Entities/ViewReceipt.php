@@ -7,11 +7,12 @@ use Kyslik\ColumnSortable\Sortable;
 
 class ViewReceipt extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
 	protected $table = 'view_receipt';
 	public $sortable = ['id','receipts_generation_receipt_no', 'receipts_generation_receipt_date', 'receipts_generation_amt','tenant_contract_no','receipts_generation_payment_method', 'receipts_generation_eff_from','receipts_generation_eff_to','tenant_name','tenant_code','building_name','building_no','unit_no'];
-	protected $dates = ['receipts_generation_eff_from','receipts_generation_eff_to','receipts_generation_receipt_date'];
+	protected $casts = ['receipts_generation_eff_from' => 'datetime', 'receipts_generation_eff_to' => 'datetime', 'receipts_generation_receipt_date' => 'datetime'];
 	
 	public function getReceiptsGenerationPaymentMethodNameAttribute(){    
 

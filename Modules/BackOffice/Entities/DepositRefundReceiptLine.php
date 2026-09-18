@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class DepositRefundReceiptLine extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $table = 'deposit_refund_receipt_line';
     protected $guarded = [];
 

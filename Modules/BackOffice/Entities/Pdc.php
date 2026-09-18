@@ -6,14 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Kyslik\ColumnSortable\Sortable;
 class Pdc extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
     protected $fillable = [];
     protected $guarded = [];
     protected $table = 'pdc';
-    protected $dates = ['pdc_transaction_date','pdc_check_date','pdc_recieve_date','pdc_deposit_date','pdc_clear_date','pdc_cancel_date','pdc_posted_date','created_at'];
-	protected $casts = [
-        'pdc_check_no' => 'integer',
-    ];
+	protected $casts = ['pdc_check_no' => 'integer', 'pdc_transaction_date' => 'datetime', 'pdc_check_date' => 'datetime', 'pdc_recieve_date' => 'datetime', 'pdc_deposit_date' => 'datetime', 'pdc_clear_date' => 'datetime', 'pdc_cancel_date' => 'datetime', 'pdc_posted_date' => 'datetime', 'created_at' => 'datetime'];
 	
     public static function paymentTermInfo($payment_term){
  

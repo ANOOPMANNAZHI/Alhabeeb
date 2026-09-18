@@ -6,5 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class DimDet extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $fillable = [];
 }

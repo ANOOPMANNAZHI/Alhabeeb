@@ -7,11 +7,12 @@ use Kyslik\ColumnSortable\Sortable;
 
 class BuildingInsurance extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	 use sortable;
      protected $fillable = [];
      protected $guarded = [];
      protected $table = 'building_insurance';
-     protected $dates=['insurance_start','insurance_end'];
+     protected $casts = ['insurance_start' => 'datetime', 'insurance_end' => 'datetime'];
 	 public $sortable = ['insurance_company','insurance_start','insurance_end'];
 	
       /*

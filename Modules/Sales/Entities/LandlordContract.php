@@ -8,11 +8,12 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 class LandlordContract extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
     protected $guarded 	= [] ;
    
     protected $table  = 'landlord_contract';
-    protected $dates  = ['landlord_contract_valid_to_date','landlord_contract_valid_from_date','start_date','end_date'];
+    protected $casts = ['landlord_contract_valid_to_date' => 'datetime', 'landlord_contract_valid_from_date' => 'datetime', 'start_date' => 'datetime', 'end_date' => 'datetime'];
     public $sortable  = ['landlord_contract_no','created_at','landlord_contract_duration','landlord_contract_valid_from_date','landlord_contract_valid_to_date','landlord_contract_status'];
     /*
     *

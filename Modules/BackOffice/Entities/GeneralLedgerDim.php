@@ -5,7 +5,8 @@ namespace Modules\BackOffice\Entities;
 use Illuminate\Database\Eloquent\Model;
 
 class GeneralLedgerDim extends Model
-{    
+{
+    use \App\Concerns\LegacyDateSerialization;    
     protected $guarded = [];
     protected $table = 'general_ledger_dim';
 

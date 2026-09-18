@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LandlordPayment extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
   use SoftDeletes;
    protected $guarded = [];
     protected $table = 'landlord_payments';
-    protected $dates = ['landlord_payment_date','created_at','landlord_payment_cancel_date','landlord_payment_posted_date'];
+    protected $casts = ['landlord_payment_date' => 'datetime', 'created_at' => 'datetime', 'landlord_payment_cancel_date' => 'datetime', 'landlord_payment_posted_date' => 'datetime'];
      /*
     *
     * Bank Info

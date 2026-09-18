@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class TenantInvoiceDimension extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'tenant_invoice_dimensions';
-    protected $dates = ['created_at'];
+    protected $casts = ['created_at' => 'datetime'];
 
 
     

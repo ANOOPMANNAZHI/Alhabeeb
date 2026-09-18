@@ -6,8 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class RenewalNote extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
-    protected $dates = ['created_at'];
+    protected $casts = ['created_at' => 'datetime'];
     /*
     *
     * Renewal

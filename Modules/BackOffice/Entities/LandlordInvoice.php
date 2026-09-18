@@ -8,13 +8,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LandlordInvoice extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable , SoftDeletes;
 
 	protected $guarded = [];
 
 	protected $table = 'landlord_invoice';
 
-	protected $dates = ['landlord_invoice_voucher_date','landlord_invoice_posted_date','landlord_invoice_cancelled_date','created_at'];
+	protected $casts = ['landlord_invoice_voucher_date' => 'datetime', 'landlord_invoice_posted_date' => 'datetime', 'landlord_invoice_cancelled_date' => 'datetime', 'created_at' => 'datetime'];
   
     /*
     * Landlord Contract 

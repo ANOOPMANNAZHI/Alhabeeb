@@ -7,10 +7,11 @@ use Kyslik\ColumnSortable\Sortable;
 
 class ExpenseHead extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
 	protected $table = 'expense_head';
-	protected $dates = ['created_at'];
+	protected $casts = ['created_at' => 'datetime'];
 
 	/*
     *

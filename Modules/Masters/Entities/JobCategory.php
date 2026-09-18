@@ -7,6 +7,7 @@ use Kyslik\ColumnSortable\Sortable;
 
 class JobCategory extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
     protected $guarded = [];
 	protected $table = 'job_category';

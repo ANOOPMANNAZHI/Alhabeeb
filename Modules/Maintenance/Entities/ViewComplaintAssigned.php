@@ -9,6 +9,7 @@ use Carbon\Carbon;
 
 class ViewComplaintAssigned extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
     protected $guarded = [];
     protected $table = 'view_complaint_assign';

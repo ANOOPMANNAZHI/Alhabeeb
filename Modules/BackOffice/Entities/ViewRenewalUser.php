@@ -8,11 +8,12 @@ use Carbon\Carbon;
 
 class ViewRenewalUser extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded 	= [];
 	protected $table 	= 'view_renewal_users';
 	public $sortable 	= ['renewal_id','old_contract','new_contract','tenant_contract_start_date', 'tenant_contract_valid_to_date', 'tenant_contract_rent','building_name','tenant_name','tenant_contract_muncipality_agr_no','unit_code'];
-	protected $dates 	= ['tenant_contract_start_date','tenant_contract_valid_to_date'];
+	protected $casts = ['tenant_contract_start_date' => 'datetime', 'tenant_contract_valid_to_date' => 'datetime'];
 
 	/*
 	*

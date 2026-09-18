@@ -8,13 +8,14 @@ use Carbon\Carbon;
 
 class VacantVacancyLoss extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
 	
   protected $guarded = [];
 
   protected $table = 'vacant_vacany_loss';
 
-  protected $dates = [ 'vacant_from','vacant_to'];
+  protected $casts = ['vacant_from' => 'datetime', 'vacant_to' => 'datetime'];
   
   public $sortable = ['building_name','building_no','unit_no','location_name','rent_per_month','unit_type'];
 

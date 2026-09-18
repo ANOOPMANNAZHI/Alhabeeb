@@ -7,11 +7,12 @@ use Kyslik\ColumnSortable\Sortable;
 
 class TenantLandlordTerminationRenewalComment extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     
     use Sortable;
     protected $guarded = [];
     protected $table = 'tenant_landlord_termination_renewal_comment';
-    protected $dates = ['created_at'];
+    protected $casts = ['created_at' => 'datetime'];
 
     public function createdBy() {
         

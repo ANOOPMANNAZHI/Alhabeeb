@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ComplaintServiceReportChecklist extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
    	protected $guarded = [];
     protected $table = 'complaint_service_report_checklist';
     public $timestamps = false;

@@ -10,9 +10,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 class DepositRefundReceipt extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $table = 'deposit_refund_receipt';
     protected $guarded = [];
-    protected $dates = ['receipt_date'];
+    protected $casts = ['receipt_date' => 'datetime'];
 
     public function depositRefund()
     {

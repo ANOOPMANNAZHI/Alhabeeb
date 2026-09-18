@@ -7,6 +7,7 @@ use Kyslik\ColumnSortable\Sortable;
 
 class AmentityType extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	
 	 use Sortable;
 	 

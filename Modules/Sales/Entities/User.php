@@ -11,6 +11,7 @@ use App\UserRoles;
 
 class User extends Authenticatable
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Notifiable, UserRoles;
 
     /**

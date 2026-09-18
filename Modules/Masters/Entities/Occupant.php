@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Occupant extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'occupants';
     /*

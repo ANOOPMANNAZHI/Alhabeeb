@@ -7,11 +7,12 @@ use Kyslik\ColumnSortable\Sortable;
 
 class ViewEnquiry extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
 	protected $table   = 'view_enquiry_list';
 	public $sortable   = ['sales_enquiry_no','fc_att', 'cust', 'cust_no','unit_type','loc','building_name','unit_code','unit_type','created_at','enquiry_flow'];
-	protected $dates   = ['created_at'];
+	protected $casts = ['created_at' => 'datetime'];
 	
 	 /*
    *

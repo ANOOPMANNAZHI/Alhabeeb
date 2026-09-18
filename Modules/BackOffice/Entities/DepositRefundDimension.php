@@ -7,6 +7,7 @@ use Kyslik\ColumnSortable\Sortable;
 
 class DepositRefundDimension extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
 
     protected $table = 'deposit_refund_dim';    

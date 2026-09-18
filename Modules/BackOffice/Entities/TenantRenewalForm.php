@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class TenantRenewalForm extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'tenant_renewal_forms';
-    protected $dates = ['tenant_contract_start_date','tenant_contract_valid_to_date'];
+    protected $casts = ['tenant_contract_start_date' => 'datetime', 'tenant_contract_valid_to_date' => 'datetime'];
 
     /*
     *

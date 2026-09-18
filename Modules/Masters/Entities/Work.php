@@ -7,6 +7,7 @@ use Kyslik\ColumnSortable\Sortable;
 
 class Work extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	 use Sortable;
 	 
 	protected $guarded = [];

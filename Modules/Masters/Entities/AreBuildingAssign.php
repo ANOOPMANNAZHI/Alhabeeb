@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Kyslik\ColumnSortable\Sortable;
 class AreBuildingAssign extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
 	protected $table = 'are_buildings';
-	protected $dates = ['assign_from','assign_to'];
+	protected $casts = ['assign_from' => 'datetime', 'assign_to' => 'datetime'];
 	public $sortable = ['id','user_id','building_id','assign_from','assign_to'];  
 
 

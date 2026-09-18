@@ -8,11 +8,12 @@ use Carbon\Carbon;
 
 class ViewComplaintSubassigned extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
     protected $guarded = [];
     protected $table = 'view_complaint_subassigned';
     public $sortable = ['complaint_enquiries_id','complaint_date', 'complaint_no', 'complainer_name', 'complaint_mob_no', 'building_name','unit_code','assigned_name','sub_assigned_name'];
-    protected $dates = ['complaint_date'];
+    protected $casts = ['complaint_date' => 'datetime'];
 
      /*
     *

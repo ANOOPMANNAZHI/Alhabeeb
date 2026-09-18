@@ -7,13 +7,14 @@ use Kyslik\ColumnSortable\Sortable;
 use Carbon\Carbon;
 class SalesEnquiry extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	
 	use Sortable;
 
 
 	protected $guarded = [];
 
-	protected $dates = ['sales_move_in_date','created_at'];
+	protected $casts = ['sales_move_in_date' => 'datetime', 'created_at' => 'datetime'];
 
 	public $sortable = ['id','sales_enquiry_no','sales_enquiry_name','sales_email','work_flow_processes_code','sales_mobile_no',
 	'sales_company_name','sales_mode_id','created_at','sales_note','assigned_person'];

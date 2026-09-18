@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ComplaintServiceReportNote extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'complaint_service_report_notes';
     /*

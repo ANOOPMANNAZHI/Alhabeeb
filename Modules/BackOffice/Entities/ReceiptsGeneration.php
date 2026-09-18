@@ -7,12 +7,13 @@ use Kyslik\ColumnSortable\Sortable;
 
 class ReceiptsGeneration extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
   use SoftDeletes;
     protected $guarded = [];
     protected $hidden = ["deleted_at"];
     protected $table = 'receipts_generation';
-    protected $dates = ['receipts_generation_receipt_date','receipts_generation_posted_date','receipts_generation_cancel_date','created_at','receipts_generation_eff_from','receipts_generation_eff_to'];
+    protected $casts = ['receipts_generation_receipt_date' => 'datetime', 'receipts_generation_posted_date' => 'datetime', 'receipts_generation_cancel_date' => 'datetime', 'created_at' => 'datetime', 'receipts_generation_eff_from' => 'datetime', 'receipts_generation_eff_to' => 'datetime'];
 	public $sortable = ['id','receipts_generation_receipt_no','receipts_generation_eff_from','receipts_generation_eff_from'];
 	
 	/*

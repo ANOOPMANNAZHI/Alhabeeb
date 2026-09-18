@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class DiscussionForums extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
 
     protected $table = 'discussion_forums';

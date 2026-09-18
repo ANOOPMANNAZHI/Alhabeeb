@@ -12,8 +12,9 @@ use App\UserRoles;
 
 class User extends Authenticatable
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Notifiable, UserRoles;
-	protected $dates = ['user_last_login'];
+	protected $casts = ['user_last_login' => 'datetime'];
     /**
      * The attributes that are mass assignable.
      *

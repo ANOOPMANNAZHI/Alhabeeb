@@ -10,17 +10,14 @@ use Kyslik\ColumnSortable\Sortable;
 
 class employee extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use SoftDeletes, Sortable;
 
     protected $guarded = [];
     
     protected $table = 'employees';
 
-    protected $dates = ['deleted_at',
-        'created_at',
-        'updated_at','employee_dob'
-        
-    ];
+    protected $casts = ['deleted_at' => 'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime', 'employee_dob' => 'datetime'];
     
     public $sortable = ['id','employee_code','employee_name','employee_contact_no','employee_status'];
     

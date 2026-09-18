@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LandlordInvoiceV2Line extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $table = 'landlord_invoice_v2_lines';
     protected $guarded = [];
 

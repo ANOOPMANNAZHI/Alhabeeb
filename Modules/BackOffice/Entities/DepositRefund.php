@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DepositRefund extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
   use Sortable;
   use SoftDeletes;
   protected $guarded = [];
   protected $table = 'deposit_refund';
-  protected $dates = ['deposit_refund_date','deposit_refund_valid_from','deposit_refund_valid_to','deposit_refund_cancelled_date','deposit_refund_posted_date','created_at'];
+  protected $casts = ['deposit_refund_date' => 'datetime', 'deposit_refund_valid_from' => 'datetime', 'deposit_refund_valid_to' => 'datetime', 'deposit_refund_cancelled_date' => 'datetime', 'deposit_refund_posted_date' => 'datetime', 'created_at' => 'datetime'];
   public $sortable = ['id'];
 
      /*

@@ -7,11 +7,12 @@ use Kyslik\ColumnSortable\Sortable;
 
 class ViewLandlordPayment extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
 	protected $table = 'view_landlord_payment';
 	public $sortable = ['id','landlord_payment_no', 'landlord_payment_date', 'landlord_invoice_id','landlord_payment_invoice_amt','landlord_payment_balance_amt', 'landlord_payment_amount','landlord_payment_method','vendor_name','vendor_code','landlord_contract_name','landlord_contract_no','landlord_payment_status','landlord_payment_approval_status','building_name'];
-	protected $dates = ['landlord_payment_date','created_at'];
+	protected $casts = ['landlord_payment_date' => 'datetime', 'created_at' => 'datetime'];
 	
 	 /*
     *

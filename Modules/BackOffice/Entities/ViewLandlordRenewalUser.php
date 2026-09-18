@@ -7,11 +7,12 @@ use Kyslik\ColumnSortable\Sortable;
 
 class ViewLandlordRenewalUser extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded 	= [];
 	protected $table 	= 'view_landlord_renewal_users';
 	public $sortable 	= ['old_contract','new_contract','landlord_contract_valid_from_date', 'landlord_contract_valid_to_date', 'landlord_contract_amt','building_name','vendor_name'];
-	protected $dates 	= ['landlord_contract_valid_from_date','landlord_contract_valid_to_date'];
+	protected $casts = ['landlord_contract_valid_from_date' => 'datetime', 'landlord_contract_valid_to_date' => 'datetime'];
 
 	/*
 	*

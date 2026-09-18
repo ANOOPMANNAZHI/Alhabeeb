@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ComplaintUser extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'complaint_users';
     public $timestamps = false;

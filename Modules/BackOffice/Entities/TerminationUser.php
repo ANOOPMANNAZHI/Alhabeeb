@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class TerminationUser extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $guarded = [];
     protected $table = 'termination_users';
     public $timestamps = false;

@@ -7,6 +7,7 @@ use Kyslik\ColumnSortable\Sortable;
 
 class MaintenanceInvoiceDetails extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 
     protected $table = 'maintenance_invoice_details';    

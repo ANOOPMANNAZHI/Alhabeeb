@@ -8,10 +8,11 @@ use Carbon\Carbon;
 
 class Tenant extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
     protected $guarded = [] ;
     protected $table = 'tenant';
-    protected $dates  = ['tenant_resident_exp_date'];
+    protected $casts = ['tenant_resident_exp_date' => 'datetime'];
     public $sortable = ['id','tenant_code','tenant_name','tenant_contact_no','tenant_status'];
     
     /*protected $attributes = ['getTenantStatusAttribute'];*/

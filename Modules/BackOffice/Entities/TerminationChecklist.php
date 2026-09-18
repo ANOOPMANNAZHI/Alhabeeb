@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class TerminationChecklist extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
    	protected $guarded = [];
 	protected $table = 'termination_checklists';
 	public $timestamps = false;

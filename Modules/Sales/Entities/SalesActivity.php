@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class SalesActivity extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	protected $guarded = [];
     protected $fillable = [];
-    protected $dates = ['sales_activities_due_date'];
+    protected $casts = ['sales_activities_due_date' => 'datetime'];
 
     /*
     *

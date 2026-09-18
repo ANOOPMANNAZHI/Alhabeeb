@@ -9,6 +9,7 @@ use Modules\Sales\Entities\LandlordContract;
 
 class LandlordInvoiceV2 extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
 
     protected $table = 'landlord_invoice_v2';

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Kyslik\ColumnSortable\Sortable;
 class PreferredBuilding extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use Sortable;
 	 
 	 

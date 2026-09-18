@@ -7,13 +7,14 @@ use Kyslik\ColumnSortable\Sortable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class GeneralLedger extends Model
-{   
+{
+    use \App\Concerns\LegacyDateSerialization;   
    use Sortable , SoftDeletes; 
 
 
     protected $guarded = [];
 
-    protected $dates = ['general_ledger_cancelled_date','general_ledger_posted_date','doc_date'];
+    protected $casts = ['general_ledger_cancelled_date' => 'datetime', 'general_ledger_posted_date' => 'datetime', 'doc_date' => 'datetime'];
 
     public $sortable = ['id','general_ledger_type','voucher_no','jv_refer_no' ,'doc_date','amount','maintenance_invoice_approval_status'];
   

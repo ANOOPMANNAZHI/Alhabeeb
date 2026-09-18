@@ -8,6 +8,7 @@ use Kyslik\ColumnSortable\Sortable;
 
 class PreferredTime extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 
     protected $guarded = [];

@@ -9,11 +9,12 @@ use DB;
 
 class TenantContract extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
 	use Sortable;
 	protected $guarded = [];
     protected $fillable = [];
     protected $table = 'tenant_contracts';
-    protected $dates = ['tenant_contract_start_date','tenant_contract_effective_date','tenant_contract_valid_to_date','tenant_contract_valid_from_date','created_at','tenant_contract_last_paid_date','tenant_contract_vacant_since','tenant_contract_receipt_date','tenant_penalty_start_date','tenant_penalty_valid_to_date','vaccant_date','tenant_contract_registered_date'];
+    protected $casts = ['tenant_contract_start_date' => 'datetime', 'tenant_contract_effective_date' => 'datetime', 'tenant_contract_valid_to_date' => 'datetime', 'tenant_contract_valid_from_date' => 'datetime', 'created_at' => 'datetime', 'tenant_contract_last_paid_date' => 'datetime', 'tenant_contract_vacant_since' => 'datetime', 'tenant_contract_receipt_date' => 'datetime', 'tenant_penalty_start_date' => 'datetime', 'tenant_penalty_valid_to_date' => 'datetime', 'vaccant_date' => 'datetime', 'tenant_contract_registered_date' => 'datetime'];
 	public $sortable = ['tenant_contract_no','tenant_contract_valid_to_date','tenant_contract_rent','tenant_contract_status','building_id','unit_id','tenant_contract_start_date','tenant_id'];
    
    /*protected $attributes = ['tenant_contract_status'=>1];
