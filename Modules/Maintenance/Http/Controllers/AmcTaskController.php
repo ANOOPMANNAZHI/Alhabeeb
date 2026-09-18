@@ -17,6 +17,7 @@ use App\User;
 use Modules\Maintenance\Events\AmcTaskReminder;
 use Spatie\Activitylog\Models\Activity;
 
+#[\AllowDynamicProperties]
 class AmcTaskController extends Controller
 {
   public function __construct()

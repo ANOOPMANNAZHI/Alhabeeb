@@ -8,9 +8,9 @@
 
                    <td>@can('landlord_renewal_due_list')<a class="no-link" href="{{route('landlordRenewal.show',$renewalDue->id)}}">{{$renewalDue->buildingInfo->building_name}}</a>@endcan</td>
 
-                   <td>@can('landlord_renewal_due_list')<a class="no-link" href="{{route('landlordRenewal.show',$renewalDue->id)}}">{{$renewalDue->landlord_contract_valid_from_date->format('d/m/Y')}}</a>@endcan</td>
+                   <td>@can('landlord_renewal_due_list')<a class="no-link" href="{{route('landlordRenewal.show',$renewalDue->id)}}">{{$renewalDue->landlord_contract_valid_from_date?->format('d/m/Y')}}</a>@endcan</td>
 
-                   <td>@can('landlord_renewal_due_list')<a class="no-link" href="{{route('landlordRenewal.show',$renewalDue->id)}}">{{$renewalDue->landlord_contract_valid_to_date->format('d/m/Y')}}</a>@endcan</td>
+                   <td>@can('landlord_renewal_due_list')<a class="no-link" href="{{route('landlordRenewal.show',$renewalDue->id)}}">{{$renewalDue->landlord_contract_valid_to_date?->format('d/m/Y')}}</a>@endcan</td>
 
                    <td>@can('landlord_renewal_due_list')<a class="no-link" href="{{route('landlordRenewal.show',$renewalDue->id)}}">{{$renewalDue->vendorInfo->vendor_name}}</a>@endcan</td>   
                     <td>

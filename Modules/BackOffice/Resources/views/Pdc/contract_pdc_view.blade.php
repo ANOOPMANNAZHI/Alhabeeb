@@ -134,7 +134,7 @@
                       <td>{{isset($item->pdc_cancel_date)?$item->pdc_cancel_date->format('d-m-Y'):''}}</td>
                       <td>
 						  
-						  {{($item->pdc_cancel_reason == 1)?'Bounce':($item->pdc_cancel_reason == 2)?'Exchange':($item->pdc_cancel_reason == 3)?'Replace':''}}
+						  {{($item->pdc_cancel_reason == 1)?'Bounce':(($item->pdc_cancel_reason == 2)?'Exchange':(($item->pdc_cancel_reason == 3)?'Replace':''))}}
 					  </td>
                       <td>
 						  @if($item->pdc_bounce_reason == 1)

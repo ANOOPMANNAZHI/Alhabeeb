@@ -15,6 +15,7 @@ use DB;
 use Exception;
 
 
+#[\AllowDynamicProperties]
 class TenantContractDetailsController extends Controller
 {
 

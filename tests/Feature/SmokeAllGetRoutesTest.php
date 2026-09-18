@@ -23,9 +23,38 @@ class SmokeAllGetRoutesTest extends TestCase
         'verification.notice', 'verification.resend', 'verification.verify',
         'soapApiAction',            // calls Dynamics AX
         'notificationTest',
-        'invoice.create',           // unimplemented resource scaffold (view 'backoffice::create' never existed)
+        'invoice.create',           // unimplemented resource scaffolds (view 'backoffice::create' never existed)
+        'pdc.create',
+        'contract-details.create',
+        'keyAccept',                // route points at a controller method that does not exist
+        'buildingTypeAutocompleteCode', // calls an undefined relation; broken on 5.7 as well
         'getBouncedCheques',        // loads every bounced PDC with N+1 relations — minutes on production data, same on 5.7
+        'landlordTaxInvoiceReportStream', // server-sent-events endpoint; echoes before headers by design
     ];
+
+    /**
+     * Blade compiles to PHP lazily; a PHP 8 parse error (e.g. an unparenthesised
+     * nested ternary) only surfaces when the view is first rendered and kills the
+     * request. Compile everything and lint the output.
+     */
+    public function test_every_compiled_view_is_valid_php(): void
+    {
+        $this->artisan('view:clear')->assertSuccessful();
+        $this->artisan('view:cache')->assertSuccessful();
+
+        $bad = [];
+        foreach (glob(storage_path('framework/views/*.php')) as $compiled) {
+            exec('php -l ' . escapeshellarg($compiled) . ' 2>&1', $out, $code);
+            if ($code !== 0) {
+                preg_match('/PATH (\S+)/', file_get_contents($compiled), $m);
+                $bad[] = ($m[1] ?? $compiled) . ' :: ' . implode(' ', array_filter($out, fn ($l) => str_contains($l, 'error')));
+            }
+            $out = [];
+        }
+        $this->artisan('view:clear');
+
+        $this->assertSame([], $bad, "Views that do not compile to valid PHP:\n" . implode("\n", $bad));
+    }
 
     public function test_every_named_get_route_renders_for_super_admin(): void
     {

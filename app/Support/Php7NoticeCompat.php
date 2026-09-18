@@ -20,6 +20,7 @@ class Php7NoticeCompat
 {
     private const PATTERNS = [
         '/^Undefined variable \$/',
+        '/^compact\(\): Undefined variable \$/',
         '/^Undefined array key /',
         '/^Undefined (index|offset): /',
         '/^Undefined property: /',

@@ -25,6 +25,7 @@ use Modules\BackOffice\Events\ChequeBounceAre;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
+#[\AllowDynamicProperties]
 class PdcController extends Controller
 {
     public function __construct()

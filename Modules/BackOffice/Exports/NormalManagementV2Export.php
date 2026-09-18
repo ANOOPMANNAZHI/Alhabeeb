@@ -2,9 +2,10 @@
 
 namespace Modules\BackOffice\Exports;
 
+use Maatwebsite\Excel\Concerns\Export;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
-class NormalManagementV2Export implements WithMultipleSheets
+class NormalManagementV2Export implements Export, WithMultipleSheets
 {
     protected $monthData;
     protected $year;

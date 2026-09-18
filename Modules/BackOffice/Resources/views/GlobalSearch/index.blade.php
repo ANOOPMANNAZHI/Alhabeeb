@@ -235,7 +235,7 @@
                                  <td>{{$res->tenant_name}}</td>
                                  <td>{{$res->building_name}}</td>
                                  <td>{{isset($res->unit_no)?$res->unit_no:''}}</td>
-                                 <td>{{($res->complaint_status==1)?'Partialy Closed':($res->complaint_status==2)?'Closed':'Open'}}</td>
+                                 <td>{{($res->complaint_status==1)?'Partialy Closed':(($res->complaint_status==2)?'Closed':'Open')}}</td>
                                  <td>{{($res->service_report_no==null)?'':$res->service_report_no}}</td>
                                  <td>{{empty($res->maintenance_invoice_no)?'':$res->maintenance_invoice_no}}</td>
                                  <td>{{isset($res->employee_name)?$res->employee_name:''}}</td>
@@ -295,7 +295,7 @@
                                     <td>{{$res->building_name}}</td>
                                     <td>{{$res->unit_no}}</td>
                                     <td></td>
-                                    <td>{{($res->tenant_renewal_termination_status==7)?'Termination Request':($res->tenant_renewal_termination_status==8)?'Terminated':'Active'}}</td>
+                                    <td>{{($res->tenant_renewal_termination_status==7)?'Termination Request':(($res->tenant_renewal_termination_status==8)?'Terminated':'Active')}}</td>
                                     <td>{{date('d-m-Y',strtotime($res->tenant_contract_valid_to_date))}}</td>
                                     <td>{{($res->tenant_contract_status==1)?'Active':'Expired'}}</td>
                                     <td>{{empty($res->tenant_contract_last_paid_date)?'':date('d-m-Y',strtotime($res->tenant_contract_last_paid_date))}}</td>

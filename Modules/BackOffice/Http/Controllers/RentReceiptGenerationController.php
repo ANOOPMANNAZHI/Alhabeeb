@@ -28,6 +28,7 @@ use Dynamics;
 use App\Setting;
 use Modules\BackOffice\Services\TerminationDuesService;
 
+#[\AllowDynamicProperties]
 class RentReceiptGenerationController extends Controller
 {
     use ValidatesRequests;
