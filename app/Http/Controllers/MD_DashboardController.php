@@ -104,7 +104,7 @@ and (termination.termination_date <= '".$endDate->endOfMonth()."')");
 		 //print_r($are);exit;
 	     if($are != ''){
 
-			
+
 		$vacatedUnitsMTD =	DB::select("SELECT t.id FROM public.units u 
 			JOIN buildings b ON u.building_id = b.id
 			JOIN preferred_buildings pb ON pb.building_id = b.id
@@ -348,7 +348,7 @@ and (termination.termination_date <= '".$endDate->endOfMonth()."')");
 
             //dd($unassigned_lists);
         if(($request->sort=='unit_type' || $request->sort=='loc') && isset($request->direction)){
-      
+
             $unassigned_lists = $unassigned_list->orderBy($request->sort,$request->direction)->paginate($this->noOfRecord);///////////Refer here(07-01-2021)/////////////////////
  
         }

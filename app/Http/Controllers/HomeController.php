@@ -85,71 +85,71 @@ class HomeController extends Controller
    
     
     public function filterMenu($menugroup){				
-	 
+
 		 $menugroup = $menugroup->filter(function ($value, $key) {
-			 		 
+
 			$res = array(); 			
 			    if($value->menutype == 1){
 					$flag_val = false;
-										
+
 					 if(count($value->allChildMenu) > 0)
 					 {								 
 							 if($value->allChildMenu->count() > 0)
 					          {								  
 								 $res =   $this->filterMenu($value->allChildMenu);	
-								 
+
 								 if(count($res) > 0)
 								 $flag_val = true;	
 								 else
 								 $flag_val = false;								 								 
 							  }								  
-						 
+
 					//	if($flag_val)
 					//	$value->allChildMenu =  $res;						 
-													 									
+
 					 }			
-					
+
 				}else
 				$flag_val = true;				
-				
+
 				if($flag_val)
 				return true;
-				
-				
+
+
 			if(count($res) > 0)
 			$value->allChildMenu =  $res;	
-				 					
+
 			}); 
-								
+
 			return $menugroup->flatten();    
-	
-	
-	
-	
+
+
+
+
 	/*	                    
      $menugroup = $menugroup->filter(function ($value, $key) {
-			    
+
 			    if($value->menutype == 1){
 					$flag_val = false;
-					
+
 					 if(count($value->allChildMenu) > 0)
 					 {	
 							 $checkSub = $value->allChildMenu()->where('menutype', 1)->get();
 							 if($value->allChildMenu->count() > 0)
 					          {								  
 								 $res =   $this->filterMenu($value->allChildMenu);									
-								 
+
 								 if(count($res) > 0)
 								 $flag_val = true;	
 								 else
 								 $flag_val = false;								 								 
 							  }	
-							  
+
 							$check = $value->where('menutype', 2)
 						                 ->where('parent_menu',$value->id)->get();						                 
-						                 
+
 						//    $value->allChildMenu = [$res,$check]  ;           
-							 
+
 							if(count($check) > 0){
 							$flag_val = true;	
 							//$value->allChildMenu[] =  $check;
@@ -157,13 +157,13 @@ class HomeController extends Controller
 						//if($flag_val)
 						//$value->allChildMenu[] =  $res;								 									
 					 }			
-					
+
 				}else
 				$flag_val = true;				
-				
+
 				if($flag_val)
 				return true;
-				 					
+
 			}); 					
 			return $menugroup; 	*/			
 	}
@@ -286,12 +286,12 @@ class HomeController extends Controller
 					 {	   							  
 						 $res =   $this->filterMenuTest($value->allChildMenu);	
 						// echo $res;								
-						 
+
 						 if(count($res) > 0)
 						 $flag_val = true;	
 						 else
 						 $flag_val = false;	
-						 
+
 					//	if($flag_val)
 					//	$value->allChildMenu =  $res;	
 												 									
@@ -485,20 +485,20 @@ class HomeController extends Controller
 		$today = date('Y-m-d');
 		$week = Carbon::today()->subDays(6);
 		$week = date("Y-m-d", strtotime($week) );
-       
+
 
         $date = new Carbon;  
         $date->subWeek(); 
-       
+
        //modification for auto renewal 
 	   $tenantRenewal =  new TenantRenewal;
         $tenantRenewal->cronRenewalContract();
         // $this->info('Tenant Renewal Activation');
 
         $employees = Employee::take(10)->get();
-		
+
         $date_thirty = Carbon::today()->subDays(30);
-        
+
         $enquiries_unattened =  Sales::whereDoesntHave('salesActivity')
                              ->whereIn('work_flow_processes_code',[102,202])
                              ->whereDate('created_at','>=',$date_thirty)
@@ -527,7 +527,7 @@ class HomeController extends Controller
                                     $query->whereIn('work_flow_processes_code',[103,202]);
                                 })
                              ->count();                                    
-			
+
 		 $enquiries_unassigned_doc =  Sales::whereIn('work_flow_processes_code',[104,204])
 								 ->whereDate('created_at','>=',$date_thirty)
 								  ->whereHas('salesUsers', function ($query) {
@@ -541,7 +541,7 @@ class HomeController extends Controller
 										$query->whereIn('work_flow_processes_code',[104,204]);
 									})
 								 ->count();
-		
+
 		$date_ninety = Carbon::today()->subDays(90);
 		$enquiries_unassigned =  Sales::whereIn('work_flow_processes_code',[101])
                              ->whereDate('created_at','>=',$date_ninety)
@@ -556,7 +556,7 @@ class HomeController extends Controller
                                     $query->whereIn('work_flow_processes_code',[101]);
                                 })
                              ->count();		
-                             
+
                       //  dd($enquiries_unassigned);	
           //Assigned Enquiry
         $enquiries_assigned =  Sales::whereIn('work_flow_processes_code',[102,202])
@@ -566,7 +566,7 @@ class HomeController extends Controller
                                     $query->whereIn('work_flow_processes_code',[102,202]);
                                 })
                              ->count();
-                             
+
          //In Progress
         $enquiries_inprogress =  Sales::whereIn('work_flow_processes_code',[102,202])
                                  ->whereDate('created_at','>=',$date_ninety)
@@ -595,16 +595,16 @@ class HomeController extends Controller
 								})                      
 							->where('status','=',1);                       
 						})->count();
-		   
+
 			 //Open Enquiry  109 108  
-			
+
 			$enquiries_open =  SalesEnquiry::whereNotIn('work_flow_processes_code',[109,108,209,208])
 									->whereDate('created_at','>=',$date_ninety) 
                              ->tenant() 
                              ->count(); 
 
 			$enquiriesLandlord =  SalesEnquiry::landlord()->take(5)->get();
-			
+
 			$roles =  Role::count();
 			$employee =  employee::count();
 			$workFlowProcess =  WorkFlowProcess::count();
@@ -612,7 +612,7 @@ class HomeController extends Controller
 
 
             /****  salesCoordinatorDashboard   *********/
-           
+
            if(\Auth::user()->hasRole('sales_coordinator'))
             $salesCoordinator = $dashboard->salesCoordinatorDashboard($request,true);
 
@@ -640,7 +640,7 @@ class HomeController extends Controller
 
 
               /****  Maintenance Supervisor Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('maintenance_supervisor'))
             $maintenanceSupervisor = $dashboard->maintenanceSupervisorDashboard($request,true);
 
@@ -648,59 +648,59 @@ class HomeController extends Controller
             /*****Maintenance Supervisor Dashboard End  ********/
 
             /****  Take Over Supervisor/Coordinator Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('take_over_supervisor'))
             $takeOverSupervisor = $dashboard->takeOverSupervisorDashboard($request,true);
 
             /*****Take Over Supervisor/Coordinator Dashboard End  ********/
 
             /****  ARE Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('are'))
             $are = $dashboard->areDashboard($request,true);
-        
+
             /*****ARE Dashboard End  ********/
 
             /****  Maintenance Engineer Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('maintenance_engineer'))
             $maintenanceEngineer = $dashboard->maintenanceEngineerDashboard($request,true);
 
             /*****Maintenance Engineer Dashboard End  ********/
 
             /****  Maintenance Co-Ordinator Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('maintenance_coordinator'))
             $maintenanceCoordinator = $dashboard->maintenanceCoordinatorDashboard($request,true);
 
             /*****Maintenance Co-Ordinator Dashboard End  ********/
             /****  Backoffice Executive Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('backoffice_executive'))
             $backofficeExecutive = $dashboard->backofficeExecutiveDashboard($request,true);
 
             /*****Backoffice Executive Dashboard End  ********/ 
             /****  Legal Advisor Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('legal_advisor'))
             $legalAdvisor = $dashboard->legalAdvisorDashboard($request,true);
 
             /***** Legal Advisor Dashboard End  ********/
             /**** Call Center Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('call_center'))
             $callCenter = $dashboard->callCenterDashboard($request,true);
 
             /*****Call Center Dashboard End  ********/
             /**** ARE Team Leader Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('are_team_lead'))
             $areTeamLead = $dashboard->areTeamLeadDashboard($request,true);
 
             /*****ARE Team Leader Dashboard End  ********/
 
          	/**** Sales Head Dashboard   *********/
-           
+
             if(\Auth::user()->hasRole('sales_head'))
             $salesHead = $dashboard->salesHeadDashboard($request,true);
                  /*****Sales Head Dashboard End  ********/
@@ -709,7 +709,7 @@ class HomeController extends Controller
             $facilityManager = $dashboard->facilityManagerDashboard($request,true);
         /****** Facility Manager   ends***********/
   /**** Backoffice Manager Dashboard   *********/
-           
+
            if(\Auth::user()->hasRole('backoffice_manager'))
             $backofficeManager = $dashboard->backofficeManagerDashboard($request,true);
 
@@ -717,7 +717,7 @@ class HomeController extends Controller
             /*****Backoffice Manager Dashboard End  ********/
 
                /****** #region MD Dashboard-Starts (25-12-2020)*********/
-           
+
             if(\Auth::user()->hasRole('md'))
 
             $managingDirector = $dashboard->mdDashboard($request,true);
@@ -726,8 +726,8 @@ class HomeController extends Controller
                              ->whereHas('buildingNamesExist')
                              ->get();
 
-      
-            
+
+
 
 			return view('dashboard',compact('enquiries_unassigned','enquiries_assigned','enquiries_inprogress' ,'enquiries_unattened',
 				 'enquiries_progress', 'enquiries_open','enquiriesLandlord','default_role',

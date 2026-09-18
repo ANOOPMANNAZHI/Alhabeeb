@@ -26,9 +26,9 @@ class CreateLandlordContract extends Migration
             $table->unsignedInteger('landlord_contract_duration')->nullable();
             $table->unsignedInteger('landlord_contract_duration_type')->nullable()->comment('1 - Month, 2 - Year, 3 - Day');
             $table->unsignedInteger('landlord_contract_management_fee')->nullable();
-            $table->float('landlord_contract_percentage',3,2)->nullable();
-            $table->float('landlord_contract_amt',15,2);
-            $table->float('landlord_contract_agreement_amt',10,2)->nullable();
+            $table->float('landlord_contract_percentage',3)->nullable();
+            $table->float('landlord_contract_amt',15);
+            $table->float('landlord_contract_agreement_amt',10)->nullable();
             $table->unsignedInteger('management_id')->nullable();
             $table->date('landlord_free_lease_period')->nullable()->comment('Free lease period in month');
             $table->unsignedInteger('termination_notification')->nullable();

@@ -41,7 +41,7 @@ class SalesEnquiry extends Model
 	*/
 	public function locationsOne() {
 
-		return $this->hasOne('\Modules\Masters\Entities\Location','\Modules\Masters\Entities\PreferredLocation','location_id','id','sale_enquiry_id')->latest();
+		return $this->hasOne('\Modules\Masters\Entities\Location','\Modules\Masters\Entities\PreferredLocation','location_id')->latest();
 
 	}
 	 /*

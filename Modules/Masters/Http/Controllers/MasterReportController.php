@@ -96,9 +96,9 @@ class MasterReportController extends Controller
     } 
   public function showBuildingDetailsReport(Request $request){
       $db = config('report.database');
-   
+
       $user = Auth::user()->username;
-     
+
       $vendor_name =  $request['vendor_name'];
       $locations_name =  $request['location'];
       $management_types_name =  $request['management_type'];
@@ -111,7 +111,7 @@ class MasterReportController extends Controller
         if($request->download_type == 'pdf'){
               if(empty($vendor_name) && empty($locations_name) && empty($management_types_name)){ //Mandotory
 // Compile a JRXML to Jasper
-               
+
 /*$a=JasperPHP::compile(jasper_template('building_details_all.jrxml'))->execute();
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
@@ -215,7 +215,7 @@ public function locationReportAutocompleteCode(Request $request){
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
 
-   
+
      if($management_types_name == "all"){
 
       $r=JasperPHP::process(jasper_template('R12_Building-Unitt_Details_all.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"building_name" => $building_name,"building_code" => $building_code,"management_types_name" => $management_types_name,"logo" => $logo,"SUBREPORT_DIR"=>$SUBREPORT_DIR),$db)->execute();
@@ -252,7 +252,7 @@ $r=JasperPHP::process(jasper_template('R12_Building-Unitt_Details_excel.jrxml'),
 
 $file1= jasper_output_url('R12_Building-Unitt_Details_excel.xlsx');
 
-     
+
 return redirect()->away($file1);
 } 
 
@@ -376,7 +376,7 @@ print_r($a);*/
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
         $r=JasperPHP::process(jasper_template('vacancy_loss_compo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"mngnt_type" => $mngnt_type,"logo" => $logo),$db)->execute();
-     
+
         $file= jasper_output_url('vacancy_loss_compo.pdf');
         return redirect()->away($file);
        print_r($r);
@@ -453,7 +453,7 @@ $file= jasper_output_url('vacant_unit_compo.pdf');
 return redirect()->away($file);
 print_r($r);
 }
- 
+
    }else{
 
      if(!empty($Date2) && empty($mngnt_type)){ //Mandotory

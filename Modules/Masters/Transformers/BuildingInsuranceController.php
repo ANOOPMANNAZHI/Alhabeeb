@@ -4,7 +4,7 @@ namespace Modules\Masters\Transformers;
 
 use Illuminate\Http\Resources\Json\Resource;
 
-class BuildingInsuranceController extends Resource
+class BuildingInsuranceController extends \Illuminate\Http\Resources\Json\JsonResource
 {
     /**
      * Transform the resource into an array.

@@ -758,7 +758,7 @@ class TenantContractEditController extends Controller
       if($tenantData->status == 5){
         $legal = Legal::where('tenant_contract_id',$tenantData->id)->first();
         $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-        $legalUsers = array_flatten($legalUsers);
+        $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
 
         $legal->textContent = "Tenant Contract Revoked";
         foreach($legalUsers as $legalUser){
@@ -776,7 +776,7 @@ class TenantContractEditController extends Controller
  }
 	 $userLists = User::role(['backoffice_manager','backoffice_executive'])->where('id','!=',\Auth::user()->id)->get(); 
 
-    $userLists = array_flatten($userLists);
+    $userLists = \Illuminate\Support\Arr::flatten($userLists);
     $msg = "Tenant Contract Revoke -".$tenantContract->tenant_contract_no. " By ".\Auth::user()->employee->employee_name;
     $tenantData->text = $msg;
     $tenantData->href = url('tenantContractApprovedRevoke/'.$tenantContract->sale_enquiry_id.'/108/tenantRevokeProcess/');
@@ -1064,7 +1064,7 @@ class TenantContractEditController extends Controller
             //Back to Normal
 			TenantContract::where('id',$tenant_contract_id)->update(['is_direct_contract_pending'=>1,'work_flow_processes_code'=>null]);
             $backoffice_executive = User::role(['backoffice_executive'])->get();
-            $usr = array_flatten($backoffice_executive);
+            $usr = \Illuminate\Support\Arr::flatten($backoffice_executive);
             $msg = "Rejected";
             $salesEnquiry->text = "Direct Contract ".$tenantDataBeforeUpdate->tenant_contact_no." Rejected";
             $salesEnquiry->href = url('tenant-contract/'.$tenant_contract_id);
@@ -1383,7 +1383,7 @@ class TenantContractEditController extends Controller
 
 
       $plmusers = User::role(['backoffice_manager'])->get(); 
-      $plmusers = array_flatten($plmusers); 
+      $plmusers = \Illuminate\Support\Arr::flatten($plmusers); 
       $legalCase->href = url('plmsApproval/'.$legalCase->id);
       $legalCase->content = "Received";
       $legalCase->textContent = "Legal Case Received";
@@ -1611,7 +1611,7 @@ public function tenantPopupAction(Request $request){
               //Notification
             $salesEnquiry = SalesEnquiry::where('id',$enquiryid)->first();
             $backoffice_executive = User::role(['backoffice_executive'])->get();
-            $usr = array_flatten($backoffice_executive);
+            $usr = \Illuminate\Support\Arr::flatten($backoffice_executive);
            
             //$usr =  \App\User::where('id',$sendNotifyUserId)->get();
             $salesEnquiry->text = "Contract ".$contract->tenant_contact_no." Rejected";

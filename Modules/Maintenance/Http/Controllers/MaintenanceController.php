@@ -200,7 +200,7 @@ $i = 1;
                   if(empty($user_id)){      
                     $users_list = \App\User::role($val->role_id)->get()->pluck('id');         
                     $users_list = $users_list->toArray();  
-                    $users_list = array_flatten($users_list);   
+                    $users_list = \Illuminate\Support\Arr::flatten($users_list);   
                       if(count($users) > 0){
                         $users = array_merge($users,$users_list);             
                       }else           
@@ -214,12 +214,12 @@ $i = 1;
         $facility_manager = \App\User::role(['facility_manager'])
                                      ->get()->pluck('id');    
 		$facility_manager = $facility_manager->toArray();  
-		$facility_manager = array_flatten($facility_manager);  
+		$facility_manager = \Illuminate\Support\Arr::flatten($facility_manager);  
 
       $users = array_merge($users,$facility_manager); 
 
         
-        $users = array_flatten($users); 
+        $users = \Illuminate\Support\Arr::flatten($users); 
         $users_notify =  \App\User::whereIn('id',$users)->get();
         $complaint->href = url('complaintStage/'.$complaint->id.'/UnAssignedList');
         event(new NewComplaintEnquiry($complaint,$users_notify));
@@ -905,7 +905,7 @@ $i = 1;
       
       }
       
-    $users = array_flatten($users);      
+    $users = \Illuminate\Support\Arr::flatten($users);      
     $users_notify =  \App\User::whereIn('id',$users)->get();
     $roles = Role::whereIn('id',$users_notify->pluck('default_role'))->first()->name;
     $complaintEnquiry->text = " Complaint Reminder -  Assign  ".$complaintEnquiry->complainer_name. " [".$complaintEnquiry->complaint_no."]";   

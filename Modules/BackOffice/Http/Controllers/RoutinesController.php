@@ -247,7 +247,7 @@ class RoutinesController extends Controller
         $legal = Legal::where('tenant_contract_id',$contractInfo->tenant_contract_id)->first();
          if($contractInfo->status == 5){
             $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-            $legalUsers = array_flatten($legalUsers);
+            $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
 			$legal = Legal::where('tenant_contract_id',$contractInfo->id)->first();
 			if($legal!=null){
 			$legal->subject = "PDC Posted !"; 
@@ -623,7 +623,7 @@ $receiptId =  ReceiptsGeneration::create([
         if($receiptInfo->receipts_generation_payment_method == 3){
             $p_method = 'Cheque';
             // $ref_no = isset($receiptInfo->receipts_generation_cheque_no)?$receiptInfo->receipts_generation_cheque_no:'';
-            
+
             // if($receiptInfo->receipts_generation_cheque_no =="" || $receiptInfo->receipts_generation_cheque_no =="__"  ){$receipt_cheque_nums='';}else{$receipt_cheque_nums=$receiptInfo->receipts_generation_cheque_no;} 
         } 
 		
@@ -647,10 +647,10 @@ $receiptId =  ReceiptsGeneration::create([
 		
 			//dd($receiptInfo->getReceiptsDimensionAccount);
 			if(count($receiptInfo->getReceiptsDimensionAccount)>0){
-				    
+
 				foreach($receiptInfo->getReceiptsDimensionAccount as $key=>$item){
-					
-					
+
+
 						$receiptLineItem = (array) null;
 						$receiptLineItem[] = array(
 								'JournalNum'=> $response,
@@ -682,11 +682,11 @@ $receiptId =  ReceiptsGeneration::create([
 								'DataAreaId'=>DATA_AREA_ID,
 								'company'=>COMPANY,
 							);
-				
+
 					if(count($receiptLineItem) >0 && $result = Dynamics::LedgerAxLineItemPushData('AXGeneralLedgerLineItem', $receiptLineItem)=='Error'){
 						return 'Error';
 					}
-			
+
 				}
 				// General Receipt need bank Line item recent change by client
         if($receiptInfo->receipts_generation_type ==1){
@@ -722,7 +722,7 @@ $receiptId =  ReceiptsGeneration::create([
                                 'company'=>COMPANY,
                             );
 
-                   
+
             if(count($receiptLineItemBank) >0 && $result = Dynamics::LedgerAxLineItemPushData('AXGeneralLedgerLineItem', $receiptLineItemBank)=='Error'){
                         return redirect()->back()->with('error', 'Microsoft Dynamics API Service Error');
             }
@@ -937,7 +937,7 @@ $receiptId =  ReceiptsGeneration::create([
 
     if($tenantContract->status == 5){
       $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-      $legalUsers = array_flatten($legalUsers);
+      $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
 
       $legal->subject = "Tenant Receipt Posted !"; 
       $legal->textContent = "Tenant Receipt Posted having Receipt No: ".$receiptGeneration->receipts_generation_receipt_no." which is under Legal";
@@ -1004,14 +1004,14 @@ $receiptId =  ReceiptsGeneration::create([
 		foreach($invoiceArr as $item){
 			$landlordInvoiceItemDr = array();
 			$landlordInvoiceItemCr = array();
-			
+
 			$distributionLine = explode(',',$item);
 			$landlordDistributionBreakupCr = LandlordInvioceDistributionBreakup::where('id',$distributionLine[0])->first();
 			$landlordDistributionBreakupDr = LandlordInvioceDistributionBreakup::where('landlord_invoice_id',$distributionLine[1])->where('date',$landlordDistributionBreakupCr->date)->where('debit_amount','!=','0.0')->first();
-			
+
 			$distribution_lineCrLine_1 = ($landlordDistributionBreakupCr->debit_amount>0)?$landlordDistributionBreakupCr->debit_amount:0;
 			$distribution_lineCrLine_2 = ($landlordDistributionBreakupCr->credit_amount>0)?$landlordDistributionBreakupCr->credit_amount:0;
-			
+
 			$distribution_lineDrLine_1 = ($landlordDistributionBreakupDr->debit_amount>0)?$landlordDistributionBreakupDr->debit_amount:0;
 			$distribution_lineDrLine_2 = ($landlordDistributionBreakupDr->credit_amount>0)?$landlordDistributionBreakupDr->credit_amount:0;
 
@@ -1022,15 +1022,15 @@ $receiptId =  ReceiptsGeneration::create([
 				'DataAreaId'=>DATA_AREA_ID,
 				'company' =>COMPANY,
 			);
-	
+
 			$response		=	Dynamics::LedgerAxHeaderPushData('AXTenantReceiptHeader', $ledgerHeader);
 
 			if($response=='Error'){
 				return redirect()->back()->with('error', 'Microsoft Dynamics API Service Error');
 			}
-			
+
 			$accountType 		= AX_GL;
-			
+
 			$monthly_cost_date 	= $landlordDistributionBreakupCr->date;
 			$account_code1		= $landlordDistributionBreakupCr->account_code;
 			$debit_amount1 		= $distribution_lineCrLine_1;
@@ -1076,7 +1076,7 @@ $receiptId =  ReceiptsGeneration::create([
 					'DataAreaId'=>DATA_AREA_ID,
 					'company'=>COMPANY,
 				);
-			
+
 			$result = Dynamics::LedgerAxLineItemPushData('AXGeneralLedgerLineItem', $landlordInvoiceItemDr);
 			if(count($landlordInvoiceItemDr) >0 && $result=='Error'){
 				return redirect()->back()->with('error', 'Microsoft Dynamics API Service Error');
@@ -1112,12 +1112,12 @@ $receiptId =  ReceiptsGeneration::create([
 					'DataAreaId'=>DATA_AREA_ID,
 					'company'=>COMPANY,
 				);
-				
+
 				$result = Dynamics::LedgerAxLineItemPushData('AXGeneralLedgerLineItem', $landlordInvoiceItemCr);
 				if(count($landlordInvoiceItemCr) >0 && $result=='Error'){
 					return redirect()->back()->with('error', 'Microsoft Dynamics API Service Error');
 				}
-				
+
 				LandlordInvioceDistributionBreakup::where('id',$landlordDistributionBreakupCr->id)->update(['is_posted'=>1,'ax_batch_id'=>$result,'posted_date'=>date("Y-m-d"),'posted_by' => \Auth::user()->id]);
 				LandlordInvioceDistributionBreakup::where('id',$landlordDistributionBreakupDr->id)->update(['is_posted'=>1,'ax_batch_id'=>$result,'posted_date'=>date("Y-m-d"),'posted_by' => \Auth::user()->id]);				//echo "<pre>";
 				//print_r(Dynamics::LedgerAxLineItemPushData('AXGeneralLedgerLineItem', $landlordInvoiceItem)); exit;

@@ -8,14 +8,14 @@ use Kyslik\ColumnSortable\Sortable;
 class Termination extends Model
 {
     use \App\Concerns\LegacyDateSerialization;
-    
+
     use Sortable;
     protected $guarded = [];
     protected $table = 'termination';
     public $sortable = ['id','contract_id'];
     protected $casts = ['termination_takenover_date' => 'datetime', 'termination_date' => 'datetime'];
 
-    
+
     /*
     *  Termination User
     */
@@ -54,7 +54,7 @@ class Termination extends Model
     *
     */
     public function terminationUser() {
-        
+
            return $this->hasMany('Modules\BackOffice\Entities\TerminationUser','termination_id');
     }
     /*
@@ -62,7 +62,7 @@ class Termination extends Model
     *
     */
     public function WorkFlowProcessesCode(){
-       
+
         return $this->belongsTo('\Modules\General\Entities\WorkFlowProcess','work_flow_processes_code','work_flow_processes_code');
     }
     /*
@@ -78,7 +78,7 @@ class Termination extends Model
              case 501:
                        $class = 'label-danger';
                         break;
-         
+
              case 502: $class = 'label-info';
                         break; 
 
@@ -91,27 +91,27 @@ class Termination extends Model
 
              case 505:  $class = 'label-primary';
                         break;         
-                        
+
              case 506:  $class = 'label-primary';
                         break;
-                        
+
              case 507:  $class = 'label-primary';
                         break; 
 
              case 508: 
                          $class = 'label-success';
                         break;                                      
-             
+
              default : $class = 'label-danger';
                         break;
-              
+
 
         }
 
 
         return $class;
 
-        
+
     }
     /*
     * Status Name
@@ -134,10 +134,10 @@ class Termination extends Model
     public function getIsResubmitNameAttribute()
     {     
         switch($this->is_resubmit){
-          
+
           case '1' : return 'No';  
           case '2' : return 'Yes';
-    
+
         }
     }
     /*
@@ -145,7 +145,7 @@ class Termination extends Model
     *
     */
     public function getTerminationTypeStatusClassAttribute(){
-       
+
         $code =  $this->termination_type_status; 
         switch($code){
 
@@ -160,10 +160,10 @@ class Termination extends Model
                        break; 
              case 4: $class = 'label-danger';
                        break;                
-             
+
              default : $class = 'label-danger';
                         break;
-              
+
 
         }
 
@@ -200,7 +200,7 @@ class Termination extends Model
     *
     */
    /* public function terminationChecklist() {
-        
+
            return $this->hasMany('Modules\BackOffice\Entities\TerminationChecklist','termination_id')->whereNotNull('work_id');
     }*/
     /*
@@ -209,7 +209,7 @@ class Termination extends Model
     *
     */
     /*public function terminationChecklistOther() {
-        
+
            return $this->hasMany('Modules\BackOffice\Entities\TerminationChecklist','termination_id')->whereNull('work_id');
     }*/
 }

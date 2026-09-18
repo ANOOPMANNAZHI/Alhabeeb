@@ -211,7 +211,7 @@ public function corporateTenantReportPdf(Request $request){
 
     //$file= base_path(). "/vendor/cossou/jasperphp/examples/corporate_tenant_municipal_flats.pdf";
     //return response()->file($file); 
-	
+
 	$file= jasper_output_url('corporate_tenant_municipal_flats.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -295,7 +295,7 @@ public function tenantContractExpiryReportPdf(Request $request){
 
      $file1= jasper_output_url('contract_expiry_excel_date.xlsx');
 
-     
+
      return redirect()->away($file1);
 }else{ //Mandotory
        // Compile a JRXML to Jasper
@@ -306,7 +306,7 @@ public function tenantContractExpiryReportPdf(Request $request){
 
      $file1= jasper_output_url('contract_expiry_excel_combo.xlsx');
 
-     
+
      return redirect()->away($file1);
    }
  }
@@ -1130,7 +1130,7 @@ public function showGeneralReceiptReport(){
     $query->where('tenant_contract_status',1);
   })->orderBy('building_name','asc')
   ->get();
- 
+
   return view('backoffice::reports.general_receipt_report',compact('buildings'));
 }
 public function generalReceiptReportPdf(Request $request){
@@ -1189,7 +1189,7 @@ else{
             return redirect()->away($file1);
           }
           else{
-             
+
             $r=JasperPHP::process(jasper_template('general_receipt_excel_compo.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
 
             $file1= jasper_output_url('general_receipt_excel_compo.xlsx');
@@ -3034,7 +3034,7 @@ if(isset($request->download_type)){
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
        $r=JasperPHP::process(jasper_template('Rental_Income.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
- 
+
   $file= jasper_output_url('Rental_Income.pdf');
 return redirect()->away($file);
      //  print_r($r);
@@ -3045,7 +3045,7 @@ return redirect()->away($file);
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
       $r=JasperPHP::process(jasper_template('Rental_Income_Compo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
-     
+
      $file= jasper_output_url('Rental_Income_Compo.pdf');
 return redirect()->away($file);
       // print_r($r);
@@ -3118,7 +3118,7 @@ if(isset($request->download_type)){
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
       $r=JasperPHP::process(jasper_template('Expense_Details_Summary.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
- 
+
   $file= jasper_output_url('Expense_Details_Summary.pdf');
 return redirect()->away($file);
       // print_r($r);
@@ -3129,7 +3129,7 @@ return redirect()->away($file);
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
        $r=JasperPHP::process(jasper_template('Expense_Details_Summary_Compo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
-     
+
      $file= jasper_output_url('Expense_Details_Summary_Compo.pdf');
 return redirect()->away($file);
       // print_r($r);
@@ -3166,7 +3166,7 @@ print_r($a); */
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
        $r=JasperPHP::process(jasper_template('Expense_Details.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
- 
+
   $file= jasper_output_url('Expense_Details.pdf');
 return redirect()->away($file);
       // print_r($r);
@@ -3177,7 +3177,7 @@ return redirect()->away($file);
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
       $r=JasperPHP::process(jasper_template('Expense_Details_Compo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
-     
+
      $file= jasper_output_url('Expense_Details_Compo.pdf');
 return redirect()->away($file);
        print_r($r);
@@ -4115,8 +4115,8 @@ public function showLeasingConsultantPerformance()
 
 public function leasingConsultantPerformanceData(Request $request)
 {
-    $period = $request->get('period', 'YTD');
-    $year = $request->get('year', date('Y'));
+    $period = $request->input('period', 'YTD');
+    $year = $request->input('year', date('Y'));
 
     // Determine date range
     switch ($period) {
@@ -4137,8 +4137,8 @@ public function leasingConsultantPerformanceData(Request $request)
             $endDate = "$year-12-31";
             break;
         case 'Custom':
-            $startDate = $request->get('start_date', "$year-01-01");
-            $endDate = $request->get('end_date', date('Y-m-d'));
+            $startDate = $request->input('start_date', "$year-01-01");
+            $endDate = $request->input('end_date', date('Y-m-d'));
             break;
         default: // YTD
             $startDate = "$year-01-01";

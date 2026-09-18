@@ -773,7 +773,7 @@ public function depositRefundAction($deposit_id,$status,$stage){
   'created_by' => \Auth::user()->id]);
 
  $users = User::role(['accountant','finance_manager'])->get(); 
- $users = array_flatten($users);
+ $users = \Illuminate\Support\Arr::flatten($users);
 
  if($status == 1 && $stage == 2){
   session()->flash('success', 'Deposit Refund Sent For Approval Successfully');
@@ -893,7 +893,7 @@ public function depositRefundPost($deposit_id,$status){
   $legal = Legal::where('tenant_contract_id',$tenantContract->id)->first();
   if($tenantContract->status == 5){
     $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-    $legalUsers = array_flatten($legalUsers);
+    $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
 
    $legal->subject = "Deposit Refund Posted !"; 
   $legal->textContent = "Deposit Refund Posted which is under Legal";

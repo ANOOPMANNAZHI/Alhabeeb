@@ -35,7 +35,7 @@ class CreateComplaintsTable extends Migration
         Schema::table('complaint_enquiries', function($table) {
             $table->foreign('building_id')->references('id')->on('buildings');
         });
-        
+
         Schema::table('complaint_enquiries', function($table) {
             $table->foreign('unit_id')->references('id')->on('units');
         });
@@ -49,7 +49,7 @@ class CreateComplaintsTable extends Migration
             $table->foreign('tenant_id')->references('id')->on('tenant');
         });
         /***********************************************************************************/
-        
+
         Schema::create('complaint_checklists', function (Blueprint $table) {
             $table->increments('id');
             $table->unsignedInteger('work_id'); 

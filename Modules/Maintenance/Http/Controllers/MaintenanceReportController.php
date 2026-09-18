@@ -251,7 +251,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ClosedTickets.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('R24ClosedTickets.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -264,7 +264,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_registratioc_categorywise.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('complaint_registratioc_categorywise.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -277,7 +277,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_registration_buildingwise.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('complaint_registration_buildingwise.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -290,7 +290,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_registration_contractorwise.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('complaint_registration_contractorwise.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -303,7 +303,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_registration_technicianwise.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('complaint_registration_technicianwise.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -316,7 +316,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ComplaintRegistration-VIP.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('R24ComplaintRegistration-VIP.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -329,7 +329,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24OpenTickets_Contractorwise.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('R24OpenTickets_Contractorwise.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -342,7 +342,7 @@ print_r($a);  */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24OpenTickets_Technicianwise.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('R24OpenTickets_Technicianwise.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -355,7 +355,7 @@ print_r($a);  */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ComplaintRegnAlHabibMaintained.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('R24ComplaintRegnAlHabibMaintained.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -368,7 +368,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ComplaintRegnLandlordMaintained.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('R24ComplaintRegnLandlordMaintained.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -381,7 +381,7 @@ print_r($a); */
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/Totalnoofcomplaintsregistered.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('Totalnoofcomplaintsregistered.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -394,7 +394,7 @@ print_r($a);*/
 
        // $file= base_path(). "/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin24hrs.pdf";
        // return response()->file($file); 
-	   
+
 	   $file= jasper_output_url('R24ClosedTicketsWithin24hrs.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -407,7 +407,7 @@ print_r($a);*/
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin48hrs.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('R24ClosedTicketsWithin48hrs.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -433,7 +433,7 @@ print_r($a);*/
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ComplaintRegistration_Unitwise.pdf";
         //return response()->file($file); 
-		
+
 		$file= jasper_output_url('R24ComplaintRegistration_Unitwise.pdf');
        // dd($file);
 return redirect()->away($file);
@@ -581,7 +581,7 @@ print_r($a); */
  *Maintenance  Report - (Open Tickets/ Closed Tickets) ends
  *
  */
- 
+
 /*
     *
     *Building -Unit Details starts

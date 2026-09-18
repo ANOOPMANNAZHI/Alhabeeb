@@ -194,7 +194,7 @@ class LandlordInvoiceController extends Controller
             'dim2able_type' => 'Modules\Masters\Entities\Building',
             'dim2able_id' => $landlordContract->building_id,
             'ac_codes_id' => isset($distribution_details->debitAccountInfo->id)?$distribution_details->debitAccountInfo->id:0,
-            'description' => isset($distribution_details->debitAccountInfo->acc_code_desc)?$distribution_details->debitAccountInfo->acc_code_desc:acc_params_dr_type,
+            'description' => isset($distribution_details->debitAccountInfo->acc_code_desc)?$distribution_details->debitAccountInfo->acc_code_desc:$distribution_details->acc_params_dr_type,
             'type' => $distribution_details->acc_params_dr_type,
             'debit_amount' => $landlordContract->landlord_contract_amt             
             ]

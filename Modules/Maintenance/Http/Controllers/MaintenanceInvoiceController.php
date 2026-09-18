@@ -534,7 +534,7 @@ class MaintenanceInvoiceController extends Controller
 
               $building_amt[$ledger_build.'_dr'] += (float)$request->debit_amt[$ledger_key];
               $building_amt[$ledger_build.'_ar'] += (float)$request->credit_amt[$ledger_key];
-             
+
             }else{
               $ledger_building[] = $ledger_build;
               $building_amt[$ledger_build.'_unit'] = $request->unit[$ledger_key];
@@ -554,7 +554,7 @@ class MaintenanceInvoiceController extends Controller
         foreach($ledger_building as $ledger_building_key => $ledger_building_val){
 
          $nextCodeGeneralLedger = $generalLedgerController->generalLedgerCode();
-        
+
          $generalLedger =  GeneralLedger::create([
              'voucher_no' => $nextCodeGeneralLedger,
              'general_ledger_type' => 3,
@@ -599,10 +599,10 @@ class MaintenanceInvoiceController extends Controller
             ],
            ]
          );
- 
+
 
         } 
-              
+
       } */
     }
 
@@ -994,7 +994,7 @@ public function maintenanceInvoiceGenerate(Request $request){
               $arr[$keyVal]['item'][$i]['lab'] = $request->{'lab_'.$vendor}[$key];
               $arr[$keyVal]['item'][$i]['closed_dt'] = $request->{'closeDt_'.$vendor}[$key];
               $arr[$keyVal]['item'][$i]['tot'] = $request->{'tot_'.$vendor}[$key];
-              
+
               $arr[$keyVal]['item'][$i]['acc_code_id'] = $request->{'code_id_'.$vendor}[$key];
               $arr[$keyVal]['item'][$i]['acc_code_desc'] = $request->{'code_desc_'.$vendor}[$key];
 
@@ -1002,7 +1002,7 @@ public function maintenanceInvoiceGenerate(Request $request){
               $sumTot             += $request->{'tot_'.$vendor}[$key];
               $arr[$keyVal]['item'][$i]['comb'] = $request->{'find_comparison_'.$vendor}[$key];
               $inhouseArr[] = $request->{'find_comparison_'.$vendor}[$key];
-              
+
 
             }
             // elseif(!in_array($inhouseVariable,$inhouseArr)){
@@ -1024,19 +1024,19 @@ public function maintenanceInvoiceGenerate(Request $request){
               $arr[$keyVal]['item'][$i]['acc_code_desc'] = $request->{'code_desc_'.$vendor}[$key];
 
 
-              
+
 
             }
             /*
             else{
-             
-             
+
+
               $service[] = intval($request->{'service_'.$vendor}[$key]);
               $arr[$keyVal]['item'][$i]['mat'] = $arr[$keyVal]['item'][$i]['mat'] + $request->{'mat_'.$vendor}[$key];
               $arr[$keyVal]['item'][$i]['lab'] = $arr[$keyVal]['item'][$i]['lab'] + $request->{'lab_'.$vendor}[$key];
               $arr[$keyVal]['item'][$i]['tot'] = $arr[$keyVal]['item'][$i]['tot'] + $request->{'tot_'.$vendor}[$key];
               $sumTot             += $request->{'tot_'.$vendor}[$key];
-              
+
             }
             */
             

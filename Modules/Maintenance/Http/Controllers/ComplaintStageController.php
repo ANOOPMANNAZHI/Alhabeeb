@@ -359,7 +359,7 @@ class ComplaintStageController extends Controller
         }
       }
 
-      $flattenedRoles = array_flatten($role);
+      $flattenedRoles = \Illuminate\Support\Arr::flatten($role);
       $role = array_unique($flattenedRoles,SORT_REGULAR);
       $role = array_diff($role, (is_array(1) ? 1 : array(1)));
       $rolees = Role::whereIn('id', $role)->get();
@@ -423,7 +423,7 @@ class ComplaintStageController extends Controller
         }
 
       }
-      $flattenedusers = array_flatten($user_ids);
+      $flattenedusers = \Illuminate\Support\Arr::flatten($user_ids);
       $users = array_unique($flattenedusers,SORT_REGULAR);
       $users =  array_diff($users, (is_array(1) ? 1 : array(1)));
 
@@ -1067,7 +1067,7 @@ class ComplaintStageController extends Controller
 
            $users_list = \App\User::role($val->role_id)->get()->pluck('id');         
            $users_list = $users_list->toArray();  
-           $users_list = array_flatten($users_list);      
+           $users_list = \Illuminate\Support\Arr::flatten($users_list);      
 
            if(count($users) > 0){          
             $users = array_merge($users,$users_list); 
@@ -1079,7 +1079,7 @@ class ComplaintStageController extends Controller
 
       }
 
-      $users = array_flatten($users);            
+      $users = \Illuminate\Support\Arr::flatten($users);            
       $users_notify =  \App\User::whereIn('id',$users)->get();    
       clearNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification',$complaint_id);
       $complaintDetail =  ComplaintEnquiry::find($complaint_id);    
@@ -1748,7 +1748,7 @@ class ComplaintStageController extends Controller
         $TicketNO = implode ('' , $complaint_ticket_no );
         /* Notification */
         $users = User::role(['maintenance_coordinator','maintenance_supervisor'])->get(); 
-        $users = array_flatten($users);              
+        $users = \Illuminate\Support\Arr::flatten($users);              
         clearNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification',$complaintEnqu->id);
 
         $complaintEnqu->text = "Complaint - ".$complaintEnqu->complaint_no." Tickets-". $TicketNO." To Closed "; 
@@ -1830,7 +1830,7 @@ class ComplaintStageController extends Controller
           ]);
         /* Notification */
         $users = User::role(['maintenance_coordinator'])->get(); 
-        $users = array_flatten($users);              
+        $users = \Illuminate\Support\Arr::flatten($users);              
         clearNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification',$complaintEnqu->id);
 
         $complaintEnqu->text = "Complaint - ".$complaintEnqu->complaint_no." Tickets-". $TicketNO." To Closed "; 
@@ -2143,7 +2143,7 @@ class ComplaintStageController extends Controller
 
          $users_list = \App\User::role($val->role_id)->get()->pluck('id');         
          $users_list = $users_list->toArray();  
-         $users_list = array_flatten($users_list);      
+         $users_list = \Illuminate\Support\Arr::flatten($users_list);      
 
          if(count($users) > 0){          
           $users = array_merge($users,$users_list); 
@@ -2155,7 +2155,7 @@ class ComplaintStageController extends Controller
       
     }
 
-    $users = array_flatten($users);            
+    $users = \Illuminate\Support\Arr::flatten($users);            
      //Sub Assign Users  Select  
      $ticket_list =   ComplaintEnquiry::with(['complaintTicketsAll'])
                      ->whereHas('complaintTicketsAll',function($query){
@@ -2172,7 +2172,7 @@ class ComplaintStageController extends Controller
                            ->pluck('assigned_to');
 
        $ticket_list_users = $ticket_list_users->toArray();  
-       $ticket_list_users = array_flatten($ticket_list_users);    
+       $ticket_list_users = \Illuminate\Support\Arr::flatten($ticket_list_users);    
        $users = array_merge($users,$ticket_list_users);
 
     }

@@ -545,7 +545,7 @@ class InvoiceController extends Controller
 
           if($tenantContract->status == 5){
             $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-            $legalUsers = array_flatten($legalUsers);
+            $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
 
             $legal->subject = "Rental Income Posted !"; 
             $legal->textContent = "Rental Income Posted having Invoice No: ".$invoice->tenant_invoice_no." which is under Legal";

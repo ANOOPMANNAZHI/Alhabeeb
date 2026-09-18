@@ -455,8 +455,8 @@ class GeneralLedgerController extends Controller
 			if(count($generalLedger->generalLedgerDim)>0){
 				
 				foreach($generalLedger->generalLedgerDim as $key=>$item){
-					
-					
+
+
 					$ledgerLineItem[] = array(
 							'JournalNum'=> $response,
 							'JournalName'=> GENERAL_LEDGER_JOURNAL_NAME,
@@ -487,7 +487,7 @@ class GeneralLedgerController extends Controller
 							'DataAreaId'=>DATA_AREA_ID,
 							'company'=>COMPANY,
 						);
-						
+
 						//if(!empty($item->credit_amt) && $generalLedger->general_ledger_type == 2){
 						//	$amountCr += $item->credit_amt;
 						//}

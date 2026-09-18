@@ -245,7 +245,7 @@ class AmcContractController extends Controller
       $building_id = $request->building_id;
       $contractedAm = AmcContract::where('building_id',$building_id)->where('amc_contract_status',0)->pluck('id');
       $s = AmcContractAmenities::whereIn('amc_contract_id',$contractedAm)->pluck('amenities_type_id');
-      $flattenedAm = array_flatten($s);
+      $flattenedAm = \Illuminate\Support\Arr::flatten($s);
       $s = array_unique($flattenedAm,SORT_REGULAR);
       $buildingAmenity = BuildingAmentity::whereNotIn('amentity_type_id',$s)->with('amentityType')->where('landlord_building_id',$building_id)->get();
       foreach($buildingAmenity as $amenitys){
@@ -274,7 +274,7 @@ class AmcContractController extends Controller
       })->pluck('id');
 
      $s = AmcScheduleAmenity::whereIn('amc_schedule_id',$scheduledAm)->pluck('amenities_type_id');
-     $flattenedAm = array_flatten($s);
+     $flattenedAm = \Illuminate\Support\Arr::flatten($s);
      $s = array_unique($flattenedAm,SORT_REGULAR);
 
      $buildingAmenity = BuildingAmentity::whereNotIn('amentity_type_id',$s)->with('amentityType')->where('landlord_building_id',$building_id)->get();

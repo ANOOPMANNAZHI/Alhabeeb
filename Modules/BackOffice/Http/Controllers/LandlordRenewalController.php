@@ -1408,7 +1408,7 @@ public function landlordContractRenewed(Request $request)
     $landlordContract =  LandlordContract::where('id',$new_contract_id)->update(['landlord_renewal_termination_status'=>$status]);
     /*Notification Of users*/
     $users = User::role(['backoffice_executive'])->get(); 
-    $users = array_flatten($users); 
+    $users = \Illuminate\Support\Arr::flatten($users); 
 
     if($status == 4){
 

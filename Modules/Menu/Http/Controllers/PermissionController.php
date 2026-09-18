@@ -52,7 +52,7 @@ class PermissionController extends Controller
          ]);
 
 
-       $name = str_slug($request['name'],'_');
+       $name = \Illuminate\Support\Str::slug($request['name'], '_');
 
 
         try {
@@ -101,7 +101,7 @@ class PermissionController extends Controller
             'name'    => 'required|string',          
          ]);
 
-        $permission->update(['name' => str_slug($request['name'],'_'),'menu_id' => $menu->id]);
+        $permission->update(['name' => \Illuminate\Support\Str::slug($request['name'], '_'),'menu_id' => $menu->id]);
 
         session()->flash('success', ' Permission Key Updated');
         return redirect()->route('menu.permission.index',[$menu->id]);

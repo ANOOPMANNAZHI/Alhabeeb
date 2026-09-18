@@ -85,7 +85,7 @@ class ApiController
         // Sync price ranges if available
         if ($request->price_ranges) {
             if (count($request->price_ranges) > 0) {
-                $request->price_ranges = array_where($request->price_ranges, function ($value) {
+                $request->price_ranges = \Illuminate\Support\Arr::where($request->price_ranges, function ($value) {
                     return $value > 0;
                 });
                 $salesEnquiry->priceRanges()->sync($request->price_ranges);
@@ -136,7 +136,7 @@ class ApiController
                 if (empty($user_id)) {
                     $users_list = \App\User::role($val->role_id)->get()->pluck('id');
                     $users_list = $users_list->toArray();
-                    $users_list = array_flatten($users_list);
+                    $users_list = \Illuminate\Support\Arr::flatten($users_list);
                     $users = count($users) > 0 ? array_merge($users, $users_list) : $users_list;
                 } else {
                     $users[] = $user_id;
@@ -144,7 +144,7 @@ class ApiController
             }
         }
 
-        $users = array_flatten($users);
+        $users = \Illuminate\Support\Arr::flatten($users);
         $users_notify = \App\User::whereIn('id', $users)->get();
 
         // Return success response
@@ -222,7 +222,7 @@ $salesEnquiry = new SalesEnquiry;
 
     if($request->price_ranges ){
       if(count($request->price_ranges) > 0) {
-        $request->price_ranges = array_where($request->price_ranges, function ($value, $key) {
+        $request->price_ranges = \Illuminate\Support\Arr::where($request->price_ranges, function ($value, $key) {
          if($value > 0)
           return true;
       });
@@ -285,7 +285,7 @@ $salesEnquiry = new SalesEnquiry;
        if(empty($user_id)){      
         $users_list = \App\User::role($val->role_id)->get()->pluck('id');          
         $users_list = $users_list->toArray(); 
-        $users_list = array_flatten($users_list);   
+        $users_list = \Illuminate\Support\Arr::flatten($users_list);   
         if(count($users) > 0){
           $users = array_merge($users,$users_list);             
         }else          
@@ -295,7 +295,7 @@ $salesEnquiry = new SalesEnquiry;
 
     } 
   }
-  $users = array_flatten($users);      
+  $users = \Illuminate\Support\Arr::flatten($users);      
   $users_notify =  \App\User::whereIn('id',$users)->get();
 
  return response()->json(['status'=> true,  

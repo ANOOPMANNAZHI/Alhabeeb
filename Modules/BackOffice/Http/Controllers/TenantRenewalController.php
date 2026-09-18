@@ -1705,7 +1705,7 @@ class TenantRenewalController extends Controller
       $tenantContract =  TenantContract::where('id',$new_contract_id)->update(['tenant_renewal_termination_status'=>$status]);
       /*Notification Of users*/
       $users = User::role(['backoffice_executive'])->get(); 
-      $users = array_flatten($users); 
+      $users = \Illuminate\Support\Arr::flatten($users); 
 
       if($status == 4){
 
@@ -2006,7 +2006,7 @@ class TenantRenewalController extends Controller
 
        //PDF Name generator
        $prefix       = 'REN';
-       $random = str_random(10);
+       $random = \Illuminate\Support\Str::random(10);
        $nextCode=$prefix.$random;
 
        $pdfName=$nextCode.'.pdf';

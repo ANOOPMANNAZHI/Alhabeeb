@@ -309,7 +309,7 @@ class TerminationDuesController extends Controller
     /** JSON for the summary box on receipt / deposit refund forms. */
     public function summary(Request $request)
     {
-        $contractId = (int) $request->get('contract_id');
+        $contractId = (int) $request->input('contract_id');
         if (!$contractId) {
             return response()->json(['found' => false]);
         }

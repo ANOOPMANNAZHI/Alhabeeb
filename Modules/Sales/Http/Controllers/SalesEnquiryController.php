@@ -189,7 +189,7 @@ class SalesEnquiryController extends Controller
 
         if($request->location_id ){         
 
-          $request->location_id = array_where($request->location_id, function ($value, $key) {
+          $request->location_id = \Illuminate\Support\Arr::where($request->location_id, function ($value, $key) {
            if($value > 0)
             return true;
         });
@@ -198,7 +198,7 @@ class SalesEnquiryController extends Controller
         }
         if($request->price_range_id ){
           if(count($request->price_range_id) > 0) {
-            $request->price_range_id = array_where($request->price_range_id, function ($value, $key) {
+            $request->price_range_id = \Illuminate\Support\Arr::where($request->price_range_id, function ($value, $key) {
              if($value > 0)
               return true;
           });
@@ -263,7 +263,7 @@ class SalesEnquiryController extends Controller
        if(empty($user_id)){			 
         $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
         $users_list = $users_list->toArray();	
-        $users_list = array_flatten($users_list);   
+        $users_list = \Illuminate\Support\Arr::flatten($users_list);   
         if(count($users) > 0){
           $users = array_merge($users,$users_list); 			  	  
         }else			 		 
@@ -273,7 +273,7 @@ class SalesEnquiryController extends Controller
 
     } 
   }
-  $users = array_flatten($users);      
+  $users = \Illuminate\Support\Arr::flatten($users);      
   $users_notify =  \App\User::whereIn('id',$users)->get();
    $roles = \Auth::user()->getRoles()->all();
 
@@ -391,7 +391,7 @@ class SalesEnquiryController extends Controller
        $request->price_range_id  = explode(',',$request->price_range_id);
 	  }
 
-     
+
 
 		$enquiry->sales_mobile_no = $request->sales_mobile_no; 
 		$enquiry->sales_region = $request->sales_region;  
@@ -441,7 +441,7 @@ class SalesEnquiryController extends Controller
 
 	   /*if($request->sales_type == 1){   */
 		if($request->location_id ){	
-		  $request->location_id = array_where($request->location_id, function ($value, $key) {
+		  $request->location_id = \Illuminate\Support\Arr::where($request->location_id, function ($value, $key) {
 		   if($value > 0)
 			return true;
 		});
@@ -451,11 +451,11 @@ class SalesEnquiryController extends Controller
 		}
 		}       
 		if($request->price_range_id ){
-		  $request->price_range_id = array_where($request->price_range_id, function ($value, $key) {
+		  $request->price_range_id = \Illuminate\Support\Arr::where($request->price_range_id, function ($value, $key) {
 		   if($value > 0)
 			return true;
 		});	  
-		  
+
 		  if(count($request->price_range_id) > 0) 
 			$enquiry->priceRanges()->sync($request->price_range_id);
 		}
@@ -522,7 +522,7 @@ class SalesEnquiryController extends Controller
 		if(empty($user_id)){			 
 		  $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
 		  $users_list = $users_list->toArray();	
-		  $users_list = array_flatten($users_list);      
+		  $users_list = \Illuminate\Support\Arr::flatten($users_list);      
 
 		  if(count($users) > 0){
 			$users = array_merge($users,$users_list); 
@@ -536,7 +536,7 @@ class SalesEnquiryController extends Controller
 } 
 
 
-$users = array_flatten($users);      
+$users = \Illuminate\Support\Arr::flatten($users);      
 $users_notify =  \App\User::whereIn('id',$users)->get(); 
 /*Notification */
 /*event(new UpdateEnquiry($enquiry,$users_notify));  */  
@@ -1125,7 +1125,7 @@ return $result;
 
    }
 
-   $users = array_flatten($users);      
+   $users = \Illuminate\Support\Arr::flatten($users);      
    $users_notify =  \App\User::whereIn('id',$users)->get();
 
    event(new ReminderEnquiry($enquiry,$users_notify)); 
@@ -1213,7 +1213,7 @@ return $result;
      }
 
 
-     $request->location_id = array_where($request->location_id, function ($value, $key) {
+     $request->location_id = \Illuminate\Support\Arr::where($request->location_id, function ($value, $key) {
        if($value > 0)
         return true;
     });
@@ -1222,7 +1222,7 @@ return $result;
        $enquiry->locations()->sync($request->location_id); 
      }       
 
-     $request->price_range_id = array_where($request->price_range_id, function ($value, $key) {
+     $request->price_range_id = \Illuminate\Support\Arr::where($request->price_range_id, function ($value, $key) {
       if($value > 0)
         return true;
     });	  
@@ -1275,7 +1275,7 @@ return $result;
       if(empty($user_id)){			 
         $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
         $users_list = $users_list->toArray();	
-        $users_list = array_flatten($users_list);      
+        $users_list = \Illuminate\Support\Arr::flatten($users_list);      
 
         if(count($users) > 0){
           $users = array_merge($users,$users_list); 
@@ -1289,7 +1289,7 @@ return $result;
   } 
 
 
-  $users = array_flatten($users);      
+  $users = \Illuminate\Support\Arr::flatten($users);      
   $users_notify =  \App\User::whereIn('id',$users)->get(); 
 
   session()->flash('success', ' Enquiry Updated ');

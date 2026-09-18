@@ -489,7 +489,7 @@ class LandlordPaymentController extends Controller
 	 $user = \Auth::user();
 	 $landlordPayment = LandlordPayment::where('id',$landlord_id)->first();
 	 $users = User::role(['accountant','finance_manager'])->get(); 
-	 $users = array_flatten($users);
+	 $users = \Illuminate\Support\Arr::flatten($users);
 
 	 if($status == 1 && $stage == 2){
 	  session()->flash('success', 'Landlord Payment Sent For Approval Successfully');

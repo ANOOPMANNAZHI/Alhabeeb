@@ -10,7 +10,7 @@ class DimDetail extends Model
     protected $fillable = [];
     protected $guarded = [];
     protected $table = 'dim_details';
-    
+
     /*
     public function dim1()
     {

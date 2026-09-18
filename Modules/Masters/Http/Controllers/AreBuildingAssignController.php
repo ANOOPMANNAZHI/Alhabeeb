@@ -37,7 +37,7 @@ class AreBuildingAssignController extends Controller
       'building_name' => 'Building',
       ];
 
-      
+
       $operations = [
       'ilike' => ' Is Equal To '  ,
       '!=' => ' Is Not Equal To '  ,

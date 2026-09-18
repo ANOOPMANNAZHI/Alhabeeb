@@ -639,14 +639,14 @@ class TenantTerminationController extends Controller
   switch($next_process_id){
     case "502":
     $users = User::role(['maintenance_supervisor'])->get(); 
-    $users = array_flatten($users);
+    $users = \Illuminate\Support\Arr::flatten($users);
     $termination->text = "Tenant Termination HandOver Assigned ";
     $termination->href = url("handoverUnassigned/".$termination->id."/handoverUnassignedView/");
     $currentUrl = 'tenantTermination.index';
     break;
     case "503":
     $users = User::role(['maintenance_supervisor'])->get(); 
-    $users = array_flatten($users);
+    $users = \Illuminate\Support\Arr::flatten($users);
     $termination->href = url("handoverAssigned/".$termination->id."/handoverAssignedView/");
     $termination->text = "Tenant Termination - ".$process->work_flow_processes_name ." Resubmit";
     $currentUrl = 'takeoverForTermination';
@@ -654,13 +654,13 @@ class TenantTerminationController extends Controller
     break;
     case "504":
     $users = User::role(['backoffice_executive'])->get(); 
-    $users = array_flatten($users);
+    $users = \Illuminate\Support\Arr::flatten($users);
     $termination->href = url("takeoverForTermination/".$termination->id."/takeoverForTerminationView/");
     $currentUrl = 'handoverAssigned';
     break;
     case "505":
     $users = User::role(['backoffice_executive'])->get(); 
-    $users = array_flatten($users);
+    $users = \Illuminate\Support\Arr::flatten($users);
     $termination->href = url("tenantTerminatedContract/".$termination->id."/tenantTerminatedContractView/");
     $currentUrl = 'takeoverForTermination';
     break;
@@ -902,7 +902,7 @@ class TenantTerminationController extends Controller
         /* Notification */
 
         $users = User::role(['backoffice_manager'])->get();
-        $users = array_flatten($users);              
+        $users = \Illuminate\Support\Arr::flatten($users);              
         clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$termination->id);
         $termination->href =  url('tenantTerminationApproval/'.$termination->id."/tenantTerminationApprovalView");    
         $termination->text = "Tenant Termination Send For Approval Request"; 
@@ -915,7 +915,7 @@ class TenantTerminationController extends Controller
         case "3":
         /* Notification */
         $users = User::role(['backoffice_executive'])->get(); 
-        $users = array_flatten($users);              
+        $users = \Illuminate\Support\Arr::flatten($users);              
         clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$termination->id);
         $termination->href =  url('tenantTermination/'.$termination->contract_id);    
         $termination->text = "Tenant Termination Approved"; 
@@ -928,7 +928,7 @@ class TenantTerminationController extends Controller
         case "4":
         /* Notification */
         $users = User::role(['backoffice_executive'])->get(); 
-        $users = array_flatten($users);              
+        $users = \Illuminate\Support\Arr::flatten($users);              
         clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$termination->id);
         $termination->href =  url('tenantTermination/'.$termination->contract_id);    
         $termination->text = "Tenant Termination Rejected"; 
@@ -1201,7 +1201,7 @@ class TenantTerminationController extends Controller
         }
       }
 
-      $flattenedUsers = array_flatten($user);
+      $flattenedUsers = \Illuminate\Support\Arr::flatten($user);
       $users = array_unique($flattenedUsers,SORT_REGULAR);
       //$role = array_diff($role, (is_array(1) ? 1 : array(1)));
       $useres = User::whereIn('id', $users)->get();
@@ -2527,7 +2527,7 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
 
 
       
-      $user = array_flatten($user);      
+      $user = \Illuminate\Support\Arr::flatten($user);      
       $users_notify =  \App\User::whereIn('id',$user)->get();
       $roles = Role::whereIn('id',$users_notify->pluck('default_role'))->first()->name;
       if(count($users_notify) == 1){
@@ -2986,7 +2986,7 @@ public function terminateResubmitOrTerminateModalAction(Request $request)
   switch($next_process_id){
     case "503":
     $users = User::role(['maintenance_supervisor'])->get(); 
-    $users = array_flatten($users);
+    $users = \Illuminate\Support\Arr::flatten($users);
     $termination->href = url("handoverAssigned/".$termination->id."/handoverAssignedView/");
     $termination->text = "Tenant Termination - ".$process->work_flow_processes_name ." Resubmit";
     $currentUrl = 'takeoverForTermination';
@@ -2994,13 +2994,13 @@ public function terminateResubmitOrTerminateModalAction(Request $request)
     break;
     case "504":
     $users = User::role(['backoffice_executive'])->get(); 
-    $users = array_flatten($users);
+    $users = \Illuminate\Support\Arr::flatten($users);
     $termination->href = url("takeoverForTermination/".$termination->id."/takeoverForTerminationView/");
     $currentUrl = 'handoverAssigned';
     break;
     case "505":
     $users = User::role(['backoffice_executive'])->get(); 
-    $users = array_flatten($users);
+    $users = \Illuminate\Support\Arr::flatten($users);
     $termination->href = url("tenantTerminatedContract/".$termination->id."/tenantTerminatedContractView/");
     $currentUrl = 'takeoverForTermination';
     break;
@@ -3080,7 +3080,7 @@ public function terminationReferBackStore(Request $request)
 	})
 	->get();
 
-	$users = array_flatten($users);  
+	$users = \Illuminate\Support\Arr::flatten($users);  
 
   Termination::where('id',$termination_id)->update(['termination_refer_back'=>1,'termination_notes'=>$termination_notes]);
 
@@ -3142,7 +3142,7 @@ event(new TenantTerminationReferBack($termination,$users));
 
           /* Notification */
           $users = User::role(['backoffice_executive'])->get(); 
-          $users = array_flatten($users);              
+          $users = \Illuminate\Support\Arr::flatten($users);              
           clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$termination->id);
           $termination->href =  url('tenantTermination/'.$termination->contract_id);    
           $termination->text = "Tenant Termination Approved"; 
@@ -3175,7 +3175,7 @@ event(new TenantTerminationReferBack($termination,$users));
           $comment->save();
           /* Notification */
           $users = User::role(['backoffice_executive'])->get(); 
-          $users = array_flatten($users);              
+          $users = \Illuminate\Support\Arr::flatten($users);              
           clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$termination->id);
           $termination->href =  url('tenantTermination/'.$termination->contract_id);    
           $termination->text = "Tenant Termination Rejected"; 

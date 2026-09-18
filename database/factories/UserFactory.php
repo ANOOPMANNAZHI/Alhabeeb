@@ -23,6 +23,6 @@ $factory->define(App\User::class, function (Faker $faker) {
         'default_role' => 1,
         'created_by' => 1,       
         'password' => Hash::make('12345'), // secret
-        'remember_token' => str_random(10),
+        'remember_token' => \Illuminate\Support\Str::random(10),
     ];
 });

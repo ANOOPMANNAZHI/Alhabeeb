@@ -623,7 +623,7 @@ class LandlordTerminationController extends Controller
               /** End **/
             /* Notification */
             $users = User::role(['backoffice_executive'])->get(); 
-            $users = array_flatten($users); 
+            $users = \Illuminate\Support\Arr::flatten($users); 
 
             clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$terminations->id);
             $terminations->href =  url('TerminatedContractLandlord/'.$terminations->id).'/TerminatedContractLandlordView';    
@@ -634,7 +634,7 @@ class LandlordTerminationController extends Controller
               $route = 'LCTerminationVerify';$msg = 'Send Approval Successfully ';
               /* Notification */
               $users = User::role(['backoffice_manager'])->get(); 
-              $users = array_flatten($users);     
+              $users = \Illuminate\Support\Arr::flatten($users);     
               $terminationDetails = Termination::where('id',$terminationId)->first();         
               clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$terminationDetails->id);
               $terminationDetails->href =  url('LCTerminationApproval/'.$terminationId.'/LCTerminationApprovalView');    
@@ -645,7 +645,7 @@ class LandlordTerminationController extends Controller
               $route = 'LCTerminationApproval';$msg = 'Send Rejected Successfully ';
               /* Notification */
               $users = User::role(['backoffice_executive'])->get(); 
-              $users = array_flatten($users);   
+              $users = \Illuminate\Support\Arr::flatten($users);   
               $terminationDetails = Termination::where('id',$terminationId)->first();           
               clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$terminationDetails->id);
               $terminationDetails->href =  url('landlordTermination/'.$terminationId);    

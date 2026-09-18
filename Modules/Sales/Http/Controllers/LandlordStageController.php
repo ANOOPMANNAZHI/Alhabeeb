@@ -460,10 +460,10 @@ class LandlordStageController extends Controller
             //$re = array_search('1', $roles);unset($roles[$re]);
             if(count($user_ids) > 0){
 
-              $flattened = array_flatten($user_ids);
+              $flattened = \Illuminate\Support\Arr::flatten($user_ids);
               $users = array_unique($flattened,SORT_REGULAR); 
               $role = User::whereIn('id',$users)->pluck('default_role');
-              $users =array_except($users, 1);
+              $users =\Illuminate\Support\Arr::except($users, 1);
               $users =  User::whereIn('id',$users)->get();
                             
             }
@@ -481,10 +481,10 @@ class LandlordStageController extends Controller
               //$re = array_search('1', $roles);unset($roles[$re]);
               if(count($user_ids) > 0){
 
-                $flattened = array_flatten($user_ids);
+                $flattened = \Illuminate\Support\Arr::flatten($user_ids);
                 $users = array_unique($flattened,SORT_REGULAR); 
                 $role = User::whereIn('id',$users)->pluck('default_role');
-                $users =array_except($users, 1);
+                $users =\Illuminate\Support\Arr::except($users, 1);
                 $users =  User::whereIn('id',$users)->get();
                               
               }
@@ -501,7 +501,7 @@ class LandlordStageController extends Controller
           
 
         }
-        $roles = array_except($roles, 1);
+        $roles = \Illuminate\Support\Arr::except($roles, 1);
         $roles        = Role::whereIn('id', $roles)->get();
  
       return view('sales::LandlordSales.landlord_reassign_employee_modal',compact('users','roles','enquiry_id','workflow_id'));

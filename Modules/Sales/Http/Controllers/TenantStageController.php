@@ -314,7 +314,7 @@ class TenantStageController extends Controller
 
           $users_count = count($users, COUNT_RECURSIVE)+1;
           if(count($user_ids)>0) {
-            $users = array_add($users, $users_count, $user_ids); 
+            $users = \Illuminate\Support\Arr::add($users, $users_count, $user_ids); 
           }
 
 
@@ -343,7 +343,7 @@ class TenantStageController extends Controller
         if(count($roles) > 0){
 
           $users =  (array)User::role($roles)->pluck('id'); 
-          $users = array_collapse($users,$user_ids);            
+          $users = \Illuminate\Support\Arr::collapse($users);            
 
         }else{
           $users = $user_ids;
@@ -400,14 +400,14 @@ class TenantStageController extends Controller
 
             $users_count = count($users, COUNT_RECURSIVE)+1;
             if(count($user_ids)>0) {
-              $users = array_add($users, $users_count, $user_ids); 
+              $users = \Illuminate\Support\Arr::add($users, $users_count, $user_ids); 
             }
 
 
           }else{
             $users = $user_ids;
           } 
-          $Fullusers = array_flatten($users); 
+          $Fullusers = \Illuminate\Support\Arr::flatten($users); 
           array_push($user,$Fullusers); 
           //dd($users);
           /*$users =  User::whereIn('id',$users)->where('user_type','employee')->whereHas('employee')->get()->toArray(); 
@@ -436,12 +436,12 @@ class TenantStageController extends Controller
         if(count($roles) > 0){
 
           $users =  (array)User::role($roles)->pluck('id'); 
-          $users = array_collapse($users,$user_ids);            
+          $users = \Illuminate\Support\Arr::collapse($users);            
 
         }else{
           $users = $user_ids;
         }  
-        $Fullusers = array_flatten($users); 
+        $Fullusers = \Illuminate\Support\Arr::flatten($users); 
         array_push($user,$Fullusers); 
            /* $users =  User::whereIn('id',$users)->where('user_type','employee')->whereHas('employee')->get()->toArray();
             if(count($users)> 0){
@@ -456,7 +456,7 @@ class TenantStageController extends Controller
           }*/
         }
 
-      }$u = array_flatten($user); 
+      }$u = \Illuminate\Support\Arr::flatten($user); 
       $users =  User::whereIn('id',$u)->where('user_type','employee')->whereHas('employee', function ($query){
         $query->active();                      
       })->get()->toArray();
@@ -1003,7 +1003,7 @@ clearNotification('Modules\Sales\Notifications\EnquiryNotification',$enquiryid,t
      //   readNotification('Modules\Sales\Notifications\EnquiryNotification',$enquiryid);
 
 if($action_key == 'RJCT'){
-  $flattenedus = array_flatten($us);
+  $flattenedus = \Illuminate\Support\Arr::flatten($us);
   $us = array_unique($flattenedus,SORT_REGULAR);
   $us = array_diff($us, (is_array(1) ? 1 : array(1)));
   $us = array_filter($us);  
@@ -1023,7 +1023,7 @@ if($action_key == 'RJCT'){
 	}
     //Notification Starts
   $userLists = User::role(['sales_coordinator','sales_person'])->get(); 
-  $userLists = array_flatten($userLists);
+  $userLists = \Illuminate\Support\Arr::flatten($userLists);
 
   $enquiryDetails->subject = "Preliminary Documentation Rejected";
   $enquiryDetails->textContent = "Preliminary Documentation Rejected Enquiry No: ".$enquiryDetails->sales_enquiry_no;
@@ -1881,7 +1881,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
 
               $users_count = count($users, COUNT_RECURSIVE)+1;
               if(count($user_ids)>0) {
-                $users = array_add($users, $users_count, $user_ids); 
+                $users = \Illuminate\Support\Arr::add($users, $users_count, $user_ids); 
               }
 
 
@@ -1908,7 +1908,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
             if(count($roles) > 0){
 
               $users =  (array)User::role($roles)->pluck('id'); 
-              $users = array_collapse($users,$user_ids);            
+              $users = \Illuminate\Support\Arr::collapse($users);            
 
             }else{
               $users = $user_ids;
@@ -2159,7 +2159,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
             //$re = array_search('1', $roles);unset($roles[$re]);
         if(count($user_ids) > 0){
 
-          $flattened = array_flatten($user_ids);
+          $flattened = \Illuminate\Support\Arr::flatten($user_ids);
           $users   = array_unique($flattened,SORT_REGULAR); 
           $role = User::whereIn('id',$users)->pluck('default_role');
 
@@ -2178,7 +2178,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
 
           if(count($user_ids) > 0){
 
-            $flattened = array_flatten($user_ids);
+            $flattened = \Illuminate\Support\Arr::flatten($user_ids);
             $users = array_unique($flattened,SORT_REGULAR); 
             $role = User::whereIn('id',$users)->pluck('default_role');
 
@@ -2195,7 +2195,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
         }
 
       }
-      $flattenedRoles = array_flatten($roles);
+      $flattenedRoles = \Illuminate\Support\Arr::flatten($roles);
       $roles = array_unique($flattenedRoles,SORT_REGULAR);
       $roles = array_diff($roles, (is_array(1) ? 1 : array(1)));
       $roles = Role::whereIn('id', $roles)->get();
@@ -2480,7 +2480,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
 
         $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
         $users_list = $users_list->toArray();	
-        $users_list = array_flatten($users_list);   
+        $users_list = \Illuminate\Support\Arr::flatten($users_list);   
 
         if(count($users) > 0){					 
          $users = array_merge($users,$users_list); 
@@ -2492,8 +2492,8 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
 
    }	
 
-   $users = array_flatten($users);   
-   $users = array_where($users, function ($value, $key) {
+   $users = \Illuminate\Support\Arr::flatten($users);   
+   $users = \Illuminate\Support\Arr::where($users, function ($value, $key) {
     if($value != \Auth::user()->id)
       return true;
   });
@@ -2546,7 +2546,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
 
            $users_list = \App\User::role($val->role_id)->get()->pluck('id');         
            $users_list = $users_list->toArray();  
-           $users_list = array_flatten($users_list);      
+           $users_list = \Illuminate\Support\Arr::flatten($users_list);      
 
            if(count($users) > 0){          
             $users = array_merge($users,$users_list); 
@@ -2566,7 +2566,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
 
          $users_list = \App\User::role($val->role_id)->get()->pluck('id');         
          $users_list = $users_list->toArray();  
-         $users_list = array_flatten($users_list);      
+         $users_list = \Illuminate\Support\Arr::flatten($users_list);      
 
          if(count($users) > 0){          
           $users = array_merge($users,$users_list); 
@@ -2579,7 +2579,7 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
     } 
   }
 
-  $users = array_flatten($users);          
+  $users = \Illuminate\Support\Arr::flatten($users);          
   $users_notify =  \App\User::whereIn('id',$users)->get();
 
 
@@ -2636,7 +2636,7 @@ return true;
 
           $users_list = \App\User::role($val->role_id)->get()->pluck('id'); 				 
           $users_list = $users_list->toArray();	
-          $users_list = array_flatten($users_list);      
+          $users_list = \Illuminate\Support\Arr::flatten($users_list);      
 
           if(count($users) > 0){	  			 
            $users = array_merge($users,$users_list); 
@@ -2648,7 +2648,7 @@ return true;
 
      }
 
-     $users = array_flatten($users);   
+     $users = \Illuminate\Support\Arr::flatten($users);   
      $users = array_diff($users, array(\Auth::user()->id));         
      $users_notify =  \App\User::whereIn('id',$users)->get();
 
@@ -2709,7 +2709,7 @@ return true;
 
       if(count($user_ids) > 0){
 
-        $flattened = array_flatten($user_ids);
+        $flattened = \Illuminate\Support\Arr::flatten($user_ids);
         $users = array_unique($flattened,SORT_REGULAR);
         $roles = User::whereIn('id',$users)->pluck('default_role');
 
@@ -2730,7 +2730,7 @@ return true;
 
         if(count($user_ids) > 0){
 
-          $flattened = array_flatten($user_ids);
+          $flattened = \Illuminate\Support\Arr::flatten($user_ids);
           $users = array_unique($flattened,SORT_REGULAR); 
           $role = User::whereIn('id',$users)->pluck('default_role');
 
@@ -2749,7 +2749,7 @@ return true;
       }
 
     }
-    $flattenedusers = array_flatten($users);
+    $flattenedusers = \Illuminate\Support\Arr::flatten($users);
     $users = array_unique($flattenedusers,SORT_REGULAR);
     $users =  array_diff($users, (is_array(1) ? 1 : array(1)));
 
@@ -2807,7 +2807,7 @@ return true;
 
         if(count($user_ids) > 0){
 
-          $flattened = array_flatten($user_ids);
+          $flattened = \Illuminate\Support\Arr::flatten($user_ids);
           $users = array_unique($flattened,SORT_REGULAR);
           $roles = User::whereIn('id',$users)->pluck('default_role');
 
@@ -2828,7 +2828,7 @@ return true;
 
           if(count($user_ids) > 0){
 
-            $flattened = array_flatten($user_ids);
+            $flattened = \Illuminate\Support\Arr::flatten($user_ids);
             $users = array_unique($flattened,SORT_REGULAR); 
             $role = User::whereIn('id',$users)->pluck('default_role');
 
@@ -2849,7 +2849,7 @@ return true;
       }
     }
 
-    $flattenedusers = array_flatten($users);
+    $flattenedusers = \Illuminate\Support\Arr::flatten($users);
     $users = array_unique($flattenedusers,SORT_REGULAR);
     $users =  array_diff($users, (is_array(1) ? 1 : array(1)));
 
@@ -2981,14 +2981,14 @@ return true;
 
             $users_count = count($users, COUNT_RECURSIVE)+1;
             if(count($user_ids)>0) {
-              $users = array_add($users, $users_count, $user_ids); 
+              $users = \Illuminate\Support\Arr::add($users, $users_count, $user_ids); 
             }
 
 
           }else{
             $users = $user_ids;
           } 
-          $Fullusers = array_flatten($users); 
+          $Fullusers = \Illuminate\Support\Arr::flatten($users); 
           array_push($user,$Fullusers); 
           //dd($users);
           /*$users =  User::whereIn('id',$users)->where('user_type','employee')->whereHas('employee')->get()->toArray(); 
@@ -3015,12 +3015,12 @@ return true;
         if(count($roles) > 0){
 
           $users =  (array)User::role($roles)->pluck('id'); 
-          $users = array_collapse($users,$user_ids);            
+          $users = \Illuminate\Support\Arr::collapse($users);            
 
         }else{
           $users = $user_ids;
         }  
-        $Fullusers = array_flatten($users); 
+        $Fullusers = \Illuminate\Support\Arr::flatten($users); 
         array_push($user,$Fullusers);
 
             //$previous_work_flow_order_code = $general->getPreviousProcessOrder($workflow_id);
@@ -3031,7 +3031,7 @@ return true;
 
       }
 
-    }$u = array_flatten($user); 
+    }$u = \Illuminate\Support\Arr::flatten($user); 
     $users =  User::active()->whereIn('id',$u)->where('user_type','employee')->whereHas('employee', function ($query){
       $query->active();                      
     })->get()->toArray();

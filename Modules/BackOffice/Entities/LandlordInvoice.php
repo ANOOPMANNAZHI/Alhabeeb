@@ -143,7 +143,7 @@ class LandlordInvoice extends Model
 
 
                                if( !empty($request->fieldValue[$keyName]) && !empty($request->fieldValue[$keyName]) && !empty($valueName) ) {
-                                 
+
                                   if($request->operation[$keyName] == 'ilike%...%' ){
                                     $fieldValue = '%'.$request->fieldValue[$keyName].'%';
                                     $operation = 'ilike';

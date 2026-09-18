@@ -446,7 +446,7 @@ public function maintenancePaymentAction($maintenance_id,$status,$stage){
   $user = \Auth::user();
 
   $users = User::role(['accountant','finance_manager'])->get(); 
-  $users = array_flatten($users);
+  $users = \Illuminate\Support\Arr::flatten($users);
 
 if($status == 1 && $stage == 2){
 

@@ -1195,7 +1195,7 @@ $receiptslist = ViewReceipt::filter($request)
                                     //Notification 
                     clearNotification('Modules\BackOffice\Notifications\ReceiptApprovalNotification',$receiptId);
                     $users = User::role(['accountant'])->get(); 
-                    $users = array_flatten($users);
+                    $users = \Illuminate\Support\Arr::flatten($users);
 
                     $receiptInfo->href = url('rentReceiptGeneration'.'/'.$receiptId);   
 
@@ -1214,7 +1214,7 @@ $receiptslist = ViewReceipt::filter($request)
                     //Notification 
                     //clearNotification('Modules\BackOffice\Notifications\ReceiptApprovalNotification',$receiptId);
                     $users = User::role(['finance_manager'])->get(); 
-                    $users = array_flatten($users);
+                    $users = \Illuminate\Support\Arr::flatten($users);
 
 
                     $receiptInfo->href = url('rentReceiptGeneration'.'/'.$receiptId);   
@@ -1273,7 +1273,7 @@ $receiptslist = ViewReceipt::filter($request)
                     }
 
                     $users = User::role(['accountant'])->get();
-                    $users = array_flatten($users);
+                    $users = \Illuminate\Support\Arr::flatten($users);
 
                     $receiptInfo->href = url('rentReceiptGeneration'.'/'.$receiptId);   
                     $receiptInfo->text    = "Receipt - ".$receiptInfo->receipts_generation_receipt_no." is Rejected";
@@ -1293,7 +1293,7 @@ $receiptslist = ViewReceipt::filter($request)
                                   //Notification 
                     clearNotification('Modules\BackOffice\Notifications\ReceiptApprovalNotification',$receiptId);
                     $users = User::role(['finance_manager'])->get(); 
-                    $users = array_flatten($users);
+                    $users = \Illuminate\Support\Arr::flatten($users);
 
                     $receiptInfo->href = url('rentReceiptGeneration'.'/'.$receiptId);   
                     $receiptInfo->text    = "Receipt - ".$receiptInfo->receipts_generation_receipt_no." received for Draft Request";  

@@ -588,18 +588,18 @@ public function plmsApproveReferBackStore(Request $request)
   
 /*Notification Of users*/
 $users = User::role(['legal_advisor'])->get(); 
-$users = array_flatten($users); 
+$users = \Illuminate\Support\Arr::flatten($users); 
 
 $are = User::role(['are'])->get(); 
-$are = array_flatten($are);
+$are = \Illuminate\Support\Arr::flatten($are);
 
 $legalUsers = User::role(['legal_advisor'])->get(); 
 // $legalUsers = User::role(['are','legal_advisor'])->get(); 
-$legalUsers = array_flatten($legalUsers);
+$legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
 
 
 $otherUsers = User::role(['are','backoffice_manager'])->get(); 
-$otherUsers = array_flatten($otherUsers);
+$otherUsers = \Illuminate\Support\Arr::flatten($otherUsers);
 
 
  $legalCase->content = "Approved";
@@ -640,7 +640,7 @@ if($process_flow==801 && $action_key=='APRV'){
   $legalCase->textContent = "Legal Case RefferBack ";
   //Notifications starts  ARE
   $are = User::role(['are'])->get(); 
-  $are = array_flatten($are);
+  $are = \Illuminate\Support\Arr::flatten($are);
   // foreach($are as $ar){
     // $mobile = $ar->employee->employee_contact_no ?? $ar->employee->employee_secondary_no;
 
@@ -1154,7 +1154,7 @@ public function legalCaseClose(Request $request){
   TenantContract::where('id',$tenant_contract_id)->update(['status'=>0]);
 
   $otherUsers = User::role(['are','backoffice_manager'])->get(); 
-  $otherUsers = array_flatten($otherUsers);
+  $otherUsers = \Illuminate\Support\Arr::flatten($otherUsers);
 
   $stageLegal = Legal::where('work_flow_processes_code',$legal->work_flow_processes_code)->orderBy('id','desc')->first();
   if(!empty($stageLegal))
@@ -1163,7 +1163,7 @@ public function legalCaseClose(Request $request){
   if($process_flow==801){
 
     $are = User::role(['are'])->get(); 
-    $are = array_flatten($are);
+    $are = \Illuminate\Support\Arr::flatten($are);
 
 
    $legal->subject = "Legal Case Closed ";
@@ -1284,10 +1284,10 @@ public function areStageStore(Request $request)
 
 /*Notification Of users*/
 $users = User::role(['legal_advisor'])->get(); 
-$users = array_flatten($users); 
+$users = \Illuminate\Support\Arr::flatten($users); 
 
 $plmusers = User::role(['backoffice_manager'])->get(); 
-$plmusers = array_flatten($plmusers); 
+$plmusers = \Illuminate\Support\Arr::flatten($plmusers); 
 
 if($process_flow==801){
  $legalCase->href = url('plmsApproval/'.$legalCase->id);
@@ -1317,7 +1317,7 @@ public function legalNoteStore(Request $request){
     Legal::where('id',$request->legal_id)->update(['legal_is_closed'=>1]);
   }
   $otherUsers = User::role(['are','backoffice_manager'])->get(); 
-  $otherUsers = array_flatten($otherUsers);
+  $otherUsers = \Illuminate\Support\Arr::flatten($otherUsers);
   $legal      = Legal::where('id',$request->legal_id)->first();
 
   $legal->subject = "Legal Advisor Added Status";

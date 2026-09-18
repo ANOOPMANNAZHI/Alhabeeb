@@ -16,7 +16,7 @@ use Log;
 
 class sendMassMailJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use \Illuminate\Foundation\Queue\Queueable;
     public $user_info;
 
     /**

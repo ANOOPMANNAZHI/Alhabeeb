@@ -163,7 +163,7 @@ class GeneralLedger extends Model
 
 
                                if( !empty($request->fieldValue[$keyName]) && !empty($request->fieldValue[$keyName]) && !empty($valueName) ) {
-                                 
+
                                   if($request->operation[$keyName] == 'ilike%...%' ){
                                     $fieldValue = '%'.$request->fieldValue[$keyName].'%';
                                     $operation = 'ilike';
@@ -268,13 +268,13 @@ class GeneralLedger extends Model
                       $query->where('general_ledger_approval_status',$val)->where('general_ledger_status',4);
                     else
                       $query->where('general_ledger_approval_status',$val)->Where('general_ledger_status', 2);   
-                  
+
                   }else
-          
+
                     $query->where($key,'ilike','%'.$val.'%'); 
                   /*  
                   switch($key){
-                   
+
                     case 'approval_status'  :  if($val == 'Y')
                                                $query->whereIn('general_ledger_status',[2,3]);
                                                else

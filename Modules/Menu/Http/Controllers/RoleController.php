@@ -50,7 +50,7 @@ class RoleController extends Controller
             'name'    => 'required|string',          
          ]);
       
-        Role::create(['name' => str_slug($request['name'],'_')]);
+        Role::create(['name' => \Illuminate\Support\Str::slug($request['name'], '_')]);
 
         session()->flash('success', ' Role Added ');
         return redirect()->route('role.index');
@@ -87,7 +87,7 @@ class RoleController extends Controller
             'name'    => 'required|string',          
         ]);
 
-        $role->update(['name' => str_slug($request['name'],'_')]);
+        $role->update(['name' => \Illuminate\Support\Str::slug($request['name'], '_')]);
         session()->flash('success', ' Role Updated ');
         return redirect()->route('role.index');
 
@@ -142,7 +142,7 @@ class RoleController extends Controller
                 $permission = $val->permissionList;
                 if(!empty($permission)){
                     $permission =  $permission->toArray(); 
-                    $permission  = array_pluck($permission, 'name'); 
+                    $permission  = \Illuminate\Support\Arr::pluck($permission, 'name'); 
                     $role->revokePermissionTo($permission); 
                 }   
 
@@ -201,7 +201,7 @@ class RoleController extends Controller
                  $permission = $val->permissionList;
                     if(!empty($permission)){
                         $permission =  $permission->toArray(); 
-                        $permission  = array_pluck($permission, 'name'); 
+                        $permission  = \Illuminate\Support\Arr::pluck($permission, 'name'); 
                         $role->revokePermissionTo($permission); 
                     }   
 
