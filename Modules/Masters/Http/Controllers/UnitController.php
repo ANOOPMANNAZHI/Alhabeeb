@@ -373,8 +373,10 @@ class UnitController extends Controller
     */ 
     public function qrCodeGenerator($unit_id)
     {
-      $qrCode = \QrCode::format('png')->size(400)->generate($unit_id); 
-      return response($qrCode)->header('Content-type','image/png');
+      // simple-qrcode 4 renders PNG through Imagick only; fall back to SVG where it is absent
+      $format = extension_loaded('imagick') ? 'png' : 'svg';
+      $qrCode = \QrCode::format($format)->size(400)->generate($unit_id);
+      return response($qrCode)->header('Content-type', $format === 'png' ? 'image/png' : 'image/svg+xml');
     }
     /*
     *
