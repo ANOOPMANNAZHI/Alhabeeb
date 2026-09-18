@@ -3,17 +3,9 @@
 namespace Modules\Menu\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\Eloquent\Factory;
 
 class MenuServiceProvider extends ServiceProvider
 {
-    /**
-     * Indicates if loading of the provider is deferred.
-     *
-     * @var bool
-     */
-    protected $defer = false;
-
     /**
      * Boot the application events.
      *
@@ -24,7 +16,6 @@ class MenuServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
-        $this->registerFactories();
         $this->registerBreadcrumbs();
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
     }
@@ -87,18 +78,6 @@ class MenuServiceProvider extends ServiceProvider
             $this->loadTranslationsFrom($langPath, 'menu');
         } else {
             $this->loadTranslationsFrom(__DIR__ .'/../Resources/lang', 'menu');
-        }
-    }
-
-    /**
-     * Register an additional directory of factories.
-     * 
-     * @return void
-     */
-    public function registerFactories()
-    {
-        if (! app()->environment('production')) {
-            app(Factory::class)->load(__DIR__ . '/../Database/factories');
         }
     }
 

@@ -3,17 +3,9 @@
 namespace Modules\Maintenance\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\Eloquent\Factory;
 
 class MaintenanceServiceProvider extends ServiceProvider
 {
-    /**
-     * Indicates if loading of the provider is deferred.
-     *
-     * @var bool
-     */
-    protected $defer = false;
-
     /**
      * Boot the application events.
      *
@@ -24,7 +16,6 @@ class MaintenanceServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
-        $this->registerFactories();
         $this->registerBreadcrumbs();
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
     }
@@ -87,18 +78,6 @@ class MaintenanceServiceProvider extends ServiceProvider
             $this->loadTranslationsFrom($langPath, 'maintenance');
         } else {
             $this->loadTranslationsFrom(__DIR__ .'/../Resources/lang', 'maintenance');
-        }
-    }
-
-    /**
-     * Register an additional directory of factories.
-     * 
-     * @return void
-     */
-    public function registerFactories()
-    {
-        if (! app()->environment('production')) {
-            app(Factory::class)->load(__DIR__ . '/../Database/factories');
         }
     }
 

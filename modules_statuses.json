@@ -1,0 +1,8 @@
+{
+    "BackOffice": true,
+    "General": true,
+    "Maintenance": true,
+    "Masters": true,
+    "Menu": true,
+    "Sales": true
+}
