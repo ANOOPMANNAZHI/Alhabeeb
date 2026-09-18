@@ -12,8 +12,8 @@
 
 ## Global Constraints
 
-- `composer.json` `"php": "^8.2"`. Laravel `^11.23` or newer (PHP 8.4 support for local dev).
-- `nesbot/carbon` pinned `^2.72` — never let Carbon 3 in.
+- `composer.json` `"php": "^8.3"`, Laravel `^13.0` (Task 3 found 11.x blocked by security advisories; 13 is current and all packages support it).
+- Carbon 3 (forced by Laravel 13): fix every `diffIn*()` call site to be int- and sign-safe; do not rely on Carbon 2 behaviour.
 - Keep unchanged: `App\User`, `Modules\*` namespaces, every route name, view name, permission name, table name. The `menu` table and 814 views depend on them.
 - Keep `password_resets` as the password-reset table name (config, not the Laravel 11 default `password_reset_tokens`).
 - Eloquent JSON date format stays `Y-m-d H:i:s`.

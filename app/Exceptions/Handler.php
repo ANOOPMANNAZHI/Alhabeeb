@@ -2,57 +2,29 @@
 
 namespace App\Exceptions;
 
-use Exception;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Session\TokenMismatchException;
+use Throwable;
 
 class Handler extends ExceptionHandler
 {
-    /**
-     * A list of the exception types that are not reported.
-     *
-     * @var array
-     */
-    protected $dontReport = [
-        //
-    ];
+    protected $dontReport = [];
 
-    /**
-     * A list of the inputs that are never flashed for validation exceptions.
-     *
-     * @var array
-     */
     protected $dontFlash = [
+        'current_password',
         'password',
         'password_confirmation',
     ];
 
-    /**
-     * Report or log an exception.
-     *
-     * @param  \Exception  $exception
-     * @return void
-     */
-    public function report(Exception $exception)
+    public function render($request, Throwable $e)
     {
-        parent::report($exception);
-    }
-
-    /**
-     * Render an exception into an HTTP response.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Exception  $exception
-     * @return \Illuminate\Http\Response
-     */
-    public function render($request, Exception $exception)
-    { 
-         if ($exception instanceof \Illuminate\Session\TokenMismatchException) {
+        if ($e instanceof TokenMismatchException) {
             session()->flash('expiredSession', 'null');
             return redirect()
-                    ->back()
-                    ->withInput($request->except('_token'));
+                ->back()
+                ->withInput($request->except('_token'));
         }
 
-        return parent::render($request, $exception);
+        return parent::render($request, $e);
     }
 }

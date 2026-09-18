@@ -22,7 +22,7 @@
 
 ### Phase 1 — Framework & PHP (this plan: `docs/superpowers/plans/2026-09-18-phase1-laravel11-upgrade.md`)
 
-Laravel 5.7 → **Laravel 11**, `php ^8.2`, in place on the existing application structure (Kernel-based bootstrap, `App\User`, `Modules/`), with every third-party package moved to a version that supports Laravel 11. Same UI, same behaviour, same database (only additive package migrations). Done when: `composer install` is clean, all routes register, `phpunit` is green, and the critical-path smoke checklist passes in the browser.
+Laravel 5.7 → **Laravel 13** (plan originally said 11; all 11.x releases are blocked by unpatched security advisories, 13 is current), `php ^8.3`, in place on the existing application structure (Kernel-based bootstrap, `App\User`, `Modules/`), with every third-party package moved to a version that supports Laravel 11. Same UI, same behaviour, same database (only additive package migrations). Done when: `composer install` is clean, all routes register, `phpunit` is green, and the critical-path smoke checklist passes in the browser.
 
 Non-goals for Phase 1: new template, API, restructuring into Laravel 11's slim skeleton, replacing jQuery, replacing JasperPHP.
 
@@ -36,9 +36,9 @@ New admin layout side-by-side (`layouts/plms-app-v2`), Bootstrap 5 + jQuery comp
 
 ## Global constraints
 
-- PHP target `^8.2` (server will be 8.2 or 8.3; local is 8.4 — Laravel 11 ≥ 11.23 supports 8.4).
+- PHP target `^8.3` (Laravel 13 floor; the new server must run 8.3 or 8.4; local is 8.4).
 - PostgreSQL stays; no schema rewrites. Package-required migrations only.
 - Keep `App\User`, `Modules\*` namespaces, route names, view names, and permission names unchanged — the menu table, breadcrumbs and 814 views depend on them.
-- Pin `nesbot/carbon ^2.72` (Carbon 3 makes `diffInMonths()` return float; reports rely on integers).
+- Carbon 3 is mandatory on Laravel 12+: every `diffInMonths/diffInDays/...` call site must be made sign- and int-safe (`(int) abs(...)` or `->diffInMonths($other, absolute: true)`), because Carbon 3 returns signed floats.
 - Eloquent date serialisation must stay `Y-m-d H:i:s` in JSON (Laravel 7 switched to ISO-8601; AJAX list pages format dates client-side).
 - `master` continues to receive feature work; `platform-upgrade` merges `master` in periodically (`git merge master`), never the other way until Phase 3 is done.

@@ -78,6 +78,11 @@ return [
     |
     */
 
+    'batching' => [
+        'database' => env('DB_CONNECTION', 'pgsql'),
+        'table' => 'job_batches',
+    ],
+
     'failed' => [
         'database' => env('DB_CONNECTION', 'mysql'),
         'table' => 'failed_jobs',

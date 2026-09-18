@@ -45,6 +45,7 @@ return [
         ],
 
         'file' => [
+            'lock_path' => storage_path('framework/cache/data'),
             'driver' => 'file',
             'path' => storage_path('framework/cache/data'),
         ],
