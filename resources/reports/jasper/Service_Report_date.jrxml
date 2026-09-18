@@ -1,0 +1,708 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.16.0.final using JasperReports Library version 6.16.0-48579d909b7943b64690c65c71e07e0b80981928  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Service_Report" pageWidth="743" pageHeight="842" columnWidth="743" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="43ae46ae-651f-4fcf-8c3c-a81ca09e8c9a">
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w1" value="143"/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w2" value="849"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="plms_live"/>
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<parameter name="Date1" class="java.util.Date" nestedType=""/>
+	<parameter name="Date2" class="java.util.Date"/>
+	<parameter name="logo" class="java.lang.String"/>
+	<parameter name="address" class="java.lang.String"/>
+	<parameter name="building_name" class="java.lang.String"/>
+	<parameter name="complaint_no" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[SELECT distinct cs.service_report_no,
+	j.complaint_date,
+	ce.complaint_no,
+	e.employee_name AS technician,
+	b.building_name,
+	u.unit_no,
+	ce.complainer_name,
+	ce.complaint_mob_no,
+	split_part( tenant_signature,'/',3) AS tenant_signature,
+	cs.tenant_signature AS signature,
+	cs.complaint_assign_note,
+	inv.inventories_name,
+	ci.quantity AS qty,
+	ci.material_charge,
+	ci.labour_charge,
+	ci.total_charge,
+	cs.created_at
+FROM complaint_service_report cs
+	left join complaint_service_report_checklist csr ON 
+	 csr.complaint_service_report_id = cs.id 
+	left join complaint_checklists cc ON 
+	 cc.id = csr.checklist_id 
+	left join complaint_enquiries ce ON 
+	 ce.id = cc.complaint_enquiries_id 
+	left join complaint_processes cp ON 
+	 cp.complaint_enquiries_id = ce.id 
+	left join users us ON 
+	 us.id = cc.sub_assigned_to 
+	left join employees e ON 
+	 e.id = us.user_type_id 
+	left join buildings b ON 
+	 b.id = ce.building_id
+	left join units u ON 
+	 u.id = ce.unit_id  
+	left join complaint_service_report_inv ci ON 
+	 ci.complaint_service_report_id = cs.id 
+	left join inventories inv ON 
+	 inv.id = ci.inventory_id 
+	left join(select cs.service_report_no,max(ce.complaint_date) as complaint_date  FROM complaint_service_report cs
+	left join complaint_service_report_checklist csr ON 
+	 csr.complaint_service_report_id = cs.id 
+	left join complaint_checklists cc ON 
+	 cc.id = csr.checklist_id 
+	left join complaint_enquiries ce ON 
+	 ce.id = cc.complaint_enquiries_id group by cs.service_report_no) j on j.service_report_no = cs.service_report_no
+WHERE 
+	 cc.service_report_status = '1' 
+	 AND ce.complaint_status = '2' 
+      and j.complaint_date between $P{Date1}  and $P{Date2}
+order by ce.complaint_no desc]]>
+	</queryString>
+	<field name="service_report_no" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="service_report_no"/>
+		<property name="com.jaspersoft.studio.field.label" value="service_report_no"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report"/>
+	</field>
+	<field name="complaint_date" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.name" value="complaint_date"/>
+		<property name="com.jaspersoft.studio.field.label" value="complaint_date"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_enquiries"/>
+	</field>
+	<field name="complaint_no" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="complaint_no"/>
+		<property name="com.jaspersoft.studio.field.label" value="complaint_no"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_enquiries"/>
+	</field>
+	<field name="technician" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="technician"/>
+		<property name="com.jaspersoft.studio.field.label" value="technician"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="employees"/>
+	</field>
+	<field name="building_name" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="building_name"/>
+		<property name="com.jaspersoft.studio.field.label" value="building_name"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="buildings"/>
+	</field>
+	<field name="unit_no" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="unit_no"/>
+		<property name="com.jaspersoft.studio.field.label" value="unit_no"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="units"/>
+	</field>
+	<field name="complainer_name" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="complainer_name"/>
+		<property name="com.jaspersoft.studio.field.label" value="complainer_name"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_enquiries"/>
+	</field>
+	<field name="complaint_mob_no" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="complaint_mob_no"/>
+		<property name="com.jaspersoft.studio.field.label" value="complaint_mob_no"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_enquiries"/>
+	</field>
+	<field name="tenant_signature" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="tenant_signature"/>
+		<property name="com.jaspersoft.studio.field.label" value="tenant_signature"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report"/>
+	</field>
+	<field name="signature" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="signature"/>
+		<property name="com.jaspersoft.studio.field.label" value="signature"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report"/>
+	</field>
+	<field name="complaint_assign_note" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="complaint_assign_note"/>
+		<property name="com.jaspersoft.studio.field.label" value="complaint_assign_note"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report"/>
+	</field>
+	<field name="inventories_name" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="inventories_name"/>
+		<property name="com.jaspersoft.studio.field.label" value="inventories_name"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="inventories"/>
+		<fieldDescription><![CDATA[ Tools or materials details eg) pipe, hammer etc]]></fieldDescription>
+	</field>
+	<field name="qty" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="qty"/>
+		<property name="com.jaspersoft.studio.field.label" value="qty"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report_inv"/>
+	</field>
+	<field name="material_charge" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="material_charge"/>
+		<property name="com.jaspersoft.studio.field.label" value="material_charge"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report_inv"/>
+	</field>
+	<field name="labour_charge" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="labour_charge"/>
+		<property name="com.jaspersoft.studio.field.label" value="labour_charge"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report_inv"/>
+	</field>
+	<field name="total_charge" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="total_charge"/>
+		<property name="com.jaspersoft.studio.field.label" value="total_charge"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report_inv"/>
+	</field>
+	<field name="created_at" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.name" value="created_at"/>
+		<property name="com.jaspersoft.studio.field.label" value="created_at"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="complaint_service_report"/>
+	</field>
+	<variable name="material_charge1" class="java.math.BigDecimal" resetType="Group" resetGroup="Group1" calculation="Sum">
+		<variableExpression><![CDATA[$F{material_charge}]]></variableExpression>
+	</variable>
+	<variable name="labour_charge1" class="java.math.BigDecimal" resetType="Group" resetGroup="Group1" calculation="Sum">
+		<variableExpression><![CDATA[$F{labour_charge}]]></variableExpression>
+	</variable>
+	<variable name="total_charge1" class="java.math.BigDecimal" resetType="Group" resetGroup="Group1" calculation="Sum">
+		<variableExpression><![CDATA[$F{total_charge}]]></variableExpression>
+	</variable>
+	<group name="Group1" isStartNewPage="true" minDetailsToStartFromTop="1" keepTogether="true" preventOrphanFooter="true">
+		<groupExpression><![CDATA[$F{service_report_no}]]></groupExpression>
+		<groupHeader>
+			<band height="415">
+				<staticText>
+					<reportElement x="194" y="128" width="350" height="49" uuid="4f6f00d8-b904-4b2e-a4ca-61ba10ad4d26"/>
+					<textElement textAlignment="Center">
+						<font size="30" isBold="true" isUnderline="true"/>
+					</textElement>
+					<text><![CDATA[Service Report]]></text>
+				</staticText>
+				<rectangle>
+					<reportElement x="143" y="307" width="305" height="28" uuid="356ee41b-a513-45fa-b48c-d55784435f69"/>
+				</rectangle>
+				<rectangle>
+					<reportElement x="612" y="269" width="128" height="28" uuid="b2eaa8f0-c2cc-43fd-b6fa-01bcaaffa6b5"/>
+				</rectangle>
+				<rectangle>
+					<reportElement x="143" y="270" width="305" height="28" uuid="39ccf874-23c9-4e00-97bf-9edb30636eee"/>
+				</rectangle>
+				<rectangle>
+					<reportElement x="612" y="232" width="128" height="28" uuid="ef3977ae-8ebf-42ed-a66e-a0fd254d5cc0">
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</reportElement>
+				</rectangle>
+				<rectangle>
+					<reportElement x="335" y="232" width="114" height="28" uuid="e3962920-ea69-4a9a-88be-a1728879caba"/>
+				</rectangle>
+				<rectangle>
+					<reportElement x="143" y="196" width="147" height="27" uuid="7abbddea-213e-4096-8e13-a743569a8fbe"/>
+				</rectangle>
+				<staticText>
+					<reportElement x="3" y="196" width="140" height="27" uuid="d219c686-94a8-4336-bb21-ab4b4d044805">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Service Report No ]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="3" y="270" width="140" height="28" uuid="ac6ca42b-db6b-4211-866b-41d2aba34874">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Name of the Property  ]]></text>
+				</staticText>
+				<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+					<reportElement x="143" y="196" width="147" height="27" uuid="de61019a-3828-4bb4-93f8-41df0aadb3f2">
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{service_report_no}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="3" y="307" width="140" height="28" uuid="ff00cc95-6432-484e-95c5-4db96fb2de75">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Name of the Technician]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement x="143" y="307" width="305" height="28" uuid="ac1c4fb4-3975-49dc-9de3-a316777dcaa7">
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{technician}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="290" y="232" width="44" height="28" uuid="2435efe4-3484-4be0-a2df-fd00189be256">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Date]]></text>
+				</staticText>
+				<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+					<reportElement x="335" y="232" width="114" height="28" uuid="0cb95fc6-118a-4d11-ba12-bc76048b65f6">
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{complaint_date}]]></textFieldExpression>
+				</textField>
+				<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+					<reportElement x="143" y="270" width="305" height="28" uuid="df00fe2d-6e5f-4eee-b9d1-56b1ab2cca57">
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{building_name}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="471" y="232" width="139" height="28" uuid="bdbfb4ce-e2ad-4871-9659-bef8f0e33172">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+						<property name="com.jaspersoft.studio.unit.width" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Complaint Attended On]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="554" y="269" width="58" height="28" uuid="967aa605-b760-47e3-8bcb-5c85fabdd2f1">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Unit No]]></text>
+				</staticText>
+				<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+					<reportElement x="612" y="232" width="128" height="28" uuid="da99d749-45ad-4fa8-af84-6a328d4e0588">
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{created_at}]]></textFieldExpression>
+				</textField>
+				<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+					<reportElement x="612" y="269" width="128" height="28" uuid="cb9e4510-bf84-4525-93cd-b7b22c092afc">
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{unit_no}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="3" y="352" width="737" height="26" uuid="47ed766e-34b1-44a4-9030-31a296826d4c"/>
+					<textElement verticalAlignment="Middle">
+						<font size="13" isBold="true"/>
+					</textElement>
+					<text><![CDATA[Details and cost of repair of the work carried out]]></text>
+				</staticText>
+				<rectangle>
+					<reportElement x="143" y="233" width="147" height="27" uuid="1dd9979d-5404-487d-b8b9-f86a81237a29"/>
+				</rectangle>
+				<staticText>
+					<reportElement x="3" y="233" width="140" height="27" uuid="9b50df84-2bfa-4b05-8490-9d208b8d14aa">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Complaint No ]]></text>
+				</staticText>
+				<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+					<reportElement x="144" y="234" width="146" height="26" uuid="40bfc488-0d6d-45ea-ac4f-b1dc62d6e783">
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{complaint_no}]]></textFieldExpression>
+				</textField>
+				<rectangle>
+					<reportElement x="3" y="378" width="736" height="36" uuid="37d1e7a8-953d-4766-adc7-c10d09c113f9"/>
+				</rectangle>
+				<rectangle>
+					<reportElement x="3" y="378" width="737" height="37" backcolor="#045DC2" uuid="f3abf860-c386-44b3-a7b7-ddd9448179e7"/>
+					<graphicElement>
+						<pen lineColor="#5C5A5A"/>
+					</graphicElement>
+				</rectangle>
+				<staticText>
+					<reportElement x="403" y="378" width="88" height="37" forecolor="#F7F5F5" uuid="16db75ab-78e7-4e09-8d64-eda1a9e94979"/>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="12" isBold="true"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<text><![CDATA[Quantity]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="279" y="378" width="124" height="36" forecolor="#F7F5F5" uuid="b37b48b6-4fa2-49b4-8e6a-632a1bd2c9f7">
+						<property name="com.jaspersoft.studio.unit.y" value="px"/>
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="12" isBold="true"/>
+						<paragraph leftIndent="4" rightIndent="0"/>
+					</textElement>
+					<text><![CDATA[Materials]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="51" y="378" width="228" height="36" forecolor="#F7F5F5" uuid="fe9c3600-e78f-45e6-b705-390efd0336f3"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="12" isBold="true"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<text><![CDATA[Description]]></text>
+				</staticText>
+				<staticText>
+					<reportElement x="3" y="378" width="48" height="36" forecolor="#F7F5F5" uuid="8bd54f13-c9c1-472c-a4f3-4f56655e419c"/>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="12" isBold="true"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<text><![CDATA[Sl No:]]></text>
+				</staticText>
+				<line>
+					<reportElement x="403" y="385" width="1" height="23" forecolor="#FFFCFC" uuid="146464f2-76c3-40e6-80ed-25a63d8c8014"/>
+				</line>
+				<line>
+					<reportElement x="279" y="385" width="1" height="23" forecolor="#FFFCFC" uuid="3f5e3869-9f9a-44ca-b624-b7aadd4a96ab"/>
+				</line>
+				<line>
+					<reportElement x="51" y="385" width="1" height="24" forecolor="#FFFCFC" uuid="4d446853-c8b2-49fc-b1fb-946b4771c9d8"/>
+				</line>
+				<staticText>
+					<reportElement x="492" y="378" width="124" height="36" forecolor="#F7F5F5" uuid="6add5789-1096-49bb-b093-eef1a8f6c52e">
+						<property name="com.jaspersoft.studio.unit.y" value="px"/>
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="12" isBold="true"/>
+						<paragraph leftIndent="4" rightIndent="0"/>
+					</textElement>
+					<text><![CDATA[Material Charge]]></text>
+				</staticText>
+				<line>
+					<reportElement x="616" y="385" width="1" height="23" forecolor="#FFFCFC" uuid="2ee834c8-e84f-4043-9092-1498abe5681c"/>
+				</line>
+				<line>
+					<reportElement x="491" y="385" width="1" height="23" forecolor="#FFFCFC" uuid="8c03178b-0fa3-45a9-b8a0-be62a373aa08"/>
+				</line>
+				<staticText>
+					<reportElement x="616" y="378" width="124" height="36" forecolor="#F7F5F5" uuid="8fb5f7f9-31e2-4967-8016-e33778343a1f">
+						<property name="com.jaspersoft.studio.unit.y" value="px"/>
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="12" isBold="true"/>
+						<paragraph leftIndent="4" rightIndent="0"/>
+					</textElement>
+					<text><![CDATA[Labour Charge]]></text>
+				</staticText>
+				<image>
+					<reportElement x="5" y="7" width="220" height="63" uuid="d2c06669-d86f-4667-8db1-1a1b5f9293bd"/>
+					<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+				</image>
+				<image>
+					<reportElement x="457" y="7" width="280" height="93" uuid="d41caafc-1279-4b0d-aa5b-232152559e2d"/>
+					<imageExpression><![CDATA[$P{address}]]></imageExpression>
+				</image>
+			</band>
+		</groupHeader>
+	</group>
+	<group name="Group2">
+		<groupExpression><![CDATA[$F{service_report_no}]]></groupExpression>
+		<groupFooter>
+			<band height="152">
+				<staticText>
+					<reportElement x="8" y="118" width="116" height="19" isPrintWhenDetailOverflows="true" uuid="18c17e8c-d327-4205-b40a-f4f8b1c4c2dc">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Tenant's Name :]]></text>
+				</staticText>
+				<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+					<reportElement x="101" y="111" width="223" height="20" isPrintWhenDetailOverflows="true" uuid="a1942d73-cf7f-4707-a453-079c5cffe86d"/>
+					<textElement textAlignment="Left" verticalAlignment="Bottom">
+						<font size="12" isBold="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{complainer_name}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="328" y="118" width="76" height="19" isPrintWhenDetailOverflows="true" uuid="b0e143cb-38a4-4362-96cb-03a9d11a0332">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Mob/GSM :]]></text>
+				</staticText>
+				<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+					<reportElement x="404" y="111" width="140" height="20" isPrintWhenDetailOverflows="true" uuid="f143af76-17b4-4bc0-a475-c41788ee1fde"/>
+					<textElement textAlignment="Left" verticalAlignment="Bottom">
+						<font size="12" isBold="false"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{complaint_mob_no}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="537" y="118" width="74" height="19" isPrintWhenDetailOverflows="true" uuid="e67e3e0c-16c1-4978-88ee-55383e90f746">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Left" verticalAlignment="Middle">
+						<font size="12" isBold="false"/>
+						<paragraph rightIndent="8"/>
+					</textElement>
+					<text><![CDATA[Signature :]]></text>
+				</staticText>
+				<line>
+					<reportElement x="88" y="132" width="240" height="1" isPrintWhenDetailOverflows="true" uuid="7692e4a5-e6f8-4b37-a67d-5347c42ce803"/>
+				</line>
+				<line>
+					<reportElement x="397" y="132" width="141" height="1" isPrintWhenDetailOverflows="true" uuid="497bb847-08e2-402c-8e72-423d8bf261f1"/>
+				</line>
+				<staticText>
+					<reportElement x="8" y="63" width="580" height="25" isPrintWhenDetailOverflows="true" uuid="04e518de-260d-4d93-98f1-8b90a338463c">
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</reportElement>
+					<textElement verticalAlignment="Middle">
+						<font size="13" isBold="true"/>
+					</textElement>
+					<text><![CDATA[The above service has been carried out satisfactorily]]></text>
+				</staticText>
+				<rectangle>
+					<reportElement x="3" y="31" width="737" height="29" uuid="8c94237b-3a38-433d-ab13-c220f53a805c"/>
+					<graphicElement>
+						<pen lineWidth="0.6"/>
+					</graphicElement>
+				</rectangle>
+				<rectangle>
+					<reportElement x="3" y="32" width="737" height="29" backcolor="#DCEBF5" uuid="76185997-b1fc-46d5-bac5-47f369ccc724"/>
+					<graphicElement>
+						<pen lineColor="#FFFCFC"/>
+					</graphicElement>
+				</rectangle>
+				<line>
+					<reportElement x="51" y="31" width="1" height="29" forecolor="#D6D4D4" uuid="acd9fc0c-0a43-4cd5-b5a4-1ce4102eb266"/>
+				</line>
+				<line>
+					<reportElement x="491" y="32" width="1" height="29" forecolor="#D6D4D4" uuid="a6dab37e-a095-46b9-89a8-d3895178c765"/>
+				</line>
+				<staticText>
+					<reportElement x="51" y="31" width="440" height="30" uuid="b5bb42c6-ce0a-46c6-a481-fe7e8c0cc84f">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+						<property name="com.jaspersoft.studio.unit.width" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="12" isBold="true"/>
+						<paragraph rightIndent="5"/>
+					</textElement>
+					<text><![CDATA[Grand Total]]></text>
+				</staticText>
+				<rectangle>
+					<reportElement x="3" y="1" width="737" height="29" uuid="a3feacec-84f7-4976-ba18-38efb404e23e"/>
+					<graphicElement>
+						<pen lineWidth="0.6"/>
+					</graphicElement>
+				</rectangle>
+				<rectangle>
+					<reportElement x="3" y="1" width="737" height="29" backcolor="#DCEBF5" uuid="bc2926ca-6eb0-4a9c-a57e-b887b46bca6b"/>
+					<graphicElement>
+						<pen lineColor="#FFFCFC"/>
+					</graphicElement>
+				</rectangle>
+				<line>
+					<reportElement x="51" y="1" width="1" height="29" forecolor="#D6D4D4" uuid="0a920b42-511e-470e-9edf-f2a12c976fa8"/>
+				</line>
+				<line>
+					<reportElement x="491" y="1" width="1" height="29" forecolor="#D6D4D4" uuid="19d78db3-ab4f-48b7-b03e-923eba4f3712"/>
+				</line>
+				<line>
+					<reportElement x="616" y="1" width="1" height="29" forecolor="#D6D4D4" uuid="424810b1-32ca-477f-a31c-7cefef449a00"/>
+				</line>
+				<staticText>
+					<reportElement x="51" y="1" width="440" height="29" uuid="e1a934a9-8773-4a12-87f0-e5fe3506ac8e">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+						<property name="com.jaspersoft.studio.unit.width" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="12" isBold="true"/>
+						<paragraph rightIndent="5"/>
+					</textElement>
+					<text><![CDATA[Sub Total]]></text>
+				</staticText>
+				<textField pattern="#,##0.000" isBlankWhenNull="true">
+					<reportElement x="491" y="1" width="125" height="29" uuid="77871149-acf5-4755-8730-9df253db986a">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+						<property name="com.jaspersoft.studio.unit.width" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="12" isBold="true"/>
+						<paragraph rightIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{material_charge1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.000" isBlankWhenNull="true">
+					<reportElement x="616" y="0" width="124" height="30" uuid="26588ada-2691-40ec-9c1d-e98373eac941">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+						<property name="com.jaspersoft.studio.unit.width" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="12" isBold="true"/>
+						<paragraph rightIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{labour_charge1}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.000" isBlankWhenNull="true">
+					<reportElement x="491" y="32" width="249" height="29" uuid="80a86d77-0918-45e8-b071-bdb3ca7ff171">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="12" isBold="true"/>
+						<paragraph rightIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{total_charge1}]]></textFieldExpression>
+				</textField>
+				<textField isBlankWhenNull="true" hyperlinkType="Reference">
+					<reportElement x="603" y="104" width="132" height="48" forecolor="#3DB6F2" uuid="bd19a3a6-105c-46f5-8568-89eb25cadc2d"/>
+					<textElement verticalAlignment="Middle">
+						<font size="12" isUnderline="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{tenant_signature}]]></textFieldExpression>
+					<hyperlinkReferenceExpression><![CDATA["http://134.0.205.114:9443/storage/app/public/TenantSignature/"+$F{tenant_signature}]]></hyperlinkReferenceExpression>
+					<hyperlinkWhenExpression><![CDATA[$F{tenant_signature} != null]]></hyperlinkWhenExpression>
+				</textField>
+				<line>
+					<reportElement x="596" y="132" width="141" height="1" isPrintWhenDetailOverflows="true" uuid="e7269cce-f369-41c6-8fba-c01d44dc336b">
+						<printWhenExpression><![CDATA[$F{tenant_signature} ==null]]></printWhenExpression>
+					</reportElement>
+				</line>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<detail>
+		<band height="29">
+			<rectangle>
+				<reportElement x="3" y="0" width="737" height="29" uuid="d0291e00-5580-44f1-bced-cbc5a9d77a4f"/>
+			</rectangle>
+			<textField>
+				<reportElement x="3" y="0" width="48" height="29" uuid="0aa20491-090b-4ec9-b2f0-10e913b4e5cd"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="12"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="51" y="0" width="1" height="29" forecolor="#D6D4D4" uuid="d5843d4c-9164-4b0d-9af8-bf4c8964e5fc"/>
+			</line>
+			<line>
+				<reportElement x="279" y="0" width="1" height="29" forecolor="#D6D4D4" uuid="b99a94bb-4b54-4901-ad14-ddd76e2c20c9"/>
+			</line>
+			<line>
+				<reportElement x="403" y="0" width="1" height="29" forecolor="#D6D4D4" uuid="9a61fc19-20aa-49a4-bff5-0ee3b09fd750"/>
+			</line>
+			<textField isBlankWhenNull="true">
+				<reportElement isPrintRepeatedValues="false" x="51" y="0" width="228" height="29" uuid="78efc8c3-ef8f-4022-8770-72ad0d6f1084">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="6f8ecb1d-47fe-4d82-9136-191a115a3365"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="12"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{complaint_assign_note}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="279" y="0" width="124" height="29" uuid="d9ff8a20-2ec7-4e96-b0fe-8565ed27a0a5">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="a952370d-6c5d-435d-aa9c-8236a7d49124"/>
+				</reportElement>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{inventories_name}]]></textFieldExpression>
+			</textField>
+			<textField pattern="###0.###;(###0.###-)" isBlankWhenNull="true">
+				<reportElement x="403" y="0" width="88" height="29" uuid="92fd60c9-0b96-4482-b9a3-4d70e2de29c1">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="e86dba11-04d4-4a28-b115-f43861a2f538"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="12"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{qty}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="492" y="0" width="124" height="29" uuid="9c1b18eb-ef7f-4caa-bd04-a12922af3c6e">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="a952370d-6c5d-435d-aa9c-8236a7d49124"/>
+				</reportElement>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{material_charge}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="616" y="0" width="1" height="29" forecolor="#D6D4D4" uuid="22559fa7-d62f-4a09-b29b-341b7ac00977"/>
+			</line>
+			<line>
+				<reportElement x="491" y="0" width="1" height="29" forecolor="#D6D4D4" uuid="48adf824-edc7-4af9-a50a-671e9f231448"/>
+			</line>
+			<textField isBlankWhenNull="true">
+				<reportElement x="616" y="0" width="124" height="29" uuid="a593db58-b7f5-4f23-b62b-5e977176fc7c">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="a952370d-6c5d-435d-aa9c-8236a7d49124"/>
+				</reportElement>
+				<textElement verticalAlignment="Middle">
+					<font size="12"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{labour_charge}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<pageFooter>
+		<band height="50">
+			<staticText>
+				<reportElement x="0" y="25" width="580" height="25" isPrintWhenDetailOverflows="true" uuid="bd75b333-97f6-41bb-9144-51c8582a440d">
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</reportElement>
+				<textElement verticalAlignment="Middle">
+					<font size="13" isBold="false"/>
+				</textElement>
+				<text><![CDATA[This is a system generated document. No signature is required]]></text>
+			</staticText>
+		</band>
+	</pageFooter>
+</jasperReport>

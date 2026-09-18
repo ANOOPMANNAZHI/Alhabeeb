@@ -14,3 +14,12 @@ yarn-error.log
 .env.backup
 *.backup
 cronLog.txt
+
+# JasperReports: Java runtime is installed on the server (JASPERSTARTER_BIN), compiled
+# templates and generated reports are build output
+/packages/cossou/jasperphp/src/JasperStarter/
+/resources/reports/jasper/*.jasper
+/public/reports/*
+!/public/reports/.gitignore
+/storage/reports_tmp/*
+!/storage/reports_tmp/.gitignore

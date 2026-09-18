@@ -1,0 +1,564 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.11.0.final using JasperReports Library version 6.11.0-0c4056ccaa4d25a5a8c45672d2f764ea3498bebb  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Early termination" language="javascript" pageWidth="1100" pageHeight="842" columnWidth="1060" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="5a60b1dd-b84e-4a52-a4bd-105affc0f66a">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="PLMS04012021"/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w1" value="170"/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w2" value="823"/>
+	<property name="com.jaspersoft.studio.property.dataset.dialog.DatasetDialog.sash.w1" value="431"/>
+	<property name="com.jaspersoft.studio.property.dataset.dialog.DatasetDialog.sash.w2" value="555"/>
+	<parameter name="user" class="java.lang.String"/>
+	<parameter name="Date1" class="java.util.Date"/>
+	<parameter name="Date2" class="java.util.Date"/>
+	<parameter name="logo" class="java.lang.String" isForPrompting="false">
+		<parameterDescription><![CDATA[]]></parameterDescription>
+	</parameter>
+	<parameter name="mngnt_type" class="java.lang.String"/>
+	<parameter name="building_name" class="java.lang.String"/>
+	<queryString language="SQL">
+		<![CDATA[Select * from vacancy_loss_date_new_compo($P{Date1},$P{Date2}, $P{mngnt_type});]]>
+		
+	</queryString>
+	<field name="bldgname" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.label" value="bldgname"/>
+	</field>
+	<field name="untno" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.label" value="untno"/>
+	</field>
+	<field name="untstats" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.label" value="untstats"/>
+	</field>
+	<field name="contract_end_date" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.label" value="contract_end_date"/>
+	</field>
+	<field name="termination_end_date" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.label" value="termination_end_date"/>
+	</field>
+	<field name="vacant_from_date" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.label" value="vacant_from_date"/>
+	</field>
+	<field name="vacant_to_date" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.label" value="vacant_to_date"/>
+	</field>
+	<field name="rent_pm" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.label" value="rent_pm"/>
+	</field>
+	<field name="unittype" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.label" value="unittype"/>
+	</field>
+	<field name="location_name" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.label" value="location_name"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="vacant_vacany_loss"/>
+	</field>
+	<field name="vacanyloss" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.label" value="vacanyloss"/>
+	</field>
+	<field name="days_btwn" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.label" value="days_btwn"/>
+	</field>
+	<field name="bldg_no" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.label" value="bldg_no"/>
+	</field>
+	<variable name="days_btwn1" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{days_btwn}]]></variableExpression>
+	</variable>
+	<variable name="vacanyloss1" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{vacanyloss}]]></variableExpression>
+	</variable>
+	<variable name="rent_pm1" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{rent_pm}]]></variableExpression>
+	</variable>
+	<variable name="days_btwn2" class="java.math.BigDecimal" resetType="Group" resetGroup="Group1" calculation="Sum">
+		<variableExpression><![CDATA[$F{days_btwn}]]></variableExpression>
+	</variable>
+	<variable name="rent_pm2" class="java.math.BigDecimal" resetType="Group" resetGroup="Group1" calculation="Sum">
+		<variableExpression><![CDATA[$F{rent_pm}]]></variableExpression>
+	</variable>
+	<variable name="vacanyloss2" class="java.math.BigDecimal" resetType="Group" resetGroup="Group1" calculation="Sum">
+		<variableExpression><![CDATA[$F{vacanyloss}]]></variableExpression>
+	</variable>
+	<group name="Group1">
+		<groupExpression><![CDATA[$F{bldgname}]]></groupExpression>
+		<groupHeader>
+			<band height="19">
+				<rectangle>
+					<reportElement x="0" y="0" width="50" height="19" backcolor="#A0C9F2" uuid="a9255529-eb69-4063-af79-f8667c680608">
+						<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					</reportElement>
+					<graphicElement>
+						<pen lineColor="#F5F5F5"/>
+					</graphicElement>
+				</rectangle>
+				<textField>
+					<reportElement x="0" y="0" width="50" height="19" uuid="2ec7a530-40da-41c9-bb7b-23dcc3f1b9be">
+						<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="dba421be-87a6-4b17-9811-e32bdf38978b"/>
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement verticalAlignment="Middle">
+						<font isBold="true"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{bldgname}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="32">
+				<staticText>
+					<reportElement x="436" y="0" width="132" height="32" uuid="95a01046-affb-4c7b-bd70-6395c6e5d4c5"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font size="11" isBold="true"/>
+					</textElement>
+					<text><![CDATA[Total :]]></text>
+				</staticText>
+				<textField>
+					<reportElement x="568" y="0" width="92" height="32" uuid="a07267fb-08f2-408b-aa8b-3b2614ef2982">
+						<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					</reportElement>
+					<textElement verticalAlignment="Middle">
+						<font isBold="true"/>
+						<paragraph leftIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{days_btwn2}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.000">
+					<reportElement x="660" y="0" width="80" height="32" uuid="74381ace-b1e2-425e-b1d3-751ef32732f3">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font isBold="true"/>
+						<paragraph rightIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{rent_pm2}]]></textFieldExpression>
+				</textField>
+				<textField pattern="#,##0.000">
+					<reportElement x="960" y="0" width="100" height="32" uuid="34ecad88-c139-4558-94d3-75cddba18875">
+						<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					</reportElement>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font isBold="true"/>
+						<paragraph rightIndent="5"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{vacanyloss2}]]></textFieldExpression>
+				</textField>
+			</band>
+		</groupFooter>
+	</group>
+	<title>
+		<band height="139">
+			<staticText>
+				<reportElement x="320" y="0" width="420" height="60" uuid="180ee2ee-e0b2-4bc9-9546-5467610baa93">
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font size="20" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Report on Vacant Loss]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="80" width="119" height="18" uuid="44750bbe-f02a-4d82-8c26-8acdfecd7ded">
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+					<paragraph rightIndent="8"/>
+				</textElement>
+				<text><![CDATA[As On Date     :]]></text>
+			</staticText>
+			<textField pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement x="119" y="80" width="201" height="18" uuid="de7b3383-e899-4545-9adf-7fe6046c6d14"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{Date2}]]></textFieldExpression>
+			</textField>
+			<image>
+				<reportElement x="0" y="0" width="168" height="60" uuid="907801c9-7140-4b84-b0c8-1267400c1a5c">
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</reportElement>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField pattern="MMMMM dd, yyyy" isBlankWhenNull="true">
+				<reportElement x="840" y="0" width="120" height="28" forecolor="#1D80CC" uuid="e4543dc2-5bca-48c1-bef1-993132c9e89b">
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+					<property name="com.jaspersoft.studio.unit.x" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Bottom">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="840" y="28" width="220" height="32" forecolor="#1D80CC" uuid="229269a4-dc38-4970-ac6f-d738774f63a0">
+					<property name="com.jaspersoft.studio.unit.x" value="px"/>
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{user}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="740" y="28" width="100" height="32" forecolor="#1D80CC" uuid="1aa131e6-3b2d-45a0-a4b4-2123d06c466f">
+					<property name="com.jaspersoft.studio.unit.y" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Top">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[User ID :]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="740" y="0" width="100" height="28" forecolor="#1D80CC" uuid="59a36205-1031-443c-a278-acfab301e2a3">
+					<property name="com.jaspersoft.studio.unit.y" value="px"/>
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Bottom">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Report date :]]></text>
+			</staticText>
+			<textField pattern="HH:mm">
+				<reportElement x="960" y="0" width="100" height="28" forecolor="#1D80CC" uuid="4a1961cb-9d30-4a3d-a815-04de7ed490d5">
+					<property name="com.jaspersoft.studio.unit.x" value="px"/>
+				</reportElement>
+				<textElement verticalAlignment="Bottom">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="98" width="119" height="19" uuid="3dc00c33-92f3-43ce-9adf-a46626f06d42">
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Top">
+					<font size="11" isBold="true"/>
+					<paragraph rightIndent="8"/>
+				</textElement>
+				<text><![CDATA[Managment Type  :]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="119" y="98" width="201" height="19" uuid="d60e21a4-85bc-4dd0-9f8e-9fae93bafcf4"/>
+				<textElement verticalAlignment="Top">
+					<font size="11" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{mngnt_type}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="117" width="119" height="22" uuid="9de465a5-2e7f-47b0-b58d-21bc496f1a8d">
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right">
+					<font size="12" isBold="true"/>
+					<paragraph rightIndent="8"/>
+				</textElement>
+				<text><![CDATA[Building Name  :]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="119" y="117" width="201" height="22" uuid="a2956c2c-8299-42d1-8a1e-45662f7f85c2"/>
+				<textElement verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{building_name}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="45">
+			<property name="com.jaspersoft.studio.unit.height" value="pixel"/>
+			<staticText>
+				<reportElement x="239" y="0" width="81" height="45" forecolor="#1823F0" uuid="5ceb3668-1be3-4e8b-8fc2-c988f5ea9d04"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[Unit No]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="168" y="0" width="71" height="45" forecolor="#1823F0" uuid="b8a855a8-dfa6-4c1b-9341-1e5ce5f9749d">
+					<property name="com.jaspersoft.studio.unit.y" value="px"/>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+					<paragraph leftIndent="4" rightIndent="0"/>
+				</textElement>
+				<text><![CDATA[ Building No]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="50" y="0" width="118" height="45" forecolor="#1823F0" uuid="b1bf56b8-bac7-4d6f-ad0d-5e89f414edac"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[Building Name]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="0" width="50" height="45" forecolor="#1823F0" uuid="b0acc47d-d5a0-40d9-83ac-7b4fb777773b"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[Sl No:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="740" y="0" width="100" height="45" forecolor="#1823F0" uuid="d3cd7ad5-582a-487a-b78d-1a80810e5846">
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+					<paragraph leftIndent="5" rightIndent="0"/>
+				</textElement>
+				<text><![CDATA[Unit Type]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="568" y="0" width="92" height="45" forecolor="#1823F0" uuid="1258ff38-d3b9-41dc-ba04-352a29d7fdf5">
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[Vacant Days]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="436" y="20" width="132" height="25" forecolor="#1823F0" uuid="59eb5227-f96f-49df-9d37-5ac18e7498ad"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[To]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="660" y="0" width="80" height="45" forecolor="#1823F0" uuid="ce7c5b42-e492-4165-9bee-218048b10ae5">
+					<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+					<property name="com.jaspersoft.studio.unit.y" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+					<paragraph leftIndent="5" rightIndent="1"/>
+				</textElement>
+				<text><![CDATA[Rent (Per Month)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="320" y="0" width="248" height="20" forecolor="#1823F0" uuid="dff13fe3-63dc-4331-b0a7-277e6620ca25">
+					<property name="com.jaspersoft.studio.unit.width" value="pixel"/>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[Vacancy Period ]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="320" y="20" width="116" height="25" forecolor="#1823F0" uuid="de96ac48-0693-4ce3-ad03-8ed91cfe1f98"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[From]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="840" y="0" width="120" height="45" forecolor="#1823F0" uuid="11d80527-68c5-4027-92f9-64c1494b275f">
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+					<paragraph leftIndent="5" rightIndent="0"/>
+				</textElement>
+				<text><![CDATA[Area]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="960" y="0" width="100" height="45" forecolor="#1823F0" uuid="10b0d695-909d-4437-87d8-6e4642fb3d0e">
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+					<paragraph leftIndent="5" rightIndent="0"/>
+				</textElement>
+				<text><![CDATA[Vacancy Loss]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="29">
+			<property name="com.jaspersoft.studio.unit.height" value="px"/>
+			<rectangle>
+				<reportElement x="0" y="0" width="1060" height="29" backcolor="#DCEBF5" uuid="5a83c626-a8a1-485f-8221-2613edb0f819">
+					<printWhenExpression><![CDATA[$V{REPORT_COUNT}%2==0]]></printWhenExpression>
+				</reportElement>
+				<graphicElement>
+					<pen lineColor="#FFFCFC"/>
+				</graphicElement>
+			</rectangle>
+			<textField>
+				<reportElement x="0" y="0" width="50" height="29" uuid="f83e3ba9-ffa6-4723-bba8-7d51a8e60f74"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="11"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="50" y="0" width="118" height="29" uuid="c57d6fce-3b7c-4e96-870c-be88e5dbe164">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="6f8ecb1d-47fe-4d82-9136-191a115a3365"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{bldgname}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="168" y="0" width="71" height="29" uuid="5c5f0d0b-0268-442b-a75f-f870092b2336">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="a952370d-6c5d-435d-aa9c-8236a7d49124"/>
+				</reportElement>
+				<textElement verticalAlignment="Middle">
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{bldg_no}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="239" y="0" width="81" height="29" uuid="4bbccb04-4273-45ae-ac40-50205e67dc60">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="e86dba11-04d4-4a28-b115-f43861a2f538"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{untno}]]></textFieldExpression>
+			</textField>
+			<textField pattern="dd/MM/yyyy">
+				<reportElement x="320" y="0" width="116" height="29" uuid="cf67419d-2785-4894-b736-8964035721f3">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="4d14db0a-9182-4004-8411-efdaf856762e"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{vacant_from_date}]]></textFieldExpression>
+			</textField>
+			<textField pattern="dd/MM/yyyy">
+				<reportElement x="436" y="0" width="132" height="29" uuid="a61a32ca-82f5-42e3-9235-43c99c1d0a72">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="ea07cc35-83d0-4c9a-bac9-ee66ff46ec12"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{vacant_to_date}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="568" y="0" width="92" height="29" uuid="af20d726-77d4-48db-9302-7a591697e1a6">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="0807d106-4bc6-4c11-aed0-4f824741ced0"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{days_btwn}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.000">
+				<reportElement x="660" y="0" width="80" height="29" uuid="2f3eba38-48cd-4aba-8eb2-dcd58d30ecb0">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="43795feb-33b6-4215-8713-9f1fa19ddc70"/>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<paragraph rightIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{rent_pm}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00#">
+				<reportElement x="740" y="0" width="100" height="29" uuid="c42111dc-2875-4f5e-9d32-3a76c9d1b27c">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="58f5f851-e2dd-4e10-8eff-95372a74622d"/>
+					<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<paragraph leftIndent="5" rightIndent="0"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{unittype}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.00#">
+				<reportElement x="840" y="0" width="120" height="29" uuid="612e6f04-9606-4b25-8c18-8ed721669f73">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="58f5f851-e2dd-4e10-8eff-95372a74622d"/>
+					<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<paragraph leftIndent="5" rightIndent="0"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{location_name}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.000">
+				<reportElement x="960" y="0" width="100" height="29" uuid="611ef11a-9850-405c-baf6-85d7dec286bc">
+					<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="58f5f851-e2dd-4e10-8eff-95372a74622d"/>
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<paragraph rightIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{vacanyloss}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<pageFooter>
+		<band height="54">
+			<textField>
+				<reportElement x="436" y="24" width="132" height="30" uuid="6fde7d60-3018-484d-adfc-e36125ec94ad"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA["Page " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report">
+				<reportElement x="568" y="24" width="92" height="30" uuid="cac64969-4ed7-4aa7-802a-ab1861d4dca0"/>
+				<textElement textAlignment="Left"/>
+				<textFieldExpression><![CDATA[" of " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="29">
+			<rectangle>
+				<reportElement x="0" y="0" width="1060" height="29" backcolor="#DCEBF6" uuid="f4272f86-4803-4b57-a13f-35deba0236bd">
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				</reportElement>
+			</rectangle>
+			<staticText>
+				<reportElement x="436" y="0" width="132" height="29" uuid="fd6e8714-055e-4d85-9232-ac6820334a01">
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Total :]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="568" y="0" width="92" height="29" uuid="2f2509de-c219-4a58-86e6-7f1645b17c18">
+					<property name="com.jaspersoft.studio.unit.leftIndent" value="px"/>
+				</reportElement>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{days_btwn1}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.000">
+				<reportElement x="960" y="0" width="100" height="29" uuid="25f1a1ea-d405-4cce-bb20-6764acfe6fd6">
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+					<paragraph rightIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{vacanyloss1}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.000">
+				<reportElement x="660" y="0" width="80" height="29" uuid="06e13fcb-3e4d-4f42-97ee-cee7dc34c3f6">
+					<property name="com.jaspersoft.studio.unit.rightIndent" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+					<paragraph rightIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{rent_pm1}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

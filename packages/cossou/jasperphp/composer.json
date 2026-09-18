@@ -1,0 +1,11 @@
+{
+    "name": "cossou/jasperphp",
+    "description": "Create Reports in PHP with JasperReports (vendored copy)",
+    "license": "MIT",
+    "version": "1.0.0",
+    "autoload": {
+        "psr-0": {
+            "JasperPHP": "src/"
+        }
+    }
+}

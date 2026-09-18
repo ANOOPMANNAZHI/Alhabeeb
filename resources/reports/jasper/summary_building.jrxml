@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.3.0.final using JasperReports Library version 6.3.0  -->
+<!-- 2021-09-24T10:19:19 -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="summary_building" pageWidth="545" pageHeight="811" columnWidth="505" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="4b1236a0-a000-401b-8004-ff40136181df">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w1" value="121"/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w2" value="868"/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="PLMS"/>
+	<property name="com.jaspersoft.studio.unit." value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.pageHeight" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.pageWidth" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.topMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.bottomMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.leftMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.rightMargin" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.columnWidth" value="pixel"/>
+	<property name="com.jaspersoft.studio.unit.columnSpacing" value="pixel"/>
+	<parameter name="building_name" class="java.lang.String"/>
+	<parameter name="SUBREPORT_DIR" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["/"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="building_code" class="java.lang.String"/>
+	<parameter name="management_types_name" class="java.lang.String"/>
+	<queryString language="SQL">
+		<![CDATA[SELECT ut.unit_types_name as unit_type, 
+       COUNT (case when ut.id= 1 then u.id
+        when ut.id= 2 then u.id
+        when ut.id= 3 then u.id 
+        when ut.id= 4 then u.id
+        when ut.id= 5 then u.id 
+        when ut.id= 6 then u.id 
+        when ut.id= 7 then u.id 
+        when ut.id= 8 then u.id 
+        when ut.id= 9 then u.id
+	    when ut.id= 10 then u.id
+        when ut.id= 11 then u.id
+        when ut.id= 12 then u.id
+        when ut.id= 13 then u.id
+        when ut.id= 14 then u.id
+        when ut.id= 15 then u.id
+        when ut.id= 16 then u.id
+        when ut.id= 17 then u.id
+        when ut.id= 18 then u.id
+        when ut.id= 19 then u.id
+        when ut.id= 20 then u.id
+        when ut.id= 22 then u.id
+	when ut.id= 23 then u.id
+	when ut.id= 24 then u.id
+	when ut.id= 25 then u.id
+	when ut.id= 26 then u.id
+         end) as unitcount
+FROM units u 
+left join unit_types ut on ut.id = u.unit_type_id
+ join buildings b on b.id = u.building_id
+ join management_types mt on mt.id=b.management_id
+where (u.unit_status = 1) and (b.building_status = 1)
+and ((b.building_code =$P{building_code})
+or (b.building_name = $P{building_name})
+or (mt.management_types_name=$P{management_types_name} ))
+GROUP BY ut.unit_types_name]]>
+	</queryString>
+	<field name="unit_type" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.label" value="unit_type"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="unit_types"/>
+	</field>
+	<field name="unitcount" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.label" value="unitcount"/>
+	</field>
+	<variable name="unitcount1" class="java.lang.Long" calculation="Sum">
+		<variableExpression><![CDATA[$F{unitcount}]]></variableExpression>
+	</variable>
+	<variable name="unitcount2" class="java.lang.Long" calculation="Sum">
+		<variableExpression><![CDATA[$F{unitcount}]]></variableExpression>
+	</variable>
+	<group name="unit_type">
+		<groupExpression><![CDATA[$F{unit_type}]]></groupExpression>
+	</group>
+	<group name="unitcount">
+		<groupExpression><![CDATA[$F{unitcount}]]></groupExpression>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="21" splitType="Stretch">
+			<rectangle>
+				<reportElement x="-20" y="-1" width="230" height="21" backcolor="#045DC2" uuid="d01d598c-631d-480b-b4c4-a8b3bbbfda2c"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="-20" y="-1" width="230" height="21" forecolor="#FFFFFF" uuid="1faad212-5009-4e57-8c5b-299c3b003816"/>
+				<textElement verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[Summary]]></text>
+			</staticText>
+		</band>
+	</title>
+	<detail>
+		<band height="30" splitType="Stretch">
+			<rectangle>
+				<reportElement x="-20" y="0" width="230" height="30" uuid="d45c71e4-de5b-4bc6-a15c-33d2ba1362b2"/>
+				<graphicElement>
+					<pen lineColor="#DEDEDE"/>
+				</graphicElement>
+			</rectangle>
+			<textField>
+				<reportElement x="-20" y="0" width="130" height="30" uuid="7d22cb83-b599-47fa-83c3-74138aa44a0a"/>
+				<box>
+					<pen lineColor="#9C9898"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{unit_type}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="111" y="0" width="99" height="30" uuid="ce911f92-d317-4fee-a3aa-86ad104fc595"/>
+				<box>
+					<pen lineColor="#9C9898"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle" markup="html">
+					<font isBold="true"/>
+					<paragraph rightIndent="6"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{unitcount}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="110" y="0" width="1" height="30" uuid="a89bbd3e-ab9e-4c91-b099-12af849ae887"/>
+			</line>
+		</band>
+	</detail>
+	<summary>
+		<band height="25">
+			<rectangle>
+				<reportElement x="-20" y="0" width="230" height="25" backcolor="#DCEBF5" uuid="59d168a5-23ad-4c3e-988a-491c33322d7e"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="-20" y="0" width="130" height="24" uuid="fed03199-5bf0-408f-ab34-4c20ed936890"/>
+				<textElement verticalAlignment="Middle">
+					<font size="11" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<text><![CDATA[Total]]></text>
+			</staticText>
+			<line>
+				<reportElement x="110" y="0" width="1" height="24" uuid="237a2051-cf6d-4e45-bafe-ab2ca1d51a7a"/>
+			</line>
+			<textField>
+				<reportElement x="110" y="0" width="100" height="25" uuid="1873b734-ef6a-4f5e-a1cf-e02bd9e13c59"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+					<paragraph rightIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{unitcount2}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

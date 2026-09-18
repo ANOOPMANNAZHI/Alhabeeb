@@ -65,41 +65,41 @@ class SalesReportController extends Controller
 		    if(!empty($Date1) && !empty($Date2) && empty($UnitType) && empty($Location)&& empty($Source)&& empty($AssignedTo)){ //Mandotory
 
 		// Compile a JRXML to Jasper
-		    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'))->execute();
+		    /*$a=JasperPHP::compile(jasper_template('rent_receipt.jrxml'))->execute();
 		    print_r($a); */
 		// Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-		    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/enquiryReportNew.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unittype" => $UnitType,"location" => $Location,"source" => $Source,"assignedto" => $AssignedTo,"logo" => $logo),$db)->execute();
+		    $r=JasperPHP::process(jasper_template('enquiryReportNew.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unittype" => $UnitType,"location" => $Location,"source" => $Source,"assignedto" => $AssignedTo,"logo" => $logo),$db)->execute();
 
-		    $file= getReportUrl()."vendor/cossou/jasperphp/examples/enquiryReportNew.pdf";
+		    $file= jasper_output_url('enquiryReportNew.pdf');
 		    return redirect()->away($file);
 		    print_r($r);
 		  } else{
 
 		// Compile a JRXML to Jasper
-		    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'))->execute();
+		    /*$a=JasperPHP::compile(jasper_template('rent_receipt_compo.jrxml'))->execute();
 		    print_r($a); */
 		// Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-		    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/enquiryReportNew_Compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unittype" => $UnitType,"location" => $Location,"source" => $Source,"assignedto" => $AssignedTo,"logo" => $logo),$db)->execute();
+		    $r=JasperPHP::process(jasper_template('enquiryReportNew_Compo.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unittype" => $UnitType,"location" => $Location,"source" => $Source,"assignedto" => $AssignedTo,"logo" => $logo),$db)->execute();
 
-		    $file= getReportUrl()."vendor/cossou/jasperphp/examples/enquiryReportNew_Compo.pdf";
+		    $file= jasper_output_url('enquiryReportNew_Compo.pdf');
 		    return redirect()->away($file);
 		    print_r($r);
 		  }
 		}else{
 		     if(!empty($Date1) && !empty($Date2) && empty($UnitType) && empty($Location)&& empty($Source)&& empty($AssignedTo)){ //Mandotory
 
-		   $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/enquiryReportNew.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unittype" => $UnitType,"location" => $Location,"source" => $Source,"assignedto" => $AssignedTo,"logo" => $logo),$db)->execute();
+		   $r=JasperPHP::process(jasper_template('enquiryReportNew.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unittype" => $UnitType,"location" => $Location,"source" => $Source,"assignedto" => $AssignedTo,"logo" => $logo),$db)->execute();
 
-		   $file1= getReportUrl()."vendor/cossou/jasperphp/examples/enquiryReportNew.xlsx";
+		   $file1= jasper_output_url('enquiryReportNew.xlsx');
 
 
 		   return redirect()->away($file1);
 		 }
 		 else{
 
-		  $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/enquiryReportNew_Compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unittype" => $UnitType,"location" => $Location,"source" => $Source,"assignedto" => $AssignedTo,"logo" => $logo),$db)->execute();
+		  $r=JasperPHP::process(jasper_template('enquiryReportNew_Compo.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unittype" => $UnitType,"location" => $Location,"source" => $Source,"assignedto" => $AssignedTo,"logo" => $logo),$db)->execute();
 
-		  $file1= getReportUrl()."vendor/cossou/jasperphp/examples/enquiryReportNew_Compo.xlsx";
+		  $file1= jasper_output_url('enquiryReportNew_Compo.xlsx');
 
 
 		  return redirect()->away($file1);

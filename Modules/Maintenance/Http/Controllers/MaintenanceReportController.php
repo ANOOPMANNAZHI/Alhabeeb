@@ -110,25 +110,25 @@ public function maintenanceReportPdf(Request $request){
     if($request->download_type == 'pdf'){
 
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Percentage_of_complaints_category_wise.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Percentage_of_complaints_category_wise.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Percentage_of_complaints_category_wise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('Percentage_of_complaints_category_wise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
 //$file= base_path(). "/vendor/cossou/jasperphp/examples/Percentage_of_complaints_category_wise.pdf";
 //return response()->file($file); 
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/Percentage_of_complaints_category_wise.pdf";
+$file= jasper_output_url('Percentage_of_complaints_category_wise.pdf');
        // dd($file);
 return redirect()->away($file);
 print_r($r);
 }else{
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Percentage_of_complaints_category_wise_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Percentage_of_complaints_category_wise_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Percentage_of_complaints_category_wise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('Percentage_of_complaints_category_wise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
- $file1= getReportUrl()."vendor/cossou/jasperphp/examples/Percentage_of_complaints_category_wise_excel.xlsx";
+ $file1= jasper_output_url('Percentage_of_complaints_category_wise_excel.xlsx');
     return redirect()->away($file1);
 print_r($r);
 }
@@ -161,25 +161,25 @@ public function complaintStatusReportPdf(Request $request){
      //dd($tenant_code);
 
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_status_percentage_wise.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('complaint_status_percentage_wise.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_status_percentage_wise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('complaint_status_percentage_wise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
 //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_status_percentage_wise.pdf";
 //return response()->file($file); 
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_status_percentage_wise.pdf";
+$file= jasper_output_url('complaint_status_percentage_wise.pdf');
        // dd($file);
 return redirect()->away($file);
 print_r($r);    
 }else{
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_status_percentage_wise_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('complaint_status_percentage_wise_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_status_percentage_wise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('complaint_status_percentage_wise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
- $file1= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_status_percentage_wise_excel.xlsx";
+ $file1= jasper_output_url('complaint_status_percentage_wise_excel.xlsx');
 
 
     return redirect()->away($file1);
@@ -232,209 +232,209 @@ public function complaintTicketReportPdf(Request $request){
     if($request->download_type == 'pdf'){
      switch ($request['filter_type']) {
         case '1':
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24Open_Tickets.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24Open_Tickets.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24Open_Tickets.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24Open_Tickets.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24Open_Tickets.pdf";
         //return response()->file($file);
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24Open_Tickets.pdf";
+$file= jasper_output_url('R24Open_Tickets.pdf');
        // dd($file);
 return redirect()->away($file);		
         print_r($r); 
         break;
         case '2': 
-          /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTickets.jrxml'))->execute();
+          /*$a=JasperPHP::compile(jasper_template('R24ClosedTickets.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTickets.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ClosedTickets.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ClosedTickets.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24ClosedTickets.pdf";
+		$file= jasper_output_url('R24ClosedTickets.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break; 
         case '3': 
-         /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_registratioc_categorywise.jrxml'))->execute();
+         /* $a=JasperPHP::compile(jasper_template('complaint_registratioc_categorywise.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_registratioc_categorywise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"category" => $category,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('complaint_registratioc_categorywise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"category" => $category,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_registratioc_categorywise.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_registratioc_categorywise.pdf";
+		$file= jasper_output_url('complaint_registratioc_categorywise.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break;
         case '4': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_buildingwise.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('complaint_registration_buildingwise.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_buildingwise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('complaint_registration_buildingwise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_registration_buildingwise.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_registration_buildingwise.pdf";
+		$file= jasper_output_url('complaint_registration_buildingwise.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break;
         case '5': 
-       /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_contractorwise.jrxml'))->execute();
+       /* $a=JasperPHP::compile(jasper_template('complaint_registration_contractorwise.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_contractorwise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"supervisor" => $supervisor,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('complaint_registration_contractorwise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"supervisor" => $supervisor,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_registration_contractorwise.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_registration_contractorwise.pdf";
+		$file= jasper_output_url('complaint_registration_contractorwise.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break;
         case '6': 
-         /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_technicianwise.jrxml'))->execute();
+         /* $a=JasperPHP::compile(jasper_template('complaint_registration_technicianwise.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_technicianwise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"assignedto" => $assignedto,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('complaint_registration_technicianwise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"assignedto" => $assignedto,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/complaint_registration_technicianwise.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_registration_technicianwise.pdf";
+		$file= jasper_output_url('complaint_registration_technicianwise.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break;  
         case '7': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegistration-VIP.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24ComplaintRegistration-VIP.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegistration-VIP.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ComplaintRegistration-VIP.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ComplaintRegistration-VIP.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24ComplaintRegistration-VIP.pdf";
+		$file= jasper_output_url('R24ComplaintRegistration-VIP.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break;
         case '8': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24OpenTickets_Contractorwise.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24OpenTickets_Contractorwise.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24OpenTickets_Contractorwise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"supervisor" => $supervisor,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24OpenTickets_Contractorwise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"supervisor" => $supervisor,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24OpenTickets_Contractorwise.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24OpenTickets_Contractorwise.pdf";
+		$file= jasper_output_url('R24OpenTickets_Contractorwise.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break;
         case '9':
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24OpenTickets_Technicianwise.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24OpenTickets_Technicianwise.jrxml'))->execute();
 print_r($a);  */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24OpenTickets_Technicianwise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"assignedto" => $assignedto,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24OpenTickets_Technicianwise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"assignedto" => $assignedto,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24OpenTickets_Technicianwise.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24OpenTickets_Technicianwise.pdf";
+		$file= jasper_output_url('R24OpenTickets_Technicianwise.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break; 
         case '10': 
-        /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegnAlHabibMaintained.jrxml'))->execute();
+        /* $a=JasperPHP::compile(jasper_template('R24ComplaintRegnAlHabibMaintained.jrxml'))->execute();
 print_r($a);  */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegnAlHabibMaintained.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ComplaintRegnAlHabibMaintained.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ComplaintRegnAlHabibMaintained.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24ComplaintRegnAlHabibMaintained.pdf";
+		$file= jasper_output_url('R24ComplaintRegnAlHabibMaintained.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break; 
         case '11': 
-         /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegnLandlordMaintained.jrxml'))->execute();
+         /*$a=JasperPHP::compile(jasper_template('R24ComplaintRegnLandlordMaintained.jrxml'))->execute();
 print_r($a); */ 
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegnLandlordMaintained.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ComplaintRegnLandlordMaintained.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ComplaintRegnLandlordMaintained.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24ComplaintRegnLandlordMaintained.pdf";
+		$file= jasper_output_url('R24ComplaintRegnLandlordMaintained.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break;  
         case '12':
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Totalnoofcomplaintsregistered.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('Totalnoofcomplaintsregistered.jrxml'))->execute();
 print_r($a); */  
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Totalnoofcomplaintsregistered.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('Totalnoofcomplaintsregistered.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/Totalnoofcomplaintsregistered.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/Totalnoofcomplaintsregistered.pdf";
+		$file= jasper_output_url('Totalnoofcomplaintsregistered.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break;  
         case '13': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin24hrs.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24ClosedTicketsWithin24hrs.jrxml'))->execute();
 print_r($a);*/
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin24hrs.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ClosedTicketsWithin24hrs.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
        // $file= base_path(). "/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin24hrs.pdf";
        // return response()->file($file); 
 	   
-	   $file= getReportUrl()."vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin24hrs.pdf";
+	   $file= jasper_output_url('R24ClosedTicketsWithin24hrs.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break; 
         case '14': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin48hrs.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24ClosedTicketsWithin48hrs.jrxml'))->execute();
 print_r($a);*/
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin48hrs.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ClosedTicketsWithin48hrs.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin48hrs.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin48hrs.pdf";
+		$file= jasper_output_url('R24ClosedTicketsWithin48hrs.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
         break; 
         case '15': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsmorethan48hrs.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24ClosedTicketsmorethan48hrs.jrxml'))->execute();
 print_r($a);*/
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsmorethan48hrs.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ClosedTicketsmorethan48hrs.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ClosedTicketsmorethan48hrs.pdf";
         //return response()->file($file);
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24ClosedTicketsmorethan48hrs.pdf";
+$file= jasper_output_url('R24ClosedTicketsmorethan48hrs.pdf');
        // dd($file);
 return redirect()->away($file);		
         print_r($r); 
         break; 
         case '16':
-         /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegistration_Unitwise.jrxml'))->execute();
+         /*$a=JasperPHP::compile(jasper_template('R24ComplaintRegistration_Unitwise.jrxml'))->execute();
 print_r($a);*/ 
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegistration_Unitwise.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unit_code" => $unit_code,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ComplaintRegistration_Unitwise.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unit_code" => $unit_code,"logo" => $logo),$db)->execute();
 
         //$file= base_path(). "/vendor/cossou/jasperphp/examples/R24ComplaintRegistration_Unitwise.pdf";
         //return response()->file($file); 
 		
-		$file= getReportUrl()."vendor/cossou/jasperphp/examples/R24ComplaintRegistration_Unitwise.pdf";
+		$file= jasper_output_url('R24ComplaintRegistration_Unitwise.pdf');
        // dd($file);
 return redirect()->away($file);
         print_r($r); 
@@ -443,132 +443,132 @@ return redirect()->away($file);
 }else{
    switch ($request['filter_type']) {
         case '1':
-      /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24Open_Tickets_excel.jrxml'))->execute();
+      /*  $a=JasperPHP::compile(jasper_template('R24Open_Tickets_excel.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24Open_Tickets_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24Open_Tickets_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24Open_Tickets_excel.xlsx";
+        $file1= jasper_output_url('R24Open_Tickets_excel.xlsx');
         return redirect()->away($file1);
         break;
         case '2': 
-          /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTickets_excel.jrxml'))->execute();
+          /*$a=JasperPHP::compile(jasper_template('R24ClosedTickets_excel.jrxml'))->execute();
 print_r($a);*/ 
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTickets_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ClosedTickets_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24ClosedTickets_excel.xlsx";
+        $file1= jasper_output_url('R24ClosedTickets_excel.xlsx');
     return redirect()->away($file1);
         break; 
         case '3': 
-         /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_registratioc_categorywise_excel.jrxml'))->execute();
+         /* $a=JasperPHP::compile(jasper_template('complaint_registratioc_categorywise_excel.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_registratioc_categorywise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"category" => $category,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('complaint_registratioc_categorywise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"category" => $category,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_registratioc_categorywise_excel.xlsx";
+        $file1= jasper_output_url('complaint_registratioc_categorywise_excel.xlsx');
     return redirect()->away($file1);
         break;
         case '4': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_buildingwise_excel.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('complaint_registration_buildingwise_excel.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_buildingwise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('complaint_registration_buildingwise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_registration_buildingwise_excel.xlsx";
+        $file1= jasper_output_url('complaint_registration_buildingwise_excel.xlsx');
     return redirect()->away($file1); 
         break;
         case '5': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_contractorwise_excel.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('complaint_registration_contractorwise_excel.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_contractorwise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"supervisor" => $supervisor,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('complaint_registration_contractorwise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"supervisor" => $supervisor,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_registration_contractorwise_excel.xlsx";
+        $file1= jasper_output_url('complaint_registration_contractorwise_excel.xlsx');
     return redirect()->away($file1);
         break;
         case '6': 
-         /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_technicianwise_excel.jrxml'))->execute();
+         /* $a=JasperPHP::compile(jasper_template('complaint_registration_technicianwise_excel.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/complaint_registration_technicianwise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"assignedto" => $assignedto,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('complaint_registration_technicianwise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"assignedto" => $assignedto,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/complaint_registration_technicianwise_excel.xlsx";
+        $file1= jasper_output_url('complaint_registration_technicianwise_excel.xlsx');
     return redirect()->away($file1);
         break;  
         case '7': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegistrationVIP_excel.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24ComplaintRegistrationVIP_excel.jrxml'))->execute();
 print_r($a); */
 
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegistrationVIP_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ComplaintRegistrationVIP_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24ComplaintRegistrationVIP_excel.xlsx";
+        $file1= jasper_output_url('R24ComplaintRegistrationVIP_excel.xlsx');
     return redirect()->away($file1); 
         break;
         case '8': 
-       /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24OpenTickets_Contractorwise_excel.jrxml'))->execute();
+       /* $a=JasperPHP::compile(jasper_template('R24OpenTickets_Contractorwise_excel.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24OpenTickets_Contractorwise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"supervisor" => $supervisor,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24OpenTickets_Contractorwise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"supervisor" => $supervisor,"logo" => $logo),$db)->execute();
 
-       $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24OpenTickets_Contractorwise_excel.xlsx";
+       $file1= jasper_output_url('R24OpenTickets_Contractorwise_excel.xlsx');
     return redirect()->away($file1); 
         break;
         case '9':
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24OpenTickets_Technicianwise_excel.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24OpenTickets_Technicianwise_excel.jrxml'))->execute();
 print_r($a); */ 
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24OpenTickets_Technicianwise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"assignedto" => $assignedto,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24OpenTickets_Technicianwise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"assignedto" => $assignedto,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24OpenTickets_Technicianwise_excel.xlsx";
+        $file1= jasper_output_url('R24OpenTickets_Technicianwise_excel.xlsx');
     return redirect()->away($file1); 
         break; 
         case '10': 
-        /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegnAlHabibMaintained_excel.jrxml'))->execute();
+        /* $a=JasperPHP::compile(jasper_template('R24ComplaintRegnAlHabibMaintained_excel.jrxml'))->execute();
 print_r($a);  */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegnAlHabibMaintained_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ComplaintRegnAlHabibMaintained_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24ComplaintRegnAlHabibMaintained_excel.xlsx";
+        $file1= jasper_output_url('R24ComplaintRegnAlHabibMaintained_excel.xlsx');
     return redirect()->away($file1); 
         break; 
         case '11': 
-        /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegnLandlordMaintained_excel.jrxml'))->execute();
+        /* $a=JasperPHP::compile(jasper_template('R24ComplaintRegnLandlordMaintained_excel.jrxml'))->execute();
 print_r($a); */ 
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegnLandlordMaintained_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ComplaintRegnLandlordMaintained_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24ComplaintRegnLandlordMaintained_excel.xlsx";
+        $file1= jasper_output_url('R24ComplaintRegnLandlordMaintained_excel.xlsx');
     return redirect()->away($file1); 
         break;  
         case '12':
-      /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Totalnoofcomplaintsregistered_excel.jrxml'))->execute();
+      /*  $a=JasperPHP::compile(jasper_template('Totalnoofcomplaintsregistered_excel.jrxml'))->execute();
 print_r($a);   */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Totalnoofcomplaintsregistered_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('Totalnoofcomplaintsregistered_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/Totalnoofcomplaintsregistered_excel.xlsx";
+        $file1= jasper_output_url('Totalnoofcomplaintsregistered_excel.xlsx');
     return redirect()->away($file1); 
         break;  
         case '13': 
-       /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin24hrs_excel.jrxml'))->execute();
+       /* $a=JasperPHP::compile(jasper_template('R24ClosedTicketsWithin24hrs_excel.jrxml'))->execute();
 print_r($a);*/
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin24hrs_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ClosedTicketsWithin24hrs_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-       $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin24hrs_excel.xlsx";
+       $file1= jasper_output_url('R24ClosedTicketsWithin24hrs_excel.xlsx');
     return redirect()->away($file1); 
         break; 
         case '14': 
-       /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin48hrs_excel.jrxml'))->execute();
+       /* $a=JasperPHP::compile(jasper_template('R24ClosedTicketsWithin48hrs_excel.jrxml'))->execute();
 print_r($a);*/
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin48hrs_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ClosedTicketsWithin48hrs_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24ClosedTicketsWithin48hrs_excel.xlsx";
+        $file1= jasper_output_url('R24ClosedTicketsWithin48hrs_excel.xlsx');
     return redirect()->away($file1); 
         break; 
         case '15': 
-        /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsmorethan48hrs_excel.jrxml'))->execute();
+        /*$a=JasperPHP::compile(jasper_template('R24ClosedTicketsmorethan48hrs_excel.jrxml'))->execute();
 print_r($a);*/
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ClosedTicketsmorethan48hrs_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ClosedTicketsmorethan48hrs_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24ClosedTicketsmorethan48hrs_excel.xlsx";
+        $file1= jasper_output_url('R24ClosedTicketsmorethan48hrs_excel.xlsx');
     return redirect()->away($file1); 
         break; 
         case '16':
-         /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegistration_Unitwise_excel.jrxml'))->execute();
+         /*$a=JasperPHP::compile(jasper_template('R24ComplaintRegistration_Unitwise_excel.jrxml'))->execute();
 print_r($a); */
-        $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R24ComplaintRegistration_Unitwise_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unit_code" => $unit_code,"logo" => $logo),$db)->execute();
+        $r=JasperPHP::process(jasper_template('R24ComplaintRegistration_Unitwise_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"unit_code" => $unit_code,"logo" => $logo),$db)->execute();
 
-        $file1= getReportUrl()."vendor/cossou/jasperphp/examples/R24ComplaintRegistration_Unitwise_excel.xlsx";
+        $file1= jasper_output_url('R24ComplaintRegistration_Unitwise_excel.xlsx');
     return redirect()->away($file1); 
         break; 
     }
@@ -610,23 +610,23 @@ print_r($a); */
 
         if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($complaint_no)){	
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Service_Report_date.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Service_Report_date.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
 
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Service_Report_date.jrxml'),false,array('pdf'),array("complaint_no" => $complaint_no,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo,"address" => $address),$db)->execute(); 
-$file2= getReportUrl()."vendor/cossou/jasperphp/examples/Service_Report_date.pdf";
+$r=JasperPHP::process(jasper_template('Service_Report_date.jrxml'), jasper_output_dir(),array('pdf'),array("complaint_no" => $complaint_no,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo,"address" => $address),$db)->execute(); 
+$file2= jasper_output_url('Service_Report_date.pdf');
        // dd($file);
 return redirect()->away($file2);
 }
 else{
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Service_Report_compo.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Service_Report_compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
 
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Service_Report_compo.jrxml'),false,array('pdf'),array("complaint_no" => $complaint_no,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo,"address" => $address),$db)->execute(); 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/Service_Report_compo.pdf";
+$r=JasperPHP::process(jasper_template('Service_Report_compo.jrxml'), jasper_output_dir(),array('pdf'),array("complaint_no" => $complaint_no,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo,"address" => $address),$db)->execute(); 
+$file= jasper_output_url('Service_Report_compo.pdf');
        // dd($file);
 return redirect()->away($file);
 print_r($r);

@@ -129,26 +129,26 @@ class BackOfficeReportController extends Controller
       if($request->download_type == 'pdf'){
 
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/new_tenant_for_period.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('new_tenant_for_period.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/new_tenant_for_period.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('new_tenant_for_period.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
 //$file= base_path(). "/vendor/cossou/jasperphp/examples/new_tenant_for_period.pdf";
 //return response()->file($file); 
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/new_tenant_for_period.pdf";
+$file= jasper_output_url('new_tenant_for_period.pdf');
        // dd($file);
 return redirect()->away($file);
 print_r($r);  
 }else{
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/new_tenant_for_period_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('new_tenant_for_period_excel.jrxml'))->execute();
 print_r($a);*/ 
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/new_tenant_for_period_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('new_tenant_for_period_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/new_tenant_for_period_excel.xlsx";
+$file1= jasper_output_url('new_tenant_for_period_excel.xlsx');
     return redirect()->away($file1);  
 print_r($r); 
 } 
@@ -204,30 +204,30 @@ public function corporateTenantReportPdf(Request $request){
   if($request->download_type == 'pdf'){
 
 // Compile a JRXML to Jasper
-    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/corporate_tenant_municipal_flats.jrxml'))->execute();
+    /*$a=JasperPHP::compile(jasper_template('corporate_tenant_municipal_flats.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/corporate_tenant_municipal_flats.jrxml'),false,array('pdf'),array("tenant_name" => $tenant_name,"tenant_code" => $tenant_code,"username" => $username,"logo" => $logo),$db)->execute();
+    $r=JasperPHP::process(jasper_template('corporate_tenant_municipal_flats.jrxml'), jasper_output_dir(),array('pdf'),array("tenant_name" => $tenant_name,"tenant_code" => $tenant_code,"username" => $username,"logo" => $logo),$db)->execute();
 
     //$file= base_path(). "/vendor/cossou/jasperphp/examples/corporate_tenant_municipal_flats.pdf";
     //return response()->file($file); 
 	
-	$file= getReportUrl()."vendor/cossou/jasperphp/examples/corporate_tenant_municipal_flats.pdf";
+	$file= jasper_output_url('corporate_tenant_municipal_flats.pdf');
        // dd($file);
 return redirect()->away($file);
     print_r($r); 
   }
   else{
 // Compile a JRXML to Jasper
-    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/corporate_tenant_municipal_flats_excel.jrxml'))->execute();
+    /*$a=JasperPHP::compile(jasper_template('corporate_tenant_municipal_flats_excel.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/corporate_tenant_municipal_flats_excel.jrxml'),false,array('xlsx'),array("tenant_name" => $tenant_name,"tenant_code" => $tenant_code,"username" => $username,"logo" => $logo),$db)->execute();
+    $r=JasperPHP::process(jasper_template('corporate_tenant_municipal_flats_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("tenant_name" => $tenant_name,"tenant_code" => $tenant_code,"username" => $username,"logo" => $logo),$db)->execute();
 
 
 
 
-    $file1= getReportUrl()."vendor/cossou/jasperphp/examples/corporate_tenant_municipal_flats_excel.xlsx";
+    $file1= jasper_output_url('corporate_tenant_municipal_flats_excel.xlsx');
     return redirect()->away($file1);
    // print_r($r); 
   } 
@@ -264,23 +264,23 @@ public function tenantContractExpiryReportPdf(Request $request){
 
     if(!empty($Date1) && !empty($Date2) && empty($are_name) && empty($building_name)){ //Mandotory
           // Compile a JRXML to Jasper
-      /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/contract_expiry_date.jrxml'))->execute();
+      /*  $a=JasperPHP::compile(jasper_template('contract_expiry_date.jrxml'))->execute();
        print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/contract_expiry_date.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"are_name" => $are_name,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('contract_expiry_date.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"are_name" => $are_name,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-       $file= getReportUrl()."vendor/cossou/jasperphp/examples/contract_expiry_date.pdf";
+       $file= jasper_output_url('contract_expiry_date.pdf');
        return redirect()->away($file);
 
        print_r($r);
      }else{
           // Compile a JRXML to Jasper
-       /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/contract_expiry_compo.jrxml'))->execute();
+       /* $a=JasperPHP::compile(jasper_template('contract_expiry_compo.jrxml'))->execute();
        print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/contract_expiry_compo.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"are_name" => $are_name,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('contract_expiry_compo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"are_name" => $are_name,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-       $file= getReportUrl(). "vendor/cossou/jasperphp/examples/contract_expiry_compo.pdf";
+       $file= jasper_output_url('contract_expiry_compo.pdf');
        return redirect()->away($file);
        print_r($r);
      }  
@@ -288,23 +288,23 @@ public function tenantContractExpiryReportPdf(Request $request){
    else{
       if(!empty($Date1) && !empty($Date2) && empty($are_name) && empty($building_name)){ //Mandotory
        // Compile a JRXML to Jasper
-    /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/contract_expiry_excel_date.jrxml'))->execute();
+    /*  $a=JasperPHP::compile(jasper_template('contract_expiry_excel_date.jrxml'))->execute();
      print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-     $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/contract_expiry_excel_date.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"are_name" => $are_name,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+     $r=JasperPHP::process(jasper_template('contract_expiry_excel_date.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"are_name" => $are_name,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-     $file1= getReportUrl()."vendor/cossou/jasperphp/examples/contract_expiry_excel_date.xlsx";
+     $file1= jasper_output_url('contract_expiry_excel_date.xlsx');
 
      
      return redirect()->away($file1);
 }else{ //Mandotory
        // Compile a JRXML to Jasper
-      /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/contract_expiry_excel_combo.jrxml'))->execute();
+      /*$a=JasperPHP::compile(jasper_template('contract_expiry_excel_combo.jrxml'))->execute();
      print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-     $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/contract_expiry_excel_combo.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"are_name" => $are_name,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+     $r=JasperPHP::process(jasper_template('contract_expiry_excel_combo.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"are_name" => $are_name,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-     $file1= getReportUrl()."vendor/cossou/jasperphp/examples/contract_expiry_excel_combo.xlsx";
+     $file1= jasper_output_url('contract_expiry_excel_combo.xlsx');
 
      
      return redirect()->away($file1);
@@ -367,23 +367,23 @@ public function tenantContractRenewalReportPdf(Request $request){
   if($request->download_type == 'pdf'){
 
 // Compile a JRXML to Jasper
-$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/tenant_contract_renewal_status.jrxml'))->execute();
+$a=JasperPHP::compile(jasper_template('tenant_contract_renewal_status.jrxml'))->execute();
 var_dump($a);
 // print_r($a); 
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/tenant_contract_renewal_status.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('tenant_contract_renewal_status.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/tenant_contract_renewal_status.pdf";
+$file= jasper_output_url('tenant_contract_renewal_status.pdf');
 return redirect()->away($file);
 print_r($r);    
 }else{
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/tenant_contract_renewal_status_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('tenant_contract_renewal_status_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/tenant_contract_renewal_status_excel.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('tenant_contract_renewal_status_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/tenant_contract_renewal_status_excel.xlsx";
+$file1= jasper_output_url('tenant_contract_renewal_status_excel.xlsx');
 return redirect()->away($file1);
 }
 }
@@ -416,26 +416,26 @@ public function tenantEarlyTerminationReportPdf(Request $request){
   if($request->download_type == 'pdf'){
 
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/early_termination.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('early_termination.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/early_termination.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('early_termination.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
 //$file= base_path(). "/vendor/cossou/jasperphp/examples/early_termination.pdf";
 //return response()->file($file); 
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/early_termination.pdf";
+$file= jasper_output_url('early_termination.pdf');
        // dd($file);
 return redirect()->away($file);
 print_r($r); 
 }else{
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/early_termination_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('early_termination_excel.jrxml'))->execute();
 print_r($a);*/ 
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/early_termination_excel.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('early_termination_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/early_termination_excel.xlsx";
+$file1= jasper_output_url('early_termination_excel.xlsx');
 
 
 return redirect()->away($file1);
@@ -471,24 +471,24 @@ public function tenantTerminationReportPdf(Request $request){
 
   if($request->download_type == 'pdf'){
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/termination.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('termination.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/termination.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('termination.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
 
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/termination.pdf";
+$file= jasper_output_url('termination.pdf');
 return redirect()->away($file);
  //print_r($r);  
 }else{
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/termination_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('termination_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/termination_excel.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('termination_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/termination_excel.xlsx";
+$file1= jasper_output_url('termination_excel.xlsx');
 
 
 return redirect()->away($file1);
@@ -630,22 +630,22 @@ if(isset($request->download_type)){
     if(!empty($Date1) && !empty($Date2) && empty($building_name)){ //Mandotory
 
 // Compile a JRXML to Jasper
-   /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_ew_deposit_amt.jrxml'))->execute();
+   /* $a=JasperPHP::compile(jasper_template('rent_ew_deposit_amt.jrxml'))->execute();
    print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-   $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_ew_deposit_amt.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+   $r=JasperPHP::process(jasper_template('rent_ew_deposit_amt.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-   $file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_ew_deposit_amt.pdf";
+   $file= jasper_output_url('rent_ew_deposit_amt.pdf');
    return redirect()->away($file);  
    print_r($r);
  }else{
     // Compile a JRXML to Jasper
-    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_comp.jrxml'))->execute();
+    /*$a=JasperPHP::compile(jasper_template('rent_ew_deposit_amt_comp.jrxml'))->execute();
    print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-   $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_comp.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+   $r=JasperPHP::process(jasper_template('rent_ew_deposit_amt_comp.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-   $file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_comp.pdf";
+   $file= jasper_output_url('rent_ew_deposit_amt_comp.pdf');
    return redirect()->away($file);  
    print_r($r);
  }  
@@ -653,23 +653,23 @@ if(isset($request->download_type)){
 
   if(!empty($Date1) && !empty($Date2) && empty($building_name)){ //Mandotory
 // Compile a JRXML to Jasper
-  /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_excel.jrxml'))->execute();
+  /*  $a=JasperPHP::compile(jasper_template('rent_ew_deposit_amt_excel.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-  $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+  $r=JasperPHP::process(jasper_template('rent_ew_deposit_amt_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-  $file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_excel.xlsx";
+  $file1= jasper_output_url('rent_ew_deposit_amt_excel.xlsx');
 
 
   return redirect()->away($file1);
 }else{
   // Compile a JRXML to Jasper
-  /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_excel_compo.jrxml'))->execute();
+  /*$a=JasperPHP::compile(jasper_template('rent_ew_deposit_amt_excel_compo.jrxml'))->execute();
   print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-  $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+  $r=JasperPHP::process(jasper_template('rent_ew_deposit_amt_excel_compo.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-  $file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_ew_deposit_amt_excel_compo.xlsx";
+  $file1= jasper_output_url('rent_ew_deposit_amt_excel_compo.xlsx');
 
 
   return redirect()->away($file1);
@@ -1036,47 +1036,47 @@ else{
     if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($building_code)){ //Mandotory
 
 // Compile a JRXML to Jasper
-    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'))->execute();
+    /*$a=JasperPHP::compile(jasper_template('rent_receipt.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
+    $r=JasperPHP::process(jasper_template('rent_receipt.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
-    $file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt.pdf";
+    $file= jasper_output_url('rent_receipt.pdf');
     return redirect()->away($file);
     print_r($r);
   } else{
 
 // Compile a JRXML to Jasper
-    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'))->execute();
+    /*$a=JasperPHP::compile(jasper_template('rent_receipt_compo.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
+    $r=JasperPHP::process(jasper_template('rent_receipt_compo.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
-    $file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_compo.pdf";
+    $file= jasper_output_url('rent_receipt_compo.pdf');
     return redirect()->away($file);
     print_r($r);
   }
 }else{
      if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($building_code)){ //Mandotory
 // Compile a JRXML to Jasper
-   /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel.jrxml'))->execute();
+   /* $a=JasperPHP::compile(jasper_template('rent_receipt_excel.jrxml'))->execute();
    print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-   $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
+   $r=JasperPHP::process(jasper_template('rent_receipt_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
-   $file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_excel.xlsx";
+   $file1= jasper_output_url('rent_receipt_excel.xlsx');
 
 
    return redirect()->away($file1);
  }
  else{
     // Compile a JRXML to Jasper
-  /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.jrxml'))->execute();
+  /*  $a=JasperPHP::compile(jasper_template('rent_receipt_excel_compo.jrxml'))->execute();
   print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-  $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
+  $r=JasperPHP::process(jasper_template('rent_receipt_excel_compo.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
-  $file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.xlsx";
+  $file1= jasper_output_url('rent_receipt_excel_compo.xlsx');
 
 
   return redirect()->away($file1);
@@ -1160,19 +1160,19 @@ else{
 
       if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($building_code) && empty($acc_code_val)){ //Mandotory
 
-          $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_date.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
-          $file= getReportUrl()."vendor/cossou/jasperphp/examples/general_receipt_date.pdf";
+          $r=JasperPHP::process(jasper_template('general_receipt_date.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
+          $file= jasper_output_url('general_receipt_date.pdf');
           return redirect()->away($file);
           print_r($r);
         }
         else{
 
-          // $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/tenant_contract_renewal_status.jrxml'))->execute();
+          // $a=JasperPHP::compile(jasper_template('tenant_contract_renewal_status.jrxml'))->execute();
           // var_dump($a);
 
 
-            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
-            $file= getReportUrl()."vendor/cossou/jasperphp/examples/general_receipt_compo.pdf";
+            $r=JasperPHP::process(jasper_template('general_receipt_compo.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
+            $file= jasper_output_url('general_receipt_compo.pdf');
             return redirect()->away($file);
             print_r($r);
       }
@@ -1181,18 +1181,18 @@ else{
 
        if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($building_code) && empty($acc_code_val)){ //Mandotory
 
-            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_excel_date.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
+            $r=JasperPHP::process(jasper_template('general_receipt_excel_date.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
 
-            $file1= getReportUrl()."vendor/cossou/jasperphp/examples/general_receipt_excel_date.xlsx";
+            $file1= jasper_output_url('general_receipt_excel_date.xlsx');
 
 
             return redirect()->away($file1);
           }
           else{
              
-            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
+            $r=JasperPHP::process(jasper_template('general_receipt_excel_compo.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
 
-            $file1= getReportUrl()."vendor/cossou/jasperphp/examples/general_receipt_excel_compo.xlsx";
+            $file1= jasper_output_url('general_receipt_excel_compo.xlsx');
 
 
             return redirect()->away($file1);
@@ -1295,46 +1295,46 @@ else{
   if($request->download_type == 'pdf'){
     if(!empty($building_name)){
       // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/tenant_payment_history.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('tenant_payment_history.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/tenant_payment_history.jrxml'),false,array('pdf'),array("user" => $user,"building_name" => $building_name,"logo" => $logo,"unit_id"=>$unit_name,"tenant_id"=> $tenant_name),$db)->execute();
+$r=JasperPHP::process(jasper_template('tenant_payment_history.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"building_name" => $building_name,"logo" => $logo,"unit_id"=>$unit_name,"tenant_id"=> $tenant_name),$db)->execute();
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/tenant_payment_history.pdf";
+$file= jasper_output_url('tenant_payment_history.pdf');
 return redirect()->away($file);
 print_r($r);
 
 }else{
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/tenant_payment_history_all.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('tenant_payment_history_all.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/tenant_payment_history_all.jrxml'),false,array('pdf'),array("user" => $user,"building_name" => $building_name,"logo" => $logo,"unit_id"=>$unit_name,"tenant_id"=> $tenant_name),$db)->execute();
+$r=JasperPHP::process(jasper_template('tenant_payment_history_all.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"building_name" => $building_name,"logo" => $logo,"unit_id"=>$unit_name,"tenant_id"=> $tenant_name),$db)->execute();
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/tenant_payment_history_all.pdf";
+$file= jasper_output_url('tenant_payment_history_all.pdf');
 return redirect()->away($file);
 print_r($r);
 }  
 }else{
     if(!empty($building_name)){
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/tenant_payment_history_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('tenant_payment_history_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/tenant_payment_history_excel.jrxml'),false,array('xlsx'),array("user" => $user,"building_name" => $building_name,"logo" => $logo,"unit_id"=>$unit_name,"tenant_id"=> $tenant_name),$db)->execute();
+$r=JasperPHP::process(jasper_template('tenant_payment_history_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"building_name" => $building_name,"logo" => $logo,"unit_id"=>$unit_name,"tenant_id"=> $tenant_name),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/tenant_payment_history_excel.xlsx";
+$file1= jasper_output_url('tenant_payment_history_excel.xlsx');
 
 
 return redirect()->away($file1);
 }else{
   // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/tenant_payment_history_all_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('tenant_payment_history_all_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/tenant_payment_history_all_excel.jrxml'),false,array('xlsx'),array("user" => $user,"building_name" => $building_name,"logo" => $logo,"unit_id"=>$unit_name,"tenant_id"=> $tenant_name),$db)->execute();
+$r=JasperPHP::process(jasper_template('tenant_payment_history_all_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"building_name" => $building_name,"logo" => $logo,"unit_id"=>$unit_name,"tenant_id"=> $tenant_name),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/tenant_payment_history_all_excel.xlsx";
+$file1= jasper_output_url('tenant_payment_history_all_excel.xlsx');
 
 
 return redirect()->away($file1);
@@ -1370,25 +1370,25 @@ public function legalRentAmountReportPdf(Request $request){
   if($request->download_type == 'pdf'){
 
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_amount_collected_through_legalcase.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('rent_amount_collected_through_legalcase.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_amount_collected_through_legalcase.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('rent_amount_collected_through_legalcase.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
 //$file= base_path(). "/vendor/cossou/jasperphp/examples/rent_amount_collected_through_legalcase.pdf";
 //return response()->file($file); 
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_amount_collected_through_legalcase.pdf";
+$file= jasper_output_url('rent_amount_collected_through_legalcase.pdf');
        // dd($file);
 return redirect()->away($file);
 print_r($r);
 }else{
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_amount_collected_through_legalcase_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('rent_amount_collected_through_legalcase_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_amount_collected_through_legalcase_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('rent_amount_collected_through_legalcase_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_amount_collected_through_legalcase_excel.xlsx";
+$file1= jasper_output_url('rent_amount_collected_through_legalcase_excel.xlsx');
 
 
 return redirect()->away($file1);
@@ -1950,23 +1950,23 @@ public function tenantReceivablesReportPdf(Request $request){
 
     if( !empty($Date2) && empty($buildingname) && empty($buildingno) && empty($tenantname) && empty($managementtypesname) && empty($employee_name)){ //Mandotory
      // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_date.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('R19RentReceivableasonDate_date.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_date.jrxml'),false,array('pdf'),array("user" => $user,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('R19RentReceivableasonDate_date.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_date.pdf";
+$file= jasper_output_url('R19RentReceivableasonDate_date.pdf');
 return redirect()->away($file);
 print_r($r);
 }
 else{
 /*      // Compile a JRXML to Jasper
-$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_Combo.jrxml'))->execute();
+$a=JasperPHP::compile(jasper_template('R19RentReceivableasonDate_Combo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_Combo.jrxml'),false,array('pdf'),array("user" => $user,"buildingname" => $buildingname,"buildingno" => $buildingno,"tenantname" => $tenantname,"managementtypesname" => $managementtypesname,"employeename" => $employee_name,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('R19RentReceivableasonDate_Combo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"buildingname" => $buildingname,"buildingno" => $buildingno,"tenantname" => $tenantname,"managementtypesname" => $managementtypesname,"employeename" => $employee_name,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_Combo.pdf";
+$file= jasper_output_url('R19RentReceivableasonDate_Combo.pdf');
 return redirect()->away($file);
 print_r($r);
 }  
@@ -1976,21 +1976,21 @@ print_r($r);
   if( !empty($Date2) && empty($buildingname) && empty($buildingno) && empty($tenantname) && empty($managementtypesname) && empty($employee_name)){
    //dd(4);
 // Compile a JRXML to Jasper
-    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_excel_date.jrxml'))->execute();
+    /*$a=JasperPHP::compile(jasper_template('R19RentReceivableasonDate_excel_date.jrxml'))->execute();
     print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_excel_date.jrxml'),false,array('xlsx'),array("user" => $user,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('R19RentReceivableasonDate_excel_date.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_excel_date.xlsx";
+$file1= jasper_output_url('R19RentReceivableasonDate_excel_date.xlsx');
 return redirect()->away($file1);
 }else{
 // Compile a JRXML to Jasper
- /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_excel_combo.jrxml'))->execute();
+ /* $a=JasperPHP::compile(jasper_template('R19RentReceivableasonDate_excel_combo.jrxml'))->execute();
   print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_excel_combo.jrxml'),false,array('xlsx'),array("user" => $user,"buildingname" => $buildingname,"buildingno" => $buildingno,"tenantname" => $tenantname,"managementtypesname" => $managementtypesname,"employeename" => $employee_name,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('R19RentReceivableasonDate_excel_combo.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"buildingname" => $buildingname,"buildingno" => $buildingno,"tenantname" => $tenantname,"managementtypesname" => $managementtypesname,"employeename" => $employee_name,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/R19RentReceivableasonDate_excel_combo.xlsx";
+$file1= jasper_output_url('R19RentReceivableasonDate_excel_combo.xlsx');
 return redirect()->away($file1);
 }
 }  
@@ -2760,38 +2760,38 @@ public function chequeReturnReportPdf(Request $request){
     if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($employee_name)){ //Mandotory
 
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/cheque_return_statement.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('cheque_return_statement.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/cheque_return_statement.jrxml'),false,array('pdf'),array("username" => $username,"building_name" => $building_name,"employee_name" => $employee_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/cheque_return_statement.pdf";
+$r=JasperPHP::process(jasper_template('cheque_return_statement.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"building_name" => $building_name,"employee_name" => $employee_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$file= jasper_output_url('cheque_return_statement.pdf');
 return redirect()->away($file);
 print_r($r);
 }else{
   // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/cheque_return_statement_compo.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('cheque_return_statement_compo.jrxml'))->execute();
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/cheque_return_statement_compo.jrxml'),false,array('pdf'),array("username" => $username,"building_name" => $building_name,"employee_name" => $employee_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/cheque_return_statement_compo.pdf";
+$r=JasperPHP::process(jasper_template('cheque_return_statement_compo.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"building_name" => $building_name,"employee_name" => $employee_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$file= jasper_output_url('cheque_return_statement_compo.pdf');
 return redirect()->away($file);
 print_r($r);
 }  
 }else{
 
    if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($employee_name)){ //Mandotory
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/cheque_return_statement_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('cheque_return_statement_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/cheque_return_statement_excel.jrxml'),false,array('xlsx'),array("username" => $username,"building_name" => $building_name,"employee_name" => $employee_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/cheque_return_statement_excel.xlsx";
+$r=JasperPHP::process(jasper_template('cheque_return_statement_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"building_name" => $building_name,"employee_name" => $employee_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$file1= jasper_output_url('cheque_return_statement_excel.xlsx');
     return redirect()->away($file1);
   }else{
-   /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/cheque_return_statement_excel_compo.jrxml'))->execute();
+   /* $a=JasperPHP::compile(jasper_template('cheque_return_statement_excel_compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/cheque_return_statement_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"building_name" => $building_name,"employee_name" => $employee_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/cheque_return_statement_excel_compo.xlsx";
+$r=JasperPHP::process(jasper_template('cheque_return_statement_excel_compo.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"building_name" => $building_name,"employee_name" => $employee_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$file1= jasper_output_url('cheque_return_statement_excel_compo.xlsx');
     return redirect()->away($file1);
   }
 }
@@ -2830,63 +2830,63 @@ public function unitTakeoverReportPdf(Request $request){
 
     if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($Date3)){ //Mandotory
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_date.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('unit_take_over_status_date.jrxml'))->execute();
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_date.jrxml'),false,array('pdf'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('unit_take_over_status_date.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/unit_take_over_status_date.pdf";
+$file= jasper_output_url('unit_take_over_status_date.pdf');
 return redirect()->away($file);
 print_r($r);  
 }
 else if(!empty($Date1) && !empty($Date2) && empty(!$building_name) && empty($Date3)){
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_compo.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('unit_take_over_status_compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_compo.jrxml'),false,array('pdf'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('unit_take_over_status_compo.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/unit_take_over_status_compo.pdf";
+$file= jasper_output_url('unit_take_over_status_compo.pdf');
 return redirect()->away($file);
 print_r($r);
 }
 else{
   // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_compo.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('unit_take_over_status_compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_compo.jrxml'),false,array('pdf'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"Date3" => $Date3,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('unit_take_over_status_compo.jrxml'), jasper_output_dir(),array('pdf'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"Date3" => $Date3,"logo" => $logo),$db)->execute();
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/unit_take_over_status_compo.pdf";
+$file= jasper_output_url('unit_take_over_status_compo.pdf');
 return redirect()->away($file);
 print_r($r);
 }
 }else{
 
   if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($Date3)){ //Mandotory
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_excel_date.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('unit_take_over_status_excel_date.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_excel_date.jrxml'),false,array('xlsx'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('unit_take_over_status_excel_date.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/unit_take_over_status_excel_date.xlsx";
+$file1= jasper_output_url('unit_take_over_status_excel_date.xlsx');
 return redirect()->away($file1);
 }else if(!empty($Date1) && !empty($Date2) && empty(!$building_name) && empty($Date3)){
-  /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_excel_compo.jrxml'))->execute();
+  /*$a=JasperPHP::compile(jasper_template('unit_take_over_status_excel_compo.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+    $r=JasperPHP::process(jasper_template('unit_take_over_status_excel_compo.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-    $file1= getReportUrl()."vendor/cossou/jasperphp/examples/unit_take_over_status_excel_compo.xlsx";
+    $file1= jasper_output_url('unit_take_over_status_excel_compo.xlsx');
     return redirect()->away($file1);
   }
 else{
-    /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_excel_compo.jrxml'))->execute();
+    /*$a=JasperPHP::compile(jasper_template('unit_take_over_status_excel_compo.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/unit_take_over_status_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"Date3" => $Date3,"logo" => $logo),$db)->execute();
+    $r=JasperPHP::process(jasper_template('unit_take_over_status_excel_compo.jrxml'), jasper_output_dir(),array('xlsx'),array("username" => $username,"building_name" => $building_name,"Date1" => $Date1,"Date2" => $Date2,"Date3" => $Date3,"logo" => $logo),$db)->execute();
 
-    $file1= getReportUrl()."vendor/cossou/jasperphp/examples/unit_take_over_status_excel_compo.xlsx";
+    $file1= jasper_output_url('unit_take_over_status_excel_compo.xlsx');
     return redirect()->away($file1);
   }
 }
@@ -2918,27 +2918,27 @@ public function legalCaseReportPdf(Request $request){
   if($request->download_type == 'pdf'){
 
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/legal_case.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('legal_case.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/legal_case.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('legal_case.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
 //$file= base_path(). "/vendor/cossou/jasperphp/examples/legal_case.pdf";
 //return response()->file($file); 
 
 
-$file= getReportUrl()."vendor/cossou/jasperphp/examples/legal_case.pdf";
+$file= jasper_output_url('legal_case.pdf');
        // dd($file);
 return redirect()->away($file);
 print_r($r);  
 }
 else{
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/legal_case_excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('legal_case_excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-$r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/legal_case_excel.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+$r=JasperPHP::process(jasper_template('legal_case_excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
 
-$file1= getReportUrl()."vendor/cossou/jasperphp/examples/legal_case_excel.xlsx";
+$file1= jasper_output_url('legal_case_excel.xlsx');
     return redirect()->away($file1);  
 }
 }  
@@ -3030,43 +3030,43 @@ if(isset($request->download_type)){
 
        if(!empty($Date1) && !empty($Date2) && empty($building_name)){ //Mandotory
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Rental_Income.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Rental_Income.jrxml'))->execute();
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Rental_Income.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('Rental_Income.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"logo" => $logo),$db)->execute();
  
-  $file= getReportUrl()."vendor/cossou/jasperphp/examples/Rental_Income.pdf";
+  $file= jasper_output_url('Rental_Income.pdf');
 return redirect()->away($file);
      //  print_r($r);
      }
        else{
         // Compile a JRXML to Jasper
-/* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Rental_Income_Compo.jrxml'))->execute();
+/* $a=JasperPHP::compile(jasper_template('Rental_Income_Compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-      $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Rental_Income_Compo.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+      $r=JasperPHP::process(jasper_template('Rental_Income_Compo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
      
-     $file= getReportUrl()."vendor/cossou/jasperphp/examples/Rental_Income_Compo.pdf";
+     $file= jasper_output_url('Rental_Income_Compo.pdf');
 return redirect()->away($file);
       // print_r($r);
        }
    }else{
 
     if(!empty($Date1) && !empty($Date2) && empty($building_name)){ //Mandotory
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Rental_Income_Excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Rental_Income_Excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Rental_Income_Excel.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('Rental_Income_Excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-       $file1= getReportUrl()."vendor/cossou/jasperphp/examples/Rental_Income_Excel.xlsx";
+       $file1= jasper_output_url('Rental_Income_Excel.xlsx');
     return redirect()->away($file1);
   }else{
-      /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Rental_Income_Excel_Compo.jrxml'))->execute();
+      /*$a=JasperPHP::compile(jasper_template('Rental_Income_Excel_Compo.jrxml'))->execute();
 print_r($a);*/ 
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-     $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Rental_Income_Excel_Compo.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+     $r=JasperPHP::process(jasper_template('Rental_Income_Excel_Compo.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-       $file1= getReportUrl()."vendor/cossou/jasperphp/examples/Rental_Income_Excel_Compo.xlsx";
+       $file1= jasper_output_url('Rental_Income_Excel_Compo.xlsx');
     return redirect()->away($file1);
    }
   }
@@ -3114,43 +3114,43 @@ if(isset($request->download_type)){
 
        if(!empty($Date1) && !empty($Date2) && empty($building_name)){ //Mandotory
 // Compile a JRXML to Jasper
-/* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Summary.jrxml'))->execute();
+/* $a=JasperPHP::compile(jasper_template('Expense_Details_Summary.jrxml'))->execute();
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-      $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Summary.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+      $r=JasperPHP::process(jasper_template('Expense_Details_Summary.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
  
-  $file= getReportUrl()."vendor/cossou/jasperphp/examples/Expense_Details_Summary.pdf";
+  $file= jasper_output_url('Expense_Details_Summary.pdf');
 return redirect()->away($file);
       // print_r($r);
      }
        else{
         // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Summary_Compo.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Expense_Details_Summary_Compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Summary_Compo.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('Expense_Details_Summary_Compo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
      
-     $file= getReportUrl()."vendor/cossou/jasperphp/examples/Expense_Details_Summary_Compo.pdf";
+     $file= jasper_output_url('Expense_Details_Summary_Compo.pdf');
 return redirect()->away($file);
       // print_r($r);
        }
    }else{
 
     if(!empty($Date1) && !empty($Date2) && empty($building_name)){ //Mandotory
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Summary_Excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Expense_Details_Summary_Excel.jrxml'))->execute();
 print_r($a);*/ 
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Summary_Excel.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('Expense_Details_Summary_Excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-       $file1= getReportUrl()."vendor/cossou/jasperphp/examples/Expense_Details_Summary_Excel.xlsx";
+       $file1= jasper_output_url('Expense_Details_Summary_Excel.xlsx');
     return redirect()->away($file1);
   }else{
-  /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Summary_Excel_Compo.jrxml'))->execute();
+  /*  $a=JasperPHP::compile(jasper_template('Expense_Details_Summary_Excel_Compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Summary_Excel_Compo.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('Expense_Details_Summary_Excel_Compo.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-       $file1= getReportUrl()."vendor/cossou/jasperphp/examples/Expense_Details_Summary_Excel_Compo.xlsx";
+       $file1= jasper_output_url('Expense_Details_Summary_Excel_Compo.xlsx');
     return redirect()->away($file1);
    }
   }
@@ -3162,43 +3162,43 @@ print_r($a); */
 
        if(!empty($Date1) && !empty($Date2) && empty($building_name)){ //Mandotory
 // Compile a JRXML to Jasper
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Expense_Details.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Expense_Details.jrxml'))->execute();
 print_r($a);*/
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Expense_Details.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('Expense_Details.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
  
-  $file= getReportUrl()."vendor/cossou/jasperphp/examples/Expense_Details.pdf";
+  $file= jasper_output_url('Expense_Details.pdf');
 return redirect()->away($file);
       // print_r($r);
      }
        else{
         // Compile a JRXML to Jasper
- /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Compo.jrxml'))->execute();
+ /*$a=JasperPHP::compile(jasper_template('Expense_Details_Compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-      $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Compo.jrxml'),false,array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+      $r=JasperPHP::process(jasper_template('Expense_Details_Compo.jrxml'), jasper_output_dir(),array('pdf'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
      
-     $file= getReportUrl()."vendor/cossou/jasperphp/examples/Expense_Details_Compo.pdf";
+     $file= jasper_output_url('Expense_Details_Compo.pdf');
 return redirect()->away($file);
        print_r($r);
        }
    }else{
 
     if(!empty($Date1) && !empty($Date2) && empty($building_name)){ //Mandotory
-/*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Excel.jrxml'))->execute();
+/*$a=JasperPHP::compile(jasper_template('Expense_Details_Excel.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Excel.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('Expense_Details_Excel.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-       $file1= getReportUrl()."vendor/cossou/jasperphp/examples/Expense_Details_Excel.xlsx";
+       $file1= jasper_output_url('Expense_Details_Excel.xlsx');
     return redirect()->away($file1);
   }else{
-   /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Excel_Compo.jrxml'))->execute();
+   /* $a=JasperPHP::compile(jasper_template('Expense_Details_Excel_Compo.jrxml'))->execute();
 print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-       $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/Expense_Details_Excel_Compo.jrxml'),false,array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
+       $r=JasperPHP::process(jasper_template('Expense_Details_Excel_Compo.jrxml'), jasper_output_dir(),array('xlsx'),array("user" => $user,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"logo" => $logo),$db)->execute();
 
-       $file1= getReportUrl()."vendor/cossou/jasperphp/examples/Expense_Details_Excel_Compo.xlsx";
+       $file1= jasper_output_url('Expense_Details_Excel_Compo.xlsx');
     return redirect()->away($file1);
    }
   }
