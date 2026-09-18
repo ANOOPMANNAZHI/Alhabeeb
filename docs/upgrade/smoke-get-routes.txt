@@ -1,0 +1,3 @@
+checked=424 failures=1 unimplemented-create-scaffolds=15
+plmsApproval => 500 PLMS
+scaffolds: invoice.create, pdc.create, contract-details.create, complaintStage.create, amcTask.create, tenancyDetails.create, legalCase.create, leadAssign.create, tenantContract.create, salesActivities.create, landlordLeadAssign.create, landloardLeadAssign.create, landlordLead.create, settings.create, logs.create

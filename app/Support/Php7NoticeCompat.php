@@ -27,6 +27,7 @@ class Php7NoticeCompat
         '/^Attempt to read property "[^"]+" on (null|bool|int|float|string|array)$/',
         '/^Trying to access array offset on (value of type )?(null|bool|int|float)$/',
         '/^Trying to get property .* of non-object$/',
+        '/^foreach\(\) argument must be of type array\|object, /',
     ];
 
     /** @var array<string,true> */

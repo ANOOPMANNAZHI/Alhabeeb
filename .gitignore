@@ -24,3 +24,4 @@ cronLog.txt
 /storage/reports_tmp/*
 !/storage/reports_tmp/.gitignore
 /.phpunit.cache
+/docs/upgrade/smoke-progress.log

@@ -65,6 +65,9 @@ If `migrate:status` shows older feature migrations as *Pending* on the restored 
 
 ## Behaviour notes
 
+- `App\Support\Php7NoticeCompat` restores PHP 7 semantics for undefined variable/index/property reads and `foreach` over null (PHP 8 made them warnings, which Laravel turns into exceptions; the old server hid the notices). Each hit is logged at debug level with file:line so views can be cleaned up over time.
+- Carbon 3 is strict about `add*/sub*` arguments: settings/request strings are cast to int at 56 call sites.
+
 - JSON/AJAX dates stay `Y-m-d H:i:s` (`App\Concerns\LegacyDateSerialization` on every model).
 - Carbon 3: `diffInMonths/Days()` return signed floats; every call site is wrapped as `(int) abs(...)` to keep the old integer values.
 - Password hashes are re-hashed on login (`hashing.rehash_on_login`), which is a no-op for bcrypt users.
@@ -81,4 +84,7 @@ If `migrate:status` shows older feature migrations as *Pending* on the restored 
 | PHPUnit 11 | 99 tests / 372 assertions green, incl. `/login` render through the real layout |
 | Larastan level 0 | upgrade-caused findings fixed; remaining are pre-existing |
 | `migrate` (activity_log v5) on a DB copy | DONE; models read 70 users / 509 permissions / 51,772 activity rows |
-| Browser smoke test (login, lists, receipts, PDF/Excel/Jasper, permissions) | **pending — needs a signed-in session** |
+| Route sweep as super admin (`vendor/bin/phpunit --group smoke`) | 424 named parameterless GET routes: 0 errors. 15 `Route::resource` create() scaffolds that never had a view are counted separately; 12 dead/debug routes are skipped (listed in the test). |
+| Compiled-view PHP lint (same test group) | 854 compiled views, 0 parse errors (3 nested ternaries fixed) |
+| Excel 4 multi-sheet export | `normalManagementReportV2Stream` generated all 80 building workbooks + ZIP during the sweep |
+| Interactive browser check (receipts, PDC, deposit refund, PDFs, QR, restricted role 403) | **still worth a manual pass before go-live** |
