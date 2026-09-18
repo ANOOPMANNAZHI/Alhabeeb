@@ -7,10 +7,29 @@
   .insp .card-box { border-radius: var(--i-radius); }
   .insp .card-box:hover { transform:none; }
 
-  /* Snapshot */
-  .insp .i-snap { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 24px; padding: 6px 0 4px; }
-  .insp .i-snap-item .i-lbl { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--i-muted); margin-bottom:2px; }
-  .insp .i-snap-item .i-val { font-size:14px; font-weight:600; word-break:break-word; }
+  /* Identity strip: building / unit / contract — same layout as the taken-over view */
+  .insp .i-id { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
+  .insp .i-id-tile { border:1px solid var(--i-line); border-radius:var(--i-radius); padding:16px; background:#fff; min-width:0; }
+  .insp .i-id-tile .i-lbl { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--i-muted); margin-bottom:8px; }
+  .insp .i-id-tile .i-big { display:block; font-size:20px; line-height:1.3; font-weight:800; color:var(--i-ink); word-break:break-word; }
+  .insp .i-id-tile .i-meta { display:block; font-size:13px; color:var(--i-muted); margin-top:4px; word-break:break-word; }
+  .insp .i-id-tile.i-id-primary { border-color:var(--i-blue); background:var(--i-blue-soft); }
+  @media (max-width: 900px) { .insp .i-id { grid-template-columns:1fr; } }
+
+  /* Details: label/value table, two pairs per row on wide screens */
+  .insp .i-group { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--i-blue); border-top:1px solid var(--i-line); padding-top:12px; margin:16px 0 8px; }
+  .insp .i-group:first-child { border-top:0; margin-top:0; padding-top:0; }
+  .insp table.i-details { width:100%; margin:0; border-collapse:collapse; }
+  .insp table.i-details th, .insp table.i-details td { padding:8px 12px; border-bottom:1px solid var(--i-line); vertical-align:top; font-size:14px; }
+  .insp table.i-details th { width:18%; font-size:12px; font-weight:600; color:var(--i-muted); text-align:left; white-space:nowrap; background:var(--i-bg); }
+  .insp table.i-details td { width:32%; font-weight:600; word-break:break-word; }
+  .insp table.i-details tr:last-child th, .insp table.i-details tr:last-child td { border-bottom:0; }
+  @media (max-width: 900px) {
+    .insp table.i-details, .insp table.i-details tbody, .insp table.i-details tr, .insp table.i-details th, .insp table.i-details td { display:block; width:auto; }
+    .insp table.i-details th { border-bottom:0; padding-bottom:2px; background:transparent; }
+  }
+  .insp .i-head .i-title { font-size:22px; }
+  .insp .i-head .i-os { margin-top:8px; font-size:14px; }
   .insp .i-pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
   .insp .i-pill-ok { background:transparent; border:0; color:#166534; padding-left:0; padding-right:0; } .insp .i-pill-warn { background:transparent; border:0; color:#991b1b; padding-left:0; padding-right:0; }
   .insp .i-head { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 18px 6px; }
@@ -46,6 +65,8 @@
   .insp .i-section-head:first-child { margin-top:0; }
   .insp .i-step-no { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--i-blue); color:#fff; font-size:12px; font-weight:700; }
   .insp .i-section-head .i-hint { margin-left:auto; font-size:12px; font-weight:500; color:var(--i-muted); }
+  .insp .i-auto-hint { font-size:11px; font-weight:500; color:var(--i-muted); margin-top:2px; }
+  .insp .i-auto-detail { color:#991b1b; }
   .insp .i-field label { display:block; font-size:12px; font-weight:600; color:var(--i-muted); margin-bottom:4px; }
   .insp .form-control { min-height:var(--i-tap); border-radius:6px; }
   .insp .form-control:focus { border-color:var(--i-blue); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
@@ -158,16 +179,18 @@
   <div class="card card-box">
     <div class="i-head">
       <div>
-        <h3 class="i-title">{{ $tc->tenant_contract_no }} <small class="i-sub">· {{ $tc->tenant->tenant_name }}</small></h3>
-        <div class="i-sub">{{ $tc->building->building_name }} · Unit {{ $tc->unit->unit_no }} · {{ optional($tc->unit->unit)->unit_types_name }}</div>
+        <h3 class="i-title">{{ $tc->tenant->tenant_name }}</h3>
+        <div class="i-sub">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</div>
+        <div class="i-os">
+          @if($outstandingOs > 0)
+            <span class="i-pill i-pill-warn" title="Outstanding rent {{ numberFormat($outstandingOs) }} OMR">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
+          @else
+            <span class="i-pill i-pill-ok">No outstanding</span>
+          @endif
+        </div>
       </div>
       <div class="i-actions">
         <button type="button" class="btn btn-circle btn-primary" data-toggle="modal" data-target="#insp_photo_modal"><i class="fa fa-camera" aria-hidden="true"></i> Photos <span class="i-tab-badge i-tab-badge-muted" id="insp_photo_count">{{ count($terminationDocument) }}</span></button>
-        @if($outstandingOs > 0)
-          <span class="i-pill i-pill-warn" title="Outstanding rent {{ numberFormat($outstandingOs) }} OMR">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
-        @else
-          <span class="i-pill i-pill-ok">No outstanding</span>
-        @endif
         @if($termination->termination_review_status == 2)
         @can('termination_taken_over')
         <a href="{{ route('tenantTerminationStage', [$termination->id, $termination->tenantContract->id, $termination->work_flow_processes_code, 'ACPT']) }}" class="btn btn-circle btn-primary" title="TakenOver">TakeOver</a>
@@ -175,21 +198,52 @@
         @endif
       </div>
     </div>
-    <div class="card-body">
-      <div class="i-snap">
-        <div class="i-snap-item"><span class="i-lbl">Mobile</span><span class="i-val">{{ $tc->tenant->tenant_contact_no ?: 'NA' }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Building No</span><span class="i-val">{{ $tc->building->building_no ?: 'NA' }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Location</span><span class="i-val">{{ optional(optional($tc->building)->location)->locations_name ?? 'NA' }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Way No</span><span class="i-val">{{ $tc->building->building_address ?? 'NA' }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Tenancy start</span><span class="i-val">{{ $fmtDate(optional($tenancyStartDt)->tenant_contract_start_date) }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Tenancy end</span><span class="i-val">{{ $fmtDate($tc->tenant_contract_valid_to_date) }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Last paid up to</span><span class="i-val">{{ $fmtDate($tc->tenant_contract_last_paid_date) }}</span></div>
-        @if($duration)<div class="i-snap-item"><span class="i-lbl">Total duration</span><span class="i-val">{{ $duration }}</span></div>@endif
-        <div class="i-snap-item"><span class="i-lbl">Termination date</span><span class="i-val">{{ $fmtDate($termination->termination_date) }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Taken over date</span><span class="i-val">{{ $fmtDate($termination->termination_takenover_date) }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Prev. deposit cheque</span><span class="i-val">{{ !empty($depositeCheque) ? $depositeCheque->pdc_check_no . ' · ' . numberFormat($depositeCheque->pdc_amt) . ' OMR' : 'N/A' }}</span></div>
-        <div class="i-snap-item"><span class="i-lbl">Remark</span><span class="i-val">{{ $termination->termination_remark ?? 'NA' }}</span></div>
+    {{-- Where and which contract: building / unit / contract --}}
+    <div class="i-id">
+      <div class="i-id-tile i-id-primary">
+        <span class="i-lbl">Building</span>
+        <span class="i-big">{{ $tc->building->building_name }}</span>
+        <span class="i-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_no) ? ' · Bldg No ' . $tc->building->building_no : '' }}{{ !empty($tc->building->building_address) ? ' · Way ' . $tc->building->building_address : '' }}</span>
       </div>
+      <div class="i-id-tile">
+        <span class="i-lbl">Unit</span>
+        <span class="i-big">{{ $tc->unit->unit_no }}</span>
+        <span class="i-meta">{{ optional($tc->unit->unit)->unit_types_name ?? 'Type NA' }}{{ !empty($tc->unit->vacant_status_name) ? ' · ' . $tc->unit->vacant_status_name : '' }}</span>
+      </div>
+      <div class="i-id-tile">
+        <span class="i-lbl">Contract</span>
+        <span class="i-big">{{ $tc->tenant_contract_no }}</span>
+        <span class="i-meta"><span class="i-pill" style="background:var(--i-line)">{{ $tc->tenant_contract_status_name }}</span></span>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="i-group">Tenancy</div>
+      <table class="i-details">
+        <tr>
+          <th>Tenancy start</th><td>{{ $fmtDate(optional($tenancyStartDt)->tenant_contract_start_date) }}</td>
+          <th>Tenancy end</th><td>{{ $fmtDate($tc->tenant_contract_valid_to_date) }}</td>
+        </tr>
+        <tr>
+          <th>Rent</th><td>{{ $tc->tenant_contract_rent ? numberFormat($tc->tenant_contract_rent) . ' OMR' : 'NA' }}{{ !empty($tc->tenant_contract_payment_name) ? ' · ' . $tc->tenant_contract_payment_name : '' }}</td>
+          <th>Total duration</th><td>{{ $duration ?: 'NA' }}</td>
+        </tr>
+        <tr>
+          <th>Last paid up to</th><td>{{ $fmtDate($tc->tenant_contract_last_paid_date) }}</td>
+          <th>Deposit cheque no &amp; amount</th><td>{{ !empty($depositeCheque) ? $depositeCheque->pdc_check_no . ' · ' . numberFormat($depositeCheque->pdc_amt) . ' OMR' : 'N/A' }}</td>
+        </tr>
+      </table>
+
+      <div class="i-group">Termination</div>
+      <table class="i-details">
+        <tr>
+          <th>Termination date</th><td>{{ $fmtDate($termination->termination_date) }}</td>
+          <th>Taken over date</th><td>{{ $fmtDate($termination->termination_takenover_date) }}</td>
+        </tr>
+        <tr>
+          <th>Remark</th><td colspan="3">{{ $termination->termination_remark ?? 'NA' }}</td>
+        </tr>
+      </table>
 
       <details class="i-more">
         <summary>Previous contracts &amp; open-for-termination documents</summary>
@@ -365,11 +419,23 @@
             <table class="table i-check" id="insp_other_table">
               <thead><tr><th style="width:56px"><span class="sr-only">Select</span></th><th>Charge</th><th style="width:120px">Qty</th><th class="num" style="width:160px">Amount (OMR)</th></tr></thead>
               <tbody>
+              @php
+                // Rent and Municipal Tax are pre-filled from the contract (see
+                // TenantTerminationController::inspectionOtherChargeSuggestions);
+                // a submitted (old) value always wins over the suggestion.
+                $suggestKey = ['Rent' => 'rent', 'Muncipal Tax' => 'municipal_tax'];
+              @endphp
               @foreach([['Others', true], ['Rent', false], ['Muncipal Tax', false], ['Any Other Charges', true]] as $j => $other)
+                @php
+                  $hint = isset($suggestKey[$other[0]]) ? ($suggested[$suggestKey[$other[0]]] ?? null) : null;
+                  $suggestedAmt = ($hint && $hint['amount'] > 0) ? number_format($hint['amount'], 3, '.', '') : '';
+                  $amtValue = old('addinspectionAmount_' . $j, old('_token') ? '' : $suggestedAmt);
+                  $checked  = old('_token') ? (bool) old('addinspectionOther_' . $j) : $suggestedAmt !== '';
+                @endphp
                 <tr class="i-row i-other-row">
                   <td>
                     <label class="i-tick" for="insp_other_{{ $j }}">
-                      <input type="checkbox" id="insp_other_{{ $j }}" name="addinspectionOther_{{ $j }}" value="{{ old('addinspectionOther_' . $j, $other[0]) }}" class="i-chk i-other-chk" {{ old('addinspectionOther_' . $j) ? 'checked' : '' }}>
+                      <input type="checkbox" id="insp_other_{{ $j }}" name="addinspectionOther_{{ $j }}" value="{{ old('addinspectionOther_' . $j, $other[0]) }}" class="i-chk i-other-chk" {{ $checked ? 'checked' : '' }}>
                       <span class="i-box"></span>
                       <span class="sr-only">Select {{ $other[0] }}</span>
                     </label>
@@ -379,10 +445,12 @@
                       <input type="text" class="form-control i-desc i-other-desc" value="{{ old('addinspectionOther_' . $j, $other[0]) }}" data-default="{{ $other[0] }}" aria-label="Description" placeholder="{{ $other[0] }} — describe">
                     @else
                       {{ $other[0] === 'Muncipal Tax' ? 'Municipal Tax' : $other[0] }}
+                      @if($hint)<div class="i-hint i-auto-hint">{{ $hint['note'] }}</div>@endif
+                      @if(!empty($hint['detail']))<div class="i-hint i-auto-hint i-auto-detail">{{ $hint['detail'] }}</div>@endif
                     @endif
                   </td>
                   <td><input type="text" inputmode="decimal" name="addinspectionQuantity_{{ $j }}" class="form-control num i-qty" value="{{ old('addinspectionQuantity_' . $j) }}" aria-label="Quantity"></td>
-                  <td><input type="text" inputmode="decimal" name="addinspectionAmount_{{ $j }}" class="form-control num i-money i-other-amt" value="{{ old('addinspectionAmount_' . $j) }}" placeholder="0.000" aria-label="Amount"></td>
+                  <td><input type="text" inputmode="decimal" name="addinspectionAmount_{{ $j }}" class="form-control num i-money i-other-amt" value="{{ $amtValue }}" placeholder="0.000" aria-label="Amount"></td>
                 </tr>
               @endforeach
               </tbody>

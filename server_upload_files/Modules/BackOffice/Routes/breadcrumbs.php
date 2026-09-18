@@ -811,6 +811,11 @@ Breadcrumbs::for('showLegalReceivablesReportV2', function ($trail) {
     $trail->push('Legal Receivable v2', route('showLegalReceivablesReportV2'));
 });
 
+Breadcrumbs::for('showTenantAgingReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Tenant Aging Report', route('showTenantAgingReport'));
+});
+
 Breadcrumbs::for('showNormalManagementReportV2', function ($trail) {
     $trail->parent('home');
     $trail->push('Normal Management Report v2', route('showNormalManagementReportV2'));
@@ -839,6 +844,16 @@ Breadcrumbs::for('landlord-invoice-v2.edit', function ($trail) {
 Breadcrumbs::for('landlord-invoice-v2.show', function ($trail, $invoice) {
     $trail->parent('landlord-invoice-v2.index');
     $trail->push($invoice->invoice_no, route('landlord-invoice-v2.show', $invoice));
+});
+
+Breadcrumbs::for('termination-dues.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Termination Dues', route('termination-dues.index'));
+});
+
+Breadcrumbs::for('termination-dues.show', function ($trail, $dues) {
+    $trail->parent('termination-dues.index');
+    $trail->push(optional($dues->tenantContract)->tenant_contract_no ?: ('Dues #' . $dues->id), route('termination-dues.show', $dues->id));
 });
 
 Breadcrumbs::for('showchequeReturnReport', function ($trail) {

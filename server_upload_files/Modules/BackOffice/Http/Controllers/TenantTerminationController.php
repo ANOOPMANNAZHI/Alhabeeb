@@ -40,6 +40,10 @@ use Illuminate\Support\Facades\Mail;
 use Modules\BackOffice\Emails\TerminationTenantEmail;
 use Modules\BackOffice\Emails\InspectionSendEmail;
 use Modules\BackOffice\Events\TenantTerminationReferBack;
+use Modules\BackOffice\Services\MunicipalTaxCalculator;
+use Modules\BackOffice\Services\UnpaidRentPeriod;
+use Modules\BackOffice\Services\TerminationDuesService;
+use Modules\BackOffice\Services\RentOutstanding;
 
 class TenantTerminationController extends Controller
 {
@@ -175,7 +179,7 @@ class TenantTerminationController extends Controller
       $osAmount   = 0 ;
 	  $terminationDate      = $request['termination_date'];
       // Outstanding Creation 
-      $sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$contractId)->where('receipts_generation_approval_status',3)->sum('receipts_generation_amt');
+      $sumOfReceipt   = RentOutstanding::paidForContract($contractId); // approved or posted, not cancelled/deleted
       //$remainAmt = contractRentCountCalculation($tenantContract->tenant_contract_effective_date,$today, $tenantContract->tenant_contract_rent );
 	  $remainAmt = totalContractRentCountCalculation($contractId,$terminationDate);
       // Minus from Rent receipt
@@ -297,7 +301,7 @@ class TenantTerminationController extends Controller
      $osAmount   = 0 ;
 	 $terminationDate = $termination->termination_date;
      // Outstanding Creation 
-     $sumOfReceipt = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$id)->where('receipts_generation_approval_status',3)->sum('receipts_generation_amt');
+     $sumOfReceipt = RentOutstanding::paidForContract($id); // approved or posted, not cancelled/deleted
     // $remainAmt = contractRentCountCalculation($tenantContract->tenant_contract_effective_date,$today, $tenantContract->tenant_contract_rent );
      $remainAmt = totalContractRentCountCalculation($id,$terminationDate);
 	 // Minus from Rent receipt
@@ -432,7 +436,7 @@ class TenantTerminationController extends Controller
 
       $tenantContract = TenantContract::where('id',$contractId)->first();
 
-      $sumOfReceipt = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$contractId)->where('receipts_generation_approval_status',3)->sum('receipts_generation_amt');
+      $sumOfReceipt = RentOutstanding::paidForContract($contractId); // approved or posted, not cancelled/deleted
       // Till Now Amount
       //$remainAmt = contractRentCountCalculation($tenantContract->tenant_contract_effective_date,$today, $tenantContract->tenant_contract_rent );
       $terminationDate = Termination::where('id',$terminationId)->first()->termination_date;
@@ -580,6 +584,15 @@ class TenantTerminationController extends Controller
 
     $contracts = TenantContract::where('id',$termination->contract_id)->first();
     $contractUpdate = TenantContract::where('id',$termination->contract_id)->update(['tenant_contract_status'=>0,'tenant_renewal_termination_status'=>8]);
+
+    // Outstanding rent / tax / E&W / maintenance becomes a tracked receivable
+    // instead of a receipt nobody has paid. Never blocks the termination.
+    try {
+      (new TerminationDuesService)->createForTermination($termination, \Auth::user()->id);
+    } catch (\Exception $e) {
+      \Log::error('TerminationDues create failed for contract '.$termination->contract_id.': '.$e->getMessage());
+    }
+
     $unitUpdate = Unit::where('id',$contracts->unit_id)->update(['unit_vaccant_status'=>0]);
 
           //Remaining pdc and invoices cancel    
@@ -1038,7 +1051,7 @@ class TenantTerminationController extends Controller
 	  $terminationDate      = $termination->termination_date;
      $osAmount   = 0 ;
       // Outstanding Creation
-      $sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$termination->contract_id)->where('receipts_generation_approval_status',3)->sum('receipts_generation_amt');
+      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
          $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
       // Minus from Rent receipt
       $osAmount = $remainAmt - $sumOfReceipt;
@@ -1559,7 +1572,7 @@ class TenantTerminationController extends Controller
 		$terminationDate      = $termination->termination_date;
       $osAmount   = 0 ;
       // Outstanding Creation
-      $sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$termination->contract_id)->where('receipts_generation_approval_status',3)->sum('receipts_generation_amt');
+      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
          $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
       // Minus from Rent receipt
       $osAmount = $remainAmt - $sumOfReceipt;
@@ -1612,7 +1625,7 @@ class TenantTerminationController extends Controller
     $terminationDate      = $termination->termination_date;
       $osAmount   = 0 ;
       // Outstanding Creation
-      $sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$termination->contract_id)->where('receipts_generation_approval_status',3)->sum('receipts_generation_amt');
+      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
          $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
       // Minus from Rent receipt
       $osAmount = $remainAmt - $sumOfReceipt;
@@ -1667,7 +1680,7 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
 	   $terminationDate      = $termination->termination_date;
       $osAmount   = 0 ;
       // Outstanding Creation
-      $sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$termination->contract_id)->where('receipts_generation_approval_status',3)->sum('receipts_generation_amt');
+      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
          $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
       // Minus from Rent receipt
       $osAmount = $remainAmt - $sumOfReceipt;
@@ -1682,9 +1695,59 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
       }
     }
 
-     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt'));
+     $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $outstandingOs, $totalOutstanding);
+
+     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
 
    }
+
+    /**
+     * Pre-filled values for the "Other charges" tab of the inspection:
+     * rent = outstanding rent as on the termination date (already computed
+     * for the page), municipal tax = MunicipalTaxCalculator rule using the
+     * municipal_tax_percentage setting.
+     *
+     * @return array ['rent' => ['amount', 'note'], 'municipal_tax' => ['amount', 'note']]
+     */
+    private function inspectionOtherChargeSuggestions($tenantContract, $termination, $outstandingOs, $previousContractsOs = 0)
+    {
+      $setting = prefixData(MunicipalTaxCalculator::SETTING_KEY);
+      $rate    = $setting ? (float) $setting->configuration_value : 0;
+      $tax     = MunicipalTaxCalculator::forTermination($tenantContract, $termination, $rate);
+
+      $rent = max((float) $outstandingOs, 0);
+
+      // Which months make up the outstanding rent, so the inspector can verify it
+      $paidTill = ReceiptsGeneration::where('tenant_contract_id', $tenantContract->id)
+        ->where('receipts_generation_type', 0)
+        ->whereIn('receipts_generation_approval_status', RentOutstanding::COUNTED_APPROVAL)
+        ->where('receipts_generation_status', '<>', RentOutstanding::STATUS_CANCELLED)
+        ->whereNull('deleted_at')
+        ->max('receipts_generation_eff_to');
+      $period = UnpaidRentPeriod::describe(
+        $tenantContract->tenant_contract_effective_date, $paidTill, $termination->termination_date
+      );
+      $thisContractOs = round((float) $outstandingOs - (float) $previousContractsOs, 3);
+      $rentDetail = $period['label'];
+      if ($previousContractsOs > 0) {
+        $rentDetail .= ($rentDetail ? ' · ' : '') . 'includes ' . number_format($previousContractsOs, 3) . ' outstanding from earlier contract(s) on this unit';
+      }
+
+      return [
+        'rent' => [
+          'amount' => round($rent, 3),
+          'note'   => $rent > 0
+            ? 'Outstanding rent as on ' . ($termination->termination_date ? date('d/m/Y', strtotime($termination->termination_date)) : 'termination date')
+            : 'No outstanding rent',
+          'detail' => $rentDetail,
+          'this_contract' => $thisContractOs,
+        ],
+        'municipal_tax' => [
+          'amount' => $tax['amount'],
+          'note'   => $rate > 0 ? $tax['note'] : 'Municipal tax percentage not set in General Settings',
+        ],
+      ];
+    }
     /*
     *
     *
@@ -1728,7 +1791,7 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
 	  $terminationDate      = $termination->termination_date;
       $osAmount   = 0 ;
       // Outstanding Creation
-      $sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$termination->contract_id)->where('receipts_generation_approval_status',3)->sum('receipts_generation_amt');
+      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
          $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
       // Minus from Rent receipt
       $osAmount = $remainAmt - $sumOfReceipt;
@@ -1740,7 +1803,9 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
         $totalOtherAmt+= $total;
       }
     }
-      return view('backoffice::Termination.tenant_termination_handover_assigned_inspection_edit',compact('tenantContract','works','termination','terminationDocument','groupedWork','arry','otherArray','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt'));
+      $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $outstandingOs, $totalOutstanding);
+
+      return view('backoffice::Termination.tenant_termination_handover_assigned_inspection_edit',compact('tenantContract','works','termination','terminationDocument','groupedWork','arry','otherArray','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
 
     }
     /*
@@ -2865,6 +2930,14 @@ public function terminateResubmitOrTerminateModalAction(Request $request)
 
     $contractUpdate = TenantContract::where('id',$termination->contract_id)->update(['tenant_contract_status'=>0,'tenant_renewal_termination_status'=>8]);
 
+    // Outstanding rent / tax / E&W / maintenance becomes a tracked receivable
+    // instead of a receipt nobody has paid. Never blocks the termination.
+    try {
+      (new TerminationDuesService)->createForTermination($termination, \Auth::user()->id);
+    } catch (\Exception $e) {
+      \Log::error('TerminationDues create failed for contract '.$termination->contract_id.': '.$e->getMessage());
+    }
+
     $unitUpdate = Unit::where('id',$contracts->unit_id)->update(['unit_vaccant_status'=>0]);
 
       //Remaining pdc and invoices cancel    
@@ -3118,40 +3191,29 @@ event(new TenantTerminationReferBack($termination,$users));
 
 
   /***  OutStanding OS    *****/
+  /**
+   * Rent outstanding as on the contract's latest termination date.
+   * Whole months x rent, less approved/posted rent receipts — see RentOutstanding.
+   */
   public function outstandingOs($contractId){
 
-      $tenantContract = TenantContract::where('id',$contractId)->first();
-
-      $today      = date('Y-m-d');
-
-      $sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)
-            ->where('tenant_contract_id',$contractId)
-            ->where('receipts_generation_approval_status',3)
-            ->sum('receipts_generation_amt');
-
-     // $remainAmt = contractRentCountCalculation($tenantContract->tenant_contract_effective_date,$today, $tenantContract->tenant_contract_rent );
-	 
-            $termination = Termination::where('id',$tenantContract->terminationContract->id)->orderBy('id','desc')->first();
-            $terminationDate = $termination->termination_date;
-            $remainAmt = totalContractRentCountCalculation($contractId,$terminationDate);
-
-
-      // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt;
-
-     return $osAmount;
+      return RentOutstanding::amountForContract($contractId);
 
   }
+
+  /**
+   * Outstanding on a previous contract of the same unit: full contract value
+   * (duration x rent) less approved/posted rent receipts.
+   */
 public function outstandingOsAmount($contractId){
 
-  $sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)
-            ->where('tenant_contract_id',$contractId)
-            ->where('receipts_generation_approval_status',3)
-            ->sum('receipts_generation_amt');
             $tenantContract = TenantContract::where('id',$contractId)->first();
+            if (!$tenantContract) {
+                return 0;
+            }
             $rentAmount = $tenantContract->tenant_contract_duration * $tenantContract->tenant_contract_rent;
-            $osAmount = $rentAmount - $sumOfReceipt;
-            return $osAmount;
+            $osAmount = $rentAmount - RentOutstanding::paidForContract($contractId);
+            return $osAmount > 0 ? round($osAmount, 3) : 0;
 
 }
 

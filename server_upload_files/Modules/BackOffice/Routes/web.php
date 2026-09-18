@@ -745,6 +745,10 @@ Route::middleware('auth')->group(function () {
 
 	Route::post('legalReceivablesReportPdfV2', 'BackOfficeReportController@legalReceivablesReportPdfV2')->name('legalReceivablesReportPdfV2');
 
+	Route::get('showTenantAgingReport', 'BackOfficeReportController@showTenantAgingReport')->name('showTenantAgingReport');
+
+	Route::post('tenantAgingReportPdf', 'BackOfficeReportController@tenantAgingReportPdf')->name('tenantAgingReportPdf');
+
 	Route::get('showNormalManagementReportV2', 'BackOfficeReportController@showNormalManagementReportV2')->name('showNormalManagementReportV2');
 
 	Route::post('normalManagementReportV2Generate', 'BackOfficeReportController@normalManagementReportV2Generate')->name('normalManagementReportV2Generate');
@@ -764,6 +768,16 @@ Route::middleware('auth')->group(function () {
 	Route::get('landlord-invoice-v2-overview-preview', 'LandlordInvoiceV2Controller@overviewPreview')->name('landlordInvoiceV2OverviewPreview');
 	Route::get('landlord-invoice-v2/{landlordInvoiceV2}/print', 'LandlordInvoiceV2Controller@print')->name('landlordInvoiceV2Print');
 	Route::post('landlord-invoice-v2/{landlordInvoiceV2}/post', 'LandlordInvoiceV2Controller@post')->name('landlordInvoiceV2Post');
+
+	// Termination dues: what terminated tenants still owe, by team
+	Route::get('termination-dues', 'TerminationDuesController@index')->name('termination-dues.index');
+	Route::get('termination-dues-summary', 'TerminationDuesController@summary')->name('terminationDuesSummary');
+	Route::get('termination-dues/{terminationDues}', 'TerminationDuesController@show')->name('termination-dues.show');
+	Route::post('termination-dues/{terminationDues}/followup', 'TerminationDuesController@storeFollowup')->name('termination-dues.followup');
+	Route::post('termination-dues/{terminationDues}/allocate', 'TerminationDuesController@storeAllocation')->name('termination-dues.allocate');
+	Route::post('termination-dues/{terminationDues}/waive', 'TerminationDuesController@storeWaiver')->name('termination-dues.waive');
+	Route::delete('termination-dues/{terminationDues}/allocation/{allocation}', 'TerminationDuesController@destroyAllocation')->name('termination-dues.allocation.destroy');
+	Route::get('termination-dues/{terminationDues}/print', 'TerminationDuesController@print')->name('termination-dues.print');
 
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 
