@@ -412,7 +412,7 @@ public function scopeLandlordReview($query,$request){
   $review_days = $request->review_days; 
   if(!empty($request->review_days)&&($request->review_days!='all')){
           $dt = Carbon::now(); // Produces something like "2020-01-27 16:02:47.063656 Asia/Muscat (+04:00)"
-          $dt->subDays($review_days);
+          $dt->subDays((int) $review_days);
           $query->where(function ($query)use($dt){
            $query->where('landlord_approval_date','<=',$dt);
            return $query;

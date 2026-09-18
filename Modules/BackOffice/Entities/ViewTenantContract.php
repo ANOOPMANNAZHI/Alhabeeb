@@ -403,7 +403,7 @@ public function scopeReceivables($query,$request){
 */
 public function scopeExpiringContracts($query,$request){    
   $expdays = $request->expdays;
-  $nextExpDays = Carbon::today()->addDays($expdays);
+  $nextExpDays = Carbon::today()->addDays((int) $expdays);
   $today = date('Y-m-d');
   if(!empty($request->expdays)){
    $query->where(function ($query)use($nextExpDays,$today){
@@ -421,7 +421,7 @@ public function scopeExpiringContracts($query,$request){
 public function scopeGracePeriod($query,$request){    
   $gracePeriod = $request->grace_period;
    $today = date('Y-m-d');
-  $nextDays = Carbon::today()->subDays($gracePeriod);
+  $nextDays = Carbon::today()->subDays((int) $gracePeriod);
   if(!empty($request->grace_period)){
    $query->where(function ($query)use($nextDays,$today){
      $query->whereDate('tenant_contract_valid_to_date','>=',$nextDays)->whereDate('tenant_contract_valid_to_date','<=',$today);
@@ -436,7 +436,7 @@ public function scopeGracePeriod($query,$request){
 public function scopeUnderPenalty($query,$request){    
   $underPenalty = $request->under_penalty;
   $today = date('Y-m-d');
-  $nextDays = Carbon::today()->subDays($underPenalty);
+  $nextDays = Carbon::today()->subDays((int) $underPenalty);
   if(!empty($request->under_penalty)){
    $query->where(function ($query)use($nextDays,$today){
      $query->whereDate('tenant_contract_valid_to_date','<',$nextDays);
@@ -551,7 +551,7 @@ public function tenant(){
 */
 public function scopeTenantVacatting($query,$request){    
   $vaccatingdays = $request->vaccatingdays;
-  $nextDays = Carbon::today()->addDays($vaccatingdays);
+  $nextDays = Carbon::today()->addDays((int) $vaccatingdays);
    $today = date('Y-m-d');
   if(!empty($request->vaccatingdays)){
     $query->whereHas('terminationContract',function ($query)use($nextDays){

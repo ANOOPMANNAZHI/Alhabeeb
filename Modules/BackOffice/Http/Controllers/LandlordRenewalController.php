@@ -76,7 +76,7 @@ class LandlordRenewalController extends Controller
                               ->first()->configuration_value;
 
       $current = Carbon::now(); 
-      $futureDate = $current->addMonths($config_data)->format('Y-m-d');
+      $futureDate = $current->addMonths((int) $config_data)->format('Y-m-d');
 
       $renewalDues = LandlordContract::filter($request)
                                       ->where('landlord_contract_status',1)

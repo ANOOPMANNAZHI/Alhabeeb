@@ -655,7 +655,7 @@ public function scopeMaintainedLandlord($query,$request){
 */
 public function scopeMaintenancePending($query,$request){
   $oneWeek = $request->days;
-  $nextExpDays = Carbon::today()->subDays($oneWeek);
+  $nextExpDays = Carbon::today()->subDays((int) $oneWeek);
   if(isset($request->days)){
     $query->whereDate('created_at','<=',$nextExpDays)->where('complaint_status','!=',2);
     return $query;
@@ -686,7 +686,7 @@ public function scopeMaintenanceFilter($query){
   $headUser = \Auth::user()->id;
 
   $oneWeek = 7;
-  $nextExpDays = Carbon::today()->subDays($oneWeek);
+  $nextExpDays = Carbon::today()->subDays((int) $oneWeek);
 
   if($role_count == 1 && $user->hasRole('are')){        
    $query->where(function ($query)use($nextExpDays){

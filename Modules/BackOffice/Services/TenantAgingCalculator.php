@@ -38,8 +38,8 @@ class TenantAgingCalculator
         foreach (self::BUCKETS as $key => $def) {
             $out[$key] = [
                 'label' => $def[0],
-                'from'  => $def[2] === null ? null : $asOn->copy()->subDays($def[2])->toDateString(),
-                'to'    => $asOn->copy()->subDays($def[1])->toDateString(),
+                'from'  => $def[2] === null ? null : $asOn->copy()->subDays((int) $def[2])->toDateString(),
+                'to'    => $asOn->copy()->subDays((int) $def[1])->toDateString(),
             ];
         }
         return $out;

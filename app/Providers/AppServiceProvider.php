@@ -14,6 +14,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        // Legacy views/controllers rely on PHP 7 notice semantics
+        \App\Support\Php7NoticeCompat::register();
+
         //SideMenu
         view()->composer('layouts.sidebar',function($view){
             $view->with('sideMenu',\App\Http\Controllers\HomeController::menuListing());

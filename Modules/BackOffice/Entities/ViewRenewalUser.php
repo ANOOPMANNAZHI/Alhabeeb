@@ -222,7 +222,7 @@ class ViewRenewalUser extends Model
 */
 public function scopePendingApprovals($query,$request){  
 	$renewalDays = $request->renewal_days;
-	$nextDays = Carbon::today()->subDays($renewalDays);
+	$nextDays = Carbon::today()->subDays((int) $renewalDays);
 	if(!empty($request->renewal_days)){
 		$query->where(function ($query)use($nextDays){
 			$query->whereDate('created_at','<=',$nextDays);
@@ -287,10 +287,10 @@ public function scopeNotRegisteredInMunicipality($query,$request){
 
 
 	$noDays = $request->no_days;
-	$nextDays = Carbon::today()->subDays($noDays);
+	$nextDays = Carbon::today()->subDays((int) $noDays);
 	if(!empty($request->no_days)){
 		$query->where(function ($query)use($noDays){
-		  $query->whereDate('created_at', '<=', Carbon::now()->subDays($noDays)->toDateString())
+		  $query->whereDate('created_at', '<=', Carbon::now()->subDays((int) $noDays)->toDateString())
 			   ->where('tenant_contract_is_reg_municipality','!=',1);
 			return $query;
 		});	

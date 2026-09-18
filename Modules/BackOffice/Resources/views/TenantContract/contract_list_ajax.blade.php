@@ -7,7 +7,7 @@
 
 $editFlag = false;
 if(isset($title))
-$curr_url =  route('leadAssign.revokeProcess',[$route,$contract->sale_enquiry_id,$contract->work_flow_processes_code]);
+$curr_url =  route('leadAssign.revokeProcess',[$route,$contract->sale_enquiry_id,$contract->work_flow_processes_code ?? 0]);
 elseif($contract->work_flow_processes_code <= 107 && $contract->tennat_contract_direct_indirect_status == 1 && auth()->user()->can('edit_tenant_contract_direct')
 && $contract->tenant_contract_status != 1) { 
 $curr_url = route('tenant-contract.edit',$contract->id);
@@ -123,7 +123,7 @@ $curr_url = route('tenant-contract.show',$contract->id);
         @endif
         @endif
         @if(isset($title))
-        <a  href="{{route('leadAssign.revokeProcess',[$route,$contract->sale_enquiry_id,$contract->work_flow_processes_code])}}" class="btn btn-tbl-view btn-xs" title="View">
+        <a  href="{{route('leadAssign.revokeProcess',[$route,$contract->sale_enquiry_id,$contract->work_flow_processes_code ?? 0])}}" class="btn btn-tbl-view btn-xs" title="View">
           <i class="fa fa-eye"></i>
         </a>
         @if(!$pendingPage)

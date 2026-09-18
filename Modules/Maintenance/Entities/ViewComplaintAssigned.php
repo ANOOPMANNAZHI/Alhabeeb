@@ -320,7 +320,7 @@ public function scopeAssignedComplaint($query,$request){
   $userId = User::role(['maintenance_engineer'])->pluck('id'); 
   if(!empty($request->hours)&&($request->hours!='all')){
           $dt = Carbon::now(); // Produces something like "2020-01-27 16:02:47.063656 Asia/Muscat (+04:00)"
-          $dt->subHour($hours);
+          $dt->subHour((int) $hours);
           $query->where(function ($query)use($userId,$dt){
            $query->whereIn('assigned_to',$userId)->where('created_at','<=',$dt);
            return $query;
@@ -373,7 +373,7 @@ public function scopeAssignedComplaintSupervisor($query,$request){
   $time = $request->time; 
   if(!empty($request->time)&&($request->time!='all')){
           $dt = Carbon::now(); // Produces something like "2020-01-27 16:02:47.063656 Asia/Muscat (+04:00)"
-          $dt->subHour($time);
+          $dt->subHour((int) $time);
           $query->where(function ($query)use($dt){
            $query->where('assigned_to_type',0)->where('created_at','<=',$dt);
            return $query;
@@ -411,7 +411,7 @@ public function scopeAssignedComplaintSubcontractor($query,$request){
   $sub_open_days = $request->sub_open_days; 
   if(!empty($request->sub_open_days)&&($request->sub_open_days!='all')){
           $dt = Carbon::now(); // Produces something like "2020-01-27 16:02:47.063656 Asia/Muscat (+04:00)"
-          $dt->subDays($sub_open_days);
+          $dt->subDays((int) $sub_open_days);
           $query->where(function ($query)use($dt){
            $query->where('assigned_to_type',1)->where('created_at','<=',$dt);
            return $query;

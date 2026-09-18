@@ -439,7 +439,7 @@ return ['count' => $receivables, 'href' => route('receivables').'?areUser_id='.$
 			->orWhere(function($query)use($day) {		             
 				$query->where('unit_vaccant_status',0)
 				->whereHas('tenantContract', function($query) use($day){
-					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
 					->where('tenant_contract_status',0)
 					->doesntHave('tenantContractOld');
 				});
@@ -455,7 +455,7 @@ return ['count' => $receivables, 'href' => route('receivables').'?areUser_id='.$
 			->orWhere(function($query)use($day) {
 				$query->where('unit_vaccant_status',0)
 				->whereHas('tenantContract', function($query) use($day){
-					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
 					->where('tenant_contract_status',0)
 					->doesntHave('tenantContractOld');
 				});
@@ -1094,7 +1094,7 @@ public function openAssignedComplaintCount(){
 		}else{
 			$hours = $request->hours;
 		$dt = Carbon::now(); // Produces something like "2020-01-27 16:02:47.063656 Asia/Muscat (+04:00)"
-		$dt->subHour($hours); 
+		$dt->subHour((int) $hours); 
 		$userId = User::role(['maintenance_engineer'])->pluck('id');
 
 		$openAssignedComplaints = ViewComplaintAssigned::where('work_flow_processes_code', '=', 702)->where('process_workflow', '=', 702)->whereIn('ticket_status',[0,1,3])->assignedComplaint($request)->select('id')->groupBy('id')->distinct()->get()->count();
@@ -1144,7 +1144,7 @@ public function openAssignedComplaintSubcontractor(Request $request){
 public function pendingApprovals(Request $request){
 	
 	$renewalDays = $request->renewal_days;
-	$nextDays = Carbon::today()->subDays($renewalDays);
+	$nextDays = Carbon::today()->subDays((int) $renewalDays);
 	$tenantRenewal = ViewRenewalUser::areFilter()
 	->select('renewal_id','new_contract_id','old_contract_id','renewal_type','work_flow_processes_code','status','renewal_notes','building_name','tenant_name','unit_code','id','tenant_contract_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_contract_status','tenant_contract_muncipality_agr_no','tenant_renewal_termination_status')
 	->groupBy('renewal_id','new_contract_id','old_contract_id','renewal_type','work_flow_processes_code','status','renewal_notes','building_name','tenant_name','unit_code','id','tenant_contract_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_contract_status','tenant_contract_muncipality_agr_no','tenant_renewal_termination_status')
@@ -1166,7 +1166,7 @@ public function pendingApprovals(Request $request){
 	public function underPenaltyCount(){
 		$underPenalty = 30;
 		$today = date('Y-m-d');
-		$nextDays = Carbon::today()->subDays($underPenalty);
+		$nextDays = Carbon::today()->subDays((int) $underPenalty);
 		$underPenaltyCount = ViewTenantContract::areFilter()->where('tenant_penalty_invoice_amt','>',0)->whereDate('tenant_contract_valid_to_date','<',$nextDays)->count();
 		return $underPenaltyCount;
 	}
@@ -1446,7 +1446,7 @@ public function  areDashboard(Request $request,$dashboard = false){
 
 
 		$oneWeek = 7;
-		$nextExpDays = Carbon::today()->subDays($oneWeek);
+		$nextExpDays = Carbon::today()->subDays((int) $oneWeek);
 		$maintenancePendingCount = ComplaintEnquiry::areFilter()->whereDate('created_at','<=',$nextExpDays)->where('complaint_status','!=',2)->count();
 
 
@@ -1460,7 +1460,7 @@ public function  areDashboard(Request $request,$dashboard = false){
 		$gracePeriod = 30;
 		$today = date('Y-m-d');
 
-		$nextDays = Carbon::today()->subDays($gracePeriod);
+		$nextDays = Carbon::today()->subDays((int) $gracePeriod);
 
 		$gracePeriodCount = ViewTenantContract::where('tenant_contract_status','=',1)->areDashloadFilter()->directIndirect($request)->whereDate('tenant_contract_valid_to_date','>=',$nextDays)->whereDate('tenant_contract_valid_to_date','<=',$today)->count();
 
@@ -1478,7 +1478,7 @@ public function  areDashboard(Request $request,$dashboard = false){
 
 $underPenalty = 30;
 $today = date('Y-m-d');
-$nextDays = Carbon::today()->subDays($underPenalty);
+$nextDays = Carbon::today()->subDays((int) $underPenalty);
 $underPenaltyCount = ViewTenantContract::tenantContract()->areFilter()->directIndirect($request)->whereDate('tenant_contract_valid_to_date','<',$nextDays)->count();
 
 
@@ -1933,7 +1933,7 @@ return ['count' => $unregisteredContractsCount];
 
 $gracePeriod = 30;
 $today = date('Y-m-d');
-$nextDays = Carbon::today()->subDays($gracePeriod);
+$nextDays = Carbon::today()->subDays((int) $gracePeriod);
 $gracePeriodCount = ViewTenantContract::tenantContract()->areFilter()->directIndirect($request)->whereDate('tenant_contract_valid_to_date','>=',$nextDays)->whereDate('tenant_contract_valid_to_date','<=',$today)->count();
 
 
@@ -1949,7 +1949,7 @@ return ['count' => $gracePeriodCount];
 
 $underPenalty = 30;
 $today = date('Y-m-d');
-$nextDays = Carbon::today()->subDays($underPenalty);
+$nextDays = Carbon::today()->subDays((int) $underPenalty);
 $underPenaltyCount = ViewTenantContract::tenantContract()->areFilter()->directIndirect($request)->whereDate('tenant_contract_valid_to_date','<',$nextDays)->count();
 
 
@@ -2232,7 +2232,7 @@ public function  areTeamLeadDashboard(Request $request,$dashboard = false){
 
 $gracePeriod = 30;
 $today = date('Y-m-d');
-$nextDays = Carbon::today()->subDays($gracePeriod);
+$nextDays = Carbon::today()->subDays((int) $gracePeriod);
 $gracePeriodCount = ViewTenantContract::tenantContract()->areFilter()->directIndirect($request)->whereDate('tenant_contract_valid_to_date','>=',$nextDays)->whereDate('tenant_contract_valid_to_date','<=',$today)->count();
 
 
@@ -2250,7 +2250,7 @@ if($count_type == 'underPenaltyCount' || $dashboard == true){
 
 $underPenalty = 30;
 $today = date('Y-m-d');
-$nextDays = Carbon::today()->subDays($underPenalty);
+$nextDays = Carbon::today()->subDays((int) $underPenalty);
 $underPenaltyCount = ViewTenantContract::tenantContract()->areFilter()->directIndirect($request)->whereDate('tenant_contract_valid_to_date','<',$nextDays)->count();
 
 
@@ -2606,7 +2606,7 @@ public function  salesHeadDashboard(Request $request,$dashboard = false){
 			->orWhere(function($query)use($day) {		             
 				$query->where('unit_vaccant_status',0)
 				->whereHas('tenantContract', function($query) use($day){
-					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
 					->where('tenant_contract_status',0)
 					->doesntHave('tenantContractOld');
 				});
@@ -2622,7 +2622,7 @@ public function  salesHeadDashboard(Request $request,$dashboard = false){
 			->orWhere(function($query)use($day) {
 				$query->where('unit_vaccant_status',0)
 				->whereHas('tenantContract', function($query) use($day){
-					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
 					->where('tenant_contract_status',0)
 					->doesntHave('tenantContractOld');
 				});
@@ -2993,7 +2993,7 @@ return ['count' => $activeCasesCount];
 
 $gracePeriod = 30;
 $today = date('Y-m-d');
-$nextDays = Carbon::today()->subDays($gracePeriod);
+$nextDays = Carbon::today()->subDays((int) $gracePeriod);
 
 $gracePeriodCount = ViewTenantContract::tenantContract()->areFilter()->directIndirect($request)->whereDate('tenant_contract_valid_to_date','>=',$nextDays)->whereDate('tenant_contract_valid_to_date','<=',$today)->count();
 
@@ -3011,7 +3011,7 @@ return ['count' => $gracePeriodCount ];
 
 $underPenalty = 30;
 $today = date('Y-m-d');
-$nextDays = Carbon::today()->subDays($underPenalty);
+$nextDays = Carbon::today()->subDays((int) $underPenalty);
 $underPenaltyCount = ViewTenantContract::tenantContract()->areFilter()->directIndirect($request)->whereDate('tenant_contract_valid_to_date','<',$nextDays)->count();
 
 
@@ -3793,7 +3793,7 @@ return json_encode($sale);
 		if($count_type == 'maintenancePendingCount' || $dashboard == true){ 
 
 			$oneWeek = 7;
-			$nextExpDays = Carbon::today()->subDays($oneWeek);
+			$nextExpDays = Carbon::today()->subDays((int) $oneWeek);
 			$maintenancePendingCount = ComplaintEnquiry::areFilter()->whereDate('created_at','<=',$nextExpDays)->where('complaint_status','!=',2)->count();
 
 
@@ -3934,7 +3934,7 @@ return json_encode($sale);
 				->orWhere(function($query)use($day) {		             
 					$query->where('unit_vaccant_status',0)
 					->whereHas('tenantContract', function($query) use($day){
-						$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+						$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
 						->where('tenant_contract_status',0)
 						->doesntHave('tenantContractOld');
 					});
@@ -3951,7 +3951,7 @@ return json_encode($sale);
 				->orWhere(function($query)use($day) {
 					$query->where('unit_vaccant_status',0)
 					->whereHas('tenantContract', function($query) use($day){
-						$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+						$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
 						->where('tenant_contract_status',0)
 						->doesntHave('tenantContractOld');
 					});
@@ -5332,7 +5332,7 @@ public function getVacantUnitsLoc(Request $request){
 			->orWhere(function($query)use($day) {		             
 				$query->where('unit_vaccant_status',0)
 				->whereHas('tenantContract', function($query) use($day){
-					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
 					->where('tenant_contract_status',0)
 					->doesntHave('tenantContractOld');
 				});
@@ -5351,7 +5351,7 @@ public function getVacantUnitsLoc(Request $request){
 			->orWhere(function($query)use($day) {
 				$query->where('unit_vaccant_status',0)
 				->whereHas('tenantContract', function($query) use($day){
-					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+					$query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
 					->where('tenant_contract_status',0)
 					->doesntHave('tenantContractOld');
 				});

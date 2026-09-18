@@ -857,7 +857,7 @@ public function scopeReceivables($query,$request){
 public function scopeExpiringContracts($query,$request){    
     $expdays = $request->expdays;
     $today = date('Y-m-d');
-    $nextExpDays = Carbon::today()->addDays($expdays);
+    $nextExpDays = Carbon::today()->addDays((int) $expdays);
     $query->where(function ($query)use($today,$nextExpDays){
        $query->whereDate('tenant_contract_valid_to_date','<',$nextExpDays);
        return $query;
@@ -873,7 +873,7 @@ public function scopeGracePeriodContracts($query){
     $expdays = 30;
     //dd($expdays);
     $today = date('Y-m-d');
-    $nextExpDays = Carbon::today()->addDays($expdays);
+    $nextExpDays = Carbon::today()->addDays((int) $expdays);
   //  dd($nextExpDays);
     $query->where(function ($query)use($today,$expdays){
       // $query->whereDate('tenant_contract_valid_to_date','<=',$today);

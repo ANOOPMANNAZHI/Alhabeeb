@@ -205,7 +205,7 @@ class TenantTerminationController extends Controller
           $month = 12;
           break;
         }
-        $futurePaymentDate = $tenant_contract_last_paid_date->addMonths($month)->format('Y-m-d');
+        $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
         if($futurePaymentDate < date('Y-m-d')){
           $os = 'Yes' ;
         }else{
@@ -475,7 +475,7 @@ class TenantTerminationController extends Controller
             $month = 12;
             break;
           }
-          $futurePaymentDate = $tenant_contract_last_paid_date->addMonths($month)->format('Y-m-d');
+          $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
           if($futurePaymentDate < date('Y-m-d')){
             $os = 'Yes' ;
           }else{
@@ -1255,7 +1255,7 @@ class TenantTerminationController extends Controller
            $month = 12;
            break;
          }
-         $futurePaymentDate = $tenant_contract_last_paid_date->addMonths($month)->format('Y-m-d');
+         $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
          if($futurePaymentDate < date('Y-m-d')){
            $os = 'Yes' ;
          }else{
@@ -1935,7 +1935,7 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
          $month = 12;
          break;
        }
-       $futurePaymentDate = $tenant_contract_last_paid_date->addMonths($month)->format('Y-m-d');
+       $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
 
        if($futurePaymentDate < date('Y-m-d')){
          $os = 'Yes' ;
@@ -2118,7 +2118,7 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
          $month = 12;
          break;
        }
-       $futurePaymentDate = $tenant_contract_last_paid_date->addMonths($month)->format('Y-m-d');
+       $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
        if($futurePaymentDate < date('Y-m-d')){
          $os = 'Yes' ;
        }else{

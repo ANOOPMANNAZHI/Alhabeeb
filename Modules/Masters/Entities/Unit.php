@@ -516,7 +516,7 @@ class Unit extends Model
   */
 public function scopeVaccatingUnits($query,$request){
   $vaccatingDays = $request->vaccating_days;
-  $nextDays = Carbon::today()->addDays($vaccatingDays);
+  $nextDays = Carbon::today()->addDays((int) $vaccatingDays);
   $today = date('Y-m-d');
   if($vaccatingDays){
    $query->whereHas('tenantContract', function ($query)use($nextDays,$today){
@@ -537,7 +537,7 @@ public function scopeVaccatingUnits($query,$request){
   */
 public function scopeVaccatingUnit($query){
   $vaccatingDays = 15;
-  $nextDays = Carbon::today()->addDays($vaccatingDays);
+  $nextDays = Carbon::today()->addDays((int) $vaccatingDays);
   $today = date('Y-m-d');
    $query->whereHas('tenantContract', function ($query)use($nextDays,$today){
            $query->whereHas('terminationContract', function ($query)use($nextDays,$today){
@@ -559,7 +559,7 @@ public function scopeVacantUnitsByDays($query,$request){
           ->orWhere(function($query)use($day) {
               $query->where('unit_vaccant_status',0)
                     ->whereHas('tenantContract', function($query) use($day){
-                      $query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays($day)->toDateString())
+                      $query->whereDate('tenant_contract_valid_to_date', '<=', Carbon::now()->subDays((int) $day)->toDateString())
                             ->where('tenant_contract_status',0)
                             ->doesntHave('tenantContractOld');
                         });

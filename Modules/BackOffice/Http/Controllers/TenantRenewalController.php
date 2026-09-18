@@ -106,7 +106,7 @@ class TenantRenewalController extends Controller
 
                           
       $current = Carbon::now(); 
-	    $futureDate = $current->addMonths($config_data)->format('Y-m-d H:i:s');
+	    $futureDate = $current->addMonths((int) $config_data)->format('Y-m-d H:i:s');
       
 	  $dueForRenewal = ViewDueRenewal::select('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email')
             ->groupBy('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email')

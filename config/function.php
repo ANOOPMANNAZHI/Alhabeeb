@@ -213,7 +213,7 @@ function prefixData($configuration_settings){
 			            $month = 12;
 			            break;
 			        }
-			        $futurePaymentDate = $tenant_contract_last_paid_date->addMonths($month)->format('Y-m-d');
+			        $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
 			        if($futurePaymentDate < date('Y-m-d')){
 			          $os = 'Yes' ;
 			          //$date .= $futurePaymentDate.$tenantContract->id;

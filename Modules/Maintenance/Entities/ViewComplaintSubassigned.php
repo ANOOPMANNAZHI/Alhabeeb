@@ -409,7 +409,7 @@ class ViewComplaintSubassigned extends Model
   $time = $request->time; 
   if(!empty($request->time)){
           $dt = Carbon::now(); // Produces something like "2020-01-27 16:02:47.063656 Asia/Muscat (+04:00)"
-          $dt->subHour($time);
+          $dt->subHour((int) $time);
           $query->where(function ($query)use($dt){
            $query->where('created_at','<=',$dt)->where('complaint_status','!=',2);
            return $query;

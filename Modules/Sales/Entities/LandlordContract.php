@@ -220,7 +220,7 @@ class LandlordContract extends Model
 	public function scopeExpiringExpired($query,$request){    
 	  $expdays = $request->expdays;
 	  $today = date('Y-m-d');
-	  $nextExpDays = Carbon::today()->addDays($expdays);
+	  $nextExpDays = Carbon::today()->addDays((int) $expdays);
 	  if(isset($request->expdays)){
 		  $query->where('management_id',1)
 		  ->where(function ($query)use($today,$nextExpDays){

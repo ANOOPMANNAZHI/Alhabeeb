@@ -25,7 +25,7 @@ class ViewTenantStage extends Model
 
     if(isset($request->count_by_day)){
 
-    $query->whereDate('sales_created_at', '<=', Carbon::now()->subDays($request->count_by_day)->toDateString());
+    $query->whereDate('sales_created_at', '<=', Carbon::now()->subDays((int) $request->count_by_day)->toDateString());
 
     }
 
@@ -58,7 +58,7 @@ class ViewTenantStage extends Model
 
     if(isset($request->count_by_assignday)){
 
-    $query->whereDate('sales_created_at', '<=', Carbon::now()->subDays($request->count_by_assignday)->toDateString());
+    $query->whereDate('sales_created_at', '<=', Carbon::now()->subDays((int) $request->count_by_assignday)->toDateString());
 
     }
 
