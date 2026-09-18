@@ -134,7 +134,7 @@ class CashTenantReportController extends Controller
         'f_payment_term' => 'tc.tenant_contract_payment_type',
     ];
 
-    private function baseQuery(Request $request = null)
+    private function baseQuery(?Request $request = null)
     {
         $areBuildingIds = $this->areBuildingIds();
 

@@ -18,6 +18,7 @@ use Modules\Sales\Entities\LandlordContract;
 use App\User;
 use DB;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redirect;
 use Illuminate\Http\Response;
 use App\Http\Controllers\Controller;
 use Modules\General\Http\Controllers\GeneralController as General ;

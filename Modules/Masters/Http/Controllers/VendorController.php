@@ -3,6 +3,7 @@
 namespace Modules\Masters\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redirect;
 use Illuminate\Http\Response;
 use App\Http\Controllers\AuthController as Controller;
 use Modules\Masters\Entities\Vendor;

@@ -23,6 +23,7 @@ use App\User;
 use DB;
 use Image;
 use Illuminate\Http\File;
+use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;

@@ -3,6 +3,7 @@
 namespace Modules\BackOffice\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Modules\Masters\Entities\Building;

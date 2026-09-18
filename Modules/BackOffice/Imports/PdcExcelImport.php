@@ -22,7 +22,7 @@ class PdcExcelImport implements ToModel,WithStartRow
     *
     * @return \Illuminate\Database\Eloquent\Model|null
     */
-    public function model(array $row)
+    public function model(array $row): array|\Illuminate\Database\Eloquent\Model|null
     {
 
         /********** Bank Name ******************/

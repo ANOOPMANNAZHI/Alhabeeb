@@ -1,0 +1,15 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+parameters:
+    level: 0
+    paths:
+        - app
+        - Modules
+        - config/function.php
+    excludePaths:
+        - Modules/*/Resources/*
+        - Modules/*/Tests/*
+        - Modules/*/Http/Controllers/bkup2422021/*
+        - app/Http/Controllers/Bkp/*
+    ignoreErrors:
+        - '#Unsafe usage of new static#'

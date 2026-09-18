@@ -10,6 +10,7 @@ use Modules\Masters\Entities\JobCategory;
 use App\User;
 use Image;
 use Illuminate\Http\File;
+use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
