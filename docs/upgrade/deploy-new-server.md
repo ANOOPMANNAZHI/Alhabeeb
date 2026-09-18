@@ -1,0 +1,84 @@
+# Deploying PLMS (Laravel 13) to the new server
+
+Branch: `platform-upgrade`. Do not deploy from `master` — it is still the Laravel 5.7 / PHP 7.x codebase.
+
+## Server requirements
+
+- **PHP 8.3 or 8.4** (CLI + FPM). Laravel 13's floor is 8.3.
+  Extensions: `pdo_pgsql`, `pgsql`, `mbstring`, `xml`, `curl`, `zip`, `gd`, `bcmath`, `intl`, `fileinfo`, `soap` (Dynamics AX), `imagick` (QR codes as PNG — without it the QR download is served as SVG).
+- Composer 2.
+- PostgreSQL 13+ client libraries.
+- **Java 11+** on `PATH` plus a JasperStarter install for the Jasper reports (see below). Node is *not* required; assets are pre-built in `public/`.
+- Web root must be `public/` (the old deployment served the project root and exposed `vendor/`).
+- Writable: `storage/`, `bootstrap/cache/`, `public/reports/`, `resources/reports/jasper/` (JasperStarter caches compiled `.jasper` files next to the `.jrxml`).
+
+## JasperStarter
+
+The Java runtime is not in git. Copy the old server's `vendor/cossou/jasperphp/src/JasperStarter/` directory (it has `bin/jasperstarter`, `lib/*.jar`, `jdbc/postgresql-*.jar`) to e.g. `/opt/jasperstarter/` and set in `.env`:
+
+```
+JASPERSTARTER_BIN=/opt/jasperstarter/bin/jasperstarter
+```
+
+If the variable is unset the code falls back to `packages/cossou/jasperphp/src/JasperStarter/bin/jasperstarter` (not present in git). Generated reports land in `public/reports/` and are served from `/reports/<file>`.
+
+Two templates referenced by Sales enquiry reports were never present on the dev machine: `enquiryReportNew.jrxml` and `enquiryReportNew_Compo.jrxml`. Copy them from the old server's `vendor/cossou/jasperphp/examples/` into `resources/reports/jasper/` if they exist there.
+
+## First deploy (git-based; `server_upload_files/` is retired)
+
+```
+git clone <repo> plms && cd plms
+git checkout platform-upgrade            # or the release tag
+cp .env.example .env                      # fill DB_*, MAIL_*, APP_URL, APP_KEY (copy APP_KEY from the old server so existing encrypted values keep working)
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force               # adds activity_log.event / attribute_changes (+ any pending feature migrations)
+php artisan storage:link
+php artisan permission:cache-reset
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+chmod -R ug+rwX storage bootstrap/cache public/reports resources/reports/jasper
+```
+
+Cron: `* * * * * cd /path/plms && php artisan schedule:run >> /dev/null 2>&1`
+
+### `.env` keys that changed
+
+| Old | New |
+|---|---|
+| `MAIL_DRIVER=smtp` | `MAIL_MAILER=smtp` (old key is ignored) |
+| — | `JASPERSTARTER_BIN=…` (see above) |
+| — | `LOG_DEPRECATIONS_CHANNEL=null` |
+| `ACTIVITY_LOGGER_ENABLED` | still honoured; `ACTIVITYLOG_ENABLED` is the new name |
+
+## Each release
+
+```
+git pull && composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+```
+
+## Data migration from the old server
+
+`pg_dump` the old database, restore it, then `php artisan migrate --force`. Only the `activity_log` columns are new; spatie/permission 8 works with the existing tables unchanged.
+
+If `migrate:status` shows older feature migrations as *Pending* on the restored DB (the old server was updated with SQL scripts rather than `migrate`), check each one before running it — most insert menu rows and would duplicate them. Mark them as run instead: `php artisan migrate --pretend` to see the SQL, then insert the filename into the `migrations` table.
+
+## Behaviour notes
+
+- JSON/AJAX dates stay `Y-m-d H:i:s` (`App\Concerns\LegacyDateSerialization` on every model).
+- Carbon 3: `diffInMonths/Days()` return signed floats; every call site is wrapped as `(int) abs(...)` to keep the old integer values.
+- Password hashes are re-hashed on login (`hashing.rehash_on_login`), which is a no-op for bcrypt users.
+- `Modules/` layout, `App\User`, route names, view names and permission names are unchanged.
+
+## Phase 1 verification record
+
+| Check | Result |
+|---|---|
+| `composer install` from a clean `vendor/` | clean (Laravel 13.32, PHP 8.4.22 locally) |
+| `php artisan about` / `module:list` | boots; 6 modules enabled |
+| Routes | 1335 registered; every baseline route name present (4 "missing" names were commented-out routes) |
+| Blade | all 814 views compile (`view:cache`) |
+| PHPUnit 11 | 99 tests / 372 assertions green, incl. `/login` render through the real layout |
+| Larastan level 0 | upgrade-caused findings fixed; remaining are pre-existing |
+| `migrate` (activity_log v5) on a DB copy | DONE; models read 70 users / 509 permissions / 51,772 activity rows |
+| Browser smoke test (login, lists, receipts, PDF/Excel/Jasper, permissions) | **pending — needs a signed-in session** |
