@@ -80,7 +80,7 @@ class TenantAgingCalculator
             $due = $unpaidFrom->copy();
             $i   = 0;
             while ($due->lte($periodEnd) && $i < 600) {
-                $days = $due->diffInDays($asOn);
+                $days = (int) abs($due->diffInDays($asOn));
                 $amounts[self::bucketFor($days)] += $rent;
                 $i++;
                 $due = $unpaidFrom->copy()->addMonthsNoOverflow($i);

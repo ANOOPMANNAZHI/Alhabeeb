@@ -108,7 +108,7 @@
     <div class="tdue-id-tile">
       <span class="k">Contract</span>
       <span class="big">{{ optional($c)->tenant_contract_no ?: '#' . $dues->tenant_contract_id }}</span>
-      <span class="meta">Terminated {{ $dues->termination_date ? $dues->termination_date->format('d/m/Y') : '—' }}{{ $dues->termination_date ? ' · ' . $dues->termination_date->diffInDays(now()) . ' days ago' : '' }}</span>
+      <span class="meta">Terminated {{ $dues->termination_date ? $dues->termination_date->format('d/m/Y') : '—' }}{{ $dues->termination_date ? ' · ' . (int) abs($dues->termination_date->diffInDays(now())) . ' days ago' : '' }}</span>
     </div>
   </div>
 

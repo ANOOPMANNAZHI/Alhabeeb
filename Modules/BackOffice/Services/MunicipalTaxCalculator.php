@@ -70,7 +70,7 @@ class MunicipalTaxCalculator
         if ($to->lte($from)) {
             return 0;
         }
-        $whole = $from->diffInMonths($to);
+        $whole = (int) abs($from->diffInMonths($to));
         $rest  = $from->copy()->addMonthsNoOverflow($whole);
         return $whole + ($rest->lt($to) ? 1 : 0);
     }

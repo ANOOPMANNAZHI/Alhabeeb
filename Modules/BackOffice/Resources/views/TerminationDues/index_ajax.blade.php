@@ -10,7 +10,7 @@
 		<td><a class="no-link" href="{{ $url }}">{{ optional(optional($c)->tenant)->tenant_name }}<span class="tdue-sub">{{ optional(optional($c)->tenant)->tenant_contact_no }}</span></a></td>
 		<td><a class="no-link" href="{{ $url }}">{{ optional(optional($c)->building)->building_name }}</a></td>
 		<td><a class="no-link" href="{{ $url }}">{{ optional(optional($c)->unit)->unit_no ?: optional(optional($c)->unit)->unit_code }}</a></td>
-		<td><a class="no-link" href="{{ $url }}">{{ $d->termination_date ? $d->termination_date->format('d/m/Y') : '-' }}@if($d->termination_date)<span class="tdue-sub">{{ $d->termination_date->diffInDays(now()) }} days ago</span>@endif</a></td>
+		<td><a class="no-link" href="{{ $url }}">{{ $d->termination_date ? $d->termination_date->format('d/m/Y') : '-' }}@if($d->termination_date)<span class="tdue-sub">{{ (int) abs($d->termination_date->diffInDays(now())) }} days ago</span>@endif</a></td>
 		<td class="num">{{ numberFormat($d->total_owed) }}</td>
 		<td class="num">{{ numberFormat($d->total_settled) }}</td>
 		<td class="num"><b>{{ numberFormat($d->balance) }}</b></td>

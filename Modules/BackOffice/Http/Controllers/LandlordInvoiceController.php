@@ -132,7 +132,7 @@ class LandlordInvoiceController extends Controller
 		//Distribution Breakup Details
         $from_date = Carbon::parse($landlordContract->landlord_contract_valid_from_date);
         $to_date = Carbon::parse($landlordContract->landlord_contract_valid_to_date);
-        $months =  $from_date->diffInMonths($to_date); //dd($months);
+        $months =  (int) abs($from_date->diffInMonths($to_date)); //dd($months);
         $months =  ($months > 0)? $months+1 : 1;
         $permonth_amt = $landlordContract->landlord_contract_amt / $months;
          // 2 - Landlords
@@ -206,7 +206,7 @@ class LandlordInvoiceController extends Controller
 
         $from_date =Carbon::parse($landlordContract->landlord_contract_valid_from_date);
          $to_date =Carbon::parse($landlordContract->landlord_contract_valid_to_date);
-         $months =   $from_date->diffInMonths($to_date);
+         $months =   (int) abs($from_date->diffInMonths($to_date));
          $months =  ($months > 0)? $months+1 : 1;
          $permonth_amt = $landlordContract->landlord_contract_amt / $months;
          $distbkparry = $this->lcontractInvoiceCalculation($from_date, $to_date , $permonth_amt);
@@ -276,7 +276,7 @@ class LandlordInvoiceController extends Controller
 
          $from_date =Carbon::parse($landlordContract->landlord_contract_valid_from_date);
          $to_date =Carbon::parse($landlordContract->landlord_contract_valid_to_date);
-         $months =   $from_date->diffInMonths($to_date);
+         $months =   (int) abs($from_date->diffInMonths($to_date));
          $months =  ($months > 0)? $months+1 : 1;
          $permonth_amt = $landlordContract->landlord_contract_amt / $months;
 
