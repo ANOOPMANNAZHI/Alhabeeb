@@ -45,6 +45,7 @@ use Modules\BackOffice\Services\UnpaidRentPeriod;
 use Modules\BackOffice\Services\TerminationDuesService;
 use Modules\BackOffice\Services\RentOutstanding;
 use Modules\BackOffice\Services\TerminationWorkflow;
+use Modules\BackOffice\Services\TerminationInspection;
 
 class TenantTerminationController extends Controller
 {
@@ -1496,184 +1497,51 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
     */
     public function terminationInspectionStore(Request $request)
     {
-   
-    	$this->validate($request, [
-          /*'addinspection' => 'required',
-          'total' => 'required', */
-          'notes' => 'required',                    
-          ]);
-      $work_id = $request['work_id'];
-      $count = $request['count'];
-      $other_count = $request['other_count'];
+      $this->validate($request, ['notes' => 'required']);
 
+      // Row writing and totals live in TerminationInspection (shared with the mobile API).
+      $termination = Termination::findOrFail($request['terminationId']);
+      TerminationInspection::saveDraft($termination, \Auth::user(), $this->inspectionPayload($request));
 
-      $next_process_id = $request['work_flow_processes_code'];
-      $contract_id = $request['contract_id'];
-      $termination_main_key_status = $request['termination_main_key_status'];
-      $terminationId = $request['terminationId'];
-      $elec_acc = $request['elec_acc'];
-      $elec_cls_read = $request['elec_cls_read'];
-      $elec_amt = replaceCommaWithDot($request['elec_amt']);
-      $water_acc = $request['water_acc'];
-      $water_cls_read = $request['water_cls_read'];
-      $water_amt = replaceCommaWithDot($request['water_amt']);
-
-      $total = replaceCommaWithDot($request['total']);
-      $elec_water_total = replaceCommaWithDot($request['elec_water_total']);
-      $maintenance_due = replaceCommaWithDot($request['maintenance_due']);
-      $net = replaceCommaWithDot($request['net']);
-      $notes = $request['notes'];
-      $general = new General;
-      $processAssign = $general->roleUsersFromProcess($next_process_id,$location_id=null,$pricerange_id=null,$tenant_status=null);
-
-      $previousProcess = Termination::where('work_flow_processes_code',$next_process_id)->where('id',$terminationId)->where('termination_type',1)->where('contract_id',$contract_id)->orderBy('id','desc')->latest()->first();
-      if($previousProcess)$previousProcess->terminationUser()->update(['status' => 0]);
-
-      $terminationTypeStatus = $previousProcess->termination_type_status;
-      $termination_remark = $previousProcess->termination_remark;
-      $termination_takenover_date = $previousProcess->termination_takenover_date;
-      $termination_date = $previousProcess->termination_date;
-      $assigned_to  = $previousProcess->assigned_to;
-        //dd($subWorks);
-        // Outstanding Creation 
-      $tenantContract = TenantContract::where('id',$contract_id)->first();
-      $tenant_contract_last_paid_date = $tenantContract->tenant_contract_last_paid_date;
-      if(empty($tenant_contract_last_paid_date)){
-       $tenant_contract_last_paid_date = $tenantContract->tenant_contract_effective_date;
-       $paymentTerm = $tenantContract->tenant_contract_payment_type;
-       switch($paymentTerm){
-         case 1:
-         $month = 1;
-         break;
-         case 2:
-         $month = 2;
-         break;
-         case 3:
-         $month = 3;
-         break;
-         case 4:
-         $month = 6;
-         break;
-         case 5:
-         $month = 12;
-         break;
-       }
-       $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
-
-       if($futurePaymentDate < date('Y-m-d')){
-         $os = 'Yes' ;
-       }else{
-         $os = 'No' ;
-       }
-
-     }
-
-     $termination = new Termination; 
-     $termination->contract_id     = $contract_id;
-     $termination->termination_type  = 1;
-     $termination->assigned_to  = $assigned_to;
-     $termination->work_flow_processes_code 				= $next_process_id;
-     $termination->termination_main_key_status 			= $termination_main_key_status;
-     $termination->termination_electricity_acc_no 		= $elec_acc;
-     $termination->termination_electricity_close_reading = $elec_cls_read;
-     $termination->termination_electricity_amount 		= $elec_amt;
-     $termination->termination_water_acc_no 				= $water_acc;
-     $termination->termination_water_close_reading 		= $water_cls_read;
-     $termination->termination_water_amount 				= $water_amt;
-     $termination->termination_total_amount 				= $total;
-     $termination->termination_total_elec_water_amount 	= $elec_water_total;
-     $termination->termination_discount_maintenance_due 	= $maintenance_due;
-     $termination->termination_net_amount 				= $net;
-     $termination->termination_notes 					= $notes;
-     $termination->termination_type_status 				= $terminationTypeStatus;
-     $termination->termination_takenover_date = $termination_takenover_date;
-     $termination->termination_date = $termination_date;
-     $termination->termination_remark = $termination_remark;
-     $termination->os = $os ?? '';
-     $termination->created_by           = \Auth::user()->id;
-     $termination->save();
-
-     for($i = 0;$i<=$count;$i++){
-       $subWorks = $request['addinspection'.$i];
-       $work = SubWork::where('id',$subWorks)->first();        	
-       $quantity = $request['quantity_'.$i];
-       $amount = replaceCommaWithDot($request['amount_'.$i]);
-       if(!empty($subWorks)){
-        $terminationChecklist = new TerminationChecklist;
-        $terminationChecklist->termination_id     = $termination->id;
-        $terminationChecklist->termination_contract_id     = $contract_id;	
-        $terminationChecklist->work_id     = $work->works_id;
-        $terminationChecklist->sub_work_id     = $subWorks;      		
-        $terminationChecklist->termination_amount     = $amount;
-        $terminationChecklist->termination_quantity     = $quantity;
-        $terminationChecklist->work_flow_processes_code     = $next_process_id;
-        $terminationChecklist->save();
-      }
-
-    }
-    for($j = 0;$j<=$other_count;$j++){
-
-      $addinspectionQuantity = $request['addinspectionQuantity_'.$j];
-       $addinspectionAmount = replaceCommaWithDot($request['addinspectionAmount_'.$j]);
-      $addinspectionOther = $request['addinspectionOther_'.$j];
-            //dd($addinspectionAmount);
-
-      if(!empty($addinspectionOther)){
-        $ChecklistOther = new TerminationChecklist;
-        $ChecklistOther->termination_id     = $termination->id;
-        $ChecklistOther->termination_contract_id     = $contract_id;
-        $ChecklistOther->termination_other_work     = $addinspectionOther;
-        $ChecklistOther->termination_amount     = $addinspectionAmount;
-        $ChecklistOther->termination_quantity     = $addinspectionQuantity;
-        $ChecklistOther->work_flow_processes_code     = $next_process_id;
-        $ChecklistOther->save();
-      }
+      session()->flash('success', 'Termination Inspection Created Successfully  ');
+      return redirect()->route('handoverAssigned');
     }
 
-
-
-
-
-
-    if($processAssign != false) {
-
-      foreach($processAssign->assign as $val){
-       $termination->terminationUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
-       $termination->save();
-     }
-          //$termination->terminationUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
-          //$termination->save();
-
-   }else{
-
-    $previousProcess = $general->getPreviousOrder($next_process_id);
-
-    if($previousProcess !=0){
-
-      $previousAssign = $general->roleUsersFromProcess($previousProcess,$location_id=0,$pricerange_id=0,$tenant_status); 
-
-      foreach($previousAssign->assign as $val){
-        $termination->terminationUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
-        $termination->save();
+    /**
+     * The inspection form's fields (addinspection{i}/quantity_{i}/amount_{i},
+     * addinspectionOther_{j}, elec_x / water_x) as the service payload. The totals
+     * posted by the browser are recomputed server-side with the same formula.
+     */
+    private function inspectionPayload(Request $request): array
+    {
+      $lines = [];
+      for ($i = 0; $i <= (int) $request['count']; $i++) {
+        if (!empty($request['addinspection' . $i])) {
+          $lines[] = [
+            'sub_work_id' => (int) $request['addinspection' . $i],
+            'quantity' => $request['quantity_' . $i],
+            'amount' => replaceCommaWithDot($request['amount_' . $i]),
+          ];
+        }
       }
-            //$termination->terminationUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
-            //$termination->save();
-
-    }else{
-
-      $workFlowProcess = $general->workFlowProcess($next_process_id);
-      $termination->terminationUsers()->attach($workFlowProcess->default_role, ['user_id' => $workFlowProcess->default_user_id]);
-      $termination->save();
-
-
+      for ($j = 0; $j <= (int) $request['other_count']; $j++) {
+        if (!empty($request['addinspectionOther_' . $j])) {
+          $lines[] = [
+            'other_work' => $request['addinspectionOther_' . $j],
+            'quantity' => $request['addinspectionQuantity_' . $j],
+            'amount' => replaceCommaWithDot($request['addinspectionAmount_' . $j]),
+          ];
+        }
+      }
+      return [
+        'lines' => $lines,
+        'electricity' => ['acc_no' => $request['elec_acc'], 'close_reading' => $request['elec_cls_read'], 'amount' => replaceCommaWithDot($request['elec_amt'])],
+        'water' => ['acc_no' => $request['water_acc'], 'close_reading' => $request['water_cls_read'], 'amount' => replaceCommaWithDot($request['water_amt'])],
+        'main_key_status' => $request['termination_main_key_status'],
+        'maintenance_due' => replaceCommaWithDot($request['maintenance_due']),
+        'notes' => $request['notes'],
+      ];
     }
-  }
-  $termination->terminationUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);
-  $termination->save();
-
-  session()->flash('success', 'Termination Inspection Created Successfully  ');
-  return redirect()->route('handoverAssigned');
-}
     /*
     *
     *
@@ -1683,133 +1551,14 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
     */
     public function terminationInspectionUpdate(Request $request,$id)
     {
-    	$this->validate($request, [
-          /*'addinspection' => 'required',
-          'total' => 'required', */
-          'notes' => 'required',                    
-          ]);
+      $this->validate($request, ['notes' => 'required']);
 
-      	//dd($request['test_sign']);
-     $count = $request['count'];
-     $other_count = $request['other_count'];
+      $termination = Termination::findOrFail($id);
+      TerminationInspection::saveDraft($termination, \Auth::user(), $this->inspectionPayload($request));
 
-        //dd($subWorks = $request['addinspection4']);
-     $next_process_id = $request['work_flow_processes_code'];
-      	//$contract_id = $request['contract_id'];
-     $termination_main_key_status = $request['termination_main_key_status'];
-     $terminationId = $request['terminationId'];
-     $elec_acc = $request['elec_acc'];
-     $elec_cls_read = $request['elec_cls_read'];
-     $elec_amt = replaceCommaWithDot($request['elec_amt']);
-     $water_acc = $request['water_acc'];
-     $water_cls_read = $request['water_cls_read'];
-     $water_amt = replaceCommaWithDot($request['water_amt']);
-
-     $total = replaceCommaWithDot($request['total']);
-     $elec_water_total = replaceCommaWithDot($request['elec_water_total']);
-     $maintenance_due = replaceCommaWithDot($request['maintenance_due']);
-     $net = replaceCommaWithDot($request['net']);
-     $notes = $request['notes'];
-     $general = new General;
-     $processAssign = $general->roleUsersFromProcess($next_process_id,$location_id=null,$pricerange_id=null,$tenant_status=null);
-
-      	//$previousProcess = Termination::where('work_flow_processes_code',$next_process_id)->where('id',$terminationId)->where('termination_type',1)->where('contract_id',$contract_id)->orderBy('id','desc')->latest()->first();
-        //if($previousProcess)$previousProcess->terminationUser()->update(['status' => 0]);
-
-
-     $terminationDetails = Termination::find($id);
-         // Outstanding Creation 
-     $tenantContract = TenantContract::where('id',$terminationDetails->contract_id)->first();
-     $tenant_contract_last_paid_date = $tenantContract->tenant_contract_last_paid_date;
-     if(empty($tenant_contract_last_paid_date)){
-       $tenant_contract_last_paid_date = $tenantContract->tenant_contract_effective_date;
-       $paymentTerm = $tenantContract->tenant_contract_payment_type;
-       switch($paymentTerm){
-         case 1:
-         $month = 1;
-         break;
-         case 2:
-         $month = 2;
-         break;
-         case 3:
-         $month = 3;
-         break;
-         case 4:
-         $month = 6;
-         break;
-         case 5:
-         $month = 12;
-         break;
-       }
-       $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
-       if($futurePaymentDate < date('Y-m-d')){
-         $os = 'Yes' ;
-       }else{
-         $os = 'No' ;
-       }
-
-     }
-     $terminationDetails->termination_main_key_status 			= $termination_main_key_status;
-     $terminationDetails->termination_electricity_acc_no 		= $elec_acc;
-     $terminationDetails->termination_electricity_close_reading = $elec_cls_read;
-     $terminationDetails->termination_electricity_amount 		= $elec_amt;
-     $terminationDetails->termination_water_acc_no 				= $water_acc;
-     $terminationDetails->termination_water_close_reading 		= $water_cls_read;
-     $terminationDetails->termination_water_amount 				= $water_amt;
-     $terminationDetails->termination_total_amount 				= $total;
-     $terminationDetails->termination_total_elec_water_amount 	= $elec_water_total;
-     $terminationDetails->termination_discount_maintenance_due 	= $maintenance_due;
-     $terminationDetails->termination_net_amount 				= $net;
-     $terminationDetails->termination_notes 					= $notes;
-     $terminationDetails->os 					= $os;
-     $terminationDetails->updated_by           = \Auth::user()->id;
-     $terminationDetails->save();
-
-       	//delete checklist above update 
-     TerminationChecklist::where('termination_contract_id',$terminationDetails->contract_id)->delete();
-     for($i = 0;$i<=$count;$i++){
-       $subWorks = $request['addinspection'.$i];
-       $work = SubWork::where('id',$subWorks)->first();        	
-       $quantity = $request['quantity_'.$i];
-       $amount = replaceCommaWithDot($request['amount_'.$i]);
-       if(!empty($subWorks)){
-        $terminationChecklist = new TerminationChecklist;
-        $terminationChecklist->termination_id     = $id;
-        $terminationChecklist->termination_contract_id     = $terminationDetails->contract_id;	
-        $terminationChecklist->work_id     = $work->works_id;
-        $terminationChecklist->sub_work_id     = $subWorks;      		
-        $terminationChecklist->termination_amount     = $amount;
-        $terminationChecklist->termination_quantity     = $quantity;
-        $terminationChecklist->work_flow_processes_code     = $next_process_id;
-        $terminationChecklist->save();
-      }
-
+      session()->flash('success', 'Termination Inspection Updated Successfully  ');
+      return redirect()->route('handoverAssigned');
     }
-
-
-    for($j = 0;$j<=$other_count;$j++){
-
-      $addinspectionQuantity = $request['addinspectionQuantity_'.$j];
-      $addinspectionAmount = replaceCommaWithDot($request['addinspectionAmount_'.$j]);
-      $addinspectionOther = $request['addinspectionOther_'.$j];
-            //dd($addinspectionAmount);
-
-      if(!empty($addinspectionOther)){
-       $ChecklistOther = new TerminationChecklist;
-       $ChecklistOther->termination_id     = $id;
-       $ChecklistOther->termination_contract_id     = $terminationDetails->contract_id;
-       $ChecklistOther->termination_other_work     = $addinspectionOther;
-       $ChecklistOther->termination_amount     = $addinspectionAmount;
-       $ChecklistOther->termination_quantity     = $addinspectionQuantity;
-       $ChecklistOther->work_flow_processes_code     = $next_process_id;
-       $ChecklistOther->save();
-     }
-   }
-
-
-   session()->flash('success', 'Termination Inspection Updated Successfully  ');
-   return redirect()->route('handoverAssigned');
- }
     /*
     *
     *
