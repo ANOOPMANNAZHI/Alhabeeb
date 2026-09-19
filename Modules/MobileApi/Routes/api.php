@@ -24,4 +24,12 @@ Route::middleware(['auth:sanctum', 'mobile.device', 'mobile.log'])->group(functi
     Route::post('complaints/{ticket}/status', 'ComplaintController@status')->name('api.complaints.status');
     Route::post('complaints/{ticket}/signature', 'ComplaintController@signature')->name('api.complaints.signature');
     Route::get('complaints/{ticket}/service-report.pdf', 'ComplaintController@pdf')->name('api.complaints.pdf');
+
+    Route::get('terminations', 'TerminationController@index')->name('api.terminations.index');
+    Route::get('terminations/{termination}', 'TerminationController@show')->name('api.terminations.show');
+    Route::put('terminations/{termination}/inspection', 'TerminationController@saveInspection')->name('api.terminations.inspection');
+    Route::post('terminations/{termination}/photos', 'TerminationController@photo')->name('api.terminations.photos');
+    Route::post('terminations/{termination}/submit', 'TerminationController@submit')->name('api.terminations.submit');
+    Route::get('terminations/{termination}/refer-back', 'TerminationController@referBack')->name('api.terminations.refer-back');
+    Route::get('terminations/{termination}/inspection.pdf', 'TerminationController@pdf')->name('api.terminations.pdf');
 });
