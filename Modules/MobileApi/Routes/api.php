@@ -32,4 +32,11 @@ Route::middleware(['auth:sanctum', 'mobile.device', 'mobile.log'])->group(functi
     Route::post('terminations/{termination}/submit', 'TerminationController@submit')->name('api.terminations.submit');
     Route::get('terminations/{termination}/refer-back', 'TerminationController@referBack')->name('api.terminations.refer-back');
     Route::get('terminations/{termination}/inspection.pdf', 'TerminationController@pdf')->name('api.terminations.pdf');
+
+    Route::get('onboardings', 'OnboardingController@index')->name('api.onboardings.index');
+    Route::get('onboardings/{onboarding}', 'OnboardingController@show')->name('api.onboardings.show');
+    Route::put('onboardings/{onboarding}/entries', 'OnboardingController@entries')->name('api.onboardings.entries');
+    Route::post('onboardings/{onboarding}/photos', 'OnboardingController@photo')->name('api.onboardings.photos');
+    Route::post('onboardings/{onboarding}/complete', 'OnboardingController@complete')->name('api.onboardings.complete');
+    Route::get('onboardings/{onboarding}/onboarding.pdf', 'OnboardingController@pdf')->name('api.onboardings.pdf');
 });
