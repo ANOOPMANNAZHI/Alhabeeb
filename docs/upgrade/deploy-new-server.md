@@ -100,5 +100,5 @@ If `migrate:status` shows older feature migrations as *Pending* on the restored 
 | PHPUnit (unit + feature, `--exclude-group smoke --exclude-group smoke-one`) | 132 tests / 645 assertions green (99 Phase 1 + 33 Phase 2) |
 | `--testsuite MobileApi` | 17 feature tests: auth/device policy, complaints end-to-end (claim → close → PDF), inspection end-to-end (draft → submit → 504), onboarding end-to-end, buildings, office devices screen |
 | Desktop parity | `handoverUnassigned`, `handoverAssigned`, `takeoverForTermination`, `tenantTermination.index`, the three new office pages: 200 via `SMOKE_ROUTES` |
-| Route sweep as super admin (`--group smoke`) | see the line below this table once the sweep has run |
+| Route sweep as super admin (`--group smoke`) | 427 named parameterless GET routes (424 + the three new office screens): **0 failures**; the `plmsApproval` 500 recorded in the Phase 1 baseline no longer reproduces |
 | Two Phase 1 regressions found by the write-path tests and fixed | Laravel 13's own `Illuminate\Image` provider replaced Intervention on `'image'` (all `Image::make()` uploads); activitylog v5 rejected the ~180 `withProperties($model)` calls (all logged creates/updates). Both fixed centrally (`config/app.php`, `App\Support\LenientActivityLogger`). |
