@@ -44,6 +44,7 @@ use Modules\BackOffice\Services\MunicipalTaxCalculator;
 use Modules\BackOffice\Services\UnpaidRentPeriod;
 use Modules\BackOffice\Services\TerminationDuesService;
 use Modules\BackOffice\Services\RentOutstanding;
+use Modules\BackOffice\Services\TerminationWorkflow;
 
 class TenantTerminationController extends Controller
 {
@@ -424,253 +425,14 @@ class TenantTerminationController extends Controller
     *
     */
     public function tenantTerminationStage($terminationId,$contractId,$stage,$action_key)
-    {   
-      $os = 'No' ;
-      $AssignedTo;
-      $today      = date('Y-m-d');
-      $currentUrl =  Session::get('current');
-      $general =  new General;
-      $next_process_id = $general->nextProcessFromAction($stage,$action_key);
-      $processAssign = $general->roleUsersFromProcess($next_process_id,$location_id=null,$pricerange_id=null,$tenant_status=null);
-
-
-      $tenantContract = TenantContract::where('id',$contractId)->first();
-
-      $sumOfReceipt = RentOutstanding::paidForContract($contractId); // approved or posted, not cancelled/deleted
-      // Till Now Amount
-      //$remainAmt = contractRentCountCalculation($tenantContract->tenant_contract_effective_date,$today, $tenantContract->tenant_contract_rent );
-      $terminationDate = Termination::where('id',$terminationId)->first()->termination_date;
-      $remainAmt = totalContractRentCountCalculation($contractId,$terminationDate);
-
-      // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt;
-      if(isset($osAmount))
-        $contractUpdate = TenantContract::where('id',$contractId)->update(['tenant_contract_os'=>$osAmount]);
-
-      $previousFlow = Termination::where('work_flow_processes_code',$stage)->where('contract_id',$contractId)->where('termination_type',1)->orderBy('id','desc')->latest()->first();
-      if($previousFlow)$previousFlow->terminationUser()->update(['status' => 0]);
-
-        $previousProcess = Termination::where('work_flow_processes_code',$next_process_id)->where('contract_id',$contractId)->where('termination_type',1)->orderBy('id','desc')->latest()->first();//dd($previousFlow);
-        if($previousProcess)$previousProcess->terminationUser()->update(['status' => 0]);
-        // Outstanding Creation 
-        $tenantContract = TenantContract::where('id',$contractId)->first();
-        $tenant_contract_last_paid_date = $tenantContract->tenant_contract_last_paid_date;
-        if(empty($tenant_contract_last_paid_date)){
-          $tenant_contract_last_paid_date = $tenantContract->tenant_contract_effective_date;
-          $paymentTerm = $tenantContract->tenant_contract_payment_type;
-          switch($paymentTerm){
-            case 1:
-            $month = 1;
-            break;
-            case 2:
-            $month = 2;
-            break;
-            case 3:
-            $month = 3;
-            break;
-            case 4:
-            $month = 6;
-            break;
-            case 5:
-            $month = 12;
-            break;
-          }
-          $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
-          if($futurePaymentDate < date('Y-m-d')){
-            $os = 'Yes' ;
-          }else{
-            $os = 'No' ;
-          }
-
-        }
-        //old stage termination details restore
-        $terminationTypeStatus = $previousFlow->termination_type_status;
-        $termination_remark = $previousFlow->termination_remark;
-        $termination_takenover_date = $previousFlow->termination_takenover_date;
-        //$termination_date = $previousFlow->termination_date;
-        $termination_date = $previousFlow->termination_date;
-        $termination_main_key_status = $previousFlow->termination_main_key_status;
-        $elec_acc = $previousFlow->termination_electricity_acc_no;
-        $elec_cls_read = $previousFlow->termination_electricity_close_reading;
-        $elec_amt = $previousFlow->termination_electricity_amount;
-        $water_acc = $previousFlow->termination_electricity_amount;
-        $water_cls_read = $previousFlow->termination_water_close_reading;
-        $water_amt = $previousFlow->termination_water_amount;
-        $total = $previousFlow->termination_total_amount;
-        $elec_water_total = $previousFlow->termination_total_elec_water_amount;
-        $maintenance_due = $previousFlow->termination_discount_maintenance_due;
-        $net = $previousFlow->termination_net_amount;
-        $notes = $previousFlow->termination_notes;
-        $termination_tenant_signature = $previousFlow->termination_tenant_signature;
-        $termination_tenant_review_status = $previousFlow->termination_review_status;
-        $AssignedTo = $previousFlow->assigned_to;
-
-        $termination = new Termination; 
-        $termination->contract_id     = $contractId;
-        $termination->termination_type  = 1;
-        $termination->work_flow_processes_code = $next_process_id;
-        $termination->termination_type_status = $terminationTypeStatus;
-        $termination->termination_takenover_date = $termination_takenover_date;
-        $termination->termination_date = $termination_date;
-        $termination->termination_remark = $termination_remark;
-        $termination->termination_main_key_status 			= $termination_main_key_status;
-        $termination->termination_electricity_acc_no 		= $elec_acc;
-        $termination->termination_electricity_close_reading = $elec_cls_read;
-        $termination->termination_electricity_amount 		= $elec_amt;
-        $termination->termination_water_acc_no 				= $water_acc;
-        $termination->termination_water_close_reading 		= $water_cls_read;
-        $termination->termination_water_amount 				= $water_amt;
-        $termination->termination_total_amount 				= $total;
-        $termination->termination_total_elec_water_amount 	= $elec_water_total;
-        $termination->termination_discount_maintenance_due 	= $maintenance_due;
-        $termination->termination_net_amount 				= $net;
-        $termination->termination_notes 					= $notes;
-        $termination->termination_tenant_signature 			= $termination_tenant_signature;
-		    //$termination->termination_review_status 			= $termination_tenant_review_status;
-		if($action_key == 'RESUB'){ // Resubmit Status to identify
-			$termination->is_resubmit 						= 2;
-		}
-		
-    $termination->os                            = $os;
-    if($next_process_id == 503)
     {
-      $AssignedTo = $previousProcess->assigned_to;
-      $technician = User::where('id',$AssignedTo)->first();
+      // Stage transition lives in TerminationWorkflow (shared with the mobile API).
+      $current = Termination::findOrFail($terminationId);
+      $next = TerminationWorkflow::advance($current, $action_key, \Auth::user());
+      $process = (new General)->workFlowProcessNames($next->work_flow_processes_code);
+      session()->flash('success', 'Termination Successfully Moved to '.$process->work_flow_processes_name);
+      return redirect()->route(TerminationWorkflow::routeAfter((int) $next->work_flow_processes_code));
     }
-
-    if(!empty($AssignedTo))
-      $termination->assigned_to = $AssignedTo;
-
-    $termination->created_by           = \Auth::user()->id;
-    $termination->save();
-    if($processAssign != false) {
-
-      foreach($processAssign->assign as $val){
-       $termination->terminationUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
-       $termination->save();
-     }
-          //$termination->terminationUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
-          //$termination->save();
-
-   }else{
-
-    $previousProcess = $general->getPreviousOrder($next_process_id);
-
-    if($previousProcess !=0){
-
-      $previousAssign = $general->roleUsersFromProcess($previousProcess,$location_id=0,$pricerange_id=0,$tenant_status); 
-
-      foreach($previousAssign->assign as $val){
-        $termination->terminationUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
-        $termination->save();
-      }
-            //$termination->terminationUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
-            //$termination->save();
-
-    }else{
-
-      $workFlowProcess = $general->workFlowProcess($next_process_id);
-      $termination->terminationUsers()->attach($workFlowProcess->default_role, ['user_id' => $workFlowProcess->default_user_id]);
-      $termination->save();
-
-
-    }
-  }
-  $termination->terminationUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);
-  $termination->save();
-
-        // if terminated update status
-  if($next_process_id == 505){
-
-    $contracts = TenantContract::where('id',$termination->contract_id)->first();
-    $contractUpdate = TenantContract::where('id',$termination->contract_id)->update(['tenant_contract_status'=>0,'tenant_renewal_termination_status'=>8]);
-
-    // Outstanding rent / tax / E&W / maintenance becomes a tracked receivable
-    // instead of a receipt nobody has paid. Never blocks the termination.
-    try {
-      (new TerminationDuesService)->createForTermination($termination, \Auth::user()->id);
-    } catch (\Exception $e) {
-      \Log::error('TerminationDues create failed for contract '.$termination->contract_id.': '.$e->getMessage());
-    }
-
-    $unitUpdate = Unit::where('id',$contracts->unit_id)->update(['unit_vaccant_status'=>0]);
-
-          //Remaining pdc and invoices cancel    
-    $today  = date('Y-m-d');
-   // $remainingPdc = Pdc::whereIn('tenant_contract_id',[$termination->contract_id])->whereDate('pdc_check_date','>=',$termination->termination_date)->pluck('id');
-    //if(count($remainingPdc)>0)
-    //  $pdcUpdate = Pdc::whereIn('id',$remainingPdc)->update(['pdc_cancel_date'=>$today,'pdc_cancel_reason'=>4,'pdc_cancel_by'=>\Auth::user()->id]);
-              //Invoice
-    $remainingInvoice = Invoice::whereIn('tenant_contract_id',[$termination->contract_id])->whereDate('tenant_invoice_date','>=',$termination->termination_date)->pluck('id');
-    if(count($remainingInvoice)>0)
-      $invoiceUpdate = Invoice::whereIn('id',$remainingInvoice)->update(['tenant_invoice_cancelled_date'=>$today,'tenant_invoice_status'=>2]);          
-	
-	$unitInfo   = Unit::where('id',$contracts->unit_id)->first();   
-    $building   = Building::where('id',$unitInfo->building_id)->first();
-    $unit_type  = UnitType::where('id',$unitInfo->unit_type_id)->first();
-    $location   = Location::where('id',$building->location_id)->first();
-	//Insertation Vacany Table only Vacant From 
-    VacantVacancyLoss::create([  
-        'building_id'=> $building->id,
-        'unit_id'=> $unitInfo->id,
-        'building_name'=> $building->building_name,
-        'building_no'=> $building->building_no,
-        'unit_no'=> $unitInfo->unit_no,
-        'unit_type'=> $unit_type->unit_types_name,
-        'vacant_from'=> $termination->termination_date,
-        'vacant_to'=>null,
-        'location_id'=>$building->location_id,
-        'location_name'=>$location->locations_name,
-        'vacant_days'=>null,
-        'rent_per_month'=>$contracts->tenant_contract_rent,
-        'vacany_loss'=>null,
-        'status'=>1,
-        'unit_type_id' => $request->unit_type_id, 
-        'created_by' => \Auth::user()->id,
-    ]);
-  }
-  /* Notification */
-  $process = $general->workFlowProcessNames($next_process_id);
-
-  clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$termination->id);
-  readNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$termination->id);  
-  $termination->text = "Tenant Termination - ".$process->work_flow_processes_name;
-
-  switch($next_process_id){
-    case "502":
-    $users = User::role(['maintenance_supervisor'])->get(); 
-    $users = \Illuminate\Support\Arr::flatten($users);
-    $termination->text = "Tenant Termination HandOver Assigned ";
-    $termination->href = url("handoverUnassigned/".$termination->id."/handoverUnassignedView/");
-    $currentUrl = 'tenantTermination.index';
-    break;
-    case "503":
-    $users = User::role(['maintenance_supervisor'])->get(); 
-    $users = \Illuminate\Support\Arr::flatten($users);
-    $termination->href = url("handoverAssigned/".$termination->id."/handoverAssignedView/");
-    $termination->text = "Tenant Termination - ".$process->work_flow_processes_name ." Resubmit";
-    $currentUrl = 'takeoverForTermination';
-    event(new TenantTermination($termination,$technician));
-    break;
-    case "504":
-    $users = User::role(['backoffice_executive'])->get(); 
-    $users = \Illuminate\Support\Arr::flatten($users);
-    $termination->href = url("takeoverForTermination/".$termination->id."/takeoverForTerminationView/");
-    $currentUrl = 'handoverAssigned';
-    break;
-    case "505":
-    $users = User::role(['backoffice_executive'])->get(); 
-    $users = \Illuminate\Support\Arr::flatten($users);
-    $termination->href = url("tenantTerminatedContract/".$termination->id."/tenantTerminatedContractView/");
-    $currentUrl = 'takeoverForTermination';
-    break;
-  }
-  event(new TenantTermination($termination,$users));
-  /* End */
-  session()->flash('success', 'Termination Successfully Moved to '.$process->work_flow_processes_name);
-  return redirect()->route($currentUrl);
-
-}
     /*
     *
     *
@@ -1216,168 +978,29 @@ class TenantTerminationController extends Controller
     */
     public function storeGroupAssign(Request $request)
     {
-      $os = 'No';
-      $route = Session::get('current');//dd($route);
-      $role_id = $request['role'];
       $user_id = $request['user_id'];
       $workflow_id = $request['workflow_id'];
-      $next_process_id = $request['next_process_id'];
+      $terminationArr = $request['termination_id'];
 
-      $terminationArr = $request['termination_id'];//dd($workflow_id);
-
-      $general          = new General; 
-      $processAssign    = $general->roleUsersFromProcess($next_process_id,$location_id=0,$pricerange_id=0,$tenant_status=0);
-      
+      // Per-termination assignment lives in TerminationWorkflow (shared with the mobile API).
+      $supervisor = User::findOrFail($user_id);
       foreach ($terminationArr as $termination) {
+        TerminationWorkflow::assignHandover(Termination::findOrFail($termination), $supervisor, \Auth::user());
+      }
 
-
-        $tenantTermination = Termination::where('id',$termination)->first();
-        // Outstanding Creation 
-        $tenantContract = TenantContract::where('id',$tenantTermination->contract_id)->first();
-        $tenant_contract_last_paid_date = $tenantContract->tenant_contract_last_paid_date;
-        if(empty($tenant_contract_last_paid_date)){
-         $tenant_contract_last_paid_date = $tenantContract->tenant_contract_effective_date;
-         $paymentTerm = $tenantContract->tenant_contract_payment_type;
-         switch($paymentTerm){
-           case 1:
-           $month = 1;
-           break;
-           case 2:
-           $month = 2;
-           break;
-           case 3:
-           $month = 3;
-           break;
-           case 4:
-           $month = 6;
-           break;
-           case 5:
-           $month = 12;
-           break;
-         }
-         $futurePaymentDate = $tenant_contract_last_paid_date->addMonths((int) $month)->format('Y-m-d');
-         if($futurePaymentDate < date('Y-m-d')){
-           $os = 'Yes' ;
-         }else{
-           $os = 'No' ;
-         }
-
-       }
-       $previousFlow = Termination::where('work_flow_processes_code',$workflow_id)->where('contract_id',$tenantTermination->contract_id)->where('termination_type',1)->orderBy('id','desc')->latest()->first();
-
-       if($previousFlow)$previousFlow->terminationUser()->update(['status' => 0]);
-
-       $previousProcess = Termination::where('work_flow_processes_code',$next_process_id)->where('contract_id',$tenantTermination->contract_id)->where('termination_type',1)->orderBy('id','desc')->latest()->first();
-       if($previousProcess)$previousProcess->terminationUser()->update(['status' => 0]);
-        //old Data Update 
-       $terminationTypeStatus = $tenantTermination->termination_type_status;
-       $termination_remark = $tenantTermination->termination_remark;
-       $termination_takenover_date = $tenantTermination->termination_takenover_date;
-       $termination_date = $tenantTermination->termination_date;
-       $termination_main_key_status = $tenantTermination->termination_main_key_status;
-       $elec_acc = $tenantTermination->termination_electricity_acc_no;
-       $elec_cls_read = $tenantTermination->termination_electricity_close_reading;
-       $elec_amt = $tenantTermination->termination_electricity_amount;
-       $water_acc = $tenantTermination->termination_electricity_amount;
-       $water_cls_read = $tenantTermination->termination_water_close_reading;
-       $water_amt = $tenantTermination->termination_water_amount;
-       $total = $tenantTermination->termination_total_amount;
-       $elec_water_total = $tenantTermination->termination_total_elec_water_amount;
-       $maintenance_due = $tenantTermination->termination_discount_maintenance_due;
-       $net = $tenantTermination->termination_net_amount;
-       $notes = $tenantTermination->termination_notes;
-       $termination_tenant_signature = $tenantTermination->termination_tenant_signature;
-       $termination_tenant_review_status = $tenantTermination->termination_review_status;
-
-
-       $terminationTypeStatus = $previousFlow->termination_type_status;
-       $termination_remark = $previousFlow->termination_remark;
-       $termination_takenover_date = $previousFlow->termination_takenover_date;
-       $termination_date = $previousFlow->termination_date;
-
-       $terminationProcess = new Termination; 
-       $terminationProcess->contract_id     = $tenantTermination->contract_id;
-       $terminationProcess->termination_type  = 1;
-       $terminationProcess->assigned_to  = $user_id;
-       $terminationProcess->work_flow_processes_code = $next_process_id;
-       $terminationProcess->termination_type_status = $terminationTypeStatus;
-       $terminationProcess->termination_takenover_date = $termination_takenover_date;
-       $terminationProcess->termination_date = $termination_date;
-       $terminationProcess->termination_remark = $termination_remark;
-       $terminationProcess->termination_main_key_status       = $termination_main_key_status;
-       $terminationProcess->termination_electricity_acc_no    = $elec_acc;
-       $terminationProcess->termination_electricity_close_reading = $elec_cls_read;
-       $terminationProcess->termination_electricity_amount    = $elec_amt;
-       $terminationProcess->termination_water_acc_no        = $water_acc;
-       $terminationProcess->termination_water_close_reading     = $water_cls_read;
-       $terminationProcess->termination_water_amount        = $water_amt;
-       $terminationProcess->termination_total_amount        = $total;
-       $terminationProcess->termination_total_elec_water_amount   = $elec_water_total;
-       $terminationProcess->termination_discount_maintenance_due  = $maintenance_due;
-       $terminationProcess->termination_net_amount        = $net;
-       $terminationProcess->termination_notes           = $notes;
-       $terminationProcess->termination_tenant_signature      = $termination_tenant_signature;
-       $terminationProcess->termination_review_status       = $termination_tenant_review_status;
-       $terminationProcess->os = $os;
-       $terminationProcess->created_by           = \Auth::user()->id;
-       $terminationProcess->save();
-       if(empty($user_id)){
-        if($processAssign == false) {
-
-          $processAssign = $general->getPreviousOrder($next_process_id);
-          if($processAssign !=0) {
-            $previousAssign = $general->roleUsersFromProcess($processAssign,$location_id=0,$pricerange_id=0,$tenant_status=0);
-            foreach($previousAssign->assign as $val){
-             $terminationProcess->terminationUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
-           }
-         }else{
-          $res =    $general->workFlowProcess($next_process_id);
-          $terminationProcess->terminationUsers()->attach($res->default_role, ['user_id' => $res->default_user_id]);
-
-        }
-      }else{
-        foreach($processAssign->assign as $val){
-         $terminationProcess->terminationUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
-
-       }
-     }
-   }else{
-    $terminationProcess->terminationUsers()->attach($role_id,['user_id'=>$user_id]);
-
-  }        
-  $terminationProcess->terminationUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);
-  $terminationProcess->save(); 
-
-  /* Notification */
-  $users_notify =  \App\User::whereIn('id',[$user_id])->get();              
-  clearNotification('Modules\BackOffice\Notifications\TenantTerminationNotification',$tenantTermination->id);
-
-  $tenantTermination->text = "Handover Assigned ";
-  $tenantTermination->href = url("handoverAssigned/".$tenantTermination->id."/handoverAssignedInspection/"); 
-  event(new TenantTermination($tenantTermination,$users_notify));
-  /* End */ 
-  /****** Activity log *****/
-
-          /*activity('Group Assign')
-            ->performedOn($complaintProcess)
-            ->causedBy(\Auth::user()->id)
-            ->withProperties($complaintProcess)
-            ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);*/
-
-
-          }
-          session()->flash('success', 'Handover Assigned Successfully');
-          switch($workflow_id){
-            case 502:
-            $route = 'handoverUnassigned';
-            break;
-            case 503 :
-            $route = 'handoverAssigned';
-            break;
-          }
-          return redirect()->route($route);
-
-        }
+      session()->flash('success', 'Handover Assigned Successfully');
+      switch($workflow_id){
+        case 502:
+        $route = 'handoverUnassigned';
+        break;
+        case 503 :
+        $route = 'handoverAssigned';
+        break;
+        default:
+        $route = Session::get('current') ?: 'handoverUnassigned';
+      }
+      return redirect()->route($route);
+    }
     /*
     *
     * handoverUnassignedView
