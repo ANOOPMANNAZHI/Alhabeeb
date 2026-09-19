@@ -31,14 +31,17 @@ git clone <repo> plms && cd plms
 git checkout platform-upgrade            # or the release tag
 cp .env.example .env                      # fill DB_*, MAIL_*, APP_URL, APP_KEY (copy APP_KEY from the old server so existing encrypted values keep working)
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force               # adds activity_log.event / attribute_changes (+ any pending feature migrations)
+php artisan migrate --force               # adds activity_log.event / attribute_changes, Sanctum tokens, mobile_devices, tenant onboarding tables + menus (+ any pending feature migrations)
+php artisan db:seed --class="Modules\BackOffice\Database\Seeders\OnboardingChecklistItemsSeeder"   # default move-in checklist (idempotent)
 php artisan storage:link
 php artisan permission:cache-reset
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 chmod -R ug+rwX storage bootstrap/cache public/reports resources/reports/jasper
 ```
 
-Cron: `* * * * * cd /path/plms && php artisan schedule:run >> /dev/null 2>&1`
+Cron: `* * * * * cd /path/plms && php artisan schedule:run >> /dev/null 2>&1` — the schedule now also runs `onboarding:sync` every 15 minutes (creates move-in checklists for contracts activated outside the hooked screens).
+
+Mobile API (Phase 2, see `mobile-api.md`): set `MOBILE_API_ENABLED=true` when the app goes live; `storage/app/mobile/` holds the app's photos, signatures and PDFs — writable by the web user and part of the backup set. The office screens are **Masters → Mobile Devices**, **Masters → Onboarding Checklist Items** and **Operations → Tenant Onboarding**.
 
 ### `.env` keys that changed
 
@@ -48,6 +51,7 @@ Cron: `* * * * * cd /path/plms && php artisan schedule:run >> /dev/null 2>&1`
 | — | `JASPERSTARTER_BIN=…` (see above) |
 | — | `LOG_DEPRECATIONS_CHANNEL=null` |
 | `ACTIVITY_LOGGER_ENABLED` | still honoured; `ACTIVITYLOG_ENABLED` is the new name |
+| — | `MOBILE_API_ENABLED=false` (Phase 2; flip to `true` for the ARE app) |
 
 ## Each release
 
@@ -88,3 +92,13 @@ If `migrate:status` shows older feature migrations as *Pending* on the restored 
 | Compiled-view PHP lint (same test group) | 854 compiled views, 0 parse errors (3 nested ternaries fixed) |
 | Excel 4 multi-sheet export | `normalManagementReportV2Stream` generated all 80 building workbooks + ZIP during the sweep |
 | Interactive browser check (receipts, PDC, deposit refund, PDFs, QR, restricted role 403) | **still worth a manual pass before go-live** |
+
+## Phase 2 verification record (2026-09-19)
+
+| Check | Result |
+|---|---|
+| PHPUnit (unit + feature, `--exclude-group smoke --exclude-group smoke-one`) | 132 tests / 645 assertions green (99 Phase 1 + 33 Phase 2) |
+| `--testsuite MobileApi` | 17 feature tests: auth/device policy, complaints end-to-end (claim → close → PDF), inspection end-to-end (draft → submit → 504), onboarding end-to-end, buildings, office devices screen |
+| Desktop parity | `handoverUnassigned`, `handoverAssigned`, `takeoverForTermination`, `tenantTermination.index`, the three new office pages: 200 via `SMOKE_ROUTES` |
+| Route sweep as super admin (`--group smoke`) | see the line below this table once the sweep has run |
+| Two Phase 1 regressions found by the write-path tests and fixed | Laravel 13's own `Illuminate\Image` provider replaced Intervention on `'image'` (all `Image::make()` uploads); activitylog v5 rejected the ~180 `withProperties($model)` calls (all logged creates/updates). Both fixed centrally (`config/app.php`, `App\Support\LenientActivityLogger`). |
