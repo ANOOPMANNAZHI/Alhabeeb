@@ -4,5 +4,6 @@
     "Maintenance": true,
     "Masters": true,
     "Menu": true,
+    "MobileApi": true,
     "Sales": true
 }

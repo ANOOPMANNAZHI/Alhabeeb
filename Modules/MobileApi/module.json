@@ -1,0 +1,9 @@
+{
+    "name": "MobileApi",
+    "alias": "mobileapi",
+    "description": "JSON API for the ARE mobile app",
+    "keywords": [],
+    "priority": 0,
+    "providers": ["Modules\\MobileApi\\Providers\\MobileApiServiceProvider"],
+    "files": []
+}

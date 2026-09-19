@@ -1,0 +1,5 @@
+{
+    "name": "nwidart/mobileapi",
+    "description": "",
+    "autoload": { "psr-4": { "Modules\\MobileApi\\": "" } }
+}

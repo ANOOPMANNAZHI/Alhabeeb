@@ -18,6 +18,14 @@ class Handler extends ExceptionHandler
 
     public function render($request, Throwable $e)
     {
+        if (\Modules\MobileApi\Exceptions\ApiExceptionRenderer::wants($request)) {
+            if ($json = \Modules\MobileApi\Exceptions\ApiExceptionRenderer::render($request, $e)) {
+                return $json;
+            }
+            if (!config('app.debug')) {
+                return response()->json(['message' => 'Server error.', 'code' => 'server_error'], 500);
+            }
+        }
         if ($e instanceof TokenMismatchException) {
             session()->flash('expiredSession', 'null');
             return redirect()

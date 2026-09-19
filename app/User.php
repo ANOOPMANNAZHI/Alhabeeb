@@ -8,12 +8,13 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 //use Spatie\Permission\Traits\HasRoles;
 use Spatie\Permission\Models\Role;
 use App\UserRoles;
+use Laravel\Sanctum\HasApiTokens;
 
 
 class User extends Authenticatable
 {
     use \App\Concerns\LegacyDateSerialization;
-    use Notifiable, UserRoles;
+    use HasApiTokens, Notifiable, UserRoles;
 	protected $casts = ['user_last_login' => 'datetime'];
     /**
      * The attributes that are mass assignable.
