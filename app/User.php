@@ -66,8 +66,12 @@ class User extends Authenticatable
     }
 	
 	public function Are(){
-        return $this->hasOne('Modules\Masters\Entities\AreBuildingAssign','user_id','id'); 
+        return $this->hasOne('Modules\Masters\Entities\AreBuildingAssign','user_id','id');
      }
 
+    public function areBuildings()
+    {
+        return $this->hasMany(\Modules\Masters\Entities\AreBuildingAssign::class, 'user_id');
+    }
 
 }
