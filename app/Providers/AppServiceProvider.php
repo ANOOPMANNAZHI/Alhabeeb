@@ -31,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        // Legacy activity()->withProperties($model) calls (see LenientActivityLogger)
+        $this->app->bind(\Spatie\Activitylog\Support\ActivityLogger::class, \App\Support\LenientActivityLogger::class);
     }
 }
