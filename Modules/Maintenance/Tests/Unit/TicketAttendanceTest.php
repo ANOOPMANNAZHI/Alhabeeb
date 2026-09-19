@@ -69,4 +69,56 @@ class TicketAttendanceTest extends TestCase
         $this->assertDatabaseHas('complaint_service_report_notes', ['complaint_service_report_id' => $report->id, 'stage' => 1]);
         $this->assertStringContainsString('23.58', \Modules\Maintenance\Entities\ComplaintServiceReportNote::where('complaint_service_report_id', $report->id)->value('desc'));
     }
+
+    public function test_full_attendance_flow_closes_ticket_with_signature(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        \Illuminate\Support\Facades\Event::fake();
+        $are = $this->are();
+        $ticket = TicketAttendance::claim($this->unassignedTicket($are), $are);
+        TicketAttendance::checkIn($ticket, $are, null, null);
+
+        $note = TicketAttendance::addNote($ticket, $are, 'Replaced washer', null);
+        $this->assertSame('Replaced washer', $note->desc);
+        $quick = TicketAttendance::addNote($ticket, $are, 'need a valve', 'part_required');
+        $this->assertSame('Part required: need a valve', $quick->desc);
+
+        $photo = TicketAttendance::addPhoto($ticket, $are, 'mobile/complaints/x/a.jpg', 'mobile/complaints/x/a_t.jpg', 'after');
+        $this->assertSame('after', TicketAttendance::photoStageName((int) $photo->stage));
+
+        TicketAttendance::setStatus($ticket, $are, 'attended', null);
+        $this->assertSame(2, (int) $ticket->fresh()->ticket_status);
+        TicketAttendance::setStatus($ticket, $are, 'completed', null);
+        $this->assertSame(3, (int) $ticket->fresh()->ticket_status);
+
+        $png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+        $report = TicketAttendance::close($ticket->fresh(), $are, $png, false);
+
+        $this->assertSame(705, (int) $ticket->fresh()->work_flow_processes_code);
+        $this->assertSame(4, (int) $ticket->fresh()->ticket_status);
+        $this->assertSame(3, (int) $report->complaint_assign_status);
+        $this->assertNotEmpty($report->tenant_signature);
+        $this->assertTrue(\Illuminate\Support\Facades\Storage::disk('local')->exists($report->tenant_signature));
+        \Illuminate\Support\Facades\Storage::disk('local')->delete($report->tenant_signature);
+        $this->assertSame(1, (int) $ticket->complaintEnquiry->fresh()->complaint_status);
+    }
+
+    public function test_close_requires_completed_status(): void
+    {
+        $are = $this->are();
+        $ticket = TicketAttendance::claim($this->unassignedTicket($are), $are);
+        TicketAttendance::checkIn($ticket, $are, null, null);
+        $this->expectException(InvalidStateException::class);
+        TicketAttendance::close($ticket->fresh(), $are, null, true);
+    }
+
+    public function test_skipped_signature_needs_an_after_photo(): void
+    {
+        $are = $this->are();
+        $ticket = TicketAttendance::claim($this->unassignedTicket($are), $are);
+        TicketAttendance::checkIn($ticket, $are, null, null);
+        TicketAttendance::setStatus($ticket, $are, 'completed', null);
+        $this->expectException(InvalidStateException::class);
+        TicketAttendance::close($ticket->fresh(), $are, null, true);
+    }
 }

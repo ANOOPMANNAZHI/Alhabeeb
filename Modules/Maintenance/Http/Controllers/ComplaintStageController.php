@@ -1671,9 +1671,19 @@ class ComplaintStageController extends Controller
         'ticket_status' => $status,
         ]);
 
-      if($status == 2){
+      if($status == 2 && $complaint_idd && $complaint_idd->sub_assigned_to){
+        // Technician flow: the service marks each ticket attended and sends
+        // the coordinator/supervisor notifications.
+        $technician = \App\User::find($complaint_idd->sub_assigned_to);
+        foreach($checklists as $checklist){
+          if((int) $checklist->sub_assigned_to === (int) $technician->id){
+            \Modules\Maintenance\Services\TicketAttendance::setStatus($checklist, $technician, 'attended', null);
+          }
+        }
+      }
+      elseif($status == 2){
 
-        $userId   = $checklists->pluck('assigned_to')[0]; 
+        $userId   = $checklists->pluck('assigned_to')[0];
         $userList= User::role(['maintenance_coordinator'])->pluck('id');
         
         $userList_maint_coordinator = \App\User::whereIn('id',$userList)->get();
@@ -1771,59 +1781,18 @@ class ComplaintStageController extends Controller
       $testSignature = $request['testSignature']; 
       if($testSignature != null)
       {
-        $png_url = time().".png";
-        $path = public_path('img').'/' . $png_url;
+        // One service report may cover several tickets (desktop check-in);
+        // close through the service once (signature, notification, tenant
+        // email/SMS) and mark the sibling tickets closed without re-sending.
+        $first = $checklists->first();
+        $technician = \App\User::findOrFail($first->sub_assigned_to);
+        \Modules\Maintenance\Services\TicketAttendance::close($first, $technician, $img, false);
 
-        Image::make(file_get_contents($img))->save($path,100); 
-        $img_path_ar =    Storage::putFile('public/TenantSignature', new File($path), 'public');  
-        $complaint_report_id = ComplaintServiceReportChecklist::whereIn('checklist_id',$tickets)->first();
-
-        // Update Closed status for Each ticket against service report
-        foreach($tickets as $assigned_ticket){
-          ComplaintChecklist::where('id',$assigned_ticket)->update([
-            'ticket_status'=>4,
-            'work_flow_processes_code'=>705
-            ]);
-          
+        foreach($checklists->slice(1) as $sibling){
+          $sibling->update(['ticket_status'=>4, 'work_flow_processes_code'=>705]);
         }
-        // Update completed status for service report
-        ComplaintServiceReport::where('id',$complaint_report_id->complaint_service_report_id)->update([
-          'complaint_assign_status'=>3,
-          'tenant_signature'=>$img_path_ar,
-          'tenant_id'=>$tenantId
-          ]);
-        $complaint_idd = ComplaintChecklist::whereIn('id',$tickets)->first();
-        $complaint_enquiries_id = $complaint_idd->complaint_enquiries_id;
-        
-        ComplaintEnquiry::where('id',$complaint_enquiries_id)->update([
-          'complaint_status' => 1,
-          ]);
-        /* Notification */
-        $users = User::role(['maintenance_coordinator'])->get(); 
-        $users = \Illuminate\Support\Arr::flatten($users);              
-        clearNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification',$complaintEnqu->id);
-
-        $complaintEnqu->text = "Complaint - ".$complaintEnqu->complaint_no." Tickets-". $TicketNO." To Closed "; 
-        event(new ComplaintAssigned($complaintEnqu,$users)); 
-
-         $complaintEnqu->subject = "Complaint Completed";
-       
-       $complaintEnqu->textContent ="Your complaint No ".$complaintEnqu->complaint_no." is successfully attended by Al Habib Maintenance Team. Thanks for your kind co-operation."; 
-
-       $tenant_email = $complaintEnqu->tenant->tenant_personal_email ?? $complaintEnqu->tenant->tenant_contact_email;
-
-        $user_name = $complaintEnqu->tenant->tenant_name;
-        $mobile = $complaintEnqu->tenant->tenant_contact_no ?? $complaintEnqu->tenant->tenant_residence_tel;
-
-        $msg = "Complaint Completed";
-        $params = 'optional data';
-        if(!empty($tenant_email)){
-      Mail::to($tenant_email)->send(new ComplaintStageEmail($complaintEnqu,$user_name)); //Email Notification
-    }else{
-      sendSms($mobile,$msg,$params); //SMS Notification
-    }
       }
-      
+
       return $url;
       
 

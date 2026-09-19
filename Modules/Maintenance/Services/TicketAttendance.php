@@ -5,14 +5,21 @@ namespace Modules\Maintenance\Services;
 use App\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Modules\Maintenance\Emails\ComplaintStageEmail;
 use Modules\Maintenance\Entities\ComplaintChecklist;
+use Modules\Maintenance\Entities\ComplaintEnquiry;
 use Modules\Maintenance\Entities\ComplaintProcess;
 use Modules\Maintenance\Entities\ComplaintServiceReport;
 use Modules\Maintenance\Entities\ComplaintServiceReportChecklist;
+use Modules\Maintenance\Entities\ComplaintServiceReportImage;
+use Modules\Maintenance\Entities\ComplaintServiceReportInv;
 use Modules\Maintenance\Entities\ComplaintServiceReportNote;
+use Modules\Maintenance\Events\ComplaintAssigned;
 use Modules\Maintenance\Exceptions\InvalidStateException;
 use Modules\Maintenance\Exceptions\NotAssignedException;
 use Modules\Masters\Services\AreBuildings;
+use Modules\MobileApi\Services\MobileImage;
 
 /**
  * A ticket (complaint_checklists row) being worked by one person.
@@ -150,6 +157,155 @@ class TicketAttendance
                 'created_by' => $are->id,
             ]);
             return $report;
+        });
+    }
+
+    // ---- service report content ------------------------------------------------
+
+    public const QUICK_REASONS = [
+        'part_required' => 'Part required',
+        'tenant_not_available' => 'Tenant not available',
+        'access_denied' => 'Access denied',
+        'not_our_scope' => 'Not our scope',
+    ];
+
+    /**
+     * complaint_service_report_image.stage is an integer (the desktop stores the
+     * report status at upload time). The app talks in before/after.
+     */
+    public const PHOTO_BEFORE = 1;
+    public const PHOTO_AFTER = 2;
+
+    public static function photoStage(string $name): int
+    {
+        return $name === 'after' ? self::PHOTO_AFTER : self::PHOTO_BEFORE;
+    }
+
+    public static function photoStageName(int $stage): string
+    {
+        return $stage >= self::PHOTO_AFTER ? 'after' : 'before';
+    }
+
+    public static function addNote(ComplaintChecklist $ticket, User $are, string $text, ?string $quickReason): ComplaintServiceReportNote
+    {
+        self::assertMine($ticket, $are);
+        $report = self::reportFor($ticket) ?? self::checkIn($ticket, $are, null, null);
+        $prefix = $quickReason ? (self::QUICK_REASONS[$quickReason] ?? $quickReason) . ': ' : '';
+        return ComplaintServiceReportNote::create([
+            'complaint_service_report_id' => $report->id, 'stage' => $report->complaint_assign_status,
+            'desc' => $prefix . $text, 'created_by' => $are->id,
+        ]);
+    }
+
+    public static function addPhoto(ComplaintChecklist $ticket, User $are, string $path, string $thumb, string $stage): ComplaintServiceReportImage
+    {
+        self::assertMine($ticket, $are);
+        $report = self::reportFor($ticket) ?? self::checkIn($ticket, $are, null, null);
+        return ComplaintServiceReportImage::create([
+            'complaint_service_report_id' => $report->id, 'image_path_file_name' => $path,
+            'image_path_thumbnail' => $thumb, 'stage' => self::photoStage($stage), 'created_by' => $are->id,
+        ]);
+    }
+
+    public static function addItem(ComplaintChecklist $ticket, User $are, int $inventoryId, float $qty): ComplaintServiceReportInv
+    {
+        self::assertMine($ticket, $are);
+        $report = self::reportFor($ticket) ?? self::checkIn($ticket, $are, null, null);
+        return ComplaintServiceReportInv::create([
+            'complaint_service_report_id' => $report->id, 'inventory_id' => $inventoryId, 'quantity' => $qty, 'checklist_id' => $ticket->id,
+        ]);
+    }
+
+    public static function removeItem(ComplaintChecklist $ticket, User $are, int $itemId): void
+    {
+        self::assertMine($ticket, $are);
+        $report = self::reportFor($ticket);
+        ComplaintServiceReportInv::where('id', $itemId)->where('complaint_service_report_id', $report?->id)->delete();
+    }
+
+    /** attended → 2, completed → 3, cannot_complete → stays as is with a note. */
+    public static function setStatus(ComplaintChecklist $ticket, User $are, string $status, ?string $reason): ComplaintServiceReport
+    {
+        self::assertMine($ticket, $are);
+        $report = self::reportFor($ticket) ?? self::checkIn($ticket, $are, null, null);
+
+        if ($status === 'cannot_complete') {
+            self::addNote($ticket, $are, 'Cannot complete: ' . ($reason ?: 'no reason given'), null);
+            return $report;
+        }
+        $code = match ($status) {
+            'attended' => self::STATUS_ATTENDED,
+            'completed' => self::STATUS_COMPLETED,
+            default => throw new \InvalidArgumentException("Unknown status $status"),
+        };
+
+        $report->update(['complaint_assign_status' => $code]);
+        $ticket->update(['ticket_status' => $code]);
+
+        if ($code === self::STATUS_ATTENDED) {
+            self::notifyAttended($ticket, $report);
+        }
+        return $report->fresh();
+    }
+
+    /** The coordinator + supervisor notification the desktop sends on "Attended". */
+    private static function notifyAttended(ComplaintChecklist $ticket, ComplaintServiceReport $report): void
+    {
+        $enquiry = ComplaintEnquiry::find($ticket->complaint_enquiries_id);
+        clearNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification', $enquiry->id);
+        $enquiry->text = 'Complaint - ' . $enquiry->complaint_no . ' Tickets-' . $ticket->complaint_ticket_no . ' To Attended ';
+        $enquiry->href = route('complaintReview.view', $report->id);
+        event(new ComplaintAssigned($enquiry, User::role('maintenance_coordinator')->get()));
+        if ($ticket->assigned_to) {
+            event(new ComplaintAssigned($enquiry, User::where('id', $ticket->assigned_to)->get()));
+        }
+    }
+
+    /**
+     * Desktop generateServiceReport minus the Session: stage 705, ticket 4,
+     * report 3 + tenant signature, complaint closed, coordinator notification,
+     * tenant email/SMS.
+     */
+    public static function close(ComplaintChecklist $ticket, User $are, ?string $signatureDataUrl, bool $skipped): ComplaintServiceReport
+    {
+        self::assertMine($ticket, $are);
+        $report = self::reportFor($ticket);
+        if (!$report || (int) $report->complaint_assign_status !== self::STATUS_COMPLETED) {
+            throw new InvalidStateException('Mark the ticket Completed before closing it.');
+        }
+        if ($signatureDataUrl === null && !$skipped) {
+            throw new InvalidStateException('A tenant signature is required, or mark the signature as skipped.');
+        }
+        if ($skipped && !ComplaintServiceReportImage::where('complaint_service_report_id', $report->id)->where('stage', '>=', self::PHOTO_AFTER)->exists()) {
+            throw new InvalidStateException('When the signature is skipped an "after" photo is required.');
+        }
+
+        return DB::transaction(function () use ($ticket, $are, $report, $signatureDataUrl, $skipped) {
+            $enquiry = ComplaintEnquiry::find($ticket->complaint_enquiries_id);
+            $signaturePath = $signatureDataUrl ? MobileImage::storeSignature($signatureDataUrl, "complaints/{$ticket->id}") : null;
+
+            $ticket->update(['ticket_status' => self::STATUS_CLOSED, 'work_flow_processes_code' => self::STAGE_CLOSED]);
+            $report->update(['complaint_assign_status' => self::STATUS_COMPLETED, 'tenant_signature' => $signaturePath, 'tenant_id' => $enquiry->tenant_id]);
+            $enquiry->update(['complaint_status' => 1]);
+            if ($skipped) {
+                self::addNote($ticket, $are, 'Tenant signature skipped', null);
+            }
+
+            clearNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification', $enquiry->id);
+            $enquiry->text = 'Complaint - ' . $enquiry->complaint_no . ' Tickets-' . $ticket->complaint_ticket_no . ' To Closed ';
+            event(new ComplaintAssigned($enquiry, User::role('maintenance_coordinator')->get()));
+
+            $enquiry->subject = 'Complaint Completed';
+            $enquiry->textContent = 'Your complaint No ' . $enquiry->complaint_no . ' is successfully attended by Al Habib Maintenance Team. Thanks for your kind co-operation.';
+            $tenant = $enquiry->tenant;
+            $email = $tenant->tenant_personal_email ?? $tenant->tenant_contact_email ?? null;
+            $mobile = $tenant->tenant_contact_no ?? $tenant->tenant_residence_tel ?? null;
+            if ($email) {
+                Mail::to($email)->send(new ComplaintStageEmail($enquiry, $tenant->tenant_name));
+            } elseif ($mobile) {
+                sendSms($mobile, 'Complaint Completed', 'optional data');
+            }
+            return $report->fresh();
         });
     }
 }
