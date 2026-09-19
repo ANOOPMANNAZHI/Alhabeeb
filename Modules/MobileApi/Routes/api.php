@@ -13,6 +13,7 @@ Route::middleware(['auth:sanctum', 'mobile.device', 'mobile.log'])->group(functi
     Route::post('auth/logout', 'AuthController@logout')->name('api.auth.logout');
     Route::get('auth/me', 'AuthController@me')->name('api.auth.me');
     Route::get('buildings', 'BuildingController@index')->name('api.buildings.index');
+    Route::get('inventories', 'InventoryController@index')->name('api.inventories.index');
 
     Route::get('complaints', 'ComplaintController@index')->name('api.complaints.index');
     Route::get('complaints/{ticket}', 'ComplaintController@show')->name('api.complaints.show');

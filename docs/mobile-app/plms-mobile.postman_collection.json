@@ -1,0 +1,1165 @@
+{
+    "info": {
+        "name": "PLMS ARE Mobile API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "description": "Set baseUrl, username, password, deviceId; run Login first (it stores the token). ticketId / idId are the record ids for the {ticket} and {id} routes."
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://plms_backup.test/api/v1"
+        },
+        {
+            "key": "username",
+            "value": ""
+        },
+        {
+            "key": "password",
+            "value": ""
+        },
+        {
+            "key": "deviceId",
+            "value": "postman-device-01"
+        },
+        {
+            "key": "token",
+            "value": ""
+        },
+        {
+            "key": "ticketId",
+            "value": ""
+        },
+        {
+            "key": "idId",
+            "value": ""
+        },
+        {
+            "key": "itemId",
+            "value": ""
+        }
+    ],
+    "item": [
+        {
+            "name": "Auth & device",
+            "item": [
+                {
+                    "name": "Login and bind the device",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\",\n    \"device_uid\": \"{{deviceId}}\",\n    \"device_name\": \"Postman\",\n    \"platform\": \"android\",\n    \"app_version\": \"1.0.0\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const b = pm.response.json();",
+                                    "if (b.token) { pm.collectionVariables.set(\"token\", b.token); }"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Revoke the current token",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/logout",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "logout"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Current user, buildings and device",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "My buildings with open-item counts",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/buildings",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "buildings"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Inventory master (material picker)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/inventories?q=&updated_since=&per_page=&page=",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "inventories"
+                            ],
+                            "query": [
+                                {
+                                    "key": "q",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "updated_since",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "per_page",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Complaints",
+            "item": [
+                {
+                    "name": "List tickets by tab",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints?tab=unassigned&building_id=&q=&updated_since=&per_page=&page=",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints"
+                            ],
+                            "query": [
+                                {
+                                    "key": "tab",
+                                    "value": "unassigned",
+                                    "disabled": false
+                                },
+                                {
+                                    "key": "building_id",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "q",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "updated_since",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "per_page",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Ticket detail with service report",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Claim an unassigned ticket",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/claim",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "claim"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Check in at the unit",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/check-in",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "check-in"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lat\": 23.588,\n    \"lng\": 58.3829\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Add a note",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/notes",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "notes"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"text\": \"Compressor relay replaced, gas topped up\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Upload a photo",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/photos",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "photos"
+                            ]
+                        },
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "stage",
+                                    "value": "before",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "photo",
+                                    "type": "file",
+                                    "src": ""
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Add material used",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/items",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "items"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"inventory_id\": 1,\n    \"quantity\": 1\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Remove a material line",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/items/{{itemId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "items",
+                                "{{itemId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Set attended / completed / cannot complete",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "status"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"attended\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Close with tenant signature",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/signature",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "signature"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"signature\": \"data:image/png;base64,…\",\n    \"tenant_remark\": \"Working fine now\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Service report PDF (signed URL)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/complaints/{{ticketId}}/service-report.pdf",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "complaints",
+                                "{{ticketId}}",
+                                "service-report.pdf"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Termination inspections",
+            "item": [
+                {
+                    "name": "List handovers by tab",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/terminations?tab=pending&building_id=&updated_since=&per_page=&page=",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "terminations"
+                            ],
+                            "query": [
+                                {
+                                    "key": "tab",
+                                    "value": "pending",
+                                    "disabled": false
+                                },
+                                {
+                                    "key": "building_id",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "updated_since",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "per_page",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Handover detail + checklist template + draft",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/terminations/{{idId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "terminations",
+                                "{{idId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Save the inspection (draft)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/terminations/{{idId}}/inspection",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "terminations",
+                                "{{idId}}",
+                                "inspection"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"lines\": [\n        {\n            \"sub_work_id\": 29,\n            \"quantity\": 2,\n            \"amount\": 15.5\n        },\n        {\n            \"other_work\": \"Broken bathroom tile\",\n            \"quantity\": 1,\n            \"amount\": 4.5\n        }\n    ],\n    \"electricity\": {\n        \"acc_no\": \"10234567\",\n        \"close_reading\": \"48213\",\n        \"amount\": 10\n    },\n    \"water\": {\n        \"acc_no\": \"W-55321\",\n        \"close_reading\": \"912\",\n        \"amount\": 2.5\n    },\n    \"main_key_status\": 1,\n    \"maintenance_due\": 3,\n    \"notes\": \"Unit in fair condition, minor tile damage\",\n    \"remark\": null\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const b = pm.response.json();",
+                                    "if (b.data && b.data.draft) { pm.collectionVariables.set(\"idId\", b.data.draft.id); }"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Upload an inspection photo",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/terminations/{{idId}}/photos",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "terminations",
+                                "{{idId}}",
+                                "photos"
+                            ]
+                        },
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "type",
+                                    "value": "inspection",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "photo",
+                                    "type": "file",
+                                    "src": ""
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Tenant signs → Taken Over",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/terminations/{{idId}}/submit",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "terminations",
+                                "{{idId}}",
+                                "submit"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"signature\": \"data:image/png;base64,…\",\n    \"tenant_remark\": \"Agreed\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const b = pm.response.json();",
+                                    "if (b.data && b.data.id) { pm.collectionVariables.set(\"idId\", b.data.id); }"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Back-office refer-back comment",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/terminations/{{idId}}/refer-back",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "terminations",
+                                "{{idId}}",
+                                "refer-back"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Inspection report PDF (signed URL)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/terminations/{{idId}}/inspection.pdf",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "terminations",
+                                "{{idId}}",
+                                "inspection.pdf"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Tenant onboarding",
+            "item": [
+                {
+                    "name": "List move-in checklists",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/onboardings?tab=open&building_id=&updated_since=&per_page=&page=",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "onboardings"
+                            ],
+                            "query": [
+                                {
+                                    "key": "tab",
+                                    "value": "open",
+                                    "disabled": false
+                                },
+                                {
+                                    "key": "building_id",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "updated_since",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "per_page",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "page",
+                                    "value": "",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Checklist detail",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/onboardings/{{idId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "onboardings",
+                                "{{idId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Save entries (partial OK)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/onboardings/{{idId}}/entries",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "onboardings",
+                                "{{idId}}",
+                                "entries"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"entries\": [\n        {\n            \"item_id\": 1,\n            \"done\": true,\n            \"value\": null\n        },\n        {\n            \"item_id\": 2,\n            \"done\": true,\n            \"value\": null\n        },\n        {\n            \"item_id\": 3,\n            \"done\": true,\n            \"value\": \"3\"\n        },\n        {\n            \"item_id\": 4,\n            \"done\": true,\n            \"value\": \"ACC 10234567 / 48213\"\n        },\n        {\n            \"item_id\": 5,\n            \"done\": true,\n            \"value\": \"ACC 10234567 / 48213\"\n        },\n        {\n            \"item_id\": 6,\n            \"done\": true,\n            \"value\": null\n        },\n        {\n            \"item_id\": 7,\n            \"done\": true,\n            \"value\": null\n        },\n        {\n            \"item_id\": 8,\n            \"done\": true,\n            \"value\": null\n        },\n        {\n            \"item_id\": 9,\n            \"done\": true,\n            \"value\": null\n        },\n        {\n            \"item_id\": 11,\n            \"done\": true,\n            \"value\": null\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Upload a photo for an item",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/onboardings/{{idId}}/photos",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "onboardings",
+                                "{{idId}}",
+                                "photos"
+                            ]
+                        },
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "item_id",
+                                    "value": "",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "photo",
+                                    "type": "file",
+                                    "src": ""
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Tenant signs → completed",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/onboardings/{{idId}}/complete",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "onboardings",
+                                "{{idId}}",
+                                "complete"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"signature\": \"data:image/png;base64,…\",\n    \"tenant_remark\": \"All received\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Onboarding report PDF (signed URL)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "X-Device-Id",
+                                "value": "{{deviceId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/onboardings/{{idId}}/onboarding.pdf",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "onboardings",
+                                "{{idId}}",
+                                "onboarding.pdf"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Files",
+            "item": [
+                {
+                    "name": "Signed file download",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/files?path=&expires=&signature=",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "files"
+                            ],
+                            "query": [
+                                {
+                                    "key": "path",
+                                    "value": "",
+                                    "disabled": false
+                                },
+                                {
+                                    "key": "expires",
+                                    "value": "",
+                                    "disabled": false
+                                },
+                                {
+                                    "key": "signature",
+                                    "value": "",
+                                    "disabled": false
+                                }
+                            ]
+                        },
+                        "auth": {
+                            "type": "noauth"
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
