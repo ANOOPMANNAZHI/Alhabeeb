@@ -119,7 +119,11 @@ return [
     |
     */
 
-    'providers' => \Illuminate\Support\ServiceProvider::defaultProviders()->merge([
+    // Laravel 13's own image component also binds 'image' (deferred) and would
+    // replace Intervention 2.7's manager on first resolve, breaking Image::make().
+    'providers' => \Illuminate\Support\ServiceProvider::defaultProviders()->except([
+        \Illuminate\Image\ImageServiceProvider::class,
+    ])->merge([
         /*
          * Package Service Providers...
          */
