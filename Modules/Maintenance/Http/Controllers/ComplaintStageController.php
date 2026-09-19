@@ -1408,41 +1408,11 @@ class ComplaintStageController extends Controller
       ->where('work_flow_processes_code', '=', 703)
       ->whereIn('ticket_status', [0,1,3])->get();
 
-      $work_flow = $tickets->pluck('work_flow_processes_code');
-      $tick_desc = $tickets->pluck('checklist_desc')->toArray();
-      
-      $tickets = $tickets->pluck('id');
-      $notes = implode ('' , $tick_desc );
-      $name = Route::currentRouteName();
-      $prefix      = prefixData('service_report_prefix')->configuration_value;
-      $reportLatest = ComplaintServiceReport::latest()->first();
-      if(!empty($reportLatest))
-        $nextCode = $prefix.str_pad($reportLatest->id+1,4,'0',STR_PAD_LEFT);
-      else
-        $nextCode = $prefix.str_pad(1,4,'0',STR_PAD_LEFT);
-
-      $latest = ComplaintServiceReportChecklist::whereIn('checklist_id',$tickets)->first();
-      
-      if($latest == null){
-        $serviceReport = ComplaintServiceReport::create([
-          'user_id' =>\Auth::user()->id,
-          'service_report_no' => $nextCode,
-          'complaint_assign_note'=> $notes,
-          'complaint_assign_status'=> 1,
-          'created_by' => \Auth::user()->id,
-          ]);
-        foreach($tickets as $checklistId){
-
-          ComplaintServiceReportChecklist::create([
-            'checklist_id' =>$checklistId,
-            'complaint_service_report_id' => $serviceReport->id,
-            ]);
-          // Update service report generated status
-          ComplaintChecklist::where('id',$checklistId)->update([
-            'service_report_status'=>1,
-            'ticket_status'=>1
-            ]);
-        }
+      // One service report per ticket (the mobile app works per ticket); the
+      // service is idempotent, so tickets that already have a report are skipped.
+      $user = \App\User::findOrFail($sub_assign);
+      foreach ($tickets as $ticket) {
+        \Modules\Maintenance\Services\TicketAttendance::checkIn($ticket, $user, null, null);
       }
 
       return redirect($url);
