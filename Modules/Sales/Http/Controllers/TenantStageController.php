@@ -874,6 +874,11 @@ string_agg(distinct cast(loc as text), ',') AS loc"),"sales_note" ,"employee_nam
 		SalesEnquiry::where('id', $enquiryid)->update([
             'work_flow_processes_code' => 108
         ]);
+        // Move-in checklist for the ARE mobile app (never blocks activation)
+        foreach (TenantContract::where('sale_enquiry_id', $enquiryid)->get() as $activated) {
+          try { \Modules\BackOffice\Services\TenantOnboarding::createForContract($activated); }
+          catch (\Throwable $e) { \Log::error('Onboarding create failed for contract '.$activated->id.': '.$e->getMessage()); }
+        }
         $unit_listActive = TenantContract::where('sale_enquiry_id','=',$enquiryid)->where('tenant_contract_status','=',1)->get();
 		$tenantData = TenantContract::where('sale_enquiry_id','=',$enquiryid)->first();
 		$tenantInfo  = Tenant::where('id',$tenantData->tenant_id)->first();

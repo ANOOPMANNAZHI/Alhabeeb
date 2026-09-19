@@ -17,6 +17,7 @@ class Kernel extends ConsoleKernel
          Commands\NotificationCommand::class,
          \Modules\BackOffice\Console\TerminationDuesBackfill::class,
          \Modules\BackOffice\Console\TerminationDuesRefresh::class,
+         \Modules\BackOffice\Console\OnboardingSync::class,
     ];
 
     /**
@@ -34,6 +35,9 @@ class Kernel extends ConsoleKernel
        $schedule->command('taskOverDuenotify:command')->everyMinute();
 
        $schedule->command('termination-dues:refresh --open-only')->dailyAt('01:30');
+
+       // Tenant onboarding rows for contracts activated outside the hooked desktop actions
+       $schedule->command('onboarding:sync')->everyFifteenMinutes();
 
     }
 

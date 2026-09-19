@@ -1644,6 +1644,9 @@ public function tenantPopupAction(Request $request){
               'work_flow_processes_code'=>108]);
 
             SalesEnquiry::where('id',$enquiryid)->update(['work_flow_processes_code'=>108]);
+            // Move-in checklist for the ARE mobile app (never blocks activation)
+            try { \Modules\BackOffice\Services\TenantOnboarding::createForContract($contract->fresh()); }
+            catch (\Throwable $e) { \Log::error('Onboarding create failed for contract '.$contract->id.': '.$e->getMessage()); }
 			$contract->Unit->update(['unit_vaccant_status'=>'1','unit_status'=>1]);
 			$tenantData = TenantContract::where('sale_enquiry_id','=',$enquiryid)->first();
 			if(!empty($contract->tenant)){
