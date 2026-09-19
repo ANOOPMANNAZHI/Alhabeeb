@@ -979,3 +979,16 @@ Breadcrumbs::for('showTenantDetailsReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Tenant Details - Building Wise', route('showTenantDetailsReport'));
 });
+// Onboarding checklist items
+Breadcrumbs::for('onboarding-items.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Onboarding Checklist Items', route('onboarding-items.index'));
+});
+Breadcrumbs::for('onboarding-items.create', function ($trail) {
+    $trail->parent('onboarding-items.index');
+    $trail->push('Add Item', route('onboarding-items.create'));
+});
+Breadcrumbs::for('onboarding-items.edit', function ($trail, $item) {
+    $trail->parent('onboarding-items.index');
+    $trail->push('Edit Item', route('onboarding-items.edit', $item->id));
+});

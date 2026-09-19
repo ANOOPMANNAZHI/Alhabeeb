@@ -920,3 +920,12 @@ Breadcrumbs::for('showLeasingConsultantPerformance', function ($trail) {
     $trail->parent('home');
     $trail->push('Leasing Consultant Performance', route('showLeasingConsultantPerformance'));
 });
+// Tenant onboarding
+Breadcrumbs::for('tenant-onboarding.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Tenant Onboarding', route('tenant-onboarding.index'));
+});
+Breadcrumbs::for('tenant-onboarding.show', function ($trail, $onboarding) {
+    $trail->parent('tenant-onboarding.index');
+    $trail->push(optional($onboarding->tenantContract)->tenant_contract_no ?: ('Onboarding #' . $onboarding->id), route('tenant-onboarding.show', $onboarding->id));
+});

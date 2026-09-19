@@ -847,3 +847,12 @@ Route::post('/getBuildingCompleteDetails', 'TenantContractDetailsController@getB
     
 
 });
+
+// Tenant onboarding (move-in checklist filled by the ARE on the mobile app)
+Route::group(['middleware' => 'prevent-back-history'], function () {
+	Route::get('tenantOnboarding', 'TenantOnboardingController@index')->name('tenant-onboarding.index');
+	Route::get('tenantOnboarding/{onboarding}', 'TenantOnboardingController@show')->name('tenant-onboarding.show');
+	Route::post('tenantOnboarding/{onboarding}/verify', 'TenantOnboardingController@verify')->name('tenant-onboarding.verify');
+	Route::post('tenantOnboarding/{onboarding}/reassign', 'TenantOnboardingController@reassign')->name('tenant-onboarding.reassign');
+	Route::get('tenantOnboarding/{onboarding}/pdf', 'TenantOnboardingController@pdf')->name('tenant-onboarding.pdf');
+});

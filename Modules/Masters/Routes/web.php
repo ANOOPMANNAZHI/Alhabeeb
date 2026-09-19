@@ -253,3 +253,9 @@ Route::get('buildingCodesReportAutocompleteCode', 'MasterReportController@buildi
 
 });
 
+
+// Tenant onboarding checklist items (master list for the ARE mobile app)
+Route::group(['middleware' => 'prevent-back-history'], function () {
+    Route::post('onboardingItems/reorder', 'OnboardingChecklistItemController@reorder')->name('onboarding-items.reorder');
+    Route::resource('onboardingItems', 'OnboardingChecklistItemController')->names('onboarding-items')->except('show');
+});
