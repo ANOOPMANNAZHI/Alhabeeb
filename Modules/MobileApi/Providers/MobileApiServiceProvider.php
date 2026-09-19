@@ -16,6 +16,7 @@ class MobileApiServiceProvider extends ServiceProvider
 
         Route::aliasMiddleware('mobile.enabled', \Modules\MobileApi\Http\Middleware\EnsureMobileApiEnabled::class);
         Route::aliasMiddleware('mobile.device', \Modules\MobileApi\Http\Middleware\EnsureRegisteredDevice::class);
+        Route::aliasMiddleware('mobile.log', \Modules\MobileApi\Http\Middleware\LogMobileActivity::class);
     }
 
     public function register(): void

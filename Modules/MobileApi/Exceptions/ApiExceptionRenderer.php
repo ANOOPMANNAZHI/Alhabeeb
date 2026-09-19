@@ -25,8 +25,15 @@ class ApiExceptionRenderer
             $e instanceof AuthenticationException => response()->json(['message' => 'Unauthenticated.', 'code' => 'unauthenticated'], 401),
             $e instanceof AuthorizationException => response()->json(['message' => $e->getMessage() ?: 'Forbidden.', 'code' => 'forbidden'], 403),
             $e instanceof ModelNotFoundException, $e instanceof NotFoundHttpException => response()->json(['message' => 'Not found.', 'code' => 'not_found'], 404),
-            $e instanceof \DomainException => response()->json(['message' => $e->getMessage(), 'code' => method_exists($e, 'code') ? $e->code() : 'invalid_state'], 409),
+            $e instanceof \DomainException => self::domain($e),
             default => null,
         };
+    }
+
+    /** Business-rule failures: 403 when the ticket is not the caller's, 409 for everything else. */
+    private static function domain(\DomainException $e): JsonResponse
+    {
+        $code = method_exists($e, 'code') ? $e->code() : 'invalid_state';
+        return response()->json(['message' => $e->getMessage(), 'code' => $code], $code === 'not_assigned' ? 403 : 409);
     }
 }

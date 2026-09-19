@@ -26,10 +26,10 @@ class MobileImage
         $thumb = (int) config('mobileapi.thumb_px', 300);
 
         Image::make($file->getRealPath())->orientate()
-            ->resize($max, $max, fn ($c) => $c->aspectRatio()->upsize())
+            ->resize($max, $max, function ($c) { $c->aspectRatio(); $c->upsize(); })
             ->save("$base/$name.jpg", 85);
         Image::make($file->getRealPath())->orientate()
-            ->resize($thumb, $thumb, fn ($c) => $c->aspectRatio()->upsize())
+            ->resize($thumb, $thumb, function ($c) { $c->aspectRatio(); $c->upsize(); })
             ->save("$base/{$name}_t.jpg", 80);
 
         return ['path' => "$dir/$name.jpg", 'thumb' => "$dir/{$name}_t.jpg"];

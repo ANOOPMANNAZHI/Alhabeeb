@@ -6,6 +6,7 @@ use App\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Modules\Maintenance\Emails\ComplaintStageEmail;
 use Modules\Maintenance\Entities\ComplaintChecklist;
 use Modules\Maintenance\Entities\ComplaintEnquiry;
@@ -307,5 +308,33 @@ class TicketAttendance
             }
             return $report->fresh();
         });
+    }
+
+    /** Renders the service report to a cached PDF under mobile/complaints/{ticket}. */
+    public static function pdfPath(ComplaintChecklist $ticket, ComplaintServiceReport $report): string
+    {
+        $path = "mobile/complaints/{$ticket->id}/service-report.pdf";
+        $disk = Storage::disk('local');
+        $stamp = max(
+            $report->updated_at?->timestamp ?? 0,
+            (int) ComplaintServiceReportNote::where('complaint_service_report_id', $report->id)->max('id'),
+            (int) ComplaintServiceReportImage::where('complaint_service_report_id', $report->id)->max('id'),
+        );
+        if ($disk->exists($path) && $disk->lastModified($path) >= $stamp) {
+            return $path;
+        }
+
+        $ticket->load('complaintEnquiry.tenant', 'complaintEnquiry.building', 'complaintEnquiry.unit', 'complaintEnquiry.location', 'work', 'subAssignedPerson.employee');
+        $data = [
+            'ticket' => $ticket,
+            'report' => $report,
+            'notes' => ComplaintServiceReportNote::with('createdBy')->where('complaint_service_report_id', $report->id)->orderBy('id')->get(),
+            'images' => ComplaintServiceReportImage::where('complaint_service_report_id', $report->id)->orderBy('id')->get(),
+            'items' => ComplaintServiceReportInv::with('inventory')->where('complaint_service_report_id', $report->id)->orderBy('id')->get(),
+            'printedAt' => now()->format('d/m/Y H:i'),
+        ];
+        $disk->makeDirectory(dirname($path));
+        $disk->put($path, \PDF::loadView('maintenance::ServiceReport.pdf', $data)->setPaper('a4')->output());
+        return $path;
     }
 }
