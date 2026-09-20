@@ -111,7 +111,7 @@
       <table class="table display product-overview mb-30">
         <thead>
           <tr>
-            <th width="6%">Sheet Row</th>
+            <th width="5%">Sl No.</th>
             <th width="10%">Cheque No</th>
             <th width="14%">Bank (sheet)</th>
             <th width="9%">Cheque Date</th>
@@ -123,7 +123,7 @@
           @foreach($ambiguous as $r)
           @php $rowNo = $r['row']['row_no']; $cur = isset($selection['choice'][$rowNo]) ? $selection['choice'][$rowNo] : ''; @endphp
           <tr>
-            <td>{{ $rowNo }}</td>
+            <td>{{ $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
             <td>{{ $r['row']['bank_name'] }}</td>
             <td>{{ $r['row']['cheque_date'] ? \Carbon\Carbon::parse($r['row']['cheque_date'])->format('d/m/Y') : '-' }}</td>
@@ -171,7 +171,7 @@
         <thead>
           <tr>
             <th width="4%"><input type="checkbox" id="bsp-check-page" title="Tick / untick this page" aria-label="Tick or untick every row on this page"></th>
-            <th width="6%">Sheet Row</th>
+            <th width="5%">Sl No.</th>
             <th width="10%">Cheque No</th>
             <th width="9%">Cheque Date</th>
             <th class="num" width="9%">Amount</th>
@@ -188,7 +188,7 @@
           @php $rowNo = $r['row']['row_no']; $first = $r['pdcs'][0]; $on = !isset($selection['unticked'][$rowNo]); @endphp
           <tr class="{{ $on ? '' : 'is-off' }}" id="bsp-row-{{ $rowNo }}">
             <td><input type="checkbox" class="bsp-tick" data-row="{{ $rowNo }}" {{ $on ? 'checked' : '' }} aria-label="Post cheque {{ $r['row']['cheque_no'] }}"></td>
-            <td>{{ $rowNo }}</td>
+            <td>{{ $matched->perPage() * ($matched->currentPage() - 1) + $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
             <td>{{ $r['row']['cheque_date'] ? \Carbon\Carbon::parse($r['row']['cheque_date'])->format('d/m/Y') : '-' }}</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
@@ -232,7 +232,7 @@
       <table class="table display product-overview mb-30">
         <thead>
           <tr>
-            <th width="6%">Sheet Row</th>
+            <th width="5%">Sl No.</th>
             <th width="10%">Cheque No</th>
             <th width="16%">Bank (sheet)</th>
             <th width="9%">Cheque Date</th>
@@ -253,7 +253,7 @@
           @forelse($cannot as $r)
           @php $l = isset($labels[$r['status']]) ? $labels[$r['status']] : ['btn-default', $r['status']]; @endphp
           <tr>
-            <td>{{ $r['row']['row_no'] }}</td>
+            <td>{{ $cannot->perPage() * ($cannot->currentPage() - 1) + $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
             <td>{{ $r['row']['bank_name'] }}</td>
             <td>{{ $r['row']['cheque_date'] ? \Carbon\Carbon::parse($r['row']['cheque_date'])->format('d/m/Y') : '-' }}</td>
