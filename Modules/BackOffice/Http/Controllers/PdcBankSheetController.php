@@ -222,9 +222,14 @@ class PdcBankSheetController extends Controller
 
         $results = (new BankSheetPdcMatcher($this->bankMap()))->match($rows, $this->candidatePdcs($rows));
 
+        // Rows the bank rejected (NSF, signature, ...) are kept out of the
+        // review: only accepted cheques are shown. They still reach the audit.
         $sections = ['ambiguous' => [], 'matched' => [], 'cannot' => []];
+        $rejected = 0;
         foreach ($results as $r) {
-            if ($r['status'] === BankSheetPdcMatcher::MATCHED) {
+            if ($r['status'] === BankSheetPdcMatcher::REJECTED) {
+                $rejected++;
+            } elseif ($r['status'] === BankSheetPdcMatcher::MATCHED) {
                 $sections['matched'][] = $r;
             } elseif ($r['status'] === BankSheetPdcMatcher::AMBIGUOUS) {
                 $sections['ambiguous'][] = $r;
@@ -234,6 +239,8 @@ class PdcBankSheetController extends Controller
         }
         $counts = [
             'total'     => count($results),
+            'accepted'  => count($results) - $rejected,
+            'rejected'  => $rejected,
             'ambiguous' => count($sections['ambiguous']),
             'matched'   => count($sections['matched']),
             'cannot'    => count($sections['cannot']),

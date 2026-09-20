@@ -62,7 +62,7 @@
       <div class="row">
         <div class="col-md-4 col-sm-12">
           <span class="bsp-file"><i class="fa fa-file-excel-o" aria-hidden="true"></i> {{ $fileName }}</span>
-          <span class="bsp-sub">{{ $counts['total'] }} cheques on sheet</span>
+          <span class="bsp-sub">{{ $counts['accepted'] }} accepted cheques on sheet@if($counts['rejected'] > 0) · {{ $counts['rejected'] }} rejected by bank not shown@endif</span>
           <div style="margin-top:6px">
             <span class="bsp-pill bsp-pill-choice"><i class="fa fa-question-circle" aria-hidden="true"></i>{{ $counts['ambiguous'] }} need choice</span>
             <span class="bsp-pill bsp-pill-matched"><i class="fa fa-check-circle" aria-hidden="true"></i>{{ $counts['matched'] }} matched</span>
@@ -222,7 +222,7 @@
   <div class="card-body">
     <div class="bsp-head">
       <h4><i class="fa fa-ban" style="color:#991b1b" aria-hidden="true"></i> Cannot post <span class="bsp-pill bsp-pill-cannot">{{ $counts['cannot'] }}</span></h4>
-      <span class="bsp-hint">Nothing happens to these. Use the manual screen for the ones that need posting.</span>
+      <span class="bsp-hint">Accepted by the bank but no clean PDC match. Nothing happens to these — post them on the manual screen.</span>
     </div>
     <h4>
       <div id="pagination_info_c">@include('includes.pagination_info', ['paginator' => $cannot])</div>
@@ -244,7 +244,6 @@
         <tbody>
           @php
             $labels = [
-              'rejected'        => ['btn-danger',  'Rejected by bank'],
               'not_found'       => ['btn-default', 'Not in PLMS'],
               'amount_mismatch' => ['btn-warning', 'Amount mismatch'],
               'date_mismatch'   => ['btn-warning', 'Date mismatch'],
