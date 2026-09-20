@@ -9,37 +9,47 @@ use Carbon\Carbon;
  * tenantrentreceivablecompo_v2) into aging buckets for the Tenant Aging
  * Report. There is no per-installment due ledger, so the buckets are
  * derived: every rent-month after lastpaid_till (or the contract start)
- * up to the as-on date is treated as unpaid and bucketed by how many days
- * overdue its due date is. Buckets are then reconciled so they always sum
- * to netamtdue. Pure PHP (no DB) so it can be unit tested; runs on
+ * up to the as-on date is treated as unpaid and bucketed by the calendar
+ * month its due date falls in: "Current" is the as-on month (1st .. as-on
+ * date), "31 - 60" the previous whole month, and so on. Buckets are then
+ * reconciled so they always sum to netamtdue. Pure PHP (no DB) so it can be unit tested; runs on
  * PHP < 7.4 in production: no arrow functions.
  */
 class TenantAgingCalculator
 {
-    /** Bucket key => [label, min days, max days (null = open ended)] oldest last. */
+    /**
+     * Bucket key => [label, min months back, max months back (null = open
+     * ended)] oldest last, where 0 = the as-on month, 1 = the month before it.
+     */
     const BUCKETS = [
-        'current'  => ['Current',   0,   30],
-        'b31_60'   => ['31 - 60',   31,  60],
-        'b61_90'   => ['61 - 90',   61,  90],
-        'b91_120'  => ['91 - 120',  91,  120],
-        'b121_180' => ['121 - 180', 121, 180],
-        'b180plus' => ['180 +',     181, null],
+        'current'  => ['Current',   0, 0],
+        'b31_60'   => ['31 - 60',   1, 1],
+        'b61_90'   => ['61 - 90',   2, 2],
+        'b91_120'  => ['91 - 120',  3, 3],
+        'b121_180' => ['121 - 180', 4, 5],
+        'b180plus' => ['180 +',     6, null],
     ];
 
     /**
-     * Date windows for each bucket, counted back from the as-on date.
+     * Date windows for each bucket in whole calendar months back from the
+     * as-on date: Current runs from the 1st of the as-on month to the as-on
+     * date, every older bucket covers whole months, so the windows are
+     * contiguous with no gaps.
      *
      * @return array key => ['label', 'from' (Y-m-d|null), 'to' (Y-m-d)]
      */
     public static function buckets($asOn)
     {
-        $asOn = Carbon::parse($asOn)->startOfDay();
-        $out  = [];
+        $asOn  = Carbon::parse($asOn)->startOfDay();
+        $month = $asOn->copy()->startOfMonth();
+        $out   = [];
         foreach (self::BUCKETS as $key => $def) {
             $out[$key] = [
                 'label' => $def[0],
-                'from'  => $def[2] === null ? null : $asOn->copy()->subDays($def[2])->toDateString(),
-                'to'    => $asOn->copy()->subDays($def[1])->toDateString(),
+                'from'  => $def[2] === null ? null : $month->copy()->subMonthsNoOverflow($def[2])->toDateString(),
+                'to'    => $def[1] === 0
+                    ? $asOn->toDateString()
+                    : $month->copy()->subMonthsNoOverflow($def[1])->endOfMonth()->toDateString(),
             ];
         }
         return $out;
@@ -75,13 +85,15 @@ class TenantAgingCalculator
             }
         }
 
-        // Walk the unpaid rent-months, each due on the day the period starts.
+        // Walk the unpaid rent-months, each due on the day the period starts,
+        // and bucket each one by how many calendar months before the as-on
+        // month it fell due.
         if ($unpaidFrom !== null && $rent > 0) {
             $due = $unpaidFrom->copy();
             $i   = 0;
             while ($due->lte($periodEnd) && $i < 600) {
-                $days = $due->diffInDays($asOn);
-                $amounts[self::bucketFor($days)] += $rent;
+                $monthsBack = ($asOn->year * 12 + $asOn->month) - ($due->year * 12 + $due->month);
+                $amounts[self::bucketFor($monthsBack)] += $rent;
                 $i++;
                 $due = $unpaidFrom->copy()->addMonthsNoOverflow($i);
             }
@@ -119,10 +131,10 @@ class TenantAgingCalculator
         return $amounts;
     }
 
-    private static function bucketFor($days)
+    private static function bucketFor($monthsBack)
     {
         foreach (self::BUCKETS as $key => $def) {
-            if ($def[2] === null || $days <= $def[2]) {
+            if ($def[2] === null || $monthsBack <= $def[2]) {
                 return $key;
             }
         }
