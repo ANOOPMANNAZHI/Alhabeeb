@@ -206,6 +206,18 @@ class BankSheetPdcMatcherTest extends TestCase
         $this->assertSame(BankSheetPdcMatcher::NOT_FOUND, $out[1]['status']);
     }
 
+    public function test_a_sheet_bank_code_may_map_to_several_plms_banks()
+    {
+        // Meethaq (34) cheques are entered in PLMS sometimes as Meethaq (31), sometimes as Bank Muscat (3)
+        $matcher = new BankSheetPdcMatcher(['34' => [31, 3]]);
+        $out = $matcher->match(
+            [$this->sheetRow(['bank_code' => '34'])],
+            [$this->pdc(['bank_id' => 3])]
+        );
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+    }
+
     public function test_amount_comparison_tolerates_float_noise()
     {
         $out = $this->matcher()->match(

@@ -25,7 +25,7 @@ class BankSheetPdcMatcher
     /** Amounts closer than this are equal (OMR has 3 decimals). */
     const AMOUNT_EPSILON = 0.0005;
 
-    /** @var array bank-sheet bank code => pdc.bank_id */
+    /** @var array bank-sheet bank code => pdc.bank_id, or a list of them when cheques of that bank are entered under more than one PLMS bank */
     private $bankMap;
 
     public function __construct(array $bankMap)
@@ -70,11 +70,12 @@ class BankSheetPdcMatcher
         if (!isset($this->bankMap[$bankCode])) {
             return $this->result($row, self::UNKNOWN_BANK, [], [], 'Bank "' . $row['bank_name'] . '" is not mapped to a PLMS bank');
         }
-        $bankId = $this->bankMap[$bankCode];
-
-        $key   = $this->key($row['cheque_no'], $bankId);
         $found = [];
-        if (isset($pool[$key])) {
+        foreach ((array) $this->bankMap[$bankCode] as $bankId) {
+            $key = $this->key($row['cheque_no'], $bankId);
+            if (!isset($pool[$key])) {
+                continue;
+            }
             foreach ($pool[$key] as $pdc) {
                 if (!isset($used[$pdc->id])) {
                     $found[] = $pdc;
