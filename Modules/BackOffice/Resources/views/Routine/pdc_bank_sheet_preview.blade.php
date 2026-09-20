@@ -23,12 +23,16 @@
   .bsp-pill-choice  { background:#fef3c7; color:#92400e; }
   .bsp-pill-matched { background:#dcfce7; color:#166534; }
   .bsp-pill-cannot  { background:#fee2e2; color:#991b1b; }
-  .bsp-pill-muted   { background:#f3f4f6; color:#6b7280; }
 
   /* section headings */
   .bsp .bsp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
   .bsp .bsp-head h4 { margin:0; font-size:16px; }
   .bsp .bsp-head .bsp-hint { color:#6b7280; font-size:12px; }
+  .bsp .bsp-head .bsp-clear { margin-left:auto; font-size:12px; }
+
+  /* per-column filter row (same as the other list pages) */
+  .bsp thead tr.bsp-filters td { padding:4px 6px; }
+  .bsp thead tr.bsp-filters input, .bsp thead tr.bsp-filters select { width:100%; min-width:60px; height:28px; padding:2px 6px; font-size:12px; border:1px solid #d1d5db; border-radius:3px; }
 
   /* candidate picker inside the ambiguous table */
   .bsp-cand { display:block; padding:6px 8px; margin:0 0 4px; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer; font-weight:normal; }
@@ -39,13 +43,26 @@
 
   .bsp tr.is-off td { opacity:.45; }
   .bsp .bsp-status { white-space:nowrap; }
-  .bsp-search .card-body { padding:10px 16px; }
-  .bsp-search .input-group-addon { background:#f9fafb; }
-  .bsp-search-info { line-height:34px; font-size:13px; }
 </style>
 @endsection
 
 @section('content')
+@php
+  // filter input helper: section prefix (a/m/c), field, optional placeholder
+  $fin = function ($p, $f, $ph = '') use ($filters) {
+    $sec = ['a' => 'ambiguous', 'm' => 'matched', 'c' => 'cannot'][$p];
+    $v = isset($filters[$sec][$f]) ? $filters[$sec][$f] : '';
+    return '<input autocomplete="off" type="text" class="bsp-filter" form="bsp-filter-form" name="' . $p . '[' . $f . ']" value="' . e($v) . '" placeholder="' . e($ph) . '" aria-label="Filter ' . e($f) . '">';
+  };
+  $fmtDate = function ($d) { return $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : '-'; };
+  $filtering = ['ambiguous' => count($filters['ambiguous']) > 0, 'matched' => count($filters['matched']) > 0, 'cannot' => count($filters['cannot']) > 0];
+  $statusLabels = [
+    'not_found'       => ['btn-default', 'Not in PLMS'],
+    'amount_mismatch' => ['btn-warning', 'Amount mismatch'],
+    'date_mismatch'   => ['btn-warning', 'Date mismatch'],
+    'unknown_bank'    => ['btn-default', 'Unknown bank'],
+  ];
+@endphp
 <div class="page-bar">
   <div class="page-title-breadcrumb">
     <div class=" pull-left">
@@ -106,32 +123,8 @@
   </div>
 </form>
 
-{{-- ── Search (GET; keeps ticks and choices) ─────────────────── --}}
-<form method="get" action="{{ route('pdcBankSheetPreview', $stored) }}" id="bsp-search-form" autocomplete="off">
-  <div class="card card-box bsp-search">
-    <div class="card-body">
-      <div class="row">
-        <div class="col-md-5 col-sm-8">
-          <label for="bsp-q" class="sr-only">Search</label>
-          <div class="input-group">
-            <span class="input-group-addon"><i class="fa fa-search" aria-hidden="true"></i></span>
-            <input id="bsp-q" type="search" name="q" class="form-control" value="{{ $q }}" placeholder="Search cheque no, tenant, agreement no, building, unit, bank, amount…">
-            @if($q !== '')
-            <span class="input-group-btn"><a href="{{ route('pdcBankSheetPreview', $stored) }}" class="btn btn-default" title="Clear search">&times;</a></span>
-            @endif
-          </div>
-        </div>
-        <div class="col-md-7 col-sm-4 bsp-search-info">
-          @if($q !== '')
-            Showing {{ $shown['ambiguous'] + $shown['matched'] + $shown['cannot'] }} of {{ $counts['accepted'] }} cheques matching “{{ $q }}”
-          @else
-            <span class="bsp-hint">Type to filter all three sections. Your ticks and choices are kept while searching.</span>
-          @endif
-        </div>
-      </div>
-    </div>
-  </div>
-</form>
+{{-- Column filters (inputs reference this form via form=""); ticks and choices live in the session so they are unaffected --}}
+<form method="get" action="{{ route('pdcBankSheetPreview', $stored) }}" id="bsp-filter-form" autocomplete="off"></form>
 
 {{-- ── 1. Needs your choice ───────────────────────────────────── --}}
 @if($counts['ambiguous'] > 0)
@@ -139,8 +132,9 @@
 <div class="card card-box">
   <div class="card-body">
     <div class="bsp-head">
-      <h4><i class="fa fa-question-circle" style="color:#92400e" aria-hidden="true"></i> Needs your choice <span class="bsp-pill bsp-pill-choice">{{ $q !== '' ? $shown['ambiguous'] . ' of ' : '' }}{{ $counts['ambiguous'] }}</span></h4>
+      <h4><i class="fa fa-question-circle" style="color:#92400e" aria-hidden="true"></i> Needs your choice <span class="bsp-pill bsp-pill-choice">{{ $filtering['ambiguous'] ? $shown['ambiguous'] . ' of ' : '' }}{{ $counts['ambiguous'] }}</span></h4>
       <span class="bsp-hint">More than one unposted PDC fits this cheque. Pick the right tenant, or leave it as <b>Skip</b> and post it manually later.</span>
+      @if($filtering['ambiguous'])<a href="#" class="bsp-clear" data-prefix="a">Clear filters</a>@endif
     </div>
     <div class="table-wrap"><div class="table-responsive">
       <table class="table display product-overview mb-30">
@@ -153,6 +147,14 @@
             <th class="num" width="9%">Amount</th>
             <th>Choose the PLMS record</th>
           </tr>
+          <tr class="bsp-filters">
+            <td></td>
+            <td>{!! $fin('a', 'cheque') !!}</td>
+            <td>{!! $fin('a', 'bank') !!}</td>
+            <td>{!! $fin('a', 'date', 'dd/mm/yyyy') !!}</td>
+            <td>{!! $fin('a', 'amount') !!}</td>
+            <td>{!! $fin('a', 'plms', 'Tenant / agreement / building / unit') !!}</td>
+          </tr>
         </thead>
         <tbody>
           @forelse($ambiguous as $r)
@@ -161,7 +163,7 @@
             <td>{{ $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
             <td>{{ $r['row']['bank_name'] }}</td>
-            <td>{{ $r['row']['cheque_date'] ? \Carbon\Carbon::parse($r['row']['cheque_date'])->format('d/m/Y') : '-' }}</td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
             <td>
               <label class="bsp-cand {{ $cur === '' ? 'is-on' : '' }}">
@@ -172,16 +174,19 @@
               @php $ids = implode(',', array_column($group, 'id')); $first = $group[0]; @endphp
               <label class="bsp-cand {{ $cur === $ids ? 'is-on' : '' }}">
                 <input type="radio" name="choice_{{ $rowNo }}" value="{{ $ids }}" class="bsp-choice" data-row="{{ $rowNo }}" {{ $cur === $ids ? 'checked' : '' }}>
-                <b>{{ $first->tenant_name }}</b> @if(count($group) > 1) · {{ count($group) }} rows (split cheque) @endif
+                <b>{{ $first->tenant_name }}</b>
+                @if(count($group) > 1)
+                  · {{ count($group) }} rows (split cheque)
+                @endif
                 @foreach($group as $p)
-                <span class="bsp-sub">{{ $p->tenant_contract_no }} · {{ $p->building_name }} / {{ $p->unit_no }} · {{ $p->pdc_type_name }} · {{ numberFormat($p->pdc_amt) }} · chq {{ $p->pdc_check_date ? \Carbon\Carbon::parse($p->pdc_check_date)->format('d/m/Y') : '-' }} · {{ $p->bank_name }}</span>
+                <span class="bsp-sub">{{ $p->tenant_contract_no }} · {{ $p->building_name }} / {{ $p->unit_no }} · {{ $p->pdc_type_name }} · {{ numberFormat($p->pdc_amt) }} · chq {{ $fmtDate($p->pdc_check_date) }} · {{ $p->bank_name }}</span>
                 @endforeach
               </label>
               @endforeach
             </td>
           </tr>
           @empty
-          <tr><td colspan="6" align="center"><p>Nothing here contains “{{ $q }}”.</p></td></tr>
+          <tr><td colspan="6" align="center"><p>No cheque matches these filters.</p></td></tr>
           @endforelse
         </tbody>
       </table>
@@ -196,8 +201,9 @@
 <div class="card card-box">
   <div class="card-body">
     <div class="bsp-head">
-      <h4><i class="fa fa-check-circle" style="color:#166534" aria-hidden="true"></i> Auto-matched <span class="bsp-pill bsp-pill-matched">{{ $q !== '' ? $shown['matched'] . ' of ' : '' }}{{ $counts['matched'] }}</span></h4>
-      <span class="bsp-hint">These will be posted. Untick any you want to hold back — your ticks are kept while you page.</span>
+      <h4><i class="fa fa-check-circle" style="color:#166534" aria-hidden="true"></i> Auto-matched <span class="bsp-pill bsp-pill-matched">{{ $filtering['matched'] ? $shown['matched'] . ' of ' : '' }}{{ $counts['matched'] }}</span></h4>
+      <span class="bsp-hint">These will be posted. Untick any you want to hold back — your ticks are kept while you filter and page.</span>
+      @if($filtering['matched'])<a href="#" class="bsp-clear" data-prefix="m">Clear filters</a>@endif
     </div>
     <h4>
       <div id="pagination_info_m">@include('includes.pagination_info', ['paginator' => $matched])</div>
@@ -219,6 +225,19 @@
             <th>PLMS Bank</th>
             <th width="7%">Rows</th>
           </tr>
+          <tr class="bsp-filters">
+            <td></td>
+            <td></td>
+            <td>{!! $fin('m', 'cheque') !!}</td>
+            <td>{!! $fin('m', 'date', 'dd/mm/yyyy') !!}</td>
+            <td>{!! $fin('m', 'amount') !!}</td>
+            <td>{!! $fin('m', 'tenant') !!}</td>
+            <td>{!! $fin('m', 'agr') !!}</td>
+            <td>{!! $fin('m', 'building') !!}</td>
+            <td>{!! $fin('m', 'type') !!}</td>
+            <td>{!! $fin('m', 'pbank') !!}</td>
+            <td></td>
+          </tr>
         </thead>
         <tbody>
           @forelse($matched as $r)
@@ -227,11 +246,19 @@
             <td><input type="checkbox" class="bsp-tick" data-row="{{ $rowNo }}" {{ $on ? 'checked' : '' }} aria-label="Post cheque {{ $r['row']['cheque_no'] }}"></td>
             <td>{{ $matched->perPage() * ($matched->currentPage() - 1) + $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
-            <td>{{ $r['row']['cheque_date'] ? \Carbon\Carbon::parse($r['row']['cheque_date'])->format('d/m/Y') : '-' }}</td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
             <td>{{ $first->tenant_name }}</td>
-            <td>@foreach($r['pdcs'] as $p) {{ $p->tenant_contract_no }} @if(!$loop->last)<br>@endif @endforeach</td>
-            <td>@foreach($r['pdcs'] as $p) {{ $p->building_name }} / {{ $p->unit_no }} @if(!$loop->last)<br>@endif @endforeach</td>
+            <td>
+              @foreach($r['pdcs'] as $p)
+                {{ $p->tenant_contract_no }}@if(!$loop->last)<br>@endif
+              @endforeach
+            </td>
+            <td>
+              @foreach($r['pdcs'] as $p)
+                {{ $p->building_name }} / {{ $p->unit_no }}@if(!$loop->last)<br>@endif
+              @endforeach
+            </td>
             <td>{{ $first->pdc_type_name }}</td>
             <td>{{ $first->bank_name }}</td>
             <td>
@@ -243,7 +270,7 @@
             </td>
           </tr>
           @empty
-          <tr><td colspan="11" align="center"><p>@if($q !== '') No matched cheque contains “{{ $q }}”. @else No cheque on the sheet matched an unposted PDC. @endif</p></td></tr>
+          <tr><td colspan="11" align="center"><p>{{ $filtering['matched'] ? 'No matched cheque fits these filters.' : 'No cheque on the sheet matched an unposted PDC.' }}</p></td></tr>
           @endforelse
         </tbody>
       </table>
@@ -258,8 +285,9 @@
 <div class="card card-box">
   <div class="card-body">
     <div class="bsp-head">
-      <h4><i class="fa fa-ban" style="color:#991b1b" aria-hidden="true"></i> Cannot post <span class="bsp-pill bsp-pill-cannot">{{ $q !== '' ? $shown['cannot'] . ' of ' : '' }}{{ $counts['cannot'] }}</span></h4>
+      <h4><i class="fa fa-ban" style="color:#991b1b" aria-hidden="true"></i> Cannot post <span class="bsp-pill bsp-pill-cannot">{{ $filtering['cannot'] ? $shown['cannot'] . ' of ' : '' }}{{ $counts['cannot'] }}</span></h4>
       <span class="bsp-hint">Accepted by the bank but no clean PDC match. Nothing happens to these — post them on the manual screen.</span>
+      @if($filtering['cannot'])<a href="#" class="bsp-clear" data-prefix="c">Clear filters</a>@endif
     </div>
     <h4>
       <div id="pagination_info_c">@include('includes.pagination_info', ['paginator' => $cannot])</div>
@@ -277,29 +305,37 @@
             <th width="14%">Status</th>
             <th>Why</th>
           </tr>
+          <tr class="bsp-filters">
+            <td></td>
+            <td>{!! $fin('c', 'cheque') !!}</td>
+            <td>{!! $fin('c', 'bank') !!}</td>
+            <td>{!! $fin('c', 'date', 'dd/mm/yyyy') !!}</td>
+            <td>{!! $fin('c', 'amount') !!}</td>
+            <td>
+              <select name="c[status]" class="bsp-filter" form="bsp-filter-form" aria-label="Filter status">
+                <option value="">All</option>
+                @foreach($statusLabels as $k => $l)
+                <option value="{{ $k }}" {{ (isset($filters['cannot']['status']) ? $filters['cannot']['status'] : '') === $k ? 'selected' : '' }}>{{ $l[1] }}</option>
+                @endforeach
+              </select>
+            </td>
+            <td>{!! $fin('c', 'why') !!}</td>
+          </tr>
         </thead>
         <tbody>
-          @php
-            $labels = [
-              'not_found'       => ['btn-default', 'Not in PLMS'],
-              'amount_mismatch' => ['btn-warning', 'Amount mismatch'],
-              'date_mismatch'   => ['btn-warning', 'Date mismatch'],
-              'unknown_bank'    => ['btn-default', 'Unknown bank'],
-            ];
-          @endphp
           @forelse($cannot as $r)
-          @php $l = isset($labels[$r['status']]) ? $labels[$r['status']] : ['btn-default', $r['status']]; @endphp
+          @php $l = isset($statusLabels[$r['status']]) ? $statusLabels[$r['status']] : ['btn-default', $r['status']]; @endphp
           <tr>
             <td>{{ $cannot->perPage() * ($cannot->currentPage() - 1) + $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
             <td>{{ $r['row']['bank_name'] }}</td>
-            <td>{{ $r['row']['cheque_date'] ? \Carbon\Carbon::parse($r['row']['cheque_date'])->format('d/m/Y') : '-' }}</td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
             <td class="num">{{ numberFormat($r['row']['amount']) }}</td>
             <td class="bsp-status"><span class="btn-circle {{ $l[0] }} btn-sm m-b-10 status"><b>{{ $l[1] }}</b></span></td>
             <td>{{ $r['reason'] }}</td>
           </tr>
           @empty
-          <tr><td colspan="7" align="center"><p>@if($q !== '') Nothing here contains “{{ $q }}”. @else None — every accepted cheque on the sheet was matched. @endif</p></td></tr>
+          <tr><td colspan="7" align="center"><p>{{ $filtering['cannot'] ? 'Nothing here fits these filters.' : 'None — every accepted cheque on the sheet was matched.' }}</p></td></tr>
           @endforelse
         </tbody>
       </table>
@@ -355,7 +391,7 @@ $(function () {
     var $r = $(this), row = $r.data('row'), value = $r.val();
     var $group = $('.bsp-choice[data-row="' + row + '"]');
     var was = $group.filter('.was-on').val();
-    if (was === undefined) { was = $group.closest('.bsp-cand.is-on').find('input').val() || ''; }
+    if (was === undefined) { was = ''; }
     $group.closest('.bsp-cand').removeClass('is-on');
     $r.closest('.bsp-cand').addClass('is-on');
     // count moves only when going from Skip to a choice or back
@@ -368,9 +404,26 @@ $(function () {
   });
   $('.bsp-choice:checked').addClass('was-on');
 
-  // native clear (×) inside the search field reloads the unfiltered list
-  $('#bsp-q').on('search', function () {
-    if (this.value === '' && '{{ $q }}' !== '') { $('#bsp-search-form').submit(); }
+  // Column filters: submit the GET form (without empty fields) after typing pauses.
+  var filterTimer = 0;
+  function applyFilters() {
+    var $f = $('#bsp-filter-form');
+    $f.find('.bsp-filter').each(function () { $(this).prop('disabled', $.trim(this.value) === ''); });
+    $f.submit();
+  }
+  $(document).on('input', 'input.bsp-filter', function () {
+    window.clearTimeout(filterTimer);
+    filterTimer = window.setTimeout(applyFilters, 500);
+  });
+  $(document).on('change', 'select.bsp-filter', applyFilters);
+  $(document).on('keydown', '.bsp-filter', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); window.clearTimeout(filterTimer); applyFilters(); }
+  });
+  $('.bsp-clear').on('click', function (e) {
+    e.preventDefault();
+    var p = $(this).data('prefix');
+    $('.bsp-filter[name^="' + p + '["]').val('');
+    applyFilters();
   });
 
   $('#bsp-post-form').on('submit', function () {

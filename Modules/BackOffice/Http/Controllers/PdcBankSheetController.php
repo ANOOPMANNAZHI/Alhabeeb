@@ -68,10 +68,12 @@ class PdcBankSheetController extends Controller
         $selection = $this->selection($request, $stored);
         $sections  = $analysis['sections'];
 
-        $q = trim((string) $request->input('q', ''));
-        if ($q !== '') {
-            foreach ($sections as $k => $rows) {
-                $sections[$k] = $this->filterRows($rows, $q);
+        // per-column filters, one set per section: ?a[cheque]=..&m[tenant]=..&c[status]=..
+        $filters = [];
+        foreach (['ambiguous' => 'a', 'matched' => 'm', 'cannot' => 'c'] as $k => $prefix) {
+            $filters[$k] = $this->cleanFilters($request->input($prefix, []));
+            if (count($filters[$k]) > 0) {
+                $sections[$k] = $this->filterRows($sections[$k], $filters[$k]);
             }
         }
         $shown = [
@@ -109,41 +111,106 @@ class PdcBankSheetController extends Controller
             'toPost'    => $toPost,
             'today'         => date('Y-m-d'),
             'defaultDate'   => $defaultDate,
-            'q'             => $q,
+            'filters'       => $filters,
             'shown'         => $shown,
         ]);
     }
 
-    /**
-     * Rows whose sheet fields (cheque no, bank, amount, date) or any matched /
-     * candidate PDC (tenant, agreement no, building, unit, PLMS bank) contain
-     * the search text, case-insensitively.
-     */
-    private function filterRows(array $rows, $q)
+    /** Non-empty, trimmed string filters only. */
+    private function cleanFilters($input)
     {
-        $needle = mb_strtolower($q);
+        $out = [];
+        foreach ((array) $input as $field => $value) {
+            $value = trim((string) $value);
+            if ($value !== '' && preg_match('/^[a-z_]+$/', (string) $field)) {
+                $out[$field] = $value;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Rows matching every column filter (case-insensitive "contains";
+     * status is an exact key). Column => what it searches:
+     *   cheque  sheet cheque no (with or without leading zeros)
+     *   date    sheet cheque date as d/m/Y or Y-m-d
+     *   amount  sheet amount
+     *   bank    sheet bank name
+     *   status  result status key (cannot-post table)
+     *   why     reason text
+     *   tenant / agr / building / type / pbank / plms (all of them)
+     *           matched rows, or any candidate group, of the PDC side
+     */
+    private function filterRows(array $rows, array $filters)
+    {
         $out = [];
         foreach ($rows as $r) {
-            $hay = [
-                $r['row']['cheque_no'],
-                BankSheetPdcMatcher::normaliseChequeNo($r['row']['cheque_no']),
-                $r['row']['bank_name'],
-                (string) $r['row']['amount'],
-                $r['row']['cheque_date'],
-                $r['reason'],
-            ];
             $groups = $r['pdcs'] ? [$r['pdcs']] : $r['candidates'];
-            foreach ($groups as $group) {
-                foreach ($group as $p) {
-                    $hay[] = $p->tenant_name;
-                    $hay[] = $p->tenant_contract_no;
-                    $hay[] = $p->building_name;
-                    $hay[] = $p->unit_no;
-                    $hay[] = $p->bank_name;
+            $pdcs   = [];
+            foreach ($groups as $g) {
+                foreach ($g as $p) {
+                    $pdcs[] = $p;
                 }
             }
-            $hay = array_filter($hay, function ($v) { return $v !== null && $v !== ''; });
-            if (mb_stripos(implode("\n", $hay), $needle) !== false) {
+            $ok = true;
+            foreach ($filters as $field => $needle) {
+                switch ($field) {
+                    case 'cheque':
+                        $hay = [$r['row']['cheque_no'], BankSheetPdcMatcher::normaliseChequeNo($r['row']['cheque_no'])];
+                        break;
+                    case 'date':
+                        $d   = $r['row']['cheque_date'];
+                        $hay = [$d, $d ? date('d/m/Y', strtotime($d)) : ''];
+                        break;
+                    case 'amount':
+                        $hay = [(string) $r['row']['amount'], number_format((float) $r['row']['amount'], 3, '.', ',')];
+                        break;
+                    case 'bank':
+                        $hay = [$r['row']['bank_name']];
+                        break;
+                    case 'status':
+                        if ($r['status'] !== $needle) {
+                            $ok = false;
+                            break 2;
+                        }
+                        continue 2;
+                    case 'why':
+                        $hay = [$r['reason']];
+                        break;
+                    case 'tenant':
+                        $hay = array_column($pdcs, 'tenant_name');
+                        break;
+                    case 'agr':
+                        $hay = array_column($pdcs, 'tenant_contract_no');
+                        break;
+                    case 'building':
+                        $hay = array_merge(array_column($pdcs, 'building_name'), array_column($pdcs, 'unit_no'));
+                        break;
+                    case 'type':
+                        $hay = array_column($pdcs, 'pdc_type_name');
+                        break;
+                    case 'pbank':
+                        $hay = array_column($pdcs, 'bank_name');
+                        break;
+                    case 'plms': // whole PDC side in one box (ambiguous table)
+                        $hay = array_merge(
+                            array_column($pdcs, 'tenant_name'),
+                            array_column($pdcs, 'tenant_contract_no'),
+                            array_column($pdcs, 'building_name'),
+                            array_column($pdcs, 'unit_no'),
+                            array_column($pdcs, 'bank_name')
+                        );
+                        break;
+                    default:
+                        continue 2;
+                }
+                $hay = array_filter($hay, function ($v) { return $v !== null && $v !== ''; });
+                if (mb_stripos(implode("\n", $hay), $needle) === false) {
+                    $ok = false;
+                    break;
+                }
+            }
+            if ($ok) {
                 $out[] = $r;
             }
         }
