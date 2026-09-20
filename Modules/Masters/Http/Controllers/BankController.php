@@ -75,6 +75,7 @@ class BankController extends Controller
           'dim2' => 'BUILDING',
 		  'bank_remark' => $request['bank_remark'],
 		  'accounts_bank' => $request['accounts_bank'],
+		  'bank_clearing_codes' => $request['bank_clearing_codes'] !== null ? preg_replace('/\s+/', '', $request['bank_clearing_codes']) : null,
           'created_by' => \Auth::user()->id,
         ]);
         
@@ -133,6 +134,7 @@ class BankController extends Controller
           'dim1Value' => $request['dim1Value'],
           'bank_remark' => $request['bank_remark'],
 		  'accounts_bank' => $request['accounts_bank'],
+		  'bank_clearing_codes' => $request['bank_clearing_codes'] !== null ? preg_replace('/\s+/', '', $request['bank_clearing_codes']) : null,
           'updated_by' => \Auth::user()->id,
         ]);
         

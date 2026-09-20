@@ -224,22 +224,53 @@ class RoutinesController extends Controller
 	  
 	  try{
 		  $pdcArr           = $request->pdc_id;
-      $contract_id      = $request->contract_id;
       $pdc_deposit_date = $request->pdc_deposit_date;
-      $row_collection   = $request->row_collection; 
-      $search_count     = $request->search_count;
       $selectedBank     = $request->bank_id;
 	  $totalPdc         = count($pdcArr);
 	  $overeffdatearray = array();	  
 
       foreach($pdcArr as $key=>$pdc){
+        $result = $this->postSinglePdc(Pdc::find($pdc), $pdc_deposit_date, $selectedBank);
+        if(!$result['posted']){
+          array_push($overeffdatearray, $result['contract_no']);
+        }
+      }
 
-        $contract_id  = $request->{'contract_id_'.$pdc};
-        $pdc_type     = $request->{'pdc_type_'.$pdc};
+
+      session()->flash('success', $totalPdc.' PDC Posted Successfully');
+	   if(count($overeffdatearray)>0){
+        $allconteffover=implode(",", $overeffdatearray);
+        session()->flash('success', $allconteffover .' Rent Receipt Generated Completely Till Your Contract End Date');
+        if($totalPdc>0){
+          $totalPdc=$totalPdc-count($overeffdatearray);
+          session()->flash('success',$totalPdc.' - PDC Posted Successfully. For '. $allconteffover .' - Already Rent Receipt Generated Completely Till Contract End Date');
+        }
+      }
+      return redirect()->route('pdcPosting');
+		  
+	  }
+	  catch(\Exception $e){
+		  return $e;
+	  }
+
+      
+    }
+
+    /**
+     * Posts one PDC: marks it posted, generates its receipt (and deposit
+     * dimensions), bumps the receipt sequence and notifies legal when the
+     * contract is under legal. Shared by the manual posting screen and the
+     * bank-sheet upload. Returns ['posted' => bool, 'contract_no' => string];
+     * posted is false when rent receipts already run to the contract end.
+     */
+    public function postSinglePdc(Pdc $pdcData, $pdc_deposit_date, $selectedBank){
+
+        $contract_id  = $pdcData->tenant_contract_id;
+        $pdc_type     = $pdcData->pdc_type;
         $contractInfo = TenantContract::where('id', $contract_id)->first();
         $overcontractend=0;
 		
-        $pdcData  = Pdc::find($pdc);
+        $pdc      = $pdcData->id;
         $selectBankInfo = Bank::where('id',$selectedBank)->first();
         $pdcBankInfo    = Bank::where('id',$pdcData->bank_id)->first();
         $bank_id  = $selectBankInfo->id;
@@ -283,10 +314,10 @@ if($pdc_type == 1){
 
     $pdc_type = 0;
    // $receiptEff = $this->receiptEffectiveDateCalculation($contractInfo->id, $contractInfo->tenant_contract_effective_date, $contractInfo->tenant_contract_valid_to_date, $contractInfo->tenant_contract_payment_type );
-   $receiptEff = $this->receiptEffectiveDateCalculation($contractInfo->id, $contractInfo->tenant_contract_effective_date, $contractInfo->tenant_contract_valid_to_date,$contractInfo->tenant_contract_rent,$request->{'pdc_amt_'.$pdc} );
+   $receiptEff = $this->receiptEffectiveDateCalculation($contractInfo->id, $contractInfo->tenant_contract_effective_date, $contractInfo->tenant_contract_valid_to_date,$contractInfo->tenant_contract_rent,$pdcData->pdc_amt );
    if(isset($receiptEff['msg_receipt'])){
 	    $overcontractend=1;
-		array_push($overeffdatearray,$contractInfo->tenant_contract_no);
+
    // session()->flash('success', $contractInfo->tenant_contract_no .' '. $receiptEff['msg_receipt']);
    // return redirect()->route('pdcPosting');
 
@@ -300,13 +331,13 @@ if($pdc_type == 1){
    }
 }elseif($pdc_type == 3){
 	$pdc_type = 1;
-  //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($request->{'pdc_amt_'.$pdc});
+  //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($pdcData->pdc_amt);
 	$receipts_generation_remark = 'UNIT NO. '.$contractInfo->Unit->unit_no.','.$contractInfo->building->building_name;	
 	Pdc::where('id',$pdc)->update(['pdc_is_posted'=>1,'pdc_deposit_date'=>$pdc_deposit_date  ,'pdc_posted_date'=>date("Y-m-d"),'pdc_posted_by' => \Auth::user()->id]);
 }
 else{ // Deposit PDC
   $pdc_type = 2;
-  //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($request->{'pdc_amt_'.$pdc});
+  //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($pdcData->pdc_amt);
 	$receipts_generation_remark = 'DEPOSIT FOR UNIT NO. '.$contractInfo->Unit->unit_no.' '.$contractInfo->building->building_name;	
 	Pdc::where('id',$pdc)->update(['pdc_is_posted'=>1,'pdc_deposit_date'=>$pdc_deposit_date  ,'pdc_posted_date'=>date("Y-m-d"),'pdc_posted_by' => \Auth::user()->id]);
             
@@ -343,7 +374,7 @@ if(isset($receiptEff['eff_from']) && isset($receiptEff['eff_to'])){
       $pay_term = 12;
   }
  // $receiptRent = $pay_term*$contractInfo->tenant_contract_rent;
-  $receiptRent = $request->{'pdc_amt_'.$pdc};
+  $receiptRent = $pdcData->pdc_amt;
   
   $receipts_generation_eff_from = $receiptEff['eff_from'];
   $receipts_generation_eff_to = $receiptEff['eff_to']; 
@@ -353,7 +384,7 @@ if(isset($receiptEff['eff_from']) && isset($receiptEff['eff_to'])){
 
   $receipts_generation_eff_from = null;
   $receipts_generation_eff_to =null;
-  $receipts_generation_amt = $request->{'pdc_amt_'.$pdc} ;
+  $receipts_generation_amt = $pdcData->pdc_amt ;
 }
 if($overcontractend==0){      
 $receiptId =  ReceiptsGeneration::create([
@@ -363,7 +394,7 @@ $receiptId =  ReceiptsGeneration::create([
         'receipts_generation_receipt_date' => $pdc_deposit_date,
         'bank_id' => $bank_id,
         'receipts_generation_amt' => $receipts_generation_amt,
-        'receipts_generation_cheque_no' => $pdcBankInfo->bank_code.'__'.$request->{'pdc_check_no'.'_'.$pdc},
+        'receipts_generation_cheque_no' => $pdcBankInfo->bank_code.'__'.$pdcData->pdc_check_no,
         'receipts_generation_remark' => $receipts_generation_remark,
         'receipts_generation_description'=>$receipts_generation_remark,
         'receipts_generation_posted_by' => \Auth::user()->id,
@@ -422,26 +453,7 @@ $receiptId =  ReceiptsGeneration::create([
 	 //Update next increment value     
 	$this->incrementSequenceNo($configIncKey);
 	}
-	}
-
-
-      session()->flash('success', $totalPdc.' PDC Posted Successfully');
-	   if(count($overeffdatearray)>0){
-        $allconteffover=implode(",", $overeffdatearray);
-        session()->flash('success', $allconteffover .' Rent Receipt Generated Completely Till Your Contract End Date');
-        if($totalPdc>0){
-          $totalPdc=$totalPdc-count($overeffdatearray);
-          session()->flash('success',$totalPdc.' - PDC Posted Successfully. For '. $allconteffover .' - Already Rent Receipt Generated Completely Till Contract End Date');
-        }
-      }
-      return redirect()->route('pdcPosting');
-		  
-	  }
-	  catch(\Exception $e){
-		  return $e;
-	  }
-
-      
+        return ['posted' => $overcontractend == 0, 'contract_no' => $contractInfo->tenant_contract_no];
     }
 
     public function rentalIncomePosting(){
