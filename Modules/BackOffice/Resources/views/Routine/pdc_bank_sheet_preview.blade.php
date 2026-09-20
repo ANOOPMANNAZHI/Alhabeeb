@@ -62,7 +62,12 @@
       <div class="row">
         <div class="col-md-4 col-sm-12">
           <span class="bsp-file"><i class="fa fa-file-excel-o" aria-hidden="true"></i> {{ $fileName }}</span>
-          <span class="bsp-sub">{{ $counts['accepted'] }} accepted cheques on sheet@if($counts['rejected'] > 0) · {{ $counts['rejected'] }} rejected by bank not shown@endif</span>
+          <span class="bsp-sub">
+            {{ $counts['accepted'] }} accepted cheques on sheet
+            @if($counts['rejected'] > 0)
+              · {{ $counts['rejected'] }} rejected by bank not shown
+            @endif
+          </span>
           <div style="margin-top:6px">
             <span class="bsp-pill bsp-pill-choice"><i class="fa fa-question-circle" aria-hidden="true"></i>{{ $counts['ambiguous'] }} need choice</span>
             <span class="bsp-pill bsp-pill-matched"><i class="fa fa-check-circle" aria-hidden="true"></i>{{ $counts['matched'] }} matched</span>
@@ -137,7 +142,7 @@
               @php $ids = implode(',', array_column($group, 'id')); $first = $group[0]; @endphp
               <label class="bsp-cand {{ $cur === $ids ? 'is-on' : '' }}">
                 <input type="radio" name="choice_{{ $rowNo }}" value="{{ $ids }}" class="bsp-choice" data-row="{{ $rowNo }}" {{ $cur === $ids ? 'checked' : '' }}>
-                <b>{{ $first->tenant_name }}</b>@if(count($group) > 1) · {{ count($group) }} rows (split cheque)@endif
+                <b>{{ $first->tenant_name }}</b> @if(count($group) > 1) · {{ count($group) }} rows (split cheque) @endif
                 @foreach($group as $p)
                 <span class="bsp-sub">{{ $p->tenant_contract_no }} · {{ $p->building_name }} / {{ $p->unit_no }} · {{ $p->pdc_type_name }} · {{ numberFormat($p->pdc_amt) }} · chq {{ $p->pdc_check_date ? \Carbon\Carbon::parse($p->pdc_check_date)->format('d/m/Y') : '-' }} · {{ $p->bank_name }}</span>
                 @endforeach
@@ -193,8 +198,8 @@
             <td>{{ $r['row']['cheque_date'] ? \Carbon\Carbon::parse($r['row']['cheque_date'])->format('d/m/Y') : '-' }}</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
             <td>{{ $first->tenant_name }}</td>
-            <td>@foreach($r['pdcs'] as $p){{ $p->tenant_contract_no }}@if(!$loop->last)<br>@endif @endforeach</td>
-            <td>@foreach($r['pdcs'] as $p){{ $p->building_name }} / {{ $p->unit_no }}@if(!$loop->last)<br>@endif @endforeach</td>
+            <td>@foreach($r['pdcs'] as $p) {{ $p->tenant_contract_no }} @if(!$loop->last)<br>@endif @endforeach</td>
+            <td>@foreach($r['pdcs'] as $p) {{ $p->building_name }} / {{ $p->unit_no }} @if(!$loop->last)<br>@endif @endforeach</td>
             <td>{{ $first->pdc_type_name }}</td>
             <td>{{ $first->bank_name }}</td>
             <td>
