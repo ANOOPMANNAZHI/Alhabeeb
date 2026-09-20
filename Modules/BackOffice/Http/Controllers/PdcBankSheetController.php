@@ -68,6 +68,18 @@ class PdcBankSheetController extends Controller
         $selection = $this->selection($request, $stored);
         $sections  = $analysis['sections'];
 
+        $q = trim((string) $request->input('q', ''));
+        if ($q !== '') {
+            foreach ($sections as $k => $rows) {
+                $sections[$k] = $this->filterRows($rows, $q);
+            }
+        }
+        $shown = [
+            'ambiguous' => count($sections['ambiguous']),
+            'matched'   => count($sections['matched']),
+            'cannot'    => count($sections['cannot']),
+        ];
+
         $matched = $this->paginate($sections['matched'], $request, 'mpage', $stored);
         $cannot  = $this->paginate($sections['cannot'], $request, 'cpage', $stored);
 
@@ -97,7 +109,45 @@ class PdcBankSheetController extends Controller
             'toPost'    => $toPost,
             'today'         => date('Y-m-d'),
             'defaultDate'   => $defaultDate,
+            'q'             => $q,
+            'shown'         => $shown,
         ]);
+    }
+
+    /**
+     * Rows whose sheet fields (cheque no, bank, amount, date) or any matched /
+     * candidate PDC (tenant, agreement no, building, unit, PLMS bank) contain
+     * the search text, case-insensitively.
+     */
+    private function filterRows(array $rows, $q)
+    {
+        $needle = mb_strtolower($q);
+        $out = [];
+        foreach ($rows as $r) {
+            $hay = [
+                $r['row']['cheque_no'],
+                BankSheetPdcMatcher::normaliseChequeNo($r['row']['cheque_no']),
+                $r['row']['bank_name'],
+                (string) $r['row']['amount'],
+                $r['row']['cheque_date'],
+                $r['reason'],
+            ];
+            $groups = $r['pdcs'] ? [$r['pdcs']] : $r['candidates'];
+            foreach ($groups as $group) {
+                foreach ($group as $p) {
+                    $hay[] = $p->tenant_name;
+                    $hay[] = $p->tenant_contract_no;
+                    $hay[] = $p->building_name;
+                    $hay[] = $p->unit_no;
+                    $hay[] = $p->bank_name;
+                }
+            }
+            $hay = array_filter($hay, function ($v) { return $v !== null && $v !== ''; });
+            if (mb_stripos(implode("\n", $hay), $needle) !== false) {
+                $out[] = $r;
+            }
+        }
+        return $out;
     }
 
     /** AJAX: remember an untick / re-tick of a matched row or a candidate choice for an ambiguous one. */

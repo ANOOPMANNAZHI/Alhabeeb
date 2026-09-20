@@ -39,6 +39,9 @@
 
   .bsp tr.is-off td { opacity:.45; }
   .bsp .bsp-status { white-space:nowrap; }
+  .bsp-search .card-body { padding:10px 16px; }
+  .bsp-search .input-group-addon { background:#f9fafb; }
+  .bsp-search-info { line-height:34px; font-size:13px; }
 </style>
 @endsection
 
@@ -103,13 +106,40 @@
   </div>
 </form>
 
+{{-- ── Search (GET; keeps ticks and choices) ─────────────────── --}}
+<form method="get" action="{{ route('pdcBankSheetPreview', $stored) }}" id="bsp-search-form" autocomplete="off">
+  <div class="card card-box bsp-search">
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-5 col-sm-8">
+          <label for="bsp-q" class="sr-only">Search</label>
+          <div class="input-group">
+            <span class="input-group-addon"><i class="fa fa-search" aria-hidden="true"></i></span>
+            <input id="bsp-q" type="search" name="q" class="form-control" value="{{ $q }}" placeholder="Search cheque no, tenant, agreement no, building, unit, bank, amount…">
+            @if($q !== '')
+            <span class="input-group-btn"><a href="{{ route('pdcBankSheetPreview', $stored) }}" class="btn btn-default" title="Clear search">&times;</a></span>
+            @endif
+          </div>
+        </div>
+        <div class="col-md-7 col-sm-4 bsp-search-info">
+          @if($q !== '')
+            Showing {{ $shown['ambiguous'] + $shown['matched'] + $shown['cannot'] }} of {{ $counts['accepted'] }} cheques matching “{{ $q }}”
+          @else
+            <span class="bsp-hint">Type to filter all three sections. Your ticks and choices are kept while searching.</span>
+          @endif
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
 {{-- ── 1. Needs your choice ───────────────────────────────────── --}}
 @if($counts['ambiguous'] > 0)
 <div class="row"><div class="col-md-12 col-sm-12">
 <div class="card card-box">
   <div class="card-body">
     <div class="bsp-head">
-      <h4><i class="fa fa-question-circle" style="color:#92400e" aria-hidden="true"></i> Needs your choice <span class="bsp-pill bsp-pill-choice">{{ $counts['ambiguous'] }}</span></h4>
+      <h4><i class="fa fa-question-circle" style="color:#92400e" aria-hidden="true"></i> Needs your choice <span class="bsp-pill bsp-pill-choice">{{ $q !== '' ? $shown['ambiguous'] . ' of ' : '' }}{{ $counts['ambiguous'] }}</span></h4>
       <span class="bsp-hint">More than one unposted PDC fits this cheque. Pick the right tenant, or leave it as <b>Skip</b> and post it manually later.</span>
     </div>
     <div class="table-wrap"><div class="table-responsive">
@@ -125,7 +155,7 @@
           </tr>
         </thead>
         <tbody>
-          @foreach($ambiguous as $r)
+          @forelse($ambiguous as $r)
           @php $rowNo = $r['row']['row_no']; $cur = isset($selection['choice'][$rowNo]) ? $selection['choice'][$rowNo] : ''; @endphp
           <tr>
             <td>{{ $loop->iteration }}</td>
@@ -150,7 +180,9 @@
               @endforeach
             </td>
           </tr>
-          @endforeach
+          @empty
+          <tr><td colspan="6" align="center"><p>Nothing here contains “{{ $q }}”.</p></td></tr>
+          @endforelse
         </tbody>
       </table>
     </div></div>
@@ -164,7 +196,7 @@
 <div class="card card-box">
   <div class="card-body">
     <div class="bsp-head">
-      <h4><i class="fa fa-check-circle" style="color:#166534" aria-hidden="true"></i> Auto-matched <span class="bsp-pill bsp-pill-matched">{{ $counts['matched'] }}</span></h4>
+      <h4><i class="fa fa-check-circle" style="color:#166534" aria-hidden="true"></i> Auto-matched <span class="bsp-pill bsp-pill-matched">{{ $q !== '' ? $shown['matched'] . ' of ' : '' }}{{ $counts['matched'] }}</span></h4>
       <span class="bsp-hint">These will be posted. Untick any you want to hold back — your ticks are kept while you page.</span>
     </div>
     <h4>
@@ -211,7 +243,7 @@
             </td>
           </tr>
           @empty
-          <tr><td colspan="11" align="center"><p>No cheque on the sheet matched an unposted PDC.</p></td></tr>
+          <tr><td colspan="11" align="center"><p>@if($q !== '') No matched cheque contains “{{ $q }}”. @else No cheque on the sheet matched an unposted PDC. @endif</p></td></tr>
           @endforelse
         </tbody>
       </table>
@@ -226,7 +258,7 @@
 <div class="card card-box">
   <div class="card-body">
     <div class="bsp-head">
-      <h4><i class="fa fa-ban" style="color:#991b1b" aria-hidden="true"></i> Cannot post <span class="bsp-pill bsp-pill-cannot">{{ $counts['cannot'] }}</span></h4>
+      <h4><i class="fa fa-ban" style="color:#991b1b" aria-hidden="true"></i> Cannot post <span class="bsp-pill bsp-pill-cannot">{{ $q !== '' ? $shown['cannot'] . ' of ' : '' }}{{ $counts['cannot'] }}</span></h4>
       <span class="bsp-hint">Accepted by the bank but no clean PDC match. Nothing happens to these — post them on the manual screen.</span>
     </div>
     <h4>
@@ -267,7 +299,7 @@
             <td>{{ $r['reason'] }}</td>
           </tr>
           @empty
-          <tr><td colspan="7" align="center"><p>None — every accepted cheque on the sheet was matched.</p></td></tr>
+          <tr><td colspan="7" align="center"><p>@if($q !== '') Nothing here contains “{{ $q }}”. @else None — every accepted cheque on the sheet was matched. @endif</p></td></tr>
           @endforelse
         </tbody>
       </table>
@@ -335,6 +367,11 @@ $(function () {
     });
   });
   $('.bsp-choice:checked').addClass('was-on');
+
+  // native clear (×) inside the search field reloads the unfiltered list
+  $('#bsp-q').on('search', function () {
+    if (this.value === '' && '{{ $q }}' !== '') { $('#bsp-search-form').submit(); }
+  });
 
   $('#bsp-post-form').on('submit', function () {
     if (count === 0) { return false; }
