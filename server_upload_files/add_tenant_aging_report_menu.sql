@@ -47,9 +47,8 @@ END $$;
 
 -- 4. Mark the migration as applied so a future `php artisan migrate` skips it.
 INSERT INTO migrations (migration, batch)
-SELECT '2026_09_16_000000_add_tenant_aging_report',
-       COALESCE(MAX(batch), 0) + 1
-FROM migrations
+SELECT '2026_09_16_000000_add_tenant_aging_report', next_batch.b
+FROM (SELECT COALESCE(MAX(batch), 0) + 1 AS b FROM migrations) AS next_batch
 WHERE NOT EXISTS (
     SELECT 1 FROM migrations m WHERE m.migration = '2026_09_16_000000_add_tenant_aging_report'
 );

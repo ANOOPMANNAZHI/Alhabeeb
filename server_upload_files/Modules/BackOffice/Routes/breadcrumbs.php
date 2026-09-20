@@ -448,6 +448,10 @@ Breadcrumbs::for('pdcPosting', function ($trail) {
     $trail->parent('home');
     $trail->push('PDC Bulk Posting', route('pdcPosting'));
 });
+Breadcrumbs::for('pdcBankSheetPreview', function ($trail) {
+    $trail->parent('pdcPosting');
+    $trail->push('Bank Sheet Preview');
+});
 Breadcrumbs::for('rentalIncomePosting', function ($trail) {
     $trail->parent('home');
     $trail->push('Rental Income Posting', route('rentalIncomePosting'));
