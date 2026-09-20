@@ -75,7 +75,7 @@
             <select id="bsp-bank" name="bank_id" class="form-control" required>
               <option value="">Select</option>
               @foreach($banks as $b)
-              <option value="{{ $b->id }}" {{ old('bank_id') == $b->id ? 'selected' : '' }}>{{ $b->bank_name }} - {{ $b->bank_code }}</option>
+              <option value="{{ $b->id }}" {{ old('bank_id', $defaultBankId) == $b->id ? 'selected' : '' }}>{{ $b->bank_name }} - {{ $b->bank_code }}</option>
               @endforeach
             </select>
           </div>

@@ -25,6 +25,8 @@ class PdcBankSheetController extends Controller
 {
     const STORE_DIR = 'pdc_bank_sheets';
     const PER_PAGE  = 50;
+    /** bank.bank_code pre-selected as the deposit bank on the review page. */
+    const DEFAULT_DEPOSIT_BANK_CODE = 'BMI';
 
     public function __construct()
     {
@@ -77,10 +79,14 @@ class PdcBankSheetController extends Controller
         }
         $toPost = $analysis['counts']['matched'] - count($selection['unticked']) + $chosen;
 
+        $banks       = Bank::active()->where('accounts_bank', 1)->orderBy('bank_name', 'ASC')->get();
+        $defaultBank = $banks->first(function ($b) { return trim($b->bank_code) === self::DEFAULT_DEPOSIT_BANK_CODE; });
+
         return view('backoffice::Routine.pdc_bank_sheet_preview', [
-            'stored'    => $stored,
-            'fileName'  => $this->originalName($stored),
-            'banks'     => Bank::active()->where('accounts_bank', 1)->orderBy('bank_name', 'ASC')->get(),
+            'stored'        => $stored,
+            'fileName'      => $this->originalName($stored),
+            'banks'         => $banks,
+            'defaultBankId' => $defaultBank ? $defaultBank->id : null,
             'ambiguous' => $sections['ambiguous'],
             'matched'   => $matched,
             'cannot'    => $cannot,
