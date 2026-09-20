@@ -442,6 +442,11 @@ Route::match(['get', 'post'],'pdcPosting/tenantReceiptPosting', 'RoutinesControl
 Route::match(['get', 'post'],'pdcPosting/costRecognition', 'RoutinesController@costRecognitionList')->name('costRecognition');
 //pdc Post
 Route::post('/pdcPosting/pdcPost', 'RoutinesController@pdcPost')->name('pdcPost');
+// PDC posting from the bank's cheque clearing sheet
+Route::post('/pdcPosting/bankSheet', 'PdcBankSheetController@upload')->name('pdcBankSheetUpload');
+Route::get('/pdcPosting/bankSheet/{stored}', 'PdcBankSheetController@preview')->name('pdcBankSheetPreview');
+Route::post('/pdcPosting/bankSheet/{stored}/select', 'PdcBankSheetController@select')->name('pdcBankSheetSelect');
+Route::post('/pdcPosting/bankSheet/{stored}/post', 'PdcBankSheetController@post')->name('pdcBankSheetPost');
 Route::post('/rentalIncomePosting/rentalPost', 'RoutinesController@rentalPost')->name('rentalPost');
 Route::post('/tenantReceiptPostingList/receiptPost', 'RoutinesController@receiptPost')->name('receiptPost');
 Route::post('/costRecognitionList/costPost', 'RoutinesController@costPost')->name('costPost');
