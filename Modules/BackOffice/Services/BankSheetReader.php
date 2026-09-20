@@ -20,6 +20,7 @@ class BankSheetReader
     const COL_BANK       = 'Pay Bank';
     const COL_AMOUNT     = 'Amount';
     const COL_DATE       = 'Cheque Date';
+    const COL_CREATED    = 'Created on';
     const COL_ONUS       = 'Onus Reason';
     const COL_ECC        = 'ECC Reason';
     const COL_RESOLUTION = 'Resolution';
@@ -30,7 +31,7 @@ class BankSheetReader
     /**
      * @param string $path .xls / .xlsx path
      * @return array rows: row_no, cheque_no, bank_code, bank_name, amount (float),
-     *               cheque_date (Y-m-d|null), accepted (bool), reject_reason (string|null)
+     *               cheque_date (Y-m-d|null), created_on (Y-m-d|null), accepted (bool), reject_reason (string|null)
      * @throws \RuntimeException when the header row cannot be found
      */
     public function read($path)
@@ -69,12 +70,40 @@ class BankSheetReader
                 'bank_name'     => $bankName,
                 'amount'        => $this->amount($this->cell($cells, $cols, self::COL_AMOUNT)),
                 'cheque_date'   => $this->date($this->cell($cells, $cols, self::COL_DATE)),
+                'created_on'    => $this->date($this->cell($cells, $cols, self::COL_CREATED)),
                 'accepted'      => $accepted,
                 'reject_reason' => $reason,
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * The day the batch was scanned, for the deposit date: the most common
+     * "Created on" date among accepted rows (ties go to the earliest). Null
+     * when no accepted row carries one.
+     */
+    public static function batchDate(array $rows)
+    {
+        $tally = [];
+        foreach ($rows as $r) {
+            if (!empty($r['accepted']) && !empty($r['created_on'])) {
+                $d = $r['created_on'];
+                $tally[$d] = isset($tally[$d]) ? $tally[$d] + 1 : 1;
+            }
+        }
+        if (count($tally) === 0) {
+            return null;
+        }
+        ksort($tally);
+        $best = null;
+        foreach ($tally as $d => $n) {
+            if ($best === null || $n > $tally[$best]) {
+                $best = $d;
+            }
+        }
+        return $best;
     }
 
     /** @return array [header row number, [title => column letter]] */

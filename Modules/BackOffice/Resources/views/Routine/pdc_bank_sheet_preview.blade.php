@@ -83,7 +83,7 @@
         <div class="col-md-2 col-sm-6">
           <div class="form-group">
             <label for="bsp-date">Deposit date <span class="textRed">*</span></label>
-            <input id="bsp-date" type="date" name="pdc_deposit_date" class="form-control" max="{{ $today }}" value="{{ old('pdc_deposit_date', $today) }}" required>
+            <input id="bsp-date" type="date" name="pdc_deposit_date" class="form-control" max="{{ $today }}" value="{{ old('pdc_deposit_date', $defaultDate) }}" required>
           </div>
         </div>
         <div class="col-md-3 col-sm-12 bsp-actions">

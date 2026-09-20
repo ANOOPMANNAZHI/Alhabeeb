@@ -25,7 +25,7 @@ class BankSheetReaderTest extends TestCase
      */
     private function sheet(array $rows, $headerRow = 9)
     {
-        $headers = ['Status', 'Cheque Number', 'Pay Bank', 'Amount', 'Cheque Date', 'Posting Date', 'Onus Reason', 'ECC Reason', 'Resolution'];
+        $headers = ['Status', 'Cheque Number', 'Pay Bank', 'Created on', 'Amount', 'Cheque Date', 'Posting Date', 'Onus Reason', 'ECC Reason', 'Resolution'];
         $ss = new Spreadsheet();
         $ws = $ss->getActiveSheet();
         $ws->setTitle('GRID_EXPORT');
@@ -55,6 +55,7 @@ class BankSheetReaderTest extends TestCase
             'Status'        => 'Replied',
             'Cheque Number' => '80281048',
             'Pay Bank'      => '27 - Bank Of Muscat',
+            'Created on'    => '15/09/2026 09:47:09 AM',
             'Amount'        => 'OMR 230.000',
             'Cheque Date'   => '15/09/2026',
             'Posting Date'  => '15/09/2026',
@@ -75,8 +76,28 @@ class BankSheetReaderTest extends TestCase
         $this->assertSame('27 - Bank Of Muscat', $rows[0]['bank_name']);
         $this->assertSame(230.0, $rows[0]['amount']);
         $this->assertSame('2026-09-15', $rows[0]['cheque_date']);
+        $this->assertSame('2026-09-15', $rows[0]['created_on']);
         $this->assertTrue($rows[0]['accepted']);
         $this->assertNull($rows[0]['reject_reason']);
+    }
+
+    public function test_batch_date_is_the_most_common_created_on_of_accepted_rows()
+    {
+        $rows = (new BankSheetReader())->read($this->sheet([
+            $this->acceptedRow(['Created on' => '16/09/2026 08:00:00 AM']),
+            $this->acceptedRow(['Created on' => '15/09/2026 09:47:09 AM']),
+            $this->acceptedRow(['Created on' => '15/09/2026 10:12:00 AM']),
+            $this->acceptedRow(['Created on' => '17/09/2026 09:00:00 AM', 'Resolution' => 'Rejected', 'ECC Reason' => '1 - 001-Insufficient Fund']),
+        ]));
+
+        $this->assertSame('2026-09-15', BankSheetReader::batchDate($rows));
+    }
+
+    public function test_batch_date_is_null_when_no_row_has_a_created_on()
+    {
+        $rows = (new BankSheetReader())->read($this->sheet([$this->acceptedRow(['Created on' => ''])]));
+
+        $this->assertNull(BankSheetReader::batchDate($rows));
     }
 
     public function test_header_is_located_by_title_not_by_fixed_row()

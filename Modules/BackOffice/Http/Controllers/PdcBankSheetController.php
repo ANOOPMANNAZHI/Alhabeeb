@@ -81,6 +81,8 @@ class PdcBankSheetController extends Controller
 
         $banks       = Bank::active()->where('accounts_bank', 1)->orderBy('bank_name', 'ASC')->get();
         $defaultBank = $banks->first(function ($b) { return trim($b->bank_code) === self::DEFAULT_DEPOSIT_BANK_CODE; });
+        // deposit date defaults to the day the bank scanned the batch, never later than today
+        $defaultDate = $analysis['batch_date'] && $analysis['batch_date'] <= date('Y-m-d') ? $analysis['batch_date'] : date('Y-m-d');
 
         return view('backoffice::Routine.pdc_bank_sheet_preview', [
             'stored'        => $stored,
@@ -93,7 +95,8 @@ class PdcBankSheetController extends Controller
             'counts'    => $analysis['counts'],
             'selection' => $selection,
             'toPost'    => $toPost,
-            'today'     => date('Y-m-d'),
+            'today'         => date('Y-m-d'),
+            'defaultDate'   => $defaultDate,
         ]);
     }
 
@@ -252,7 +255,7 @@ class PdcBankSheetController extends Controller
             'cannot'    => count($sections['cannot']),
         ];
 
-        return ['results' => $results, 'sections' => $sections, 'counts' => $counts];
+        return ['results' => $results, 'sections' => $sections, 'counts' => $counts, 'batch_date' => BankSheetReader::batchDate($rows)];
     }
 
     private function paginate(array $items, Request $request, $pageName, $stored)
