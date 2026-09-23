@@ -149,13 +149,15 @@ class PdcBankSheetController extends Controller
      *   status  result status key (cannot-post table)
      *   why     reason text
      *   tenant / agr / building / type / pbank / plms (all of them)
-     *           matched rows, or any candidate group, of the PDC side
+     *           matched rows, any candidate group, or a cannot-post row's
+     *           related (reference) PDCs, of the PDC side
      */
     private function filterRows(array $rows, array $filters)
     {
         $out = [];
         foreach ($rows as $r) {
-            $groups = $r['pdcs'] ? [$r['pdcs']] : $r['candidates'];
+            // cannot-post rows have neither; their reference PDCs ('related') are searched instead
+            $groups = $r['pdcs'] ? [$r['pdcs']] : ($r['candidates'] ? $r['candidates'] : [$r['related']]);
             $pdcs   = [];
             foreach ($groups as $g) {
                 foreach ($g as $p) {

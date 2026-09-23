@@ -31,6 +31,10 @@ class BankSheetPdcMatcher
     const COMPREHENSIVE  = 1;
     const PDC_TYPE_VAT   = 3;
 
+    /** 'related' on a result that cannot be posted: PDCs shown for reference only, never posted. */
+    const RELATED_SAME       = 'same';       // same cheque no + bank, amount or month differs
+    const RELATED_OTHER_BANK = 'other_bank'; // same cheque no, but on a PLMS bank the sheet bank does not map to
+
     public static function isVat($pdc)
     {
         return isset($pdc->pdc_type) && (int) $pdc->pdc_type === self::PDC_TYPE_VAT;
@@ -56,12 +60,20 @@ class BankSheetPdcMatcher
      */
     public function match(array $sheetRows, array $pdcs)
     {
-        $pool = $this->indexByChequeAndBank($pdcs);
-        $used = [];
-        $out  = [];
+        $pool     = $this->indexByChequeAndBank($pdcs);
+        $byCheque = $this->indexByCheque($pdcs);
+        $used     = [];
+        $out      = [];
 
         foreach ($sheetRows as $row) {
             $result = $this->matchRow($row, $pool, $used);
+            if ($result['status'] === self::NOT_FOUND || $result['status'] === self::UNKNOWN_BANK) {
+                $mapped = isset($this->bankMap[(string) $row['bank_code']]) ? (array) $this->bankMap[(string) $row['bank_code']] : [];
+                $others = $this->sameChequeOnOtherBanks($row, $byCheque, $used, $mapped);
+                if (count($others) > 0) {
+                    $result = $this->withRelated($result, $others, self::RELATED_OTHER_BANK);
+                }
+            }
             foreach ($result['pdcs'] as $pdc) {
                 $used[$pdc->id] = true;
             }
@@ -117,7 +129,11 @@ class BankSheetPdcMatcher
         }
         if (count($inMonth) === 0) {
             $dates = array_unique(array_map(function ($p) { return substr((string) $p->pdc_check_date, 0, 10); }, $found));
-            return $this->result($row, self::DATE_MISMATCH, [], [], 'PLMS cheque date ' . implode(', ', $dates) . ' is not in ' . $month);
+            return $this->withRelated(
+                $this->result($row, self::DATE_MISMATCH, [], [], 'PLMS cheque date ' . implode(', ', $dates) . ' is not in ' . $month),
+                $found,
+                self::RELATED_SAME
+            );
         }
 
         $amount     = (float) $row['amount'];
@@ -148,13 +164,50 @@ class BankSheetPdcMatcher
         foreach ($this->groupByTenant($inMonth) as $group) {
             $totals[] = $this->fmt($this->sum($group));
         }
-        return $this->result(
-            $row,
-            self::AMOUNT_MISMATCH,
-            [],
-            [],
-            'PLMS total ' . implode(' / ', $totals) . ' does not equal bank amount ' . $this->fmt($amount)
+        return $this->withRelated(
+            $this->result(
+                $row,
+                self::AMOUNT_MISMATCH,
+                [],
+                [],
+                'PLMS total ' . implode(' / ', $totals) . ' does not equal bank amount ' . $this->fmt($amount)
+            ),
+            $inMonth,
+            self::RELATED_SAME
         );
+    }
+
+    /** Unused rent/deposit PDCs with this cheque number on PLMS banks other than $excludeBankIds. */
+    private function sameChequeOnOtherBanks(array $row, array $byCheque, array $used, array $excludeBankIds)
+    {
+        $no = self::normaliseChequeNo($row['cheque_no']);
+        if (!isset($byCheque[$no])) {
+            return [];
+        }
+        $exclude = array_flip(array_map('intval', $excludeBankIds));
+        $out = [];
+        foreach ($byCheque[$no] as $pdc) {
+            if (!isset($used[$pdc->id]) && !self::isVat($pdc) && !isset($exclude[(int) $pdc->bank_id])) {
+                $out[] = $pdc;
+            }
+        }
+        return $out;
+    }
+
+    private function indexByCheque(array $pdcs)
+    {
+        $index = [];
+        foreach ($pdcs as $pdc) {
+            $index[self::normaliseChequeNo($pdc->pdc_check_no)][] = $pdc;
+        }
+        return $index;
+    }
+
+    private function withRelated(array $result, array $pdcs, $kind)
+    {
+        $result['related']      = array_values($pdcs);
+        $result['related_kind'] = $kind;
+        return $result;
     }
 
     /**
@@ -299,6 +352,8 @@ class BankSheetPdcMatcher
             'reason'     => $reason,
             'vat_amount'   => null,
             'expected_vat' => null,
+            'related'      => [],
+            'related_kind' => null,
         ];
     }
 }

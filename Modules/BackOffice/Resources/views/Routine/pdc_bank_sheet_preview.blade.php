@@ -370,6 +370,8 @@
             <th width="16%">Bank (sheet)</th>
             <th width="9%">Cheque Date</th>
             <th class="num" width="9%">Amount</th>
+            <th>Building / Unit</th>
+            <th>Tenant</th>
             <th width="14%">Status</th>
             <th>Why</th>
           </tr>
@@ -379,6 +381,8 @@
             <td>{!! $fin('c', 'bank') !!}</td>
             <td>{!! $fin('c', 'date', 'dd/mm/yyyy') !!}</td>
             <td>{!! $fin('c', 'amount') !!}</td>
+            <td>{!! $fin('c', 'building') !!}</td>
+            <td>{!! $fin('c', 'tenant') !!}</td>
             <td>
               <select name="c[status]" class="bsp-filter" form="bsp-filter-form" aria-label="Filter status">
                 <option value="">All</option>
@@ -399,11 +403,28 @@
             <td>{{ $r['row']['bank_name'] }}</td>
             <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
             <td class="num">{{ numberFormat($r['row']['amount']) }}</td>
+            {{-- PLMS PDCs behind this row, for reference only (never posted from here) --}}
+            <td>
+              @forelse($r['related'] as $p)
+                {{ $p->building_name }} / {{ $p->unit_no }}
+                @if($r['related_kind'] === 'other_bank')<span class="bsp-sub">same cheque no. on {{ $p->bank_name }}</span>@elseif(!$loop->last)<br>@endif
+              @empty
+                -
+              @endforelse
+            </td>
+            <td>
+              @forelse($r['related'] as $p)
+                {{ $p->tenant_name }}
+                <span class="bsp-sub">{{ $p->tenant_contract_no }}</span>
+              @empty
+                -
+              @endforelse
+            </td>
             <td class="bsp-status"><span class="btn-circle {{ $l[0] }} btn-sm m-b-10 status"><b>{{ $l[1] }}</b></span></td>
             <td>{{ $r['reason'] }}</td>
           </tr>
           @empty
-          <tr><td colspan="7" align="center"><p>{{ $filtering['cannot'] ? 'Nothing here fits these filters.' : 'None — every accepted cheque on the sheet was matched.' }}</p></td></tr>
+          <tr><td colspan="9" align="center"><p>{{ $filtering['cannot'] ? 'Nothing here fits these filters.' : 'None — every accepted cheque on the sheet was matched.' }}</p></td></tr>
           @endforelse
         </tbody>
       </table>

@@ -316,4 +316,73 @@ class BankSheetPdcMatcherTest extends TestCase
         $this->assertNull($out[0]['vat_amount']);
         $this->assertNull($out[0]['expected_vat']);
     }
+
+    public function test_amount_mismatch_carries_the_pdcs_it_compared_as_related()
+    {
+        $pdc = $this->pdc(['pdc_amt' => 200.0]);
+        $out = $this->matcher()->match([$this->sheetRow(['amount' => 230.0])], [$pdc]);
+
+        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
+        $this->assertSame([], $out[0]['pdcs']);
+        $this->assertSame([$pdc->id], array_column($out[0]['related'], 'id'));
+        $this->assertSame(BankSheetPdcMatcher::RELATED_SAME, $out[0]['related_kind']);
+    }
+
+    public function test_date_mismatch_carries_the_other_month_pdcs_as_related()
+    {
+        $pdc = $this->pdc(['pdc_check_date' => '2026-08-15']);
+        $out = $this->matcher()->match([$this->sheetRow()], [$pdc]);
+
+        $this->assertSame(BankSheetPdcMatcher::DATE_MISMATCH, $out[0]['status']);
+        $this->assertSame([$pdc->id], array_column($out[0]['related'], 'id'));
+        $this->assertSame(BankSheetPdcMatcher::RELATED_SAME, $out[0]['related_kind']);
+    }
+
+    public function test_not_found_hints_at_the_same_cheque_on_another_bank()
+    {
+        $elsewhere = $this->pdc(['bank_id' => 17]); // sheet bank 27 maps to PLMS bank 3
+        $out = $this->matcher()->match([$this->sheetRow()], [$elsewhere, $this->vatPdc(['bank_id' => 17])]);
+
+        $this->assertSame(BankSheetPdcMatcher::NOT_FOUND, $out[0]['status']);
+        $this->assertSame([], $out[0]['pdcs']);
+        $this->assertSame([$elsewhere->id], array_column($out[0]['related'], 'id'), 'VAT PDCs are not hinted');
+        $this->assertSame(BankSheetPdcMatcher::RELATED_OTHER_BANK, $out[0]['related_kind']);
+    }
+
+    public function test_unknown_bank_hints_at_the_same_cheque_on_any_bank()
+    {
+        $pdc = $this->pdc();
+        $out = $this->matcher()->match([$this->sheetRow(['bank_code' => '99', 'bank_name' => '99 - New Bank'])], [$pdc]);
+
+        $this->assertSame(BankSheetPdcMatcher::UNKNOWN_BANK, $out[0]['status']);
+        $this->assertSame([$pdc->id], array_column($out[0]['related'], 'id'));
+        $this->assertSame(BankSheetPdcMatcher::RELATED_OTHER_BANK, $out[0]['related_kind']);
+    }
+
+    public function test_not_found_with_no_such_cheque_anywhere_has_no_related()
+    {
+        $out = $this->matcher()->match([$this->sheetRow()], [$this->pdc(['pdc_check_no' => '99999'])]);
+
+        $this->assertSame([], $out[0]['related']);
+        $this->assertNull($out[0]['related_kind']);
+    }
+
+    public function test_related_hint_skips_pdcs_already_matched_by_an_earlier_row()
+    {
+        $pdc = $this->pdc(['bank_id' => 17]);
+        $out = $this->matcher()->match(
+            [$this->sheetRow(['row_no' => 1, 'bank_code' => '30']), $this->sheetRow(['row_no' => 2])],
+            [$pdc]
+        );
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([], $out[1]['related']);
+    }
+
+    public function test_matched_rows_have_no_related()
+    {
+        $out = $this->matcher()->match([$this->sheetRow()], [$this->pdc()]);
+        $this->assertSame([], $out[0]['related']);
+        $this->assertNull($out[0]['related_kind']);
+    }
 }
