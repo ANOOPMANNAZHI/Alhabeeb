@@ -133,6 +133,7 @@ e     */
                         'pdc_type' =>$request->{'pdc_type_'.$i},
                         'pdc_remark' =>$request->{'pdc_remark_'.$i},
                         'pdc_cheque_acknowledge' =>$request->{'pdc_cheque_acknowledge_'.$i},
+                        'pdc_account_no' => $this->accountNo($request->{'pdc_account_no_'.$i}),
                         'pdc_from_date' =>$request->{'pdc_from_date_'.$i},
                         'pdc_to_date' =>$request->{'pdc_to_date_'.$i},
                         'created_by' => \Auth::user()->id
@@ -187,6 +188,7 @@ e     */
                                      'pdc_type' => $request->{'pdc_type_'.$i},
                                      'pdc_remark' => $request->{'pdc_remark_'.$i},
                                      'pdc_cheque_acknowledge' => $request->{'pdc_cheque_acknowledge_'.$i},
+                                     'pdc_account_no' => $this->accountNo($request->{'pdc_account_no_'.$i}),
                                      'pdc_from_date' => $request->{'pdc_from_date_'.$i},
                                      'pdc_to_date' => $request->{'pdc_to_date_'.$i},
                                      'pdc_is_saved' => 1,
@@ -221,6 +223,13 @@ e     */
      * @param int $id
      * @return Response
      */
+    /** Optional drawer account: digits only, as typed (leading zeros kept); null when blank. */
+    private function accountNo($value)
+    {
+        $digits = substr(preg_replace('/\D/', '', (string) $value), 0, 20);
+        return $digits === '' ? null : $digits;
+    }
+
     public function show($id)
     {
 
