@@ -23,6 +23,7 @@
   .bsp-pill-choice  { background:#fef3c7; color:#92400e; }
   .bsp-pill-matched { background:#dcfce7; color:#166534; }
   .bsp-pill-cannot  { background:#fee2e2; color:#991b1b; }
+  .bsp-pill-vat { background:#e0e7ff; color:#3730a3; }
 
   /* section headings */
   .bsp .bsp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
@@ -90,6 +91,9 @@
           </span>
           <div style="margin-top:6px">
             <span class="bsp-pill bsp-pill-choice"><i class="fa fa-question-circle" aria-hidden="true"></i>{{ $counts['ambiguous'] }} need choice</span>
+            @if($counts['vat'] > 0)
+            <span class="bsp-pill bsp-pill-vat"><i class="fa fa-percent" aria-hidden="true"></i>{{ $counts['vat'] }} rent + VAT to check</span>
+            @endif
             <span class="bsp-pill bsp-pill-matched"><i class="fa fa-check-circle" aria-hidden="true"></i>{{ $counts['matched'] }} matched</span>
             <span class="bsp-pill bsp-pill-cannot"><i class="fa fa-ban" aria-hidden="true"></i>{{ $counts['cannot'] }} cannot post</span>
           </div>
@@ -196,6 +200,63 @@
 </div></div>
 @endif
 
+{{-- ── 1b. Rent + VAT by difference (tick to post) ─────────────── --}}
+@if(count($vatRows) > 0)
+<div class="row"><div class="col-md-12 col-sm-12">
+<div class="card card-box">
+  <div class="card-body">
+    <div class="bsp-head">
+      <h4><i class="fa fa-percent" style="color:#3730a3" aria-hidden="true"></i> Rent + VAT (check) <span class="bsp-pill bsp-pill-vat">{{ $counts['vat'] }}</span></h4>
+      <span class="bsp-hint">Bank amount is the rent plus about 5% VAT. Tick to post the rent receipt and a VAT General Receipt for the extra.</span>
+    </div>
+    <div class="table-wrap"><div class="table-responsive">
+      <table class="table display product-overview mb-30">
+        <thead>
+          <tr>
+            <th width="4%"></th>
+            <th width="10%">Cheque No</th>
+            <th width="9%">Cheque Date</th>
+            <th class="num" width="9%">Bank Amount</th>
+            <th>Tenant</th>
+            <th>Agr No</th>
+            <th>Building / Unit</th>
+            <th class="num">Rent</th>
+            <th class="num">VAT 5%</th>
+            <th class="num">Actual Extra</th>
+            <th class="num">Difference</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($vatRows as $r)
+          @php
+            $rowNo = $r['row']['row_no'];
+            $rentPdcs = array_values(array_filter($r['pdcs'], function ($p) { return (int) $p->pdc_type !== 3; }));
+            $first = $rentPdcs[0];
+            $rentSum = 0; foreach ($rentPdcs as $p) { $rentSum += $p->pdc_amt; }
+            $on = !empty($selection['vat'][$rowNo]);
+          @endphp
+          <tr class="{{ $on ? '' : 'is-off' }}">
+            <td><input type="checkbox" class="bsp-vat-tick" data-row="{{ $rowNo }}" {{ $on ? 'checked' : '' }} aria-label="Post cheque {{ $r['row']['cheque_no'] }} with VAT"></td>
+            <td><b>{{ $r['row']['cheque_no'] }}</b></td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
+            <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
+            <td>{{ $first->tenant_name }}</td>
+            <td>{{ $first->tenant_contract_no }}</td>
+            <td>{{ $first->building_name }} / {{ $first->unit_no }}</td>
+            <td class="num">{{ numberFormat($rentSum) }}</td>
+            <td class="num">{{ numberFormat($r['expected_vat']) }}</td>
+            <td class="num"><b>{{ numberFormat($r['vat_amount']) }}</b></td>
+            <td class="num">{{ numberFormat($r['vat_amount'] - $r['expected_vat']) }}</td>
+          </tr>
+          @endforeach
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+</div></div>
+@endif
+
 {{-- ── 2. Auto-matched ───────────────────────────────────────── --}}
 <div class="row"><div class="col-md-12 col-sm-12">
 <div class="card card-box">
@@ -259,7 +320,12 @@
                 {{ $p->building_name }} / {{ $p->unit_no }}@if(!$loop->last)<br>@endif
               @endforeach
             </td>
-            <td>{{ $first->pdc_type_name }}</td>
+            <td>
+              {{ $first->pdc_type_name }}
+              @if(count(array_filter($r['pdcs'], function ($p) { return (int) $p->pdc_type === 3; })) > 0)
+                <span class="bsp-pill bsp-pill-vat">+ VAT</span>
+              @endif
+            </td>
             <td>{{ $first->bank_name }}</td>
             <td>
               @if(count($r['pdcs']) > 1)
@@ -375,6 +441,16 @@ $(function () {
     $cb.closest('tr').toggleClass('is-off', !on);
     setCount(count + (on ? 1 : -1));
     remember(row, 'tick', on ? '1' : '0', function () {
+      $cb.prop('checked', !on).closest('tr').toggleClass('is-off', on);
+      setCount(count + (on ? -1 : 1));
+    });
+  });
+
+  $(document).on('change', '.bsp-vat-tick', function () {
+    var $cb = $(this), row = $cb.data('row'), on = $cb.is(':checked');
+    $cb.closest('tr').toggleClass('is-off', !on);
+    setCount(count + (on ? 1 : -1));
+    remember(row, 'vat', on ? '1' : '0', function () {
       $cb.prop('checked', !on).closest('tr').toggleClass('is-off', on);
       setCount(count + (on ? -1 : 1));
     });
