@@ -24,6 +24,7 @@
   .bsp-pill-matched { background:#dcfce7; color:#166534; }
   .bsp-pill-cannot  { background:#fee2e2; color:#991b1b; }
   .bsp-pill-vat { background:#e0e7ff; color:#3730a3; }
+  .bsp-pill-acct { background:#fef3c7; color:#92400e; margin-top:4px; }
 
   /* section headings */
   .bsp .bsp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
@@ -63,6 +64,25 @@
     'date_mismatch'   => ['btn-warning', 'Date mismatch'],
     'unknown_bank'    => ['btn-default', 'Unknown bank'],
   ];
+  // Pay Account cell: the sheet's account (bank's leading zeros dropped), any different PLMS account under it
+  $accCell = function ($r, $pdcs) {
+    $sheet = \Modules\BackOffice\Services\BankSheetPdcMatcher::normaliseAccountNo(isset($r['row']['account_no']) ? $r['row']['account_no'] : null);
+    $html  = $sheet !== null ? e($sheet) : '-';
+    $seen  = [];
+    foreach ($pdcs as $p) {
+      $own = \Modules\BackOffice\Services\BankSheetPdcMatcher::normaliseAccountNo(isset($p->pdc_account_no) ? $p->pdc_account_no : null);
+      if ($own !== null && $own !== $sheet && !isset($seen[$own])) {
+        $seen[$own] = true;
+        $html .= '<span class="bsp-sub">PLMS: ' . e($own) . '</span>';
+      }
+    }
+    if (!empty($r['account_mismatch'])) {
+      $html .= '<span class="bsp-pill bsp-pill-acct"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i>Account differs</span>';
+    } elseif ($r['status'] === 'matched' && $r['reason'] === 'Picked by account number') {
+      $html .= '<span class="bsp-sub">picked by account</span>';
+    }
+    return $html;
+  };
 @endphp
 <div class="page-bar">
   <div class="page-title-breadcrumb">
@@ -166,7 +186,11 @@
           <tr>
             <td>{{ $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
-            <td>{{ $r['row']['bank_name'] }}</td>
+            <td>
+              {{ $r['row']['bank_name'] }}
+              @php $sheetAcc = \Modules\BackOffice\Services\BankSheetPdcMatcher::normaliseAccountNo(isset($r['row']['account_no']) ? $r['row']['account_no'] : null); @endphp
+              @if($sheetAcc !== null)<span class="bsp-sub">Acct {{ $sheetAcc }}</span>@endif
+            </td>
             <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
             <td>
@@ -183,7 +207,7 @@
                   · {{ count($group) }} rows (split cheque)
                 @endif
                 @foreach($group as $p)
-                <span class="bsp-sub">{{ $p->tenant_contract_no }} · {{ $p->building_name }} / {{ $p->unit_no }} · {{ $p->pdc_type_name }} · {{ numberFormat($p->pdc_amt) }} · chq {{ $fmtDate($p->pdc_check_date) }} · {{ $p->bank_name }}</span>
+                <span class="bsp-sub">{{ $p->tenant_contract_no }} · {{ $p->building_name }} / {{ $p->unit_no }} · {{ $p->pdc_type_name }} · {{ numberFormat($p->pdc_amt) }} · chq {{ $fmtDate($p->pdc_check_date) }} · {{ $p->bank_name }}@if(!empty($p->pdc_account_no)) · acct {{ \Modules\BackOffice\Services\BankSheetPdcMatcher::normaliseAccountNo($p->pdc_account_no) }}@endif</span>
                 @endforeach
               </label>
               @endforeach
@@ -221,6 +245,7 @@
             <th>Agr No</th>
             <th>Building / Unit</th>
             <th>PLMS Bank</th>
+            <th>Pay Account</th>
             <th class="num">Rent</th>
             <th class="num">VAT 5%</th>
             <th class="num">Actual Extra</th>
@@ -245,6 +270,7 @@
             <td>{{ $first->tenant_contract_no }}</td>
             <td>{{ $first->building_name }} / {{ $first->unit_no }}</td>
             <td>{{ $first->bank_name }}</td>
+            <td>{!! $accCell($r, $r['pdcs']) !!}</td>
             <td class="num">{{ numberFormat($rentSum) }}</td>
             <td class="num">{{ numberFormat($r['expected_vat']) }}</td>
             <td class="num"><b>{{ numberFormat($r['vat_amount']) }}</b></td>
@@ -286,6 +312,7 @@
             <th>Building / Unit</th>
             <th width="8%">Type</th>
             <th>PLMS Bank</th>
+            <th>Pay Account</th>
             <th width="7%">Rows</th>
           </tr>
           <tr class="bsp-filters">
@@ -299,6 +326,7 @@
             <td>{!! $fin('m', 'building') !!}</td>
             <td>{!! $fin('m', 'type') !!}</td>
             <td>{!! $fin('m', 'pbank') !!}</td>
+            <td></td>
             <td></td>
           </tr>
         </thead>
@@ -329,6 +357,7 @@
               @endif
             </td>
             <td>{{ $first->bank_name }}</td>
+            <td>{!! $accCell($r, $r['pdcs']) !!}</td>
             <td>
               @if(count($r['pdcs']) > 1)
                 <span class="btn-circle btn-info btn-sm m-b-10 status" title="One cheque across {{ count($r['pdcs']) }} PDC rows"><b>{{ count($r['pdcs']) }} split</b></span>
@@ -338,7 +367,7 @@
             </td>
           </tr>
           @empty
-          <tr><td colspan="11" align="center"><p>{{ $filtering['matched'] ? 'No matched cheque fits these filters.' : 'No cheque on the sheet matched an unposted PDC.' }}</p></td></tr>
+          <tr><td colspan="12" align="center"><p>{{ $filtering['matched'] ? 'No matched cheque fits these filters.' : 'No cheque on the sheet matched an unposted PDC.' }}</p></td></tr>
           @endforelse
         </tbody>
       </table>
@@ -372,6 +401,7 @@
             <th class="num" width="9%">Amount</th>
             <th>Building / Unit</th>
             <th>Tenant</th>
+            <th>Pay Account</th>
             <th width="14%">Status</th>
             <th>Why</th>
           </tr>
@@ -383,6 +413,7 @@
             <td>{!! $fin('c', 'amount') !!}</td>
             <td>{!! $fin('c', 'building') !!}</td>
             <td>{!! $fin('c', 'tenant') !!}</td>
+            <td></td>
             <td>
               <select name="c[status]" class="bsp-filter" form="bsp-filter-form" aria-label="Filter status">
                 <option value="">All</option>
@@ -420,11 +451,12 @@
                 -
               @endforelse
             </td>
+            <td>{!! $accCell($r, $r['related']) !!}</td>
             <td class="bsp-status"><span class="btn-circle {{ $l[0] }} btn-sm m-b-10 status"><b>{{ $l[1] }}</b></span></td>
             <td>{{ $r['reason'] }}</td>
           </tr>
           @empty
-          <tr><td colspan="9" align="center"><p>{{ $filtering['cannot'] ? 'Nothing here fits these filters.' : 'None — every accepted cheque on the sheet was matched.' }}</p></td></tr>
+          <tr><td colspan="10" align="center"><p>{{ $filtering['cannot'] ? 'Nothing here fits these filters.' : 'None — every accepted cheque on the sheet was matched.' }}</p></td></tr>
           @endforelse
         </tbody>
       </table>
