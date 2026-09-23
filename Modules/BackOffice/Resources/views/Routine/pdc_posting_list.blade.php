@@ -30,6 +30,9 @@
 <a class="align-right advSearch" href="#" data-toggle="modal" data-target="#bank-sheet-modal" id="bank-sheet-open">
   <i class="fa fa-file-excel-o" aria-hidden="true"></i> Import Bank Sheet
 </a>
+<a class="align-right advSearch" href="{{ route('pdcBankSheetUploads') }}" style="margin-right:15px">
+  <i class="fa fa-history" aria-hidden="true"></i> Bank Sheet Posting History
+</a>
 <div class="clearfix"></div>
 
 {{-- Import the bank's cheque clearing sheet (modal) --}}

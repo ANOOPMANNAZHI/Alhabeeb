@@ -310,7 +310,7 @@ class PdcBankSheetController extends Controller
             }
         }
 
-        $this->audit($request, $stored, $analysis['results'], $outcome, $posted, $pdcsDone);
+        $uploadId = $this->audit($request, $stored, $analysis['results'], $outcome, $posted, $pdcsDone);
         $request->session()->forget($this->selectionKey($stored));
 
         $msg = $posted . ' cheque(s) posted (' . $pdcsDone . ' PDC row(s)); '
@@ -318,11 +318,112 @@ class PdcBankSheetController extends Controller
         if (count($tillEnd) > 0) {
             $msg .= '. Receipts already run to contract end for: ' . implode(', ', array_unique($tillEnd));
         }
-        $redirect = redirect()->route('pdcPosting')->with('success', $msg);
+        $redirect = redirect()->route('pdcBankSheetResult', $uploadId)->with('success', $msg);
         if (count($failed) > 0) {
             $redirect->with('error', 'Failed: ' . implode(' | ', $failed));
         }
         return $redirect;
+    }
+
+    /**
+     * Posting history, one block per posting date (newest first): the day's
+     * totals and its uploads. Optional from/to filter on the posting date.
+     */
+    public function uploads(Request $request)
+    {
+        $from = $this->validDate($request->input('from'));
+        $to   = $this->validDate($request->input('to'));
+
+        $days = DB::table('pdc_bank_sheet_uploads')
+            ->selectRaw('created_at::date AS day, COUNT(*) AS uploads, SUM(rows_posted) AS cheques, SUM(pdcs_posted) AS pdcs')
+            ->when($from, function ($q) use ($from) { $q->whereRaw('created_at::date >= ?', [$from]); })
+            ->when($to, function ($q) use ($to) { $q->whereRaw('created_at::date <= ?', [$to]); })
+            ->groupBy(DB::raw('created_at::date'))
+            ->orderBy('day', 'desc')
+            ->paginate(15)
+            ->appends(['from' => $from, 'to' => $to]);
+
+        $uploadsByDay = [];
+        $totalsByDay  = [];
+        $dayList = [];
+        foreach ($days as $d) {
+            $dayList[] = $d->day;
+            $uploadsByDay[$d->day] = [];
+            $totalsByDay[$d->day]  = ['receipts' => 0, 'amount' => 0];
+        }
+
+        if (count($dayList) > 0) {
+            $uploads = $this->uploadQuery()
+                ->whereIn(DB::raw('u.created_at::date'), $dayList)
+                ->orderBy('u.id', 'desc')
+                ->get();
+            foreach ($uploads as $u) {
+                $u->original_name = $this->originalName($u->file_name);
+                $u->receipts = 0;
+                $u->amount   = 0;
+                $uploadsByDay[substr($u->created_at, 0, 10)][] = $u;
+            }
+
+            // receipt count / amount per upload (cancelled and deleted receipts excluded)
+            $sums = [];
+            foreach ($this->receiptRows($uploads->pluck('id')->all()) as $r) {
+                if ($r->deleted_at || (int) $r->receipt_status === 2) {
+                    continue;
+                }
+                if (!isset($sums[$r->upload_id])) {
+                    $sums[$r->upload_id] = ['receipts' => 0, 'amount' => 0];
+                }
+                $sums[$r->upload_id]['receipts']++;
+                $sums[$r->upload_id]['amount'] += $r->amount;
+            }
+            foreach ($uploadsByDay as $day => $list) {
+                foreach ($list as $u) {
+                    if (isset($sums[$u->id])) {
+                        $u->receipts = $sums[$u->id]['receipts'];
+                        $u->amount   = $sums[$u->id]['amount'];
+                        $totalsByDay[$day]['receipts'] += $u->receipts;
+                        $totalsByDay[$day]['amount']   += $u->amount;
+                    }
+                }
+            }
+        }
+
+        return view('backoffice::Routine.pdc_bank_sheet_uploads', compact('days', 'uploadsByDay', 'totalsByDay', 'from', 'to'));
+    }
+
+    /** One posting run: the receipts it created and the sheet rows it did not post. */
+    public function result($uploadId)
+    {
+        $upload = $this->uploadQuery()->where('u.id', (int) $uploadId)->first();
+        if ($upload === null) {
+            abort(404);
+        }
+        $upload->original_name = $this->originalName($upload->file_name);
+
+        $receipts  = $this->receiptRows([$upload->id]);
+        $notPosted = $this->notPostedRows([$upload->id]);
+
+        return view('backoffice::Routine.pdc_bank_sheet_result', compact('upload', 'receipts', 'notPosted'));
+    }
+
+    /** Every receipt from the uploads posted on one date, across all of that day's uploads. */
+    public function day($date)
+    {
+        $date = $this->validDate($date);
+        if ($date === null) {
+            abort(404);
+        }
+
+        $uploads = $this->uploadQuery()->whereRaw('u.created_at::date = ?', [$date])->orderBy('u.id')->get();
+        foreach ($uploads as $u) {
+            $u->original_name = $this->originalName($u->file_name);
+        }
+        $ids = $uploads->pluck('id')->all();
+
+        $receipts  = $this->receiptRows($ids);
+        $notPosted = $this->notPostedRows($ids);
+
+        return view('backoffice::Routine.pdc_bank_sheet_day', compact('date', 'uploads', 'receipts', 'notPosted'));
     }
 
     // ── helpers ────────────────────────────────────────────────────────
@@ -401,6 +502,77 @@ class PdcBankSheetController extends Controller
             'unticked' => isset($s['unticked']) ? (array) $s['unticked'] : [],
             'choice'   => isset($s['choice']) ? (array) $s['choice'] : [],
         ];
+    }
+
+    /** Posting runs with deposit bank and poster names. */
+    private function uploadQuery()
+    {
+        return DB::table('pdc_bank_sheet_uploads as u')
+            ->leftJoin('bank as b', 'b.id', '=', 'u.bank_id')
+            ->leftJoin('users as us', 'us.id', '=', 'u.created_by')
+            ->select('u.*', 'b.bank_name', 'b.bank_code', 'us.username');
+    }
+
+    /**
+     * Receipts created by the given posting runs, found through the audit trail:
+     * upload row -> pdc_ids -> pdc.pdc_receipt_no -> receipts_generation
+     * (receipt numbers are unique). Receipts deleted or cancelled since are
+     * still returned, so the page can show that status.
+     */
+    private function receiptRows(array $uploadIds)
+    {
+        $uploadIds = array_values(array_filter(array_map('intval', $uploadIds)));
+        if (count($uploadIds) === 0) {
+            return [];
+        }
+        $in = implode(',', array_fill(0, count($uploadIds), '?'));
+
+        return DB::select("
+            SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no AS sheet_cheque_no, ur.bank_name AS sheet_bank_name,
+                   rg.id AS receipt_id, rg.receipts_generation_receipt_no AS receipt_no,
+                   rg.receipts_generation_receipt_date AS receipt_date,
+                   rg.receipts_generation_amt AS amount,
+                   rg.receipts_generation_type AS receipt_type,
+                   rg.receipts_generation_status AS receipt_status,
+                   rg.receipts_generation_approval_status AS approval_status,
+                   rg.deleted_at,
+                   tc.tenant_contract_no, t.tenant_name, b.building_name, un.unit_no
+            FROM pdc_bank_sheet_upload_rows ur
+            JOIN pdc p ON p.id = ANY (string_to_array(ur.pdc_ids, ',')::int[])
+            JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = p.pdc_receipt_no
+                                       AND rg.tenant_contract_id = p.tenant_contract_id
+            LEFT JOIN tenant_contracts tc ON tc.id = rg.tenant_contract_id
+            LEFT JOIN tenant t ON t.id = tc.tenant_id
+            LEFT JOIN buildings b ON b.id = tc.building_id
+            LEFT JOIN units un ON un.id = tc.unit_id
+            WHERE ur.upload_id IN ($in)
+              AND ur.status = 'posted'
+              AND ur.pdc_ids IS NOT NULL
+            ORDER BY ur.upload_id, rg.receipts_generation_receipt_no", $uploadIds);
+    }
+
+    /** Sheet rows the runs did not post (bank-rejected rows are not shown on the review page either). */
+    private function notPostedRows(array $uploadIds)
+    {
+        if (count($uploadIds) === 0) {
+            return collect();
+        }
+        return DB::table('pdc_bank_sheet_upload_rows')
+            ->whereIn('upload_id', $uploadIds)
+            ->whereNotIn('status', ['posted', BankSheetPdcMatcher::REJECTED])
+            ->orderBy('upload_id')
+            ->orderBy('sheet_row_no')
+            ->get();
+    }
+
+    /** 'Y-m-d' string or null. */
+    private function validDate($value)
+    {
+        if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+        list($y, $m, $d) = explode('-', $value);
+        return checkdate((int) $m, (int) $d, (int) $y) ? $value : null;
     }
 
     /** "20260920_163000_7_Cheque.xls" => "Cheque.xls" */
@@ -523,5 +695,7 @@ class PdcBankSheetController extends Controller
         foreach (array_chunk($lines, 200) as $chunk) {
             DB::table('pdc_bank_sheet_upload_rows')->insert($chunk);
         }
+
+        return $uploadId;
     }
 }

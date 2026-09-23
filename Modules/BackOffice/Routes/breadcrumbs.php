@@ -452,6 +452,18 @@ Breadcrumbs::for('pdcBankSheetPreview', function ($trail) {
     $trail->parent('pdcPosting');
     $trail->push('Bank Sheet Preview');
 });
+Breadcrumbs::for('pdcBankSheetUploads', function ($trail) {
+    $trail->parent('pdcPosting');
+    $trail->push('Bank Sheet Posting History', route('pdcBankSheetUploads'));
+});
+Breadcrumbs::for('pdcBankSheetResult', function ($trail, $upload) {
+    $trail->parent('pdcBankSheetUploads');
+    $trail->push('Posting #' . $upload->id);
+});
+Breadcrumbs::for('pdcBankSheetDay', function ($trail, $date) {
+    $trail->parent('pdcBankSheetUploads');
+    $trail->push(\Carbon\Carbon::parse($date)->format('d/m/Y'));
+});
 Breadcrumbs::for('rentalIncomePosting', function ($trail) {
     $trail->parent('home');
     $trail->push('Rental Income Posting', route('rentalIncomePosting'));
