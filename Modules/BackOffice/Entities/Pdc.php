@@ -72,8 +72,9 @@ class Pdc extends Model
      public function getPdcTypeNameAttribute()
       {     
         switch($this->pdc_type){
-          case '1' : return 'Rent';        
+          case '1' : return 'Rent';
           case '2' : return 'Deposit';
+          case '3' : return 'VAT';
         }
       }
       

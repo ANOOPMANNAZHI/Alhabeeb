@@ -48,6 +48,11 @@ class BankSheetPdcMatcherTest extends TestCase
         return new BankSheetPdcMatcher(['27' => 3, '30' => 17, '20' => 5]);
     }
 
+    private function vatPdc(array $overrides = [])
+    {
+        return $this->pdc(array_merge(['pdc_type' => 3, 'pdc_amt' => 62.5], $overrides));
+    }
+
     public function test_single_row_with_same_cheque_bank_amount_and_month_is_matched()
     {
         $out = $this->matcher()->match([$this->sheetRow()], [$this->pdc()]);
@@ -226,5 +231,89 @@ class BankSheetPdcMatcherTest extends TestCase
         );
 
         $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+    }
+
+    public function test_rent_plus_vat_pdc_summing_to_bank_amount_is_matched_with_both_rows()
+    {
+        $rent = $this->pdc(['pdc_amt' => 1250.0, 'pdc_type' => 1]);
+        $vat  = $this->vatPdc();
+        $out  = $this->matcher()->match([$this->sheetRow(['amount' => 1312.5])], [$rent, $vat]);
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([$rent->id, $vat->id], array_column($out[0]['pdcs'], 'id'));
+    }
+
+    public function test_rent_alone_equal_to_bank_amount_matches_without_the_vat_pdc()
+    {
+        $rent = $this->pdc(['pdc_amt' => 1250.0]);
+        $out  = $this->matcher()->match([$this->sheetRow(['amount' => 1250.0])], [$rent, $this->vatPdc()]);
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([$rent->id], array_column($out[0]['pdcs'], 'id'));
+    }
+
+    public function test_comprehensive_rent_with_extra_near_five_percent_is_vat_check()
+    {
+        foreach ([157.0, 157.5, 158.0, 156.5, 158.5] as $bank) {
+            $rent = $this->pdc(['pdc_amt' => 150.0, 'management_id' => 1]);
+            $out  = $this->matcher()->match([$this->sheetRow(['amount' => $bank])], [$rent]);
+
+            $this->assertSame(BankSheetPdcMatcher::VAT_CHECK, $out[0]['status'], "bank $bank");
+            $this->assertSame([$rent->id], array_column($out[0]['pdcs'], 'id'));
+            $this->assertEqualsWithDelta($bank - 150.0, $out[0]['vat_amount'], 0.0001);
+            $this->assertEqualsWithDelta(7.5, $out[0]['expected_vat'], 0.0001);
+        }
+    }
+
+    public function test_extra_outside_tolerance_is_an_amount_mismatch()
+    {
+        foreach ([159.0, 156.0, 150.5] as $bank) {
+            $out = $this->matcher()->match(
+                [$this->sheetRow(['amount' => $bank])],
+                [$this->pdc(['pdc_amt' => 150.0, 'management_id' => 1])]
+            );
+            $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status'], "bank $bank");
+        }
+    }
+
+    public function test_non_comprehensive_building_never_gets_vat_by_difference()
+    {
+        $out = $this->matcher()->match(
+            [$this->sheetRow(['amount' => 157.5])],
+            [$this->pdc(['pdc_amt' => 150.0, 'management_id' => 2])]
+        );
+        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
+    }
+
+    public function test_vat_check_carries_the_agreements_vat_pdc_when_its_amount_is_off()
+    {
+        $rent = $this->pdc(['pdc_amt' => 1250.0, 'management_id' => 1]);
+        $vat  = $this->vatPdc(['pdc_amt' => 60.0, 'management_id' => 1]);
+        $out  = $this->matcher()->match([$this->sheetRow(['amount' => 1312.5])], [$rent, $vat]);
+
+        $this->assertSame(BankSheetPdcMatcher::VAT_CHECK, $out[0]['status']);
+        $this->assertSame([$rent->id, $vat->id], array_column($out[0]['pdcs'], 'id'));
+        $this->assertEqualsWithDelta(62.5, $out[0]['vat_amount'], 0.0001);
+    }
+
+    public function test_a_row_matching_only_a_vat_pdc_is_not_found()
+    {
+        $out = $this->matcher()->match([$this->sheetRow(['amount' => 62.5])], [$this->vatPdc()]);
+        $this->assertSame(BankSheetPdcMatcher::NOT_FOUND, $out[0]['status']);
+    }
+
+    public function test_vat_check_needs_a_single_agreement()
+    {
+        $a = $this->pdc(['pdc_amt' => 100.0, 'management_id' => 1, 'tenant_contract_id' => 1]);
+        $b = $this->pdc(['pdc_amt' => 50.0, 'management_id' => 1, 'tenant_contract_id' => 2]);
+        $out = $this->matcher()->match([$this->sheetRow(['amount' => 157.5])], [$a, $b]);
+        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
+    }
+
+    public function test_non_vat_results_have_null_vat_fields()
+    {
+        $out = $this->matcher()->match([$this->sheetRow()], [$this->pdc()]);
+        $this->assertNull($out[0]['vat_amount']);
+        $this->assertNull($out[0]['expected_vat']);
     }
 }

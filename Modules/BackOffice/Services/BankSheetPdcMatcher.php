@@ -21,9 +21,20 @@ class BankSheetPdcMatcher
     const NOT_FOUND       = 'not_found';
     const UNKNOWN_BANK    = 'unknown_bank';
     const REJECTED        = 'rejected';
+    const VAT_CHECK       = 'vat_check';
 
     /** Amounts closer than this are equal (OMR has 3 decimals). */
     const AMOUNT_EPSILON = 0.0005;
+
+    const VAT_RATE       = 0.05;
+    const VAT_TOLERANCE  = 1.0;
+    const COMPREHENSIVE  = 1;
+    const PDC_TYPE_VAT   = 3;
+
+    public static function isVat($pdc)
+    {
+        return isset($pdc->pdc_type) && (int) $pdc->pdc_type === self::PDC_TYPE_VAT;
+    }
 
     /** @var array bank-sheet bank code => pdc.bank_id, or a list of them when cheques of that bank are entered under more than one PLMS bank */
     private $bankMap;
@@ -82,6 +93,17 @@ class BankSheetPdcMatcher
                 }
             }
         }
+
+        $vatFound = [];
+        $rentFound = [];
+        foreach ($found as $pdc) {
+            if (self::isVat($pdc)) {
+                $vatFound[] = $pdc;
+            } else {
+                $rentFound[] = $pdc;
+            }
+        }
+        $found = $rentFound;
         if (count($found) === 0) {
             return $this->result($row, self::NOT_FOUND, [], [], 'No unposted PDC with this cheque number and bank');
         }
@@ -98,13 +120,28 @@ class BankSheetPdcMatcher
             return $this->result($row, self::DATE_MISMATCH, [], [], 'PLMS cheque date ' . implode(', ', $dates) . ' is not in ' . $month);
         }
 
-        $candidates = $this->candidateGroups($inMonth, (float) $row['amount']);
+        $amount     = (float) $row['amount'];
+        $candidates = $this->candidateGroups($inMonth, $amount);
+        if (count($candidates) === 0) {
+            // Case A: an agreement's rent rows + its VAT PDC(s) on this cheque add up exactly
+            $candidates = $this->rentPlusVatGroups($inMonth, $vatFound, $amount);
+        }
 
         if (count($candidates) === 1) {
             return $this->result($row, self::MATCHED, $candidates[0], [], null);
         }
         if (count($candidates) > 1) {
             return $this->result($row, self::AMBIGUOUS, [], $candidates, count($candidates) . ' possible matches');
+        }
+
+        // Case B: comprehensive agreement, extra ≈ 5% of its rent
+        $vatChecks = $this->vatByDifference($inMonth, $vatFound, $amount);
+        if (count($vatChecks) === 1) {
+            $c = $vatChecks[0];
+            $out = $this->result($row, self::VAT_CHECK, $c['pdcs'], [], 'Rent ' . $this->fmt($c['rent']) . ' + VAT ' . $this->fmt($c['vat']) . ' (5% = ' . $this->fmt($c['expected']) . ')');
+            $out['vat_amount']   = $c['vat'];
+            $out['expected_vat'] = $c['expected'];
+            return $out;
         }
 
         $totals = [];
@@ -116,7 +153,7 @@ class BankSheetPdcMatcher
             self::AMOUNT_MISMATCH,
             [],
             [],
-            'PLMS total ' . implode(' / ', $totals) . ' does not equal bank amount ' . $this->fmt((float) $row['amount'])
+            'PLMS total ' . implode(' / ', $totals) . ' does not equal bank amount ' . $this->fmt($amount)
         );
     }
 
@@ -191,6 +228,67 @@ class BankSheetPdcMatcher
         return rtrim(rtrim(number_format($amount, 3, '.', ''), '0'), '.');
     }
 
+    /** Rent rows of one agreement + that agreement's VAT PDCs, when their sum is the bank amount. */
+    private function rentPlusVatGroups(array $rent, array $vat, $amount)
+    {
+        $out = [];
+        foreach ($this->groupByContract($rent) as $contractId => $rows) {
+            $vatRows = $this->vatOfContract($vat, $contractId);
+            if (count($vatRows) === 0) {
+                continue;
+            }
+            $group = array_merge($rows, $vatRows);
+            if ($this->sameAmount($this->sum($group), $amount)) {
+                $out[] = $group;
+            }
+        }
+        return $out;
+    }
+
+    /** @return array of ['pdcs', 'rent', 'vat', 'expected'] for comprehensive agreements whose extra ≈ 5%. */
+    private function vatByDifference(array $rent, array $vat, $amount)
+    {
+        $out = [];
+        foreach ($this->groupByContract($rent) as $contractId => $rows) {
+            if (!isset($rows[0]->management_id) || (int) $rows[0]->management_id !== self::COMPREHENSIVE) {
+                continue;
+            }
+            $rentSum  = $this->sum($rows);
+            $extra    = round($amount - $rentSum, 3);
+            $expected = round($rentSum * self::VAT_RATE, 3);
+            if ($extra > self::AMOUNT_EPSILON && abs($extra - $expected) <= self::VAT_TOLERANCE + self::AMOUNT_EPSILON) {
+                $out[] = [
+                    'pdcs'     => array_merge($rows, $this->vatOfContract($vat, $contractId)),
+                    'rent'     => $rentSum,
+                    'vat'      => $extra,
+                    'expected' => $expected,
+                ];
+            }
+        }
+        // one cheque, one agreement: rows spread over several agreements are not guessed
+        return count($this->groupByContract($rent)) === 1 ? $out : [];
+    }
+
+    private function groupByContract(array $pdcs)
+    {
+        $groups = [];
+        foreach ($pdcs as $pdc) {
+            $groups[(int) $pdc->tenant_contract_id][] = $pdc;
+        }
+        return $groups;
+    }
+
+    private function vatOfContract(array $vat, $contractId)
+    {
+        $out = [];
+        foreach ($vat as $pdc) {
+            if ((int) $pdc->tenant_contract_id === (int) $contractId) {
+                $out[] = $pdc;
+            }
+        }
+        return $out;
+    }
+
     private function result(array $row, $status, array $pdcs, array $candidates, $reason)
     {
         return [
@@ -199,6 +297,8 @@ class BankSheetPdcMatcher
             'pdcs'       => $pdcs,
             'candidates' => $candidates,
             'reason'     => $reason,
+            'vat_amount'   => null,
+            'expected_vat' => null,
         ];
     }
 }

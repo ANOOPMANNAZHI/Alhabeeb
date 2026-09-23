@@ -7,9 +7,12 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Modules\BackOffice\Entities\Pdc;
+use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Services\BankSheetPdcMatcher;
 use Modules\BackOffice\Services\BankSheetReader;
+use Modules\BackOffice\Services\VatReceiptCreator;
 use Modules\Masters\Entities\Bank;
+use Modules\Sales\Entities\TenantContract;
 
 /**
  * PDC posting from the bank's cheque-clearing sheet: upload the export,
@@ -93,6 +96,12 @@ class PdcBankSheetController extends Controller
         }
         $toPost = $analysis['counts']['matched'] - count($selection['unticked']) + $chosen;
 
+        $vatRowNos = [];
+        foreach ($sections['vat'] as $r) {
+            $vatRowNos[$r['row']['row_no']] = true;
+        }
+        $toPost += count(array_intersect_key($selection['vat'], $vatRowNos));
+
         $banks       = Bank::active()->where('accounts_bank', 1)->orderBy('bank_name', 'ASC')->get();
         $defaultBank = $banks->first(function ($b) { return trim($b->bank_code) === self::DEFAULT_DEPOSIT_BANK_CODE; });
         // deposit date defaults to the day the bank scanned the batch, never later than today
@@ -104,6 +113,7 @@ class PdcBankSheetController extends Controller
             'banks'         => $banks,
             'defaultBankId' => $defaultBank ? $defaultBank->id : null,
             'ambiguous' => $sections['ambiguous'],
+            'vatRows'   => $sections['vat'],
             'matched'   => $matched,
             'cannot'    => $cannot,
             'counts'    => $analysis['counts'],
@@ -222,7 +232,7 @@ class PdcBankSheetController extends Controller
     {
         $this->validate($request, [
             'row'   => 'required|integer',
-            'kind'  => 'required|in:tick,choice',
+            'kind'  => 'required|in:tick,choice,vat',
             'value' => 'present',
         ]);
 
@@ -234,6 +244,12 @@ class PdcBankSheetController extends Controller
                 unset($selection['unticked'][$row]);
             } else {
                 $selection['unticked'][$row] = true;
+            }
+        } elseif ($request->kind === 'vat') {
+            if ($request->value === '1' || $request->value === 1 || $request->value === true) {
+                $selection['vat'][$row] = true;
+            } else {
+                unset($selection['vat'][$row]);
             }
         } else {
             $selection['choice'][$row] = (string) $request->value;
@@ -260,7 +276,8 @@ class PdcBankSheetController extends Controller
 
         $selection = $this->selection($request, $stored);
 
-        $toPost = []; // sheet row_no => [pdc rows]
+        $toPost    = []; // sheet row_no => [pdc rows]
+        $vatByDiff = []; // row_no => VAT amount (Case B)
         foreach ($analysis['results'] as $r) {
             $rowNo = $r['row']['row_no'];
             if ($r['status'] === BankSheetPdcMatcher::MATCHED && !isset($selection['unticked'][$rowNo])) {
@@ -270,6 +287,9 @@ class PdcBankSheetController extends Controller
                 if ($group !== null) {
                     $toPost[$rowNo] = $group;
                 }
+            } elseif ($r['status'] === BankSheetPdcMatcher::VAT_CHECK && !empty($selection['vat'][$rowNo])) {
+                $toPost[$rowNo] = $r['pdcs'];
+                $vatByDiff[$rowNo] = $r['vat_amount'];
             }
         }
 
@@ -282,39 +302,126 @@ class PdcBankSheetController extends Controller
         $pdcsDone = 0;
         $tillEnd  = [];
         $failed   = [];
-        $outcome  = []; // row_no => [status, reason, pdc_ids]
+        $outcome  = []; // row_no => [status, reason, pdc_ids, vat_receipt_no]
 
+        $vatCreator = new VatReceiptCreator($routines);
+        $vatMade    = 0;
+        $vatReusedCount = 0;
         foreach ($toPost as $rowNo => $pdcs) {
             $ids = [];
+            $vatNos = [];
+            $vatReused = [];
+            $vatBefore = $vatMade; // the closure counts receipts; undo if the cheque rolls back
+            $vatReusedBefore = $vatReusedCount;
             try {
-                DB::transaction(function () use ($routines, $pdcs, $request, &$ids, &$tillEnd) {
+                DB::transaction(function () use ($routines, $vatCreator, $pdcs, $request, $rowNo, $vatByDiff, &$ids, &$tillEnd, &$vatNos, &$vatMade, &$vatReused, &$vatReusedCount) {
+                    $rent = [];
+                    $vat  = [];
                     foreach ($pdcs as $p) {
                         $pdc = Pdc::lockForUpdate()->find($p->id);
                         if ($pdc === null || (int) $pdc->pdc_is_posted === 1) {
                             throw new \RuntimeException('cheque ' . $p->pdc_check_no . ' was already posted');
                         }
-                        $result = $routines->postSinglePdc($pdc, $request->pdc_deposit_date, $request->bank_id);
-                        if ($result['posted']) {
-                            $ids[] = $pdc->id;
+                        if (BankSheetPdcMatcher::isVat($pdc)) {
+                            $vat[] = $pdc;
                         } else {
+                            $rent[] = $pdc;
+                        }
+                    }
+                    $hasVat = count($vat) > 0 || isset($vatByDiff[$rowNo]);
+
+                    $periods = []; // contract id => [from, to] of the rent receipts just made
+                    foreach ($rent as $pdc) {
+                        $result = $routines->postSinglePdc($pdc, $request->pdc_deposit_date, $request->bank_id);
+                        if (!$result['posted']) {
+                            if ($hasVat) {
+                                throw new \RuntimeException('receipts already run to contract end for ' . $result['contract_no'] . '; VAT not posted');
+                            }
                             $tillEnd[] = $result['contract_no'];
+                            continue;
+                        }
+                        $ids[] = $pdc->id;
+                        $receipt = ReceiptsGeneration::where('receipts_generation_receipt_no', Pdc::where('id', $pdc->id)->value('pdc_receipt_no'))->first();
+                        $cid = (int) $pdc->tenant_contract_id;
+                        $from = $receipt ? $receipt->receipts_generation_eff_from : null;
+                        $to   = $receipt ? $receipt->receipts_generation_eff_to : null;
+                        if (!isset($periods[$cid])) {
+                            $periods[$cid] = [$from, $to];
+                        } else {
+                            if ($from && (!$periods[$cid][0] || $from < $periods[$cid][0])) { $periods[$cid][0] = $from; }
+                            if ($to && (!$periods[$cid][1] || $to > $periods[$cid][1])) { $periods[$cid][1] = $to; }
+                        }
+                    }
+                    if (!$hasVat) {
+                        return;
+                    }
+
+                    $chequeNo = $rent[0]->pdc_check_no;
+                    $bankCode = Bank::where('id', $rent[0]->bank_id)->value('bank_code');
+                    // Case B: one receipt for the actual extra; Case A: one per contract, summing its VAT PDCs
+                    if (isset($vatByDiff[$rowNo])) {
+                        $jobs = [['contract_id' => (int) $rent[0]->tenant_contract_id, 'amount' => $vatByDiff[$rowNo], 'pdcs' => $vat]];
+                    } else {
+                        $byContract = [];
+                        foreach ($vat as $v) {
+                            $cid = (int) $v->tenant_contract_id;
+                            if (!isset($byContract[$cid])) {
+                                $byContract[$cid] = ['contract_id' => $cid, 'amount' => 0.0, 'pdcs' => []];
+                            }
+                            $byContract[$cid]['amount'] += (float) $v->pdc_amt;
+                            $byContract[$cid]['pdcs'][] = $v;
+                        }
+                        $jobs = [];
+                        foreach ($byContract as $job) {
+                            $job['amount'] = round($job['amount'], 3);
+                            $jobs[] = $job;
+                        }
+                    }
+
+                    foreach ($jobs as $job) {
+                        if (!isset($periods[$job['contract_id']]) || !$periods[$job['contract_id']][0]) {
+                            throw new \RuntimeException('no rent receipt period for the VAT of cheque ' . $chequeNo);
+                        }
+                        $made = $vatCreator->create([
+                            'contract'        => TenantContract::with(['Unit', 'building'])->find($job['contract_id']),
+                            'cheque_no'       => $chequeNo,
+                            'bank_code'       => $bankCode,
+                            'amount'          => $job['amount'],
+                            'eff_from'        => $periods[$job['contract_id']][0],
+                            'eff_to'          => $periods[$job['contract_id']][1],
+                            'deposit_date'    => $request->pdc_deposit_date,
+                            'deposit_bank_id' => $request->bank_id,
+                            'vat_pdcs'        => $job['pdcs'],
+                        ]);
+                        $vatNos[] = $made['receipt_no'];
+                        if ($made['created']) {
+                            $vatMade++;
+                        } else {
+                            $vatReused[] = $made['receipt_no'];
+                            $vatReusedCount++;
+                        }
+                        foreach ($job['pdcs'] as $v) {
+                            $ids[] = $v->id;
                         }
                     }
                 });
                 $posted++;
                 $pdcsDone += count($ids);
-                $outcome[$rowNo] = ['posted', null, $ids];
+                $reused = count($vatReused) ? 'VAT receipt already exists: ' . implode(', ', $vatReused) : null;
+                $outcome[$rowNo] = ['posted', $reused, $ids, implode(',', $vatNos)];
             } catch (\Exception $e) {
+                $vatMade = $vatBefore;
+                $vatReusedCount = $vatReusedBefore;
                 $failed[] = $pdcs[0]->pdc_check_no . ': ' . $e->getMessage();
-                $outcome[$rowNo] = ['failed', $e->getMessage(), []];
+                $outcome[$rowNo] = ['failed', $e->getMessage(), [], null];
             }
         }
 
         $uploadId = $this->audit($request, $stored, $analysis['results'], $outcome, $posted, $pdcsDone);
         $request->session()->forget($this->selectionKey($stored));
 
-        $msg = $posted . ' cheque(s) posted (' . $pdcsDone . ' PDC row(s)); '
-             . $analysis['counts']['cannot'] . ' left for manual posting';
+        $msg = $posted . ' cheque(s) posted (' . $pdcsDone . ' PDC row(s)' . ($vatMade > 0 ? ', ' . $vatMade . ' VAT receipt(s)' : '') . ($vatReusedCount > 0 ? ', ' . $vatReusedCount . ' existing VAT receipt(s) reused' : '') . '); '
+             . ($analysis['counts']['cannot']) . ' left for manual posting';
         if (count($tillEnd) > 0) {
             $msg .= '. Receipts already run to contract end for: ' . implode(', ', array_unique($tillEnd));
         }
@@ -451,7 +558,7 @@ class PdcBankSheetController extends Controller
 
         // Rows the bank rejected (NSF, signature, ...) are kept out of the
         // review: only accepted cheques are shown. They still reach the audit.
-        $sections = ['ambiguous' => [], 'matched' => [], 'cannot' => []];
+        $sections = ['ambiguous' => [], 'vat' => [], 'matched' => [], 'cannot' => []];
         $rejected = 0;
         foreach ($results as $r) {
             if ($r['status'] === BankSheetPdcMatcher::REJECTED) {
@@ -460,6 +567,8 @@ class PdcBankSheetController extends Controller
                 $sections['matched'][] = $r;
             } elseif ($r['status'] === BankSheetPdcMatcher::AMBIGUOUS) {
                 $sections['ambiguous'][] = $r;
+            } elseif ($r['status'] === BankSheetPdcMatcher::VAT_CHECK) {
+                $sections['vat'][] = $r;
             } else {
                 $sections['cannot'][] = $r;
             }
@@ -469,6 +578,7 @@ class PdcBankSheetController extends Controller
             'accepted'  => count($results) - $rejected,
             'rejected'  => $rejected,
             'ambiguous' => count($sections['ambiguous']),
+            'vat'       => count($sections['vat']),
             'matched'   => count($sections['matched']),
             'cannot'    => count($sections['cannot']),
         ];
@@ -494,13 +604,14 @@ class PdcBankSheetController extends Controller
         return 'pdc_bank_sheet.' . $stored;
     }
 
-    /** @return array ['unticked' => [row_no => true], 'choice' => [row_no => "id,id"|""]] */
+    /** @return array ['unticked' => [row_no => true], 'choice' => [row_no => "id,id"|""], 'vat' => [row_no => true] (ticked Rent + VAT row)] */
     private function selection(Request $request, $stored)
     {
         $s = (array) $request->session()->get($this->selectionKey($stored), []);
         return [
             'unticked' => isset($s['unticked']) ? (array) $s['unticked'] : [],
             'choice'   => isset($s['choice']) ? (array) $s['choice'] : [],
+            'vat'      => isset($s['vat']) ? (array) $s['vat'] : [],
         ];
     }
 
@@ -527,8 +638,10 @@ class PdcBankSheetController extends Controller
         }
         $in = implode(',', array_fill(0, count($uploadIds), '?'));
 
-        return DB::select("
-            SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no AS sheet_cheque_no, ur.bank_name AS sheet_bank_name,
+        $rows = DB::select("
+            SELECT y.upload_id, y.sheet_row_no, y.sheet_cheque_no, y.sheet_bank_name,
+                   (y.is_vat = 1 OR y.pdc_type = 3) AS is_vat,
+                   y.row_reason,
                    rg.id AS receipt_id, rg.receipts_generation_receipt_no AS receipt_no,
                    rg.receipts_generation_receipt_date AS receipt_date,
                    rg.receipts_generation_amt AS amount,
@@ -537,18 +650,32 @@ class PdcBankSheetController extends Controller
                    rg.receipts_generation_approval_status AS approval_status,
                    rg.deleted_at,
                    tc.tenant_contract_no, t.tenant_name, b.building_name, un.unit_no
-            FROM pdc_bank_sheet_upload_rows ur
-            JOIN pdc p ON p.id = ANY (string_to_array(ur.pdc_ids, ',')::int[])
-            JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = p.pdc_receipt_no
-                                       AND rg.tenant_contract_id = p.tenant_contract_id
+            FROM (
+                SELECT DISTINCT ON (x.receipt_id) x.*
+                FROM (
+                    SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no AS sheet_cheque_no, ur.bank_name AS sheet_bank_name,
+                           rg.id AS receipt_id, 0 AS is_vat, p.pdc_type, ur.reason AS row_reason
+                    FROM pdc_bank_sheet_upload_rows ur
+                    JOIN pdc p ON p.id = ANY (string_to_array(ur.pdc_ids, ',')::int[])
+                    JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = p.pdc_receipt_no
+                                               AND rg.tenant_contract_id = p.tenant_contract_id
+                    WHERE ur.upload_id IN ($in) AND ur.status = 'posted' AND ur.pdc_ids IS NOT NULL
+                    UNION ALL
+                    SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no, ur.bank_name, rg.id, 1, 3, ur.reason AS row_reason
+                    FROM pdc_bank_sheet_upload_rows ur
+                    JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = ANY (string_to_array(ur.vat_receipt_no, ','))
+                    WHERE ur.upload_id IN ($in) AND ur.status = 'posted' AND ur.vat_receipt_no IS NOT NULL
+                ) x
+                ORDER BY x.receipt_id, x.is_vat
+            ) y
+            JOIN receipts_generation rg ON rg.id = y.receipt_id
             LEFT JOIN tenant_contracts tc ON tc.id = rg.tenant_contract_id
             LEFT JOIN tenant t ON t.id = tc.tenant_id
             LEFT JOIN buildings b ON b.id = tc.building_id
             LEFT JOIN units un ON un.id = tc.unit_id
-            WHERE ur.upload_id IN ($in)
-              AND ur.status = 'posted'
-              AND ur.pdc_ids IS NOT NULL
-            ORDER BY ur.upload_id, rg.receipts_generation_receipt_no", $uploadIds);
+            ORDER BY y.upload_id, y.sheet_row_no, y.is_vat, rg.receipts_generation_receipt_no", array_merge($uploadIds, $uploadIds));
+
+        return $rows;
     }
 
     /** Sheet rows the runs did not post (bank-rejected rows are not shown on the review page either). */
@@ -612,7 +739,7 @@ class PdcBankSheetController extends Controller
             ->where('pdc_is_posted', 0)
             ->whereNull('pdc_clear_date')
             ->where('pdc_cancel_reason', 0)
-            ->whereIn('pdc_type', [1, 2])
+            ->whereIn('pdc_type', [1, 2, 3])
             ->orderBy('id')
             ->get();
 
@@ -633,6 +760,8 @@ class PdcBankSheetController extends Controller
                 'tenant_contract_no' => $contract ? $contract->tenant_contract_no : '',
                 'building_name'      => $contract && $contract->building ? $contract->building->building_name : '',
                 'unit_no'            => $contract && $contract->Unit ? $contract->Unit->unit_code : '',
+                'pdc_type'           => (int) $pdc->pdc_type,
+                'management_id'      => $contract && $contract->building ? (int) $contract->building->management_id : 0,
             ];
         }
         return $out;
@@ -673,9 +802,10 @@ class PdcBankSheetController extends Controller
             $status = $r['status'];
             $reason = $r['reason'];
             $ids    = [];
+            $vatNo  = null;
             if (isset($outcome[$rowNo])) {
-                list($status, $reason, $ids) = $outcome[$rowNo];
-            } elseif ($status === BankSheetPdcMatcher::MATCHED || $status === BankSheetPdcMatcher::AMBIGUOUS) {
+                list($status, $reason, $ids, $vatNo) = $outcome[$rowNo];
+            } elseif (in_array($status, [BankSheetPdcMatcher::MATCHED, BankSheetPdcMatcher::AMBIGUOUS, BankSheetPdcMatcher::VAT_CHECK], true)) {
                 $status = 'skipped';
             }
             $lines[] = [
@@ -688,6 +818,7 @@ class PdcBankSheetController extends Controller
                 'status'       => $status,
                 'reason'       => $reason !== null ? mb_substr($reason, 0, 500) : null,
                 'pdc_ids'      => count($ids) ? implode(',', $ids) : null,
+                'vat_receipt_no' => $vatNo !== '' ? $vatNo : null,
                 'created_at'   => now(),
                 'updated_at'   => now(),
             ];
