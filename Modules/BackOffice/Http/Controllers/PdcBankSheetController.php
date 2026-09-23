@@ -630,8 +630,9 @@ class PdcBankSheetController extends Controller
         }
         $in = implode(',', array_fill(0, count($uploadIds), '?'));
 
-        return DB::select("
-            SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no AS sheet_cheque_no, ur.bank_name AS sheet_bank_name,
+        $rows = DB::select("
+            SELECT y.upload_id, y.sheet_row_no, y.sheet_cheque_no, y.sheet_bank_name,
+                   (y.is_vat = 1 OR y.pdc_type = 3) AS is_vat,
                    rg.id AS receipt_id, rg.receipts_generation_receipt_no AS receipt_no,
                    rg.receipts_generation_receipt_date AS receipt_date,
                    rg.receipts_generation_amt AS amount,
@@ -640,18 +641,32 @@ class PdcBankSheetController extends Controller
                    rg.receipts_generation_approval_status AS approval_status,
                    rg.deleted_at,
                    tc.tenant_contract_no, t.tenant_name, b.building_name, un.unit_no
-            FROM pdc_bank_sheet_upload_rows ur
-            JOIN pdc p ON p.id = ANY (string_to_array(ur.pdc_ids, ',')::int[])
-            JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = p.pdc_receipt_no
-                                       AND rg.tenant_contract_id = p.tenant_contract_id
+            FROM (
+                SELECT DISTINCT ON (x.receipt_id) x.*
+                FROM (
+                    SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no AS sheet_cheque_no, ur.bank_name AS sheet_bank_name,
+                           rg.id AS receipt_id, 0 AS is_vat, p.pdc_type
+                    FROM pdc_bank_sheet_upload_rows ur
+                    JOIN pdc p ON p.id = ANY (string_to_array(ur.pdc_ids, ',')::int[])
+                    JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = p.pdc_receipt_no
+                                               AND rg.tenant_contract_id = p.tenant_contract_id
+                    WHERE ur.upload_id IN ($in) AND ur.status = 'posted' AND ur.pdc_ids IS NOT NULL
+                    UNION ALL
+                    SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no, ur.bank_name, rg.id, 1, 3
+                    FROM pdc_bank_sheet_upload_rows ur
+                    JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = ANY (string_to_array(ur.vat_receipt_no, ','))
+                    WHERE ur.upload_id IN ($in) AND ur.status = 'posted' AND ur.vat_receipt_no IS NOT NULL
+                ) x
+                ORDER BY x.receipt_id, x.is_vat
+            ) y
+            JOIN receipts_generation rg ON rg.id = y.receipt_id
             LEFT JOIN tenant_contracts tc ON tc.id = rg.tenant_contract_id
             LEFT JOIN tenant t ON t.id = tc.tenant_id
             LEFT JOIN buildings b ON b.id = tc.building_id
             LEFT JOIN units un ON un.id = tc.unit_id
-            WHERE ur.upload_id IN ($in)
-              AND ur.status = 'posted'
-              AND ur.pdc_ids IS NOT NULL
-            ORDER BY ur.upload_id, rg.receipts_generation_receipt_no", $uploadIds);
+            ORDER BY y.upload_id, y.sheet_row_no, y.is_vat, rg.receipts_generation_receipt_no", array_merge($uploadIds, $uploadIds));
+
+        return $rows;
     }
 
     /** Sheet rows the runs did not post (bank-rejected rows are not shown on the review page either). */
