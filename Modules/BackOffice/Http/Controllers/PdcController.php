@@ -133,7 +133,8 @@ e     */
                         'pdc_type' =>$request->{'pdc_type_'.$i},
                         'pdc_remark' =>$request->{'pdc_remark_'.$i},
                         'pdc_cheque_acknowledge' =>$request->{'pdc_cheque_acknowledge_'.$i},
-                        'pdc_account_no' => $this->accountNo($request->{'pdc_account_no_'.$i}),
+                        // blank keeps what is stored: the renewal PDC screen has no account field, and a grid opened before a bank-sheet post would otherwise erase the account that post filled in
+                        'pdc_account_no' => $this->keptAccountNo($request->{'pdc_account_no_'.$i}, $request->{'pdc_check_id_'.$i}),
                         'pdc_from_date' =>$request->{'pdc_from_date_'.$i},
                         'pdc_to_date' =>$request->{'pdc_to_date_'.$i},
                         'created_by' => \Auth::user()->id
@@ -228,6 +229,13 @@ e     */
     {
         $digits = substr(preg_replace('/\D/', '', (string) $value), 0, 20);
         return $digits === '' ? null : $digits;
+    }
+
+    /** Account for an existing PDC: the typed one, or the stored one when the field is blank/absent. */
+    private function keptAccountNo($value, $pdcId)
+    {
+        $typed = $this->accountNo($value);
+        return $typed !== null ? $typed : Pdc::where('id', $pdcId)->value('pdc_account_no');
     }
 
     public function show($id)

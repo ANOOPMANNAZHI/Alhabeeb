@@ -38,7 +38,11 @@ class BankSheetReaderTest extends TestCase
         foreach ($rows as $row) {
             foreach ($headers as $i => $h) {
                 if (array_key_exists($h, $row)) {
-                    $ws->setCellValueExplicitByColumnAndRow($i + 2, $r, $row[$h], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    if (is_int($row[$h]) || is_float($row[$h])) {
+                        $ws->setCellValueByColumnAndRow($i + 2, $r, $row[$h]); // a real numeric cell
+                    } else {
+                        $ws->setCellValueExplicitByColumnAndRow($i + 2, $r, $row[$h], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    }
                 }
             }
             $r++;
@@ -87,6 +91,13 @@ class BankSheetReaderTest extends TestCase
         $rows = (new BankSheetReader())->read($this->sheet([$this->acceptedRow()]));
 
         $this->assertSame('00045288830024', $rows[0]['account_no']);
+    }
+
+    public function test_numeric_pay_account_cell_keeps_every_digit()
+    {
+        $rows = (new BankSheetReader())->read($this->sheet([$this->acceptedRow(['Pay Account' => 45288830024])]));
+
+        $this->assertSame('45288830024', $rows[0]['account_no']);
     }
 
     public function test_blank_pay_account_is_null()

@@ -129,6 +129,10 @@ class BankSheetReader
     /** Trimmed cell text, null when blank (or the column is absent). */
     private function text($value)
     {
+        if (is_float($value) || is_int($value)) {
+            // a numeric cell (export without text formatting): write all digits, never 4.5E+15
+            $value = sprintf('%.0f', $value);
+        }
         $value = trim((string) $value);
         return $value === '' ? null : $value;
     }

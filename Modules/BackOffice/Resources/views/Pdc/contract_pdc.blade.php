@@ -645,7 +645,7 @@ $(document).on("click",'#process_btn, .addDataRow', function(event){
       var pdc_stage = parseInt($('#pdc_stage_'+lastRow).val());
       var bank_id = parseInt($('#bank_id_'+lastRow).val());
       var pdc_recieve_date = $('#pdc_recieve_date_'+lastRow).val();
-      var pdc_account_no = $('#pdc_account_no_'+lastRow).val() || ''; // same tenant: carry the account forward
+      var pdc_account_no = ($('#pdc_account_no_'+lastRow).val() || '').replace(/\D/g, ''); // same tenant: carry the account forward (digits only, safe in the HTML below)
       var pdc_deposit_date = $('#pdc_deposit_date_'+lastRow).val();
       var pdc_clear_date = $('#pdc_clear_date_'+lastRow).val();
 
