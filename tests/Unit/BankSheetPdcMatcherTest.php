@@ -379,6 +379,110 @@ class BankSheetPdcMatcherTest extends TestCase
         $this->assertSame([], $out[1]['related']);
     }
 
+    // ── "Others" (pdc_type 3) only counts as VAT near 5% of the rent ────────
+
+    public function test_other_type_pdc_far_from_five_percent_is_not_added_as_vat()
+    {
+        $rent   = $this->pdc(['pdc_amt' => 400.0]);
+        $others = $this->vatPdc(['pdc_amt' => 100.0]); // 25% — an "Others" charge, not VAT
+        $out    = $this->matcher()->match([$this->sheetRow(['amount' => 500.0])], [$rent, $others]);
+
+        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
+    }
+
+    public function test_vat_check_does_not_close_an_others_pdc_that_is_not_vat()
+    {
+        $rent   = $this->pdc(['pdc_amt' => 150.0, 'management_id' => 1]);
+        $others = $this->vatPdc(['pdc_amt' => 40.0, 'management_id' => 1]);
+        $out    = $this->matcher()->match([$this->sheetRow(['amount' => 157.5])], [$rent, $others]);
+
+        $this->assertSame(BankSheetPdcMatcher::VAT_CHECK, $out[0]['status']);
+        $this->assertSame([$rent->id], array_column($out[0]['pdcs'], 'id'));
+    }
+
+    public function test_vat_pdc_rounded_on_a_large_rent_still_counts_as_vat()
+    {
+        $rent = $this->pdc(['pdc_amt' => 1250.0]);
+        $vat  = $this->vatPdc(['pdc_amt' => 60.0]); // 4.8%: 2.5 off exact, within 0.5% of rent
+        $out  = $this->matcher()->match([$this->sheetRow(['amount' => 1310.0])], [$rent, $vat]);
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([$rent->id, $vat->id], array_column($out[0]['pdcs'], 'id'));
+    }
+
+    // ── Account number ──────────────────────────────────────────────────────
+
+    public function test_account_numbers_compare_without_leading_zeros()
+    {
+        $this->assertSame('45288830024', BankSheetPdcMatcher::normaliseAccountNo('00045288830024'));
+        $this->assertSame('45288830024', BankSheetPdcMatcher::normaliseAccountNo(' 45288830024 '));
+        $this->assertNull(BankSheetPdcMatcher::normaliseAccountNo(''));
+        $this->assertNull(BankSheetPdcMatcher::normaliseAccountNo(null));
+        $this->assertNull(BankSheetPdcMatcher::normaliseAccountNo('0000'));
+    }
+
+    public function test_ambiguous_match_is_resolved_by_the_account_number()
+    {
+        $a = $this->pdc(['tenant_id' => 500, 'tenant_contract_id' => 1, 'pdc_account_no' => '11112222']);
+        $b = $this->pdc(['tenant_id' => 600, 'tenant_contract_id' => 2, 'pdc_account_no' => '45288830024']);
+        $out = $this->matcher()->match([$this->sheetRow(['account_no' => '00045288830024'])], [$a, $b]);
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([$b->id], array_column($out[0]['pdcs'], 'id'));
+        $this->assertFalse($out[0]['account_mismatch']);
+    }
+
+    public function test_ambiguity_stays_when_no_candidate_or_several_share_the_account()
+    {
+        $a = $this->pdc(['tenant_id' => 500, 'tenant_contract_id' => 1]);
+        $b = $this->pdc(['tenant_id' => 600, 'tenant_contract_id' => 2]);
+        $out = $this->matcher()->match([$this->sheetRow(['account_no' => '00045288830024'])], [$a, $b]);
+        $this->assertSame(BankSheetPdcMatcher::AMBIGUOUS, $out[0]['status']);
+
+        $c = $this->pdc(['tenant_id' => 500, 'tenant_contract_id' => 1, 'pdc_account_no' => '45288830024']);
+        $d = $this->pdc(['tenant_id' => 600, 'tenant_contract_id' => 2, 'pdc_account_no' => '045288830024']);
+        $out = $this->matcher()->match([$this->sheetRow(['account_no' => '00045288830024'])], [$c, $d]);
+        $this->assertSame(BankSheetPdcMatcher::AMBIGUOUS, $out[0]['status']);
+    }
+
+    public function test_matched_row_whose_pdc_account_differs_is_flagged()
+    {
+        $out = $this->matcher()->match(
+            [$this->sheetRow(['account_no' => '00045288830024'])],
+            [$this->pdc(['pdc_account_no' => '99990000'])]
+        );
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertTrue($out[0]['account_mismatch']);
+    }
+
+    public function test_no_account_mismatch_when_either_side_is_blank_or_they_agree()
+    {
+        $cases = [
+            [null, '99990000'],
+            ['00045288830024', null],
+            ['00045288830024', '45288830024'],
+        ];
+        foreach ($cases as $i => $c) {
+            $out = $this->matcher()->match(
+                [$this->sheetRow(['account_no' => $c[0]])],
+                [$this->pdc(['pdc_account_no' => $c[1]])]
+            );
+            $this->assertFalse($out[0]['account_mismatch'], "case $i");
+        }
+    }
+
+    public function test_vat_check_row_whose_rent_pdc_account_differs_is_flagged()
+    {
+        $out = $this->matcher()->match(
+            [$this->sheetRow(['amount' => 157.5, 'account_no' => '00045288830024'])],
+            [$this->pdc(['pdc_amt' => 150.0, 'management_id' => 1, 'pdc_account_no' => '123'])]
+        );
+
+        $this->assertSame(BankSheetPdcMatcher::VAT_CHECK, $out[0]['status']);
+        $this->assertTrue($out[0]['account_mismatch']);
+    }
+
     public function test_matched_rows_have_no_related()
     {
         $out = $this->matcher()->match([$this->sheetRow()], [$this->pdc()]);
