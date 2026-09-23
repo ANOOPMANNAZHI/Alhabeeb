@@ -72,7 +72,7 @@
             <td>{{ $r->sheet_bank_name ?: '-' }}</td>
             <td>{{ $r->is_vat ? 'General (VAT)' : (isset($types[(int) $r->receipt_type]) ? $types[(int) $r->receipt_type] : '-') }}</td>
             <td class="num">{{ number_format($r->amount, 3) }}</td>
-            <td><span class="bsr-pill {{ $cls }}"><i class="fa {{ $icon }}" aria-hidden="true"></i>{{ $label }}</span></td>
+            <td><span class="bsr-pill {{ $cls }}"><i class="fa {{ $icon }}" aria-hidden="true"></i>{{ $label }}</span>@if($r->is_vat && $r->row_reason)<span class="bsr-sub">{{ $r->row_reason }}</span>@endif</td>
           </tr>
           @empty
           <tr><td colspan="{{ $cols }}" align="center">No receipts were created.</td></tr>

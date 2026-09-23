@@ -306,12 +306,15 @@ class PdcBankSheetController extends Controller
 
         $vatCreator = new VatReceiptCreator($routines);
         $vatMade    = 0;
+        $vatReusedCount = 0;
         foreach ($toPost as $rowNo => $pdcs) {
             $ids = [];
             $vatNos = [];
+            $vatReused = [];
             $vatBefore = $vatMade; // the closure counts receipts; undo if the cheque rolls back
+            $vatReusedBefore = $vatReusedCount;
             try {
-                DB::transaction(function () use ($routines, $vatCreator, $pdcs, $request, $rowNo, $vatByDiff, &$ids, &$tillEnd, &$vatNos, &$vatMade) {
+                DB::transaction(function () use ($routines, $vatCreator, $pdcs, $request, $rowNo, $vatByDiff, &$ids, &$tillEnd, &$vatNos, &$vatMade, &$vatReused, &$vatReusedCount) {
                     $rent = [];
                     $vat  = [];
                     foreach ($pdcs as $p) {
@@ -393,6 +396,9 @@ class PdcBankSheetController extends Controller
                         $vatNos[] = $made['receipt_no'];
                         if ($made['created']) {
                             $vatMade++;
+                        } else {
+                            $vatReused[] = $made['receipt_no'];
+                            $vatReusedCount++;
                         }
                         foreach ($job['pdcs'] as $v) {
                             $ids[] = $v->id;
@@ -401,9 +407,11 @@ class PdcBankSheetController extends Controller
                 });
                 $posted++;
                 $pdcsDone += count($ids);
-                $outcome[$rowNo] = ['posted', null, $ids, implode(',', $vatNos)];
+                $reused = count($vatReused) ? 'VAT receipt already exists: ' . implode(', ', $vatReused) : null;
+                $outcome[$rowNo] = ['posted', $reused, $ids, implode(',', $vatNos)];
             } catch (\Exception $e) {
                 $vatMade = $vatBefore;
+                $vatReusedCount = $vatReusedBefore;
                 $failed[] = $pdcs[0]->pdc_check_no . ': ' . $e->getMessage();
                 $outcome[$rowNo] = ['failed', $e->getMessage(), [], null];
             }
@@ -412,7 +420,7 @@ class PdcBankSheetController extends Controller
         $uploadId = $this->audit($request, $stored, $analysis['results'], $outcome, $posted, $pdcsDone);
         $request->session()->forget($this->selectionKey($stored));
 
-        $msg = $posted . ' cheque(s) posted (' . $pdcsDone . ' PDC row(s)' . ($vatMade > 0 ? ', ' . $vatMade . ' VAT receipt(s)' : '') . '); '
+        $msg = $posted . ' cheque(s) posted (' . $pdcsDone . ' PDC row(s)' . ($vatMade > 0 ? ', ' . $vatMade . ' VAT receipt(s)' : '') . ($vatReusedCount > 0 ? ', ' . $vatReusedCount . ' existing VAT receipt(s) reused' : '') . '); '
              . ($analysis['counts']['cannot']) . ' left for manual posting';
         if (count($tillEnd) > 0) {
             $msg .= '. Receipts already run to contract end for: ' . implode(', ', array_unique($tillEnd));
@@ -633,6 +641,7 @@ class PdcBankSheetController extends Controller
         $rows = DB::select("
             SELECT y.upload_id, y.sheet_row_no, y.sheet_cheque_no, y.sheet_bank_name,
                    (y.is_vat = 1 OR y.pdc_type = 3) AS is_vat,
+                   y.row_reason,
                    rg.id AS receipt_id, rg.receipts_generation_receipt_no AS receipt_no,
                    rg.receipts_generation_receipt_date AS receipt_date,
                    rg.receipts_generation_amt AS amount,
@@ -645,14 +654,14 @@ class PdcBankSheetController extends Controller
                 SELECT DISTINCT ON (x.receipt_id) x.*
                 FROM (
                     SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no AS sheet_cheque_no, ur.bank_name AS sheet_bank_name,
-                           rg.id AS receipt_id, 0 AS is_vat, p.pdc_type
+                           rg.id AS receipt_id, 0 AS is_vat, p.pdc_type, ur.reason AS row_reason
                     FROM pdc_bank_sheet_upload_rows ur
                     JOIN pdc p ON p.id = ANY (string_to_array(ur.pdc_ids, ',')::int[])
                     JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = p.pdc_receipt_no
                                                AND rg.tenant_contract_id = p.tenant_contract_id
                     WHERE ur.upload_id IN ($in) AND ur.status = 'posted' AND ur.pdc_ids IS NOT NULL
                     UNION ALL
-                    SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no, ur.bank_name, rg.id, 1, 3
+                    SELECT ur.upload_id, ur.sheet_row_no, ur.cheque_no, ur.bank_name, rg.id, 1, 3, ur.reason AS row_reason
                     FROM pdc_bank_sheet_upload_rows ur
                     JOIN receipts_generation rg ON rg.receipts_generation_receipt_no = ANY (string_to_array(ur.vat_receipt_no, ','))
                     WHERE ur.upload_id IN ($in) AND ur.status = 'posted' AND ur.vat_receipt_no IS NOT NULL

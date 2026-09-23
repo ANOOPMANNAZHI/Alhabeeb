@@ -220,6 +220,7 @@
             <th>Tenant</th>
             <th>Agr No</th>
             <th>Building / Unit</th>
+            <th>PLMS Bank</th>
             <th class="num">Rent</th>
             <th class="num">VAT 5%</th>
             <th class="num">Actual Extra</th>
@@ -243,6 +244,7 @@
             <td>{{ $first->tenant_name }}</td>
             <td>{{ $first->tenant_contract_no }}</td>
             <td>{{ $first->building_name }} / {{ $first->unit_no }}</td>
+            <td>{{ $first->bank_name }}</td>
             <td class="num">{{ numberFormat($rentSum) }}</td>
             <td class="num">{{ numberFormat($r['expected_vat']) }}</td>
             <td class="num"><b>{{ numberFormat($r['vat_amount']) }}</b></td>
