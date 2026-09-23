@@ -604,7 +604,7 @@ var num = parseInt( $tr.prop("id").match(/\d+/g), 10 )+1;
 var first_row = $tr.clone().prop('id', 'first_row'+num );
 $(first_row).find(".minus").html('<a href="#"  class="remove_details"><i class="fa fa-minus" aria-hidden="true"></i></a>');
 
-$(first_row).find("input:text").val("").end().appendTo('tbody');
+$(first_row).find("input:text").val("").end().appendTo('#acc_line_list');
 $(first_row).find(".account_code").prop("readonly", false); 
 $(first_row).find(".debit_amount").prop("readonly", false); 
 $(first_row).find(".credit_amount").prop("readonly", false); 
