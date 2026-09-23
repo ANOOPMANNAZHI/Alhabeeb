@@ -28,6 +28,7 @@ class BankSheetPdcMatcher
 
     const VAT_RATE       = 0.05;
     const VAT_TOLERANCE  = 1.0;
+    const VAT_PDC_BAND   = 0.005; // an "Others" PDC is VAT when within this share of the rent of 5% (or VAT_TOLERANCE)
     const COMPREHENSIVE  = 1;
     const PDC_TYPE_VAT   = 3;
 
@@ -73,6 +74,9 @@ class BankSheetPdcMatcher
                 if (count($others) > 0) {
                     $result = $this->withRelated($result, $others, self::RELATED_OTHER_BANK);
                 }
+            }
+            if ($result['status'] === self::MATCHED || $result['status'] === self::VAT_CHECK) {
+                $result['account_mismatch'] = $this->accountDiffers($row, $result['pdcs']);
             }
             foreach ($result['pdcs'] as $pdc) {
                 $used[$pdc->id] = true;
@@ -143,6 +147,13 @@ class BankSheetPdcMatcher
             $candidates = $this->rentPlusVatGroups($inMonth, $vatFound, $amount);
         }
 
+        if (count($candidates) > 1) {
+            // the drawer's account on the sheet settles it when exactly one candidate carries it
+            $byAccount = $this->groupsWithAccount($candidates, isset($row['account_no']) ? $row['account_no'] : null);
+            if (count($byAccount) === 1) {
+                return $this->result($row, self::MATCHED, $byAccount[0], [], 'Picked by account number');
+            }
+        }
         if (count($candidates) === 1) {
             return $this->result($row, self::MATCHED, $candidates[0], [], null);
         }
@@ -286,7 +297,7 @@ class BankSheetPdcMatcher
     {
         $out = [];
         foreach ($this->groupByContract($rent) as $contractId => $rows) {
-            $vatRows = $this->vatOfContract($vat, $contractId);
+            $vatRows = $this->vatOfContract($vat, $contractId, $this->sum($rows));
             if (count($vatRows) === 0) {
                 continue;
             }
@@ -311,7 +322,7 @@ class BankSheetPdcMatcher
             $expected = round($rentSum * self::VAT_RATE, 3);
             if ($extra > self::AMOUNT_EPSILON && abs($extra - $expected) <= self::VAT_TOLERANCE + self::AMOUNT_EPSILON) {
                 $out[] = [
-                    'pdcs'     => array_merge($rows, $this->vatOfContract($vat, $contractId)),
+                    'pdcs'     => array_merge($rows, $this->vatOfContract($vat, $contractId, $rentSum)),
                     'rent'     => $rentSum,
                     'vat'      => $extra,
                     'expected' => $expected,
@@ -331,7 +342,12 @@ class BankSheetPdcMatcher
         return $groups;
     }
 
-    private function vatOfContract(array $vat, $contractId)
+    /**
+     * The agreement's pdc_type 3 ("Others") PDCs on this cheque, but only when
+     * together they look like VAT on its rent: within ±1.000 OMR or ±0.5% of the
+     * rent (whichever is wider) of 5%. Other charges filed as "Others" are left out.
+     */
+    private function vatOfContract(array $vat, $contractId, $rentSum)
     {
         $out = [];
         foreach ($vat as $pdc) {
@@ -339,7 +355,57 @@ class BankSheetPdcMatcher
                 $out[] = $pdc;
             }
         }
+        if (count($out) === 0) {
+            return [];
+        }
+        $slack = max(self::VAT_TOLERANCE, $rentSum * self::VAT_PDC_BAND);
+        return abs($this->sum($out) - $rentSum * self::VAT_RATE) <= $slack + self::AMOUNT_EPSILON ? $out : [];
+    }
+
+    /** Bank pads the drawer's account with leading zeros; PLMS may store it bare. Null when blank. */
+    public static function normaliseAccountNo($accountNo)
+    {
+        $bare = ltrim(preg_replace('/\D/', '', (string) $accountNo), '0');
+        return $bare === '' ? null : $bare;
+    }
+
+    /** Candidate groups in which every PDC carries the sheet's account number. */
+    private function groupsWithAccount(array $groups, $sheetAccount)
+    {
+        $account = self::normaliseAccountNo($sheetAccount);
+        if ($account === null) {
+            return [];
+        }
+        $out = [];
+        foreach ($groups as $group) {
+            $all = true;
+            foreach ($group as $pdc) {
+                if (self::normaliseAccountNo(isset($pdc->pdc_account_no) ? $pdc->pdc_account_no : null) !== $account) {
+                    $all = false;
+                    break;
+                }
+            }
+            if ($all) {
+                $out[] = $group;
+            }
+        }
         return $out;
+    }
+
+    /** True when the sheet names an account and a PDC to be posted carries a different one. */
+    private function accountDiffers(array $row, array $pdcs)
+    {
+        $account = self::normaliseAccountNo(isset($row['account_no']) ? $row['account_no'] : null);
+        if ($account === null) {
+            return false;
+        }
+        foreach ($pdcs as $pdc) {
+            $own = self::normaliseAccountNo(isset($pdc->pdc_account_no) ? $pdc->pdc_account_no : null);
+            if ($own !== null && $own !== $account) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function result(array $row, $status, array $pdcs, array $candidates, $reason)
@@ -354,6 +420,7 @@ class BankSheetPdcMatcher
             'expected_vat' => null,
             'related'      => [],
             'related_kind' => null,
+            'account_mismatch' => false, // posted PDC carries a different account than the sheet's Pay Account
         ];
     }
 }

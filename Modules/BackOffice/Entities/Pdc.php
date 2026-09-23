@@ -74,7 +74,7 @@ class Pdc extends Model
         switch($this->pdc_type){
           case '1' : return 'Rent';
           case '2' : return 'Deposit';
-          case '3' : return 'VAT';
+          case '3' : return 'Others';
         }
       }
       

@@ -25,7 +25,7 @@ class BankSheetReaderTest extends TestCase
      */
     private function sheet(array $rows, $headerRow = 9)
     {
-        $headers = ['Status', 'Cheque Number', 'Pay Bank', 'Created on', 'Amount', 'Cheque Date', 'Posting Date', 'Onus Reason', 'ECC Reason', 'Resolution'];
+        $headers = ['Status', 'Cheque Number', 'Pay Bank', 'Pay Account', 'Created on', 'Amount', 'Cheque Date', 'Posting Date', 'Onus Reason', 'ECC Reason', 'Resolution'];
         $ss = new Spreadsheet();
         $ws = $ss->getActiveSheet();
         $ws->setTitle('GRID_EXPORT');
@@ -38,7 +38,11 @@ class BankSheetReaderTest extends TestCase
         foreach ($rows as $row) {
             foreach ($headers as $i => $h) {
                 if (array_key_exists($h, $row)) {
-                    $ws->setCellValueExplicitByColumnAndRow($i + 2, $r, $row[$h], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    if (is_int($row[$h]) || is_float($row[$h])) {
+                        $ws->setCellValueByColumnAndRow($i + 2, $r, $row[$h]); // a real numeric cell
+                    } else {
+                        $ws->setCellValueExplicitByColumnAndRow($i + 2, $r, $row[$h], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    }
                 }
             }
             $r++;
@@ -55,6 +59,7 @@ class BankSheetReaderTest extends TestCase
             'Status'        => 'Replied',
             'Cheque Number' => '80281048',
             'Pay Bank'      => '27 - Bank Of Muscat',
+            'Pay Account'   => '00045288830024',
             'Created on'    => '15/09/2026 09:47:09 AM',
             'Amount'        => 'OMR 230.000',
             'Cheque Date'   => '15/09/2026',
@@ -79,6 +84,27 @@ class BankSheetReaderTest extends TestCase
         $this->assertSame('2026-09-15', $rows[0]['created_on']);
         $this->assertTrue($rows[0]['accepted']);
         $this->assertNull($rows[0]['reject_reason']);
+    }
+
+    public function test_pay_account_is_read_as_text_with_its_leading_zeros()
+    {
+        $rows = (new BankSheetReader())->read($this->sheet([$this->acceptedRow()]));
+
+        $this->assertSame('00045288830024', $rows[0]['account_no']);
+    }
+
+    public function test_numeric_pay_account_cell_keeps_every_digit()
+    {
+        $rows = (new BankSheetReader())->read($this->sheet([$this->acceptedRow(['Pay Account' => 45288830024])]));
+
+        $this->assertSame('45288830024', $rows[0]['account_no']);
+    }
+
+    public function test_blank_pay_account_is_null()
+    {
+        $rows = (new BankSheetReader())->read($this->sheet([$this->acceptedRow(['Pay Account' => ' '])]));
+
+        $this->assertNull($rows[0]['account_no']);
     }
 
     public function test_batch_date_is_the_most_common_created_on_of_accepted_rows()

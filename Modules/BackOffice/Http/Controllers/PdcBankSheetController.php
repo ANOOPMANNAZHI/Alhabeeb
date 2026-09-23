@@ -280,8 +280,10 @@ class PdcBankSheetController extends Controller
 
         $toPost    = []; // sheet row_no => [pdc rows]
         $vatByDiff = []; // row_no => VAT amount (Case B)
+        $sheetAccounts = []; // row_no => the sheet's Pay Account, saved onto posted PDCs that have none
         foreach ($analysis['results'] as $r) {
             $rowNo = $r['row']['row_no'];
+            $sheetAccounts[$rowNo] = isset($r['row']['account_no']) ? $r['row']['account_no'] : null;
             if ($r['status'] === BankSheetPdcMatcher::MATCHED && !isset($selection['unticked'][$rowNo])) {
                 $toPost[$rowNo] = $r['pdcs'];
             } elseif ($r['status'] === BankSheetPdcMatcher::AMBIGUOUS && !empty($selection['choice'][$rowNo])) {
@@ -316,7 +318,7 @@ class PdcBankSheetController extends Controller
             $vatBefore = $vatMade; // the closure counts receipts; undo if the cheque rolls back
             $vatReusedBefore = $vatReusedCount;
             try {
-                DB::transaction(function () use ($routines, $vatCreator, $pdcs, $request, $rowNo, $vatByDiff, &$ids, &$tillEnd, &$vatNos, &$vatMade, &$vatReused, &$vatReusedCount) {
+                DB::transaction(function () use ($routines, $vatCreator, $pdcs, $request, $rowNo, $vatByDiff, $sheetAccounts, &$ids, &$tillEnd, &$vatNos, &$vatMade, &$vatReused, &$vatReusedCount) {
                     $rent = [];
                     $vat  = [];
                     foreach ($pdcs as $p) {
@@ -354,6 +356,7 @@ class PdcBankSheetController extends Controller
                             if ($to && (!$periods[$cid][1] || $to > $periods[$cid][1])) { $periods[$cid][1] = $to; }
                         }
                     }
+                    $this->fillAccountNo($ids, $sheetAccounts[$rowNo]);
                     if (!$hasVat) {
                         return;
                     }
@@ -406,6 +409,7 @@ class PdcBankSheetController extends Controller
                             $ids[] = $v->id;
                         }
                     }
+                    $this->fillAccountNo($ids, $sheetAccounts[$rowNo]); // the VAT PDCs just closed
                 });
                 $posted++;
                 $pdcsDone += count($ids);
@@ -617,6 +621,24 @@ class PdcBankSheetController extends Controller
         ];
     }
 
+    /**
+     * Save the sheet's Pay Account (without the bank's leading zeros) onto the
+     * given posted PDCs that have no account yet. Never overwrites one staff
+     * entered. Runs inside the caller's per-cheque transaction.
+     */
+    private function fillAccountNo(array $pdcIds, $sheetAccount)
+    {
+        $account = BankSheetPdcMatcher::normaliseAccountNo($sheetAccount);
+        if ($account === null || count($pdcIds) === 0) {
+            return;
+        }
+        Pdc::whereIn('id', $pdcIds)
+            ->where(function ($q) {
+                $q->whereNull('pdc_account_no')->orWhere('pdc_account_no', '');
+            })
+            ->update(['pdc_account_no' => $account]);
+    }
+
     /** Posting runs with deposit bank and poster names. */
     private function uploadQuery()
     {
@@ -762,6 +784,7 @@ class PdcBankSheetController extends Controller
                 'tenant_contract_no' => $contract ? $contract->tenant_contract_no : '',
                 'building_name'      => $contract && $contract->building ? $contract->building->building_name : '',
                 'unit_no'            => $contract && $contract->Unit ? $contract->Unit->unit_code : '',
+                'pdc_account_no'     => $pdc->pdc_account_no,
                 'pdc_type'           => (int) $pdc->pdc_type,
                 'management_id'      => $contract && $contract->building ? (int) $contract->building->management_id : 0,
             ];

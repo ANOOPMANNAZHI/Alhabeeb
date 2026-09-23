@@ -18,6 +18,7 @@ class BankSheetReader
 {
     const COL_CHEQUE_NO  = 'Cheque Number';
     const COL_BANK       = 'Pay Bank';
+    const COL_ACCOUNT    = 'Pay Account'; // drawer's account, zero-padded by the bank (00045288830024)
     const COL_AMOUNT     = 'Amount';
     const COL_DATE       = 'Cheque Date';
     const COL_CREATED    = 'Created on';
@@ -30,7 +31,7 @@ class BankSheetReader
 
     /**
      * @param string $path .xls / .xlsx path
-     * @return array rows: row_no, cheque_no, bank_code, bank_name, amount (float),
+     * @return array rows: row_no, cheque_no, bank_code, bank_name, account_no (raw text|null), amount (float),
      *               cheque_date (Y-m-d|null), created_on (Y-m-d|null), accepted (bool), reject_reason (string|null)
      * @throws \RuntimeException when the header row cannot be found
      */
@@ -68,6 +69,7 @@ class BankSheetReader
                 'cheque_no'     => $chequeNo,
                 'bank_code'     => $this->bankCode($bankName),
                 'bank_name'     => $bankName,
+                'account_no'    => $this->text($this->cell($cells, $cols, self::COL_ACCOUNT)),
                 'amount'        => $this->amount($this->cell($cells, $cols, self::COL_AMOUNT)),
                 'cheque_date'   => $this->date($this->cell($cells, $cols, self::COL_DATE)),
                 'created_on'    => $this->date($this->cell($cells, $cols, self::COL_CREATED)),
@@ -122,6 +124,17 @@ class BankSheetReader
             }
         }
         throw new \RuntimeException('Could not find the header row ("' . self::COL_CHEQUE_NO . '" / "' . self::COL_RESOLUTION . '") in the uploaded sheet');
+    }
+
+    /** Trimmed cell text, null when blank (or the column is absent). */
+    private function text($value)
+    {
+        if (is_float($value) || is_int($value)) {
+            // a numeric cell (export without text formatting): write all digits, never 4.5E+15
+            $value = sprintf('%.0f', $value);
+        }
+        $value = trim((string) $value);
+        return $value === '' ? null : $value;
     }
 
     private function cell(array $cells, array $cols, $title)
