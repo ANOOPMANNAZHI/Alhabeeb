@@ -355,10 +355,25 @@ class PdcBankSheetController extends Controller
 
                     $chequeNo = $rent[0]->pdc_check_no;
                     $bankCode = Bank::where('id', $rent[0]->bank_id)->value('bank_code');
-                    // Case B: one receipt for the actual extra; Case A: one per VAT PDC, its own amount
-                    $jobs = isset($vatByDiff[$rowNo])
-                        ? [['contract_id' => (int) $rent[0]->tenant_contract_id, 'amount' => $vatByDiff[$rowNo], 'pdcs' => $vat]]
-                        : array_map(function ($v) { return ['contract_id' => (int) $v->tenant_contract_id, 'amount' => (float) $v->pdc_amt, 'pdcs' => [$v]]; }, $vat);
+                    // Case B: one receipt for the actual extra; Case A: one per contract, summing its VAT PDCs
+                    if (isset($vatByDiff[$rowNo])) {
+                        $jobs = [['contract_id' => (int) $rent[0]->tenant_contract_id, 'amount' => $vatByDiff[$rowNo], 'pdcs' => $vat]];
+                    } else {
+                        $byContract = [];
+                        foreach ($vat as $v) {
+                            $cid = (int) $v->tenant_contract_id;
+                            if (!isset($byContract[$cid])) {
+                                $byContract[$cid] = ['contract_id' => $cid, 'amount' => 0.0, 'pdcs' => []];
+                            }
+                            $byContract[$cid]['amount'] += (float) $v->pdc_amt;
+                            $byContract[$cid]['pdcs'][] = $v;
+                        }
+                        $jobs = [];
+                        foreach ($byContract as $job) {
+                            $job['amount'] = round($job['amount'], 3);
+                            $jobs[] = $job;
+                        }
+                    }
 
                     foreach ($jobs as $job) {
                         if (!isset($periods[$job['contract_id']]) || !$periods[$job['contract_id']][0]) {
