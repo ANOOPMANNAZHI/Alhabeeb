@@ -14,8 +14,7 @@
   .tov .t-status { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:4px 10px; border-radius:999px; background:var(--t-line); color:var(--t-ink); }
   .tov .t-head .t-title { font-size:22px; }
   .tov .t-os { margin-top:8px; font-size:14px; }
-  .tov .t-os-yes { color:#991b1b; font-weight:700; } .tov .t-os-no { color:#166534; font-weight:700; }
-  .tov .t-id-tile .t-meta .t-status { margin-top:2px; }
+  .tov .t-os-yes { color:#991b1b; font-weight:700; } .tov .t-os-no { color:#166534; font-weight:700; }  .tov .t-id-tile .t-meta .t-status { margin-top:2px; }
 
   /* Identity strip: who / where — the three facts staff look for first */
   .tov .t-id { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
@@ -95,8 +94,7 @@
             <span class="t-os-yes" title="Outstanding rent">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
           @else
             <span class="t-os-no">No outstanding</span>
-          @endif
-        </div>
+          @endif        </div>
       </div>
       <div class="t-actions">
         @can('takenover_resubmit')
@@ -140,6 +138,10 @@
         <tr>
           <th>Rent</th><td>{{ $tc->tenant_contract_rent ? numberFormat($tc->tenant_contract_rent) . ' OMR' : 'NA' }}{{ !empty($tc->tenant_contract_payment_name) ? ' · ' . $tc->tenant_contract_payment_name : '' }}</td>
           <th>Municipality registration</th><td>{{ $tc->tenant_contract_is_reg_municipality == null ? 'No' : 'Yes' }}</td>
+        </tr>
+        <tr>
+          <th>Deposit</th><td>{{ $deposit['has_deposit'] ? numberFormat($deposit['held']) . ' OMR' : 'NA' }}</td>
+          <th></th><td></td>
         </tr>
       </table>
 
