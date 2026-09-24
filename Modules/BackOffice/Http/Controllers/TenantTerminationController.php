@@ -44,6 +44,7 @@ use Modules\BackOffice\Services\MunicipalTaxCalculator;
 use Modules\BackOffice\Services\UnpaidRentPeriod;
 use Modules\BackOffice\Services\TerminationDuesService;
 use Modules\BackOffice\Services\RentOutstanding;
+use Modules\BackOffice\Services\TenantDepositHeld;
 
 class TenantTerminationController extends Controller
 {
@@ -2337,7 +2338,8 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
      $remainingDays = $datediff / 86400;    // 24 * 60 * 60 = 86400 seconds 
 
      $outstandingOs = $this->outstandingOs($termination->contract_id);
-     return view('backoffice::Termination.tenant_termination_takenover_view',compact('tenantContract','termination','groupedWork','terminationDocument','terminationNotes','openTerminationDocument','remainingDays','outstandingOs'));
+     $deposit = TenantDepositHeld::forContract($termination->contract_id);
+     return view('backoffice::Termination.tenant_termination_takenover_view',compact('tenantContract','termination','groupedWork','terminationDocument','terminationNotes','openTerminationDocument','remainingDays','outstandingOs','deposit'));
    }
     /*
     *
