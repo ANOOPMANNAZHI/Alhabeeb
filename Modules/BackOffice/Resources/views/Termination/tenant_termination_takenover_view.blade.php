@@ -14,14 +14,7 @@
   .tov .t-status { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:4px 10px; border-radius:999px; background:var(--t-line); color:var(--t-ink); }
   .tov .t-head .t-title { font-size:22px; }
   .tov .t-os { margin-top:8px; font-size:14px; }
-  .tov .t-os-yes { color:#991b1b; font-weight:700; } .tov .t-os-no { color:#166534; font-weight:700; }
-  .tov .t-os .t-sep { color:var(--t-muted); margin:0 6px; }
-  .tov .t-dep-yes { color:var(--t-blue); font-weight:700; } .tov .t-dep-no { color:var(--t-muted); font-weight:700; }
-  .tov .t-dep-state { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; }
-  .tov .t-dep-state.held { background:var(--t-blue-soft); color:var(--t-blue); }
-  .tov .t-dep-state.refund_pending { background:#fef3c7; color:#92400e; }
-  .tov .t-dep-state.refunded { background:var(--t-line); color:var(--t-muted); }
-  .tov .t-id-tile .t-meta .t-status { margin-top:2px; }
+  .tov .t-os-yes { color:#991b1b; font-weight:700; } .tov .t-os-no { color:#166534; font-weight:700; }  .tov .t-id-tile .t-meta .t-status { margin-top:2px; }
 
   /* Identity strip: who / where — the three facts staff look for first */
   .tov .t-id { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
@@ -101,14 +94,7 @@
             <span class="t-os-yes" title="Outstanding rent">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
           @else
             <span class="t-os-no">No outstanding</span>
-          @endif
-          <span class="t-sep">·</span>
-          @if($deposit['has_deposit'])
-            <span class="t-dep-yes" title="Security deposit received and not yet refunded">Deposit held {{ numberFormat($deposit['held']) }} OMR</span>
-          @else
-            <span class="t-dep-no">No deposit</span>
-          @endif
-        </div>
+          @endif        </div>
       </div>
       <div class="t-actions">
         @can('takenover_resubmit')
@@ -153,6 +139,10 @@
           <th>Rent</th><td>{{ $tc->tenant_contract_rent ? numberFormat($tc->tenant_contract_rent) . ' OMR' : 'NA' }}{{ !empty($tc->tenant_contract_payment_name) ? ' · ' . $tc->tenant_contract_payment_name : '' }}</td>
           <th>Municipality registration</th><td>{{ $tc->tenant_contract_is_reg_municipality == null ? 'No' : 'Yes' }}</td>
         </tr>
+        <tr>
+          <th>Deposit</th><td>{{ $deposit['has_deposit'] ? numberFormat($deposit['held']) . ' OMR' : 'NA' }}</td>
+          <th></th><td></td>
+        </tr>
       </table>
 
       <div class="t-group">Rent</div>
@@ -166,36 +156,6 @@
           <th>Last paid amount</th><td>{{ isset($tc->tenant->tenant_contract_last_paid_amt) ? numberFormat($tc->tenant->tenant_contract_last_paid_amt) . ' OMR' : 'NA' }}</td>
         </tr>
       </table>
-
-      {{-- Deposit: receipts of this tenant on this unit, incl. earlier contracts a renewal replaced --}}
-      <div class="t-group">Deposit</div>
-      @if(count($deposit['receipts']))
-      <div class="t-table-wrap table-responsive">
-        <table class="table t-table">
-          <thead><tr><th>Receipt</th><th>Paid on contract</th><th>Amount</th><th>Status</th></tr></thead>
-          <tbody>
-          @foreach($deposit['receipts'] as $dep)
-            <tr>
-              <td>{{ $dep['receipt_no'] }}</td>
-              <td>{{ $dep['contract_no'] }}</td>
-              <td>{{ numberFormat($dep['amount']) }} OMR</td>
-              <td>
-                @if($dep['state'] == 'refunded')
-                  <span class="t-dep-state refunded">Refunded</span> {{ $dep['refund_no'] }}
-                @elseif($dep['state'] == 'refund_pending')
-                  <span class="t-dep-state refund_pending">Refund in progress</span> {{ $dep['refund_no'] }}
-                @else
-                  <span class="t-dep-state held">Held</span>
-                @endif
-              </td>
-            </tr>
-          @endforeach
-          </tbody>
-        </table>
-      </div>
-      @else
-      <div class="t-empty">No deposit received for this tenant on this unit.</div>
-      @endif
 
       <div class="t-group">Termination</div>
       <table class="t-details">
