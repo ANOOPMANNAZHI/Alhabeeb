@@ -491,6 +491,14 @@ class MaintenanceInvoiceController extends Controller
 
         if(count($request->ac_codes_id) > 0){  // echo 'dasdsad'     ;
 
+        // Lines are deleted and re-created from the form, which has no
+        // service_report_id field. Re-link each line to its service report
+        // via the SERVnnnnn invoice_desc that maintenanceInvoiceGenerate()
+        // writes, so editing a generated invoice does not turn in-house work
+        // into sub-contractor work (reports classify by service_report_id).
+        $serviceReportIds = ComplaintServiceReport::whereIn('service_report_no', array_filter((array) $request->invoice_desc))
+          ->pluck('id', 'service_report_no');
+
         $maintenanceInvoice->maintenanceInvoiceDetails()->delete();
 
         foreach ($request->ac_codes_id as $key => $value) {
@@ -511,11 +519,12 @@ class MaintenanceInvoiceController extends Controller
             'dim1able_type' => isset($request->dim1[$key])? 'Modules\BackOffice\Entities\DimDetail' : NULL,
             'dim1able_id' => isset($request->dim1[$key])? $request->dim1[$key] : NULL, 
             'dim2able_type' => isset($request->dim2[$key])? 'Modules\Masters\Entities\Building': NULL,
-            'dim2able_id' => isset($request->dim2[$key])? $request->dim2[$key] : NULL 
+            'dim2able_id' => isset($request->dim2[$key])? $request->dim2[$key] : NULL,
+            'service_report_id' => isset($request->invoice_desc[$key], $serviceReportIds[$request->invoice_desc[$key]]) ? $serviceReportIds[$request->invoice_desc[$key]] : NULL
             ]);
 
           if(isset($request->technician_recovery[$key]) && $request->technician_recovery[$key] == 1)
-            $general_ledger[] =  $key;  
+            $general_ledger[] =  $key;
 
 
 
