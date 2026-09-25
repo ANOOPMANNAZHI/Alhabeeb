@@ -5446,16 +5446,6 @@ public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building
             $data = $monthData[$m] ?? null;
             if (!$data) continue;
 
-            // Only the Routine & Maintenance expense category feeds this line
-            // (matches the "Routine & Maintenance Expenses" row in Normal
-            // Management Report v2) - other expense heads (A/C Maintenance,
-            // Dewatering, Electricity & Water, Municipal Tax, etc.) are not
-            // part of "Repair & Maintenance Charges" and must not be summed in.
-            foreach ($data['expenses'] ?? [] as $exp) {
-                if (in_array($exp->expense_name, ['ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES'], true)) {
-                    $totalExpenses += (float) $exp->expense_amount;
-                }
-            }
             $totalCleaning += (float) ($data['cleaning_charge'] ?? 0);
 
             $lc = $data['landlord_contract'] ?? null;
@@ -5496,6 +5486,18 @@ public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building
             $managementFee += round($basis * ((float) $lc->landlord_contract_management_fee / 100), 3);
         }
     }
+
+    // Repair & Maintenance on the Tax Invoice is the IN-HOUSE portion only
+    // (maintenance-invoice rows generated from a technician service report).
+    // The sub-contractor portion is billed on the Other Deductions invoice
+    // (landlordSubcontractorRepairMaintenanceAmount()), so summing every
+    // Routine & Maintenance expense here would bill it twice. Summed over the
+    // same whole calendar months as the other lines.
+    $firstTouched = $monthsTouched[0];
+    $lastTouched  = $monthsTouched[count($monthsTouched) - 1];
+    $rmFrom = sprintf('%04d-%02d-01', $firstTouched['year'], $firstTouched['month']);
+    $rmTo   = date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $lastTouched['year'], $lastTouched['month'])));
+    $totalExpenses = $this->landlordInhouseRepairMaintenanceAmount($building->id, $rmFrom, $rmTo);
 
     // Period label for the line descriptions. Amounts are summed over whole
     // calendar months touched by the range (see $monthsTouched above), so the
@@ -5611,11 +5613,30 @@ public function landlordOtherDeductionsLineAmounts(\Modules\Masters\Entities\Bui
  * in-house R&M line) joined the same way buildNormalManagementMonthData()
  * joins maintenance_invoice_details -> maintenance_invoices -> acc_codes
  * -> expense_head, plus mid.service_report_id IS NULL to select only the
- * sub-contractor-billed portion (the in-house line implicitly gets the
- * service_report_id IS NOT NULL portion via technician service reports).
+ * sub-contractor-billed portion (the in-house portion, service_report_id
+ * IS NOT NULL, is billed on the Tax Invoice via
+ * landlordInhouseRepairMaintenanceAmount()).
  */
 public function landlordSubcontractorRepairMaintenanceAmount(int $buildingId, string $fromDate, string $toDate): float
 {
+    return $this->landlordRepairMaintenanceAmount($buildingId, $fromDate, $toDate, false);
+}
+
+/**
+ * In-house counterpart of landlordSubcontractorRepairMaintenanceAmount():
+ * Routine & Maintenance maintenance-invoice rows generated from a technician
+ * service report (mid.service_report_id IS NOT NULL) - the "In-house"
+ * expense type in Expense Details Report v2. Feeds the Tax Invoice's
+ * Repair & Maintenance line.
+ */
+public function landlordInhouseRepairMaintenanceAmount(int $buildingId, string $fromDate, string $toDate): float
+{
+    return $this->landlordRepairMaintenanceAmount($buildingId, $fromDate, $toDate, true);
+}
+
+private function landlordRepairMaintenanceAmount(int $buildingId, string $fromDate, string $toDate, bool $inhouse): float
+{
+    $serviceReportFilter = $inhouse ? 'mid.service_report_id IS NOT NULL' : 'mid.service_report_id IS NULL';
     $row = DB::selectOne("
         SELECT COALESCE(SUM(CAST(mid.debit_amt AS NUMERIC)), 0) AS total
         FROM maintenance_invoice_details mid
@@ -5626,7 +5647,7 @@ public function landlordSubcontractorRepairMaintenanceAmount(int $buildingId, st
           AND eh.expense_name IN ('ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES')
           AND mi.maintenance_invoice_date BETWEEN ? AND ?
           AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
-          AND mid.service_report_id IS NULL
+          AND {$serviceReportFilter}
     ", [$buildingId, $fromDate, $toDate]);
 
     return round((float) ($row->total ?? 0), 3);
@@ -5782,16 +5803,22 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
         ];
     }
 
-    // ── Batch renewal/new-lease counts + new-lease rent sum for the year ──
+    // ── Batch renewal/new-lease counts + new-lease contract value sum for the year ──
     // A tenant contract is a renewal when tenant_contract_old_no is populated
     // (it references the prior contract it renews), and a genuine new lease
     // when it is null/empty. Used to compute the Renewal Fee and New Leasing
-    // Fee components below.
+    // Fee components below. The percentage New Leasing Fee is charged on the
+    // full contract value (rent x contract months), which is stored as varchar
+    // in tenant_contract_value - strip any formatting, and fall back to
+    // rent x duration when it is empty.
     $renewalNewLeaseRows = DB::select("
         SELECT EXTRACT(MONTH FROM tc.tenant_contract_start_date)::int AS month,
             COUNT(DISTINCT CASE WHEN tc.tenant_contract_old_no IS NOT NULL AND tc.tenant_contract_old_no != '' THEN tc.id END) AS renewal_count,
             COUNT(DISTINCT CASE WHEN tc.tenant_contract_old_no IS NULL OR tc.tenant_contract_old_no = '' THEN tc.id END) AS new_lease_count,
-            SUM(CASE WHEN tc.tenant_contract_old_no IS NULL OR tc.tenant_contract_old_no = '' THEN tc.tenant_contract_rent ELSE 0 END) AS new_lease_rent_sum
+            SUM(CASE WHEN tc.tenant_contract_old_no IS NULL OR tc.tenant_contract_old_no = '' THEN COALESCE(
+                NULLIF(regexp_replace(tc.tenant_contract_value, '[^0-9.]', '', 'g'), '')::numeric,
+                tc.tenant_contract_rent * COALESCE(tc.tenant_contract_duration, 12)
+            ) ELSE 0 END) AS new_lease_value_sum
         FROM tenant_contracts tc
         JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
         WHERE tc.tenant_contract_status != 2 AND EXTRACT(YEAR FROM tc.tenant_contract_start_date) = ?
@@ -5801,9 +5828,9 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
     $renewalNewLeaseByMonth = [];
     foreach ($renewalNewLeaseRows as $rlRow) {
         $renewalNewLeaseByMonth[(int) $rlRow->month] = [
-            'renewal_count'      => (int) $rlRow->renewal_count,
-            'new_lease_count'    => (int) $rlRow->new_lease_count,
-            'new_lease_rent_sum' => (float) $rlRow->new_lease_rent_sum,
+            'renewal_count'       => (int) $rlRow->renewal_count,
+            'new_lease_count'     => (int) $rlRow->new_lease_count,
+            'new_lease_value_sum' => (float) $rlRow->new_lease_value_sum,
         ];
     }
 
@@ -6275,12 +6302,12 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             if ($matched !== null) {
                 $facilityManagementFee = (float) ($matched->facility_management_fee ?? 0);
 
-                $rn = $renewalNewLeaseByMonth[$m] ?? ['renewal_count' => 0, 'new_lease_count' => 0, 'new_lease_rent_sum' => 0];
+                $rn = $renewalNewLeaseByMonth[$m] ?? ['renewal_count' => 0, 'new_lease_count' => 0, 'new_lease_value_sum' => 0];
                 $renewalFee = $rn['renewal_count'] * (float) ($matched->renewal_fee ?? 0);
 
                 $newLeasingFeeType = (int) ($matched->new_leasing_fee_type ?? 0);
                 if ($newLeasingFeeType === 1) {
-                    $newLeasingFee = round($rn['new_lease_rent_sum'] * ((float) ($matched->new_leasing_fee ?? 0) / 100), 3);
+                    $newLeasingFee = round($rn['new_lease_value_sum'] * ((float) ($matched->new_leasing_fee ?? 0) / 100), 3);
                 } elseif ($newLeasingFeeType === 2) {
                     $newLeasingFee = $rn['new_lease_count'] * (float) ($matched->new_leasing_fee ?? 0);
                 }
