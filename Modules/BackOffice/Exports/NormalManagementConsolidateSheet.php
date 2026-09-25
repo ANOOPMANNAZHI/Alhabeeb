@@ -174,7 +174,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         $renewalRow[] = $renewalYTD ?: '-';
         $rows[] = $renewalRow;
 
-        // New Leasing Fee — count/rent-sum of genuinely new tenant leases that
+        // New Leasing Fee — count/contract-value sum of genuinely new tenant leases that
         // month times the landlord contract's flat fee or percentage.
         $newLeasingRow = ['', 'New Leasing Fee'];
         $newLeasingYTD = 0;
