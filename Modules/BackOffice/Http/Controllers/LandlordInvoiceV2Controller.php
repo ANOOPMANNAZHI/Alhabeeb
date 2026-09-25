@@ -396,6 +396,17 @@ class LandlordInvoiceV2Controller extends Controller
                 ['description' => 'CLEANING CHARGES FOR ' . $amounts['period_label'], 'amount' => $amounts['cleaning_charge']],
                 ['description' => 'REPAIR AND MAINTENANCE CHARGES', 'amount' => $amounts['repair_maintenance']],
             ];
+            // Contract-derived fees, only when non-zero for the period - same
+            // lines the Landlord Tax Invoice report prints.
+            if ($amounts['facility_management_fee'] > 0) {
+                $lines[] = ['description' => 'FACILITY MANAGEMENT FEE FOR ' . $amounts['period_label'], 'amount' => $amounts['facility_management_fee']];
+            }
+            if ($amounts['renewal_fee'] > 0) {
+                $lines[] = ['description' => 'RENEWAL FEE FOR ' . $amounts['period_label'], 'amount' => $amounts['renewal_fee']];
+            }
+            if ($amounts['new_leasing_fee'] > 0) {
+                $lines[] = ['description' => 'NEW LEASING FEE FOR ' . $amounts['period_label'], 'amount' => $amounts['new_leasing_fee']];
+            }
         } else {
             $amounts = $this->calc->landlordOtherDeductionsLineAmounts($building, $fromDate, $toDate);
             $subAmount = $this->calc->landlordSubcontractorRepairMaintenanceAmount($building->id, $fromDate, $toDate);
