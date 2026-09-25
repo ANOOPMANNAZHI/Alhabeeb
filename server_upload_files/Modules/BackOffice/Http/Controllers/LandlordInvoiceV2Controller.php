@@ -413,11 +413,16 @@ class LandlordInvoiceV2Controller extends Controller
             $lines = [
                 ['description' => 'MUN TAX CHARGES', 'amount' => $amounts['mun_tax_charges']],
                 ['description' => 'ELECT. AND WATER CHARGES', 'amount' => $amounts['elect_water_charges']],
-                ['description' => 'DEWATERING CHARGES', 'amount' => $amounts['dewatering_charges']],
-                ['description' => 'AMC / REPAIR AND MAINTENANCE CHARGES FOR A/C UNITS', 'amount' => $amounts['ac_amc_repair_charges']],
-                ['description' => 'AMC FOR F.A.S FOR THE PERIOD', 'amount' => $amounts['fas_amc_charges']],
-                ['description' => 'REPAIR AND MAINTENANCE CHARGES (SUB-CONTRACTOR)', 'amount' => $subAmount],
             ];
+            // Dewatering is split into this period's bills and late bills for
+            // other months (e.g. "FROM MAR'26 TO JUN'26"); the lines sum to
+            // $amounts['dewatering_charges'].
+            foreach ($this->calc->landlordDewateringLines($building, $fromDate, $toDate) as $dewateringLine) {
+                $lines[] = $dewateringLine;
+            }
+            $lines[] = ['description' => 'AMC / REPAIR AND MAINTENANCE CHARGES FOR A/C UNITS', 'amount' => $amounts['ac_amc_repair_charges']];
+            $lines[] = ['description' => 'AMC FOR F.A.S FOR THE PERIOD', 'amount' => $amounts['fas_amc_charges']];
+            $lines[] = ['description' => 'REPAIR AND MAINTENANCE CHARGES (SUB-CONTRACTOR)', 'amount' => $subAmount];
         }
 
         return response()->json(['lines' => $lines]);

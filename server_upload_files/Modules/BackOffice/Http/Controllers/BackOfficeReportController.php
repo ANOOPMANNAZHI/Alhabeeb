@@ -5593,6 +5593,125 @@ public function landlordOtherDeductionsLineAmounts(\Modules\Masters\Entities\Bui
 }
 
 /**
+ * Dewatering for one building over the given date range, split by the month
+ * each bill is FOR rather than the month it was entered. Vendors often bill
+ * several months late, so e.g. July can hold Mar-Jun bills too. Returns
+ * Other Deductions lines [['description' => ..., 'amount' => ...], ...]:
+ *   "DE-WATERING CHARGES FOR JUL'26"            bills for the invoiced month(s)
+ *   "DE-WATERING CHARGES FROM MAR'26 TO JUN'26" bills for any other month
+ * The amounts sum to landlordOtherDeductionsLineAmounts()['dewatering_charges']
+ * (same rows: DEWATERING expense head, maintenance invoices + GL journals).
+ * There is no service-period column, so the month is read from the
+ * description (see serviceMonthsFromText()); if none is found the document
+ * date's month is used.
+ */
+public function landlordDewateringLines(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate): array
+{
+    $monthsTouched = $this->monthsTouchedByRange($fromDate, $toDate);
+    $first = $monthsTouched[0];
+    $last  = $monthsTouched[count($monthsTouched) - 1];
+    $rangeFrom = sprintf('%04d-%02d-01', $first['year'], $first['month']);
+    $rangeTo   = date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $last['year'], $last['month'])));
+
+    $rows = DB::select("
+        SELECT doc_date, amount, txt FROM (
+            SELECT mi.maintenance_invoice_date AS doc_date, CAST(mid.debit_amt AS NUMERIC) AS amount,
+                   CONCAT_WS(' ', mi.maintenance_invoice_desc, mid.invoice_desc) AS txt
+            FROM maintenance_invoice_details mid
+            JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
+            JOIN acc_codes ac ON ac.id = mid.ac_codes_id
+            JOIN expense_head eh ON eh.acc_codes_id = ac.id
+            WHERE mid.building_id = ? AND eh.expense_name = 'DEWATERING'
+              AND mi.maintenance_invoice_date BETWEEN ? AND ?
+              AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
+            UNION ALL
+            SELECT gl.doc_date, CAST(gld.debit_amt AS NUMERIC),
+                   CONCAT_WS(' ', gl.general_ledger_desc, gld.description)
+            FROM general_ledger_dim gld
+            JOIN general_ledgers gl ON gl.id = gld.general_ledger_id
+            JOIN acc_codes ac ON ac.id = gld.account_id
+            JOIN expense_head eh ON eh.acc_codes_id = ac.id
+            WHERE gld.building_id = ? AND eh.expense_name = 'DEWATERING'
+              AND gl.doc_date BETWEEN ? AND ?
+              AND gl.general_ledger_status != 2 AND gl.deleted_at IS NULL
+        ) src
+    ", [$building->id, $rangeFrom, $rangeTo, $building->id, $rangeFrom, $rangeTo]);
+
+    // 'YYYY-MM' keys of the invoiced period.
+    $periodKeys = [];
+    foreach ($monthsTouched as $mt) {
+        $periodKeys[] = sprintf('%04d-%02d', $mt['year'], $mt['month']);
+    }
+
+    $current = 0.0;
+    $other = 0.0;
+    $otherKeys = [];
+    foreach ($rows as $row) {
+        $keys = $this->serviceMonthsFromText((string) $row->txt);
+        if (empty($keys)) {
+            $keys = [date('Y-m', strtotime($row->doc_date))];
+        }
+        if (count(array_diff($keys, $periodKeys)) === 0) {
+            $current += (float) $row->amount;
+        } else {
+            $other += (float) $row->amount;
+            $otherKeys = array_merge($otherKeys, $keys);
+        }
+    }
+
+    $label = function ($key) {
+        return strtoupper(date('M', strtotime($key . '-01'))) . "'" . date('y', strtotime($key . '-01'));
+    };
+    $span = function (array $keys) use ($label) {
+        sort($keys);
+        $from = reset($keys);
+        $to   = end($keys);
+        return $from === $to ? 'FOR ' . $label($from) : 'FROM ' . $label($from) . ' TO ' . $label($to);
+    };
+
+    $lines = [];
+    if ($current > 0 || $other == 0) {
+        $lines[] = ['description' => 'DE-WATERING CHARGES ' . $span($periodKeys), 'amount' => round($current, 3)];
+    }
+    if ($other != 0) {
+        $lines[] = ['description' => 'DE-WATERING CHARGES ' . $span($otherKeys), 'amount' => round($other, 3)];
+    }
+    return $lines;
+}
+
+/**
+ * 'YYYY-MM' months named in free text such as "for Mar'26", "June'2026",
+ * "APRIL'25", "June;2026", "DEC'24 TO JAN'25" or "01.08.25 TO 15.08.25". A month name
+ * must be followed by a 2- or 4-digit year so stray words ("may") don't
+ * count. Returns [] when no month is found.
+ */
+public function serviceMonthsFromText(string $text): array
+{
+    $months = ['JAN' => 1, 'FEB' => 2, 'MAR' => 3, 'APR' => 4, 'MAY' => 5, 'JUN' => 6,
+               'JUL' => 7, 'AUG' => 8, 'SEP' => 9, 'OCT' => 10, 'NOV' => 11, 'DEC' => 12];
+    $keys = [];
+
+    if (preg_match_all("/\\b(JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUNE?|JULY?|AUG(?:UST)?|SEPT?(?:EMBER)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)\\s*['\\x{2019}`\\-\\/;,. ]?\\s*(\\d{4}|\\d{2})\\b/iu", $text, $m, PREG_SET_ORDER)) {
+        foreach ($m as $hit) {
+            $year = (int) $hit[2];
+            if ($year < 100) $year += 2000;
+            $keys[] = sprintf('%04d-%02d', $year, $months[strtoupper(substr($hit[1], 0, 3))]);
+        }
+    }
+    if (empty($keys) && preg_match_all('/\b(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4}|\d{2})\b/', $text, $m, PREG_SET_ORDER)) {
+        foreach ($m as $hit) {
+            $month = (int) $hit[2];
+            $year  = (int) $hit[3];
+            if ($month < 1 || $month > 12) continue;
+            if ($year < 100) $year += 2000;
+            $keys[] = sprintf('%04d-%02d', $year, $month);
+        }
+    }
+
+    return array_values(array_unique($keys));
+}
+
+/**
  * Sums Repair & Maintenance charges billed by a sub-contractor (i.e. NOT
  * generated from an in-house technician service report) for one building
  * over the given date range - same in-house/sub-contractor signal
