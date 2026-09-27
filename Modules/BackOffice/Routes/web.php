@@ -449,6 +449,7 @@ Route::post('/pdcPosting/bankSheet/{stored}/select', 'PdcBankSheetController@sel
 Route::post('/pdcPosting/bankSheet/{stored}/post', 'PdcBankSheetController@post')->name('pdcBankSheetPost');
 Route::get('/pdcPosting/bankSheetUploads', 'PdcBankSheetController@uploads')->name('pdcBankSheetUploads');
 Route::get('/pdcPosting/bankSheetUploads/{upload}', 'PdcBankSheetController@result')->name('pdcBankSheetResult');
+Route::get('/pdcPosting/bankSheetUploads/{upload}/excel', 'PdcBankSheetController@resultExcel')->name('pdcBankSheetResultExcel');
 Route::get('/pdcPosting/bankSheetUploads/day/{date}', 'PdcBankSheetController@day')->name('pdcBankSheetDay');
 Route::post('/rentalIncomePosting/rentalPost', 'RoutinesController@rentalPost')->name('rentalPost');
 Route::post('/tenantReceiptPostingList/receiptPost', 'RoutinesController@receiptPost')->name('receiptPost');

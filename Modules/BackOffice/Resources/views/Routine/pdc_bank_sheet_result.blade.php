@@ -43,6 +43,7 @@
             @endif
           </dd>
           <dd>
+            <a href="{{ route('pdcBankSheetResultExcel', $upload->id) }}" class="btn btn-success btn-sm"><i class="fa fa-file-excel-o" aria-hidden="true"></i> Download Excel</a>
             <a href="{{ route('pdcPosting') }}" class="btn btn-outline-secondary btn-sm">Back to PDC Posting</a>
             <a href="{{ route('pdcBankSheetDay', substr($upload->created_at, 0, 10)) }}" class="btn btn-outline-secondary btn-sm">All postings that day</a>
             <a href="{{ route('pdcBankSheetUploads') }}" class="btn btn-outline-secondary btn-sm">Posting history</a>
