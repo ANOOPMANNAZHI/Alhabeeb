@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Modules\BackOffice\Entities\Pdc;
+use Modules\BackOffice\Exports\PdcBankSheetResultExport;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Services\BankSheetPdcMatcher;
 use Modules\BackOffice\Services\BankSheetReader;
@@ -517,6 +518,22 @@ class PdcBankSheetController extends Controller
         $notPosted = $this->notPostedRows([$upload->id]);
 
         return view('backoffice::Routine.pdc_bank_sheet_result', compact('upload', 'receipts', 'notPosted'));
+    }
+
+    /** The result page as an Excel workbook: receipts created + cheques not posted. */
+    public function resultExcel($uploadId)
+    {
+        $upload = $this->uploadQuery()->where('u.id', (int) $uploadId)->first();
+        if ($upload === null) {
+            abort(404);
+        }
+        $upload->original_name = $this->originalName($upload->file_name);
+
+        $receipts  = $this->receiptRows([$upload->id]);
+        $notPosted = $this->notPostedRows([$upload->id]);
+
+        $fileName = 'bank_sheet_result_' . $upload->id . '_' . substr($upload->created_at, 0, 10) . '.xlsx';
+        return \Excel::download(new PdcBankSheetResultExport($upload, $receipts, $notPosted), $fileName);
     }
 
     /** Every receipt from the uploads posted on one date, across all of that day's uploads. */

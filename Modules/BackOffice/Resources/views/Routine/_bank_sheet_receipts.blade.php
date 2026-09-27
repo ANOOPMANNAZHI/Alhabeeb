@@ -3,34 +3,14 @@
 @php
   $showUpload  = isset($uploadNames);
   $uploadNames = $showUpload ? $uploadNames : [];
-  $fmtDate = function ($d) { return $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : '-'; };
-  $types = [0 => 'Rent', 1 => 'General', 2 => 'Deposit'];
-  // label + icon so status never relies on colour alone.
-  // approval_status: 1 not approved, 2/5 approval requested, 3 approved, 4 rejected, 6 posted to AX
-  $receiptStatus = function ($r) {
-    $a = (int) $r->approval_status;
-    if ($r->deleted_at)                 return ['bsr-pill-off',  'fa-trash',        'Deleted'];
-    if ((int) $r->receipt_status === 2) return ['bsr-pill-bad',  'fa-ban',          'Cancelled'];
-    if ($a === 6)                       return ['bsr-pill-ok',   'fa-check-circle', 'Posted to AX'];
-    if ($a === 3)                       return ['bsr-pill-ok',   'fa-check',        'Approved'];
-    if ($a === 4)                       return ['bsr-pill-bad',  'fa-times-circle', 'Rejected'];
-    if ($a === 2 || $a === 5)           return ['bsr-pill-warn', 'fa-clock-o',      'Approval requested'];
-    return ['bsr-pill-warn', 'fa-clock-o', 'Not approved'];
-  };
-  $rowStatus = [
-    'failed'          => 'Failed',
-    'skipped'         => 'Not selected',
-    'not_found'       => 'Not in PLMS',
-    'amount_mismatch' => 'Amount mismatch',
-    'date_mismatch'   => 'Date mismatch',
-    'unknown_bank'    => 'Unknown bank',
-  ];
+  // Status / type wording is shared with the Excel download (BankSheetResultRows).
+  // Status shows label + icon so it never relies on colour alone.
+  $labels = \Modules\BackOffice\Services\BankSheetResultRows::class;
   $uploadCell = function ($id) use ($uploadNames) {
     return '<a href="' . e(route('pdcBankSheetResult', $id)) . '">#' . (int) $id . '</a>'
          . (isset($uploadNames[$id]) ? '<span class="bsr-sub">' . e($uploadNames[$id]) . '</span>' : '');
   };
-  $total = 0;
-  foreach ($receipts as $r) { if (!$r->deleted_at && (int) $r->receipt_status !== 2) $total += $r->amount; }
+  $total = $labels::total($receipts);
   $cols = $showUpload ? 12 : 11;
 @endphp
 <div class="card card-box">
@@ -59,18 +39,18 @@
         </thead>
         <tbody>
           @forelse($receipts as $i => $r)
-          @php list($cls, $icon, $label) = $receiptStatus($r); @endphp
+          @php list($cls, $icon, $label) = $labels::receiptStatus($r); @endphp
           <tr>
             <td>{{ $i + 1 }}</td>
             @if($showUpload)<td>{!! $uploadCell($r->upload_id) !!}</td>@endif
             <td>{{ $r->receipt_no }}</td>
-            <td>{{ $fmtDate($r->receipt_date) }}</td>
+            <td>{{ $labels::date($r->receipt_date) }}</td>
             <td>{{ $r->tenant_name ?: '-' }}</td>
             <td>{{ $r->tenant_contract_no ?: '-' }}</td>
             <td>{{ $r->building_name ?: '-' }}{{ $r->unit_no ? ' / ' . $r->unit_no : '' }}</td>
             <td>{{ $r->sheet_cheque_no }}</td>
             <td>{{ $r->sheet_bank_name ?: '-' }}</td>
-            <td>{{ $r->is_vat ? 'General (VAT)' : (isset($types[(int) $r->receipt_type]) ? $types[(int) $r->receipt_type] : '-') }}</td>
+            <td>{{ $labels::receiptType($r) }}</td>
             <td class="num">{{ number_format($r->amount, 3) }}</td>
             <td><span class="bsr-pill {{ $cls }}"><i class="fa {{ $icon }}" aria-hidden="true"></i>{{ $label }}</span>@if($r->is_vat && $r->row_reason)<span class="bsr-sub">{{ $r->row_reason }}</span>@endif</td>
           </tr>
@@ -118,9 +98,9 @@
             <td>{{ $n->sheet_row_no }}</td>
             <td>{{ $n->cheque_no }}</td>
             <td>{{ $n->bank_name ?: '-' }}</td>
-            <td>{{ $fmtDate($n->cheque_date) }}</td>
+            <td>{{ $labels::date($n->cheque_date) }}</td>
             <td class="num">{{ number_format($n->amount, 3) }}</td>
-            <td>{{ isset($rowStatus[$n->status]) ? $rowStatus[$n->status] : $n->status }}</td>
+            <td>{{ $labels::rowStatus($n->status) }}</td>
             <td>{{ $n->reason ?: '-' }}</td>
           </tr>
           @endforeach
