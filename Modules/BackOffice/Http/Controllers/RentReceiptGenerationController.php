@@ -27,6 +27,7 @@ use Carbon\Carbon;
 use Dynamics;
 use App\Setting;
 use Modules\BackOffice\Services\TerminationDuesService;
+use Modules\BackOffice\Services\ReceiptNarration;
 
 class RentReceiptGenerationController extends Controller
 {
@@ -1458,6 +1459,8 @@ $receiptslist = ViewReceipt::filter($request)
                     }
                 } 
                 else{ 
+                    // Cash against a cheque posts the rent line + a cheque note, like the printed receipt
+                    $axNarration = ReceiptNarration::forAxPostingOf($receiptInfo);
                     //Comprehensive Building
                     if($management_type == 1){
                                     
@@ -1470,7 +1473,7 @@ $receiptslist = ViewReceipt::filter($request)
                                         'JournalNum'=> $response,
                                         'JournalName'=> AR_PAYMENT_JOURNAL_NAME,
                                         'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-                                        'Description'=> $receiptInfo->receipts_generation_remark,
+                                        'Description'=> $axNarration['description'],
                                         'CustAccount'=> $receiptInfo->tenantContractInfo->tenant->tenant_code ,
                                         'currency'=> CURRENCY,
                                         'accountType'=> 'Cust',
@@ -1480,7 +1483,7 @@ $receiptslist = ViewReceipt::filter($request)
                                         'DebitCredit'=>'Credit',
                                         'voucher'=>$receiptInfo->receipts_generation_receipt_no,
                                         'Amount'=>$receiptInfo->receipts_generation_amt,
-                                        'Remarks'=>$receiptInfo->receipts_generation_description,
+                                        'Remarks'=> $axNarration['remarks'],
                                         'Invoice'=>'',
                                         'dimension1'=> 'Building',
                                         'dimension1value'=>isset($receiptInfo->tenantContractInfo->building->building_code)?$receiptInfo->tenantContractInfo->building->building_code:'000',
@@ -1510,7 +1513,7 @@ $receiptslist = ViewReceipt::filter($request)
                                             'JournalNum'=> $response,
                                             'JournalName'=> AR_PAYMENT_JOURNAL_NAME,
                                             'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-                                            'Description'=> $receiptInfo->receipts_generation_remark,
+                                            'Description'=> $axNarration['description'],
                                             'CustAccount'=> $bank_checkbkId,
                                             'currency'=> CURRENCY,
                                             'accountType'=> AX_BANK,
@@ -1520,7 +1523,7 @@ $receiptslist = ViewReceipt::filter($request)
                                             'DebitCredit'=>'Debit',
                                             'voucher'=>$receiptInfo->receipts_generation_receipt_no,
                                             'Amount'=>$receiptInfo->receipts_generation_amt,
-                                            'Remarks'=>$receiptInfo->receipts_generation_description,
+                                            'Remarks'=> $axNarration['remarks'],
                                             'Invoice'=>'',
                                             'dimension1'=> 'Building',
                                             'dimension1value'=>'000',
@@ -1566,7 +1569,7 @@ $receiptslist = ViewReceipt::filter($request)
                                 'JournalNum'=> $response,
                                 'JournalName'=> GENERAL_LEDGER_JOURNAL_NAME,
                                 'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-                                'Description'=>$receiptInfo->receipts_generation_remark,
+                                'Description'=> $axNarration['description'],
                                 'Account'=> $bank_checkbkId,
                                 'currency'=> CURRENCY,
                                 'accountType'=> AX_BANK,
@@ -1577,7 +1580,7 @@ $receiptslist = ViewReceipt::filter($request)
                                 'voucher'=>$receiptInfo->receipts_generation_receipt_no,
                                 'AmountCredit'=>0,
                                 'AmountDebit'=>$receiptInfo->receipts_generation_amt,
-                                'Remarks'=> $receiptInfo->receipts_generation_description,
+                                'Remarks'=> $axNarration['remarks'],
                                 'Invoice'=>'',
                                 'dimension1'=> 'Building',
                                 'dimension1value'=>'000',
@@ -1596,7 +1599,7 @@ $receiptslist = ViewReceipt::filter($request)
                                 'JournalNum'=> $response,
                                 'JournalName'=> GENERAL_LEDGER_JOURNAL_NAME,
                                 'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-                                'Description'=> $receiptInfo->receipts_generation_remark,
+                                'Description'=> $axNarration['description'],
                                 'Account'=> $acc_parameter->acc_params_cr_acc,
                                 'currency'=> CURRENCY,
                                 'accountType'=> AX_GL,
@@ -1607,7 +1610,7 @@ $receiptslist = ViewReceipt::filter($request)
                                 'voucher'=>$receiptInfo->receipts_generation_receipt_no,
                                 'AmountCredit'=>$receiptInfo->receipts_generation_amt,
                                 'AmountDebit'=>0,
-                                'Remarks'=>$receiptInfo->receipts_generation_remark,
+                                'Remarks'=> $axNarration['remarks_alt'],
                                 'Invoice'=>'',
                                 'dimension1'=> 'Building',
                                 'dimension1value'=>isset($receiptInfo->tenantContractInfo->building->building_code)?$receiptInfo->tenantContractInfo->building->building_code:'000',
