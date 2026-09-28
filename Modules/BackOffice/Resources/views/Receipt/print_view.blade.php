@@ -63,9 +63,9 @@ Tel:+968 247 00247 | Fax:+968 247 03 666
           $unitNo     = $contract->Unit->unit_no ?? '';
           $bldgName   = $contract->building->building_name ?? '';
           $rent       = $contract->tenant_contract_rent ?? '';
-          $effFrom    = $receiptInfo->receipts_generation_eff_from ? \Carbon\Carbon::parse($receiptInfo->receipts_generation_eff_from)->format('d-m-Y') : '';
-          $effTo      = $receiptInfo->receipts_generation_eff_to   ? \Carbon\Carbon::parse($receiptInfo->receipts_generation_eff_to)->format('d-m-Y')   : '';
-          $beingText  = "RENT FOR UNIT NO. {$unitNo},{$bldgName} FOR {$effFrom} TO {$effTo}@{$rent}/-PM";
+          // Same text the AX posting sends (ReceiptNarration).
+          $beingText  = \Modules\BackOffice\Services\ReceiptNarration::rentBeing($unitNo, $bldgName, $rent,
+                          $receiptInfo->receipts_generation_eff_from, $receiptInfo->receipts_generation_eff_to);
         @endphp
         {{ $beingText }}
       @else
@@ -100,7 +100,7 @@ Tel:+968 247 00247 | Fax:+968 247 03 666
   @if(isset($pdcInfo->pdc_check_no))
   <div class="item-row">
       <div class="item-full-height"><label>Comment: </label>
-        {{' Cash/B.T against '.$pdcInfo->bankInfo->bank_code.$pdcInfo->pdc_check_no.' dated '.\Carbon\Carbon::parse($pdcInfo->pdc_check_date)->format('Y-m-d')}}
+        {{ \Modules\BackOffice\Services\ReceiptNarration::cashAgainstChequeComment($pdcInfo->bankInfo->bank_code, $pdcInfo->pdc_check_no, $pdcInfo->pdc_check_date) }}
     </div>
   </div>
   @endif
