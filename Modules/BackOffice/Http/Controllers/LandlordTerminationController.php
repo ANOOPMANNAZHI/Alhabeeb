@@ -609,7 +609,15 @@ class LandlordTerminationController extends Controller
 
               $tenantContractsId = TenantContract::where('building_id',$contractBuilding->building_id)->pluck('id');
               $contractUpdate = TenantContract::whereIn('id',$tenantContractsId)->update(['tenant_contract_status'=>0,'tenant_renewal_termination_status'=>8]);
-              $buildingUpdate = Building::where('id',$contractBuilding->building_id)->update(['building_status'=>0]);
+              // Handed back to the landlord: inactive + flagged, dated by the contract's end date.
+              $handedOverDate = $contractBuilding->end_date
+                  ? date('Y-m-d', strtotime($contractBuilding->end_date))
+                  : ($contractBuilding->landlord_contract_valid_to_date ? date('Y-m-d', strtotime($contractBuilding->landlord_contract_valid_to_date)) : date('Y-m-d'));
+              $buildingUpdate = Building::where('id',$contractBuilding->building_id)->update([
+                  'building_status'           => 0,
+                  'building_handed_over'      => true,
+                  'building_handed_over_date' => $handedOverDate,
+              ]);
               $unitUpdate = Unit::where('building_id',$contractBuilding->building_id)->update(['unit_vaccant_status'=>0]);
               $landlordUpdate =  LandlordContract::where('id',$terminatedDetails->contract_id)->update(['landlord_contract_status'=>0,'landlord_renewal_termination_status'=>8]);  
               //Remaining pdc and invoices cancel    
