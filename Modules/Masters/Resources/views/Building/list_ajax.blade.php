@@ -17,6 +17,7 @@
          <a @can('edit_building') href="{{route('building.edit',$building->id)}}" title="Edit" @elsecan('view_building') href="{{route('building.show',$building->id)}}" title="View"  @endcan class="no-link" >
           {{$building->management->management_types_name}}
         </td>
+        <td>{{ $building->ownership_type_name }}</td>
         @can('change_status_building')   
         <td> 
 
@@ -51,7 +52,7 @@
                         @php $count++; @endphp
                         @empty
                         <tr>
-                          <td colspan="4" align="center">
+                          <td colspan="5" align="center">
                             <p>No Record</p>
                           </td>
                         </tr>
@@ -62,7 +63,7 @@
                                 <tr>                                   
                                             
                                                       
-                                  <td colspan="6" id="pagination_ajax"> 
+                                  <td colspan="7" id="pagination_ajax"> 
                                         @php 
                                         $buildings->withPath(\Request::input('curr_url'));
                              

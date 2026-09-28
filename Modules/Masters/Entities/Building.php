@@ -12,7 +12,30 @@ class Building extends Model
     protected $guarded = [];
     protected $date = ['management_date'];
     
-    public $sortable = ['id','building_name','building_code','building_status'];
+    public $sortable = ['id','building_name','building_code','building_status','building_ownership_type'];
+
+    /** building_ownership_type values; Individual is the default. */
+    const OWNERSHIP_MERA       = 1;
+    const OWNERSHIP_GOVERNMENT = 2;
+    const OWNERSHIP_FAMILY     = 3;
+    const OWNERSHIP_INDIVIDUAL = 4;
+
+    public static function ownershipTypes()
+    {
+        return [
+            self::OWNERSHIP_MERA       => 'MERA',
+            self::OWNERSHIP_GOVERNMENT => 'Government',
+            self::OWNERSHIP_FAMILY     => 'Family Property',
+            self::OWNERSHIP_INDIVIDUAL => 'Individual',
+        ];
+    }
+
+    public function getOwnershipTypeNameAttribute()
+    {
+        $types = self::ownershipTypes();
+        $key = (int) $this->building_ownership_type;
+        return isset($types[$key]) ? $types[$key] : '';
+    }
 
   /*
     * Status Name
@@ -314,8 +337,8 @@ class Building extends Model
 
                 }else{
 
-                   if(strpos($key, 'status') !== false) 
-                     $query->where($key,$val); 
+                   if(strpos($key, 'status') !== false || $key == 'building_ownership_type')
+                     $query->where($key,$val);
                    else
                      $query->where($key,'ilike','%'.$val.'%'); 
                 }

@@ -210,11 +210,28 @@
                   <option value="">Select Management</option>
                   @foreach($managementTypes as $managementType)
                    <option  {{(old('management_id', isset($building)?  $building->management_id : 0) == $managementType->id) ? 'selected' : '' }} value="{{$managementType->id}}">{{$managementType->management_types_name}}</option>
-                  @endforeach                  
-                </select> 
-                </div>               
+                  @endforeach
+                </select>
+                </div>
             </div>
-          </div> 
+          </div>
+          <div class="col-sm-6">
+            <div class="form-group">
+                <label for="building_ownership_type">Ownership Type</label>
+                <div class="p-relative">
+                   <i class="fa fa-user icn-add" aria-hidden="true"></i>
+                @php
+                  $ownershipSelected = old('building_ownership_type', isset($building) ? $building->building_ownership_type : \Modules\Masters\Entities\Building::OWNERSHIP_INDIVIDUAL);
+                @endphp
+                <select class="form-control" id="building_ownership_type" name="building_ownership_type">
+                  <option value="">Select Ownership Type</option>
+                  @foreach(\Modules\Masters\Entities\Building::ownershipTypes() as $ownershipId => $ownershipName)
+                   <option {{ ((string) $ownershipSelected === (string) $ownershipId) ? 'selected' : '' }} value="{{$ownershipId}}">{{$ownershipName}}</option>
+                  @endforeach
+                </select>
+                </div>
+            </div>
+          </div>
           <div class="col-sm-6">
             <div class="form-group">
                 <label for="build_up_area">Management Date</label>

@@ -79,7 +79,8 @@
         <th>@sortablelink('building_name','Building Name',[], ['class' => 'sort_class'])</th>                       
         <th>@sortablelink('vendor.vendor_name','Landlord Name',[], ['class' => 'sort_class'])</th>
         <th>@sortablelink('management.management_types_name','Management Type',[], ['class' => 'sort_class'])</th>
-        @can('change_status_building')   
+        <th>@sortablelink('building_ownership_type','Ownership Type',[], ['class' => 'sort_class'])</th>
+        @can('change_status_building')
         <th>@sortablelink('building_status','Status',[], ['class' => 'sort_class'])</th>
         @endcan
         <th>Action</th>
@@ -90,6 +91,14 @@
         <td><input  type="text" name="building_name" class="search_fields " id="building_name" value="{{old('building_name')}}" ></td>
         <td><input  type="text" name="vendor__vendor_name" class="search_fields " id="vendor__vendor_name" value="{{old('vendor__vendor_name')}}" ></td>
         <td><input  type="text" name="management__management_types_name" class="search_fields " id="management__management_types_name" value="{{old('management__management_types_name')}}" ></td>
+        <td>
+          <select name="building_ownership_type" class="searchFields search_fields mob" id="building_ownership_type" style="width:130px;">
+            <option value="">Show All</option>
+            @foreach(\Modules\Masters\Entities\Building::ownershipTypes() as $ownershipId => $ownershipName)
+            <option {{ ((string) old('building_ownership_type') === (string) $ownershipId) ? 'selected' : '' }} value="{{$ownershipId}}">{{$ownershipName}}</option>
+            @endforeach
+          </select>
+        </td>
         @can('change_status_building')
         <td>
           <select name="building_status" class="searchFields search_fields mob" id="building_status" style="width:100px;">
@@ -290,9 +299,10 @@
    var building_name = $("#building_name").val();  
    var vendor__vendor_name = $("#vendor__vendor_name").val();  
    var management__management_types_name = $("#management__management_types_name").val();  
-   var building_status = $("#building_status").val();  
+   var building_status = $("#building_status").val();
+   var building_ownership_type = $("#building_ownership_type").val();
 
-   var curr_url = $("#curr_url").val();  
+   var curr_url = $("#curr_url").val();
 
 
 
@@ -302,6 +312,7 @@
     data: { 'building_name' : building_name, 'vendor__vendor_name' : vendor__vendor_name , 
     'management__management_types_name' : management__management_types_name,
     'building_status' : building_status,
+    'building_ownership_type' : building_ownership_type,
 
     'curr_url' : curr_url,"_token" : $('meta[name="csrf-token"]').attr('content')},
 
@@ -329,7 +340,7 @@
             }  
 
             var txt = 'building_name='+building_name+'&vendor__vendor_name='+vendor__vendor_name+'&management__management_types_name='+
-            management__management_types_name+'&building_statu='+building_status+'&curr_url='+curr_url ;
+            management__management_types_name+'&building_statu='+building_status+'&building_ownership_type='+building_ownership_type+'&curr_url='+curr_url ;
 
             var txt_hashes = txt.split('&');
             var href_txt = '';

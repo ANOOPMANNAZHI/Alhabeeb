@@ -198,6 +198,11 @@
             </div>
           </div>
           {{-- @endif --}}
+          <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+              <h5 class="details"><b>Ownership Type  :  </b><span>{{ $building->ownership_type_name ?: '-' }}</span></h5>
+            </div>
+          </div>
           {{-- @if(isset($building->management_date))  --}}
           <div class="col-lg-6 p-t-20"> 
             <div class = "txt-full-width">

@@ -141,7 +141,8 @@ class BuildingController extends Controller
         'building_pc' => 'required', 
         'location_id' => 'required',           
         'google_location' => 'required', 
-        'building_note' => 'required'
+        'building_note' => 'required',
+        'building_ownership_type' => 'nullable|in:1,2,3,4'
       /*'building_img_name.*'    => 'mimes:jpeg,jpg,pdf,docs,doc,docx|max:'.$size ,
        // 'building_doc_path_name.*'    => 'mimes:jpeg,jpg,pdf,docs,doc,docx|max:'.$size , */
         ]);
@@ -157,6 +158,7 @@ class BuildingController extends Controller
         'building_no' => $request->building_no,
         'building_type_id' => $request->building_type_id,
         'management_id' => $request->management_id,
+        'building_ownership_type' => $request->filled('building_ownership_type') ? (int) $request->building_ownership_type : null,
         'building_address' => $request->building_address,
         'building_pc' => $request->building_pc,
         'location_id' => $request->location_id,
@@ -345,7 +347,8 @@ class BuildingController extends Controller
       'building_pc' => 'required', 
       'location_id' => 'required',           
       'google_location' => 'required', 
-      'building_note' => 'required', 
+      'building_note' => 'required',
+      'building_ownership_type' => 'nullable|in:1,2,3,4',
       'building_img_name.*'    => 'mimes:jpeg,jpg,pdf,docs,doc,docx|max:'.$size ,
       'building_doc_path_name.*'    => 'mimes:jpeg,jpg,pdf,docs,doc,docx|max:'.$size ,
       ]);
@@ -357,6 +360,7 @@ class BuildingController extends Controller
       'building_no' => $request->building_no,
       'building_type_id' => $request->building_type_id,
       'management_id' => $request->management_id,
+      'building_ownership_type' => $request->filled('building_ownership_type') ? (int) $request->building_ownership_type : null,
       'building_address' => $request->building_address,
       'building_pc' => $request->building_pc,
       'location_id' => $request->location_id,
