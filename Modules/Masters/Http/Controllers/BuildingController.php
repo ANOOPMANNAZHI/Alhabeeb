@@ -526,7 +526,10 @@ class BuildingController extends Controller
         $building->building_status = 0;
       } else {
         $building->building_status = 1;
-      } 
+        // Taken back under management: no longer a handed-over building.
+        $building->building_handed_over = false;
+        $building->building_handed_over_date = null;
+      }
       $building->save();    
       
          // Log   

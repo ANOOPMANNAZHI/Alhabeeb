@@ -28,4 +28,22 @@ class BuildingOwnershipTypeTest extends TestCase
         $b->building_ownership_type = 9;
         $this->assertSame('', $b->ownership_type_name);
     }
+
+    public function test_status_name_shows_handed_over()
+    {
+        $b = new Building();
+        $b->building_status = 1;
+        $b->building_handed_over = false;
+        $this->assertSame('Active', $b->building_status_name);
+
+        $b->building_status = 0;
+        $this->assertSame('Inactive', $b->building_status_name);
+
+        $b->building_handed_over = true;
+        $this->assertSame('Handed Over', $b->building_status_name);
+
+        // re-activated building: the flag no longer wins
+        $b->building_status = 1;
+        $this->assertSame('Active', $b->building_status_name);
+    }
 }

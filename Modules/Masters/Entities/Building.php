@@ -11,6 +11,7 @@ class Building extends Model
 	
     protected $guarded = [];
     protected $date = ['management_date'];
+    protected $casts = ['building_handed_over' => 'boolean'];
     
     public $sortable = ['id','building_name','building_code','building_status','building_ownership_type'];
 
@@ -46,7 +47,7 @@ class Building extends Model
     {     
         switch($this->building_status){
           case '1' : return 'Active';
-          case '0' : return 'Inactive';        
+          case '0' : return $this->building_handed_over ? 'Handed Over' : 'Inactive';
         }
     }
   /*
@@ -337,7 +338,12 @@ class Building extends Model
 
                 }else{
 
-                   if(strpos($key, 'status') !== false || $key == 'building_ownership_type')
+                   // Status filter: 1 Active, 0 Inactive (not handed over), 2 Handed Over.
+                   if($key == 'building_status' && (string) $val === '2')
+                     $query->where('building_status', 0)->where('building_handed_over', true);
+                   elseif($key == 'building_status' && (string) $val === '0')
+                     $query->where('building_status', 0)->where('building_handed_over', false);
+                   elseif(strpos($key, 'status') !== false || $key == 'building_ownership_type')
                      $query->where($key,$val);
                    else
                      $query->where($key,'ilike','%'.$val.'%'); 

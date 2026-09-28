@@ -23,7 +23,9 @@
 
          @if($building->building_status == 1)
          <span  class=" btn-circle btn-success btn-sm m-b-10 status">{{$building->building_status_name}}</span>
-         @else 
+         @elseif($building->building_handed_over)
+         <span  class=" btn-circle btn-warning btn-sm m-b-10" title="{{ $building->building_handed_over_date ? 'Handed over on '.\Carbon\Carbon::parse($building->building_handed_over_date)->format('d/m/Y') : 'Handed over' }}">{{$building->building_status_name}}</span>
+         @else
          <span  class=" btn-circle btn-danger btn-sm m-b-10">{{$building->building_status_name}}</span>
          @endif
 

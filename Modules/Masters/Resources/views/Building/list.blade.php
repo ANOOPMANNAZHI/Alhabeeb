@@ -105,6 +105,7 @@
             <option value="">Show All</option>
             <option {{ (old('building_status') != '')? ((old('building_status') ==  0)? 'selected':'') : ''}}   value="0">Inactive</option>
             <option {{(old('building_status') ==  1)? 'selected':''}}  value="1">Active</option>
+            <option {{(old('building_status') ==  2)? 'selected':''}}  value="2">Handed Over</option>
           </select>
         </td>
         @endcan

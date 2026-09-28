@@ -203,6 +203,13 @@
               <h5 class="details"><b>Ownership Type  :  </b><span>{{ $building->ownership_type_name ?: '-' }}</span></h5>
             </div>
           </div>
+          @if($building->building_handed_over)
+          <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+              <h5 class="details"><b>Handed Over  :  </b><span>{{ $building->building_handed_over_date ? \Carbon\Carbon::parse($building->building_handed_over_date)->format('d/m/Y') : 'Yes (date not recorded)' }}</span></h5>
+            </div>
+          </div>
+          @endif
           {{-- @if(isset($building->management_date))  --}}
           <div class="col-lg-6 p-t-20"> 
             <div class = "txt-full-width">
