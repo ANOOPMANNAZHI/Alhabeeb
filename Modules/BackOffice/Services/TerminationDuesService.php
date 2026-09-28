@@ -26,42 +26,61 @@ class TerminationDuesService
     public $lastRentError = null;
 
     /**
-     * Can a dues record be created for this contract from the Termination Dues
-     * screen? Same scope as the backfill: terminated (status 8) with an approved
-     * tenant termination (505) and no dues record yet.
-     *
-     * @return array ok, reason, contract, final (Termination), dues (existing record)
+     * Terminated contracts (status 8, approved tenant termination 505) that have
+     * no dues record yet: the backfill's scope.
      */
-    public function assessForManualCreate($contractNo)
+    public function backfillCandidates()
     {
-        $no = trim((string) $contractNo);
-        $out = ['ok' => false, 'reason' => null, 'contract' => null, 'final' => null, 'dues' => null];
+        return Termination::where('work_flow_processes_code', self::FINAL_STAGE)
+            ->whereIn('contract_id', function ($s) { $s->select('id')->from('tenant_contracts')->where('tenant_renewal_termination_status', 8); })
+            ->whereNotIn('contract_id', function ($s) { $s->select('tenant_contract_id')->from('termination_dues'); });
+    }
 
-        $contract = $no !== '' ? TenantContract::where('tenant_contract_no', $no)->first() : null;
-        if (!$contract) {
-            $out['reason'] = 'Contract ' . $no . ' was not found.';
-            return $out;
-        }
-        $out['contract'] = $contract;
+    /**
+     * One step of the screen backfill: the next $limit candidate contracts after
+     * $afterContractId, previewed ($apply false, nothing kept) or created.
+     *
+     * @return array rows (preview/created), failures, counts, last_contract_id, done
+     */
+    public function backfillBatch($afterContractId, $limit, $apply, $userId)
+    {
+        $ids = $this->backfillCandidates()
+            ->where('contract_id', '>', (int) $afterContractId)
+            ->groupBy('contract_id')
+            ->orderBy('contract_id')
+            ->limit($limit)
+            ->select('contract_id', DB::raw('MAX(id) AS final_id'))
+            ->get();
 
-        $dues = TerminationDues::where('tenant_contract_id', $contract->id)->first();
-        if ($dues) {
-            $out['dues'] = $dues;
-            $out['reason'] = 'A termination dues record already exists for contract ' . $no . '.';
-            return $out;
+        $out = ['rows' => [], 'failures' => [], 'counts' => ['create' => 0, 'settled' => 0, 'nothing_owed' => 0, 'failed' => 0],
+                'last_contract_id' => (int) $afterContractId, 'done' => count($ids) < $limit];
+
+        foreach ($ids as $row) {
+            $out['last_contract_id'] = (int) $row->contract_id;
+            $final = Termination::find($row->final_id);
+            $contract = TenantContract::with(['tenant', 'building', 'Unit'])->find($row->contract_id);
+            $r = $this->manualCreate($final, $userId, $apply);
+
+            if ($r['outcome'] === 'preview' || $r['outcome'] === 'created') {
+                $out['counts']['create']++;
+                $out['rows'][] = [
+                    'dues_id'          => $r['dues'] ? $r['dues']->id : null,
+                    'contract_no'      => $contract ? $contract->tenant_contract_no : '#' . $row->contract_id,
+                    'tenant'           => $contract && $contract->tenant ? $contract->tenant->tenant_name : '',
+                    'unit'             => trim(($contract && $contract->building ? $contract->building->building_name : '') . ($contract && $contract->Unit ? ' / ' . $contract->Unit->unit_no : '')),
+                    'termination_date' => $final->termination_date ? date('d/m/Y', strtotime($final->termination_date)) : '',
+                    'owed'             => $r['result']['total']['owed'],
+                    'balance'          => $r['result']['total']['balance'],
+                ];
+            } elseif ($r['outcome'] === 'settled') {
+                $out['counts']['settled']++;
+            } elseif ($r['outcome'] === 'nothing_owed') {
+                $out['counts']['nothing_owed']++;
+            } else {
+                $out['counts']['failed']++;
+                $out['failures'][] = ['contract_no' => $contract ? $contract->tenant_contract_no : '#' . $row->contract_id, 'message' => $r['message']];
+            }
         }
-        if ((int) $contract->tenant_renewal_termination_status !== 8) {
-            $out['reason'] = 'Contract ' . $no . ' is not terminated, so it has no termination dues.';
-            return $out;
-        }
-        $final = Termination::where('contract_id', $contract->id)->where('work_flow_processes_code', self::FINAL_STAGE)
-            ->orderBy('id', 'desc')->first();
-        if (!$final) {
-            $out['reason'] = 'Contract ' . $no . ' has no approved tenant termination (it may have been closed by a building handover), so dues cannot be created here.';
-            return $out;
-        }
-        $out['final'] = $final;
-        $out['ok'] = true;
         return $out;
     }
 

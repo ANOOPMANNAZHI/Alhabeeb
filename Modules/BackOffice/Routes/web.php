@@ -781,8 +781,8 @@ Route::middleware('auth')->group(function () {
 	// Termination dues: what terminated tenants still owe, by team
 	Route::get('termination-dues', 'TerminationDuesController@index')->name('termination-dues.index');
 	Route::get('termination-dues-summary', 'TerminationDuesController@summary')->name('terminationDuesSummary');
-	Route::get('termination-dues/create-check', 'TerminationDuesController@createCheck')->name('termination-dues.create-check');
-	Route::post('termination-dues/create-for-contract', 'TerminationDuesController@createForContract')->name('termination-dues.create-for-contract');
+	Route::get('termination-dues/backfill', 'TerminationDuesController@backfill')->name('termination-dues.backfill');
+	Route::post('termination-dues/backfill/batch', 'TerminationDuesController@backfillBatch')->name('termination-dues.backfill.batch');
 	Route::get('termination-dues/{terminationDues}', 'TerminationDuesController@show')->name('termination-dues.show');
 	Route::post('termination-dues/{terminationDues}/followup', 'TerminationDuesController@storeFollowup')->name('termination-dues.followup');
 	Route::post('termination-dues/{terminationDues}/allocate', 'TerminationDuesController@storeAllocation')->name('termination-dues.allocate');

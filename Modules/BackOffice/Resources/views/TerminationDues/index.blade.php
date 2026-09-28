@@ -31,7 +31,7 @@
   </div>
 
 	@can('create_termination_dues')
-	<a href="{{ route('termination-dues.create-check') }}" class="tdue-create-btn"><i class="fa fa-plus" aria-hidden="true"></i> Create Dues for a Contract</a>
+	<a href="{{ route('termination-dues.backfill') }}" class="tdue-create-btn"><i class="fa fa-history" aria-hidden="true"></i> Backfill Termination Dues</a>
 	@endcan
 	<a class="align-right advSearch" href="#" id="enquiry_div" data-toggle="collapse" data-target="#show">
 			<i class="fa fa-search" aria-hidden="true"></i>  <span id="enquirySearch"> Advance Search <i class="fa fa-caret-down" aria-hidden="true"></i></span>

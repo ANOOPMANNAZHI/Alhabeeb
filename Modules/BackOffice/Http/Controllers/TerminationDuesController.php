@@ -24,47 +24,31 @@ class TerminationDuesController extends Controller
         $this->middleware('auth');
         // summary feeds the box on the receipt / deposit refund forms; any signed-in user may read it
         $this->middleware('permission:view_termination_dues_backoffice|view_termination_dues_maintenance')->except('summary');
-        $this->middleware('permission:create_termination_dues')->only(['createCheck', 'createForContract']);
+        $this->middleware('permission:create_termination_dues')->only(['backfill', 'backfillBatch']);
     }
 
     /**
-     * "Create dues for a contract": check a terminated contract that has no dues
-     * record (e.g. terminated before the feature) and preview what the record
-     * would hold - same calculation as termination-dues:backfill, nothing saved.
+     * One-time backfill from PLMS: every terminated contract (approved tenant
+     * termination) that has no dues record yet, e.g. terminated before
+     * Termination Dues existed. Preview first, then create - same calculation
+     * as termination-dues:backfill. The page drives backfillBatch() in small
+     * steps so no request runs long enough to time out.
      */
-    public function createCheck(Request $request)
+    public function backfill()
     {
-        $contractNo = trim((string) $request->input('contract_no'));
-        $assessment = null;
-        $preview = null;
-        if ($contractNo !== '') {
-            $svc = new TerminationDuesService();
-            $assessment = $svc->assessForManualCreate($contractNo);
-            if ($assessment['ok']) {
-                $preview = $svc->manualCreate($assessment['final'], \Auth::user()->id, false);
-            }
-        }
-        return view('backoffice::TerminationDues.create_check', compact('contractNo', 'assessment', 'preview'));
+        $remaining = (new TerminationDuesService())->backfillCandidates()->distinct()->count('contract_id');
+        return view('backoffice::TerminationDues.backfill', compact('remaining'));
     }
 
-    /** Create the dues record previewed by createCheck(); rent receipts on the contract then work. */
-    public function createForContract(Request $request)
+    /** One batch for the backfill page (JSON). apply=0 previews (nothing kept), apply=1 creates. */
+    public function backfillBatch(Request $request)
     {
-        $this->validate($request, ['contract_no' => 'required']);
-        $contractNo = trim($request->input('contract_no'));
-        $back = redirect()->route('termination-dues.create-check', ['contract_no' => $contractNo]);
-
-        $svc = new TerminationDuesService();
-        $assessment = $svc->assessForManualCreate($contractNo);
-        if (!$assessment['ok']) {
-            return $back->with('error', $assessment['reason']);
+        $result = (new TerminationDuesService())->backfillBatch(
+            (int) $request->input('after', 0), 25, (bool) $request->input('apply'), \Auth::user()->id);
+        foreach ($result['rows'] as $i => $row) {
+            $result['rows'][$i]['url'] = $row['dues_id'] ? route('termination-dues.show', $row['dues_id']) : null;
         }
-        $result = $svc->manualCreate($assessment['final'], \Auth::user()->id, true);
-        if ($result['outcome'] !== 'created') {
-            return $back->with('error', $result['message']);
-        }
-        return redirect()->route('termination-dues.show', $result['dues']->id)
-            ->with('success', 'Termination dues created for contract ' . $contractNo . '. Rent receipts can now be created against the open rent.');
+        return response()->json($result);
     }
 
     /** Teams the current user may see, in tab order. */
