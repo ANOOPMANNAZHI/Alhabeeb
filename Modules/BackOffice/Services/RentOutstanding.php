@@ -85,6 +85,34 @@ class RentOutstanding
         return $value;
     }
 
+    /** How much the contract-value cap lowers rent due up to $to (0 when it does not apply). */
+    public static function capReduction($from, $to, $rentPerMonth, $contractValue, $contractEnd)
+    {
+        $due = self::rentDue($from, $to, $rentPerMonth);
+        $cap = self::contractValueCap($from, $contractEnd, $rentPerMonth, $contractValue);
+        return ($cap !== null && $due > $cap) ? round($due - $cap, self::DECIMALS) : 0.0;
+    }
+
+    /**
+     * Correct an outstanding figure stored under the old rule. Removes only the
+     * part above the new rule (stored + paid - new due), and never more than the
+     * rule's reduction, so re-running it or running it on an already-correct
+     * figure changes nothing. Null stays null. $floorAtZero: amounts owed
+     * (dues lines) never go below 0; tenant_contract_os is stored unfloored
+     * (negative = overpaid), so it may.
+     */
+    public static function correctedStoredAmount($stored, $paid, $newDue, $reduction, $floorAtZero = true)
+    {
+        if ($stored === null || $stored === '') {
+            return null;
+        }
+        $stored = self::money($stored);
+        $excess = round($stored + self::money($paid) - self::money($newDue), self::DECIMALS);
+        $cut    = min(self::money($reduction), max($excess, 0.0));
+        $result = round($stored - $cut, self::DECIMALS);
+        return $floorAtZero ? max($result, 0.0) : $result;
+    }
+
     /**
      * @param mixed $contractValue / $contractEnd  optional: cap rent due at a
      *        trusted contract value (see contractValueCap)
