@@ -54,6 +54,7 @@
 											</div>
 										</div>
 									</div>
+									@include('backoffice::TenantContract._municipality_charges', ['municipality' => $municipality])
 									<div class="col-sm-12">
 										<div class="form-group">
 											<label for="tenant_contract_note">Guarantee cheque </label>
