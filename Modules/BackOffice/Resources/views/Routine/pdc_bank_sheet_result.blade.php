@@ -42,14 +42,17 @@
             <span class="bsr-pill bsr-pill-bad"><i class="fa fa-ban" aria-hidden="true"></i>{{ count($notPosted) }} not posted</span>
             @endif
           </dd>
-          <dd>
-            <a href="{{ route('pdcBankSheetResultExcel', $upload->id) }}" class="btn btn-success btn-sm"><i class="fa fa-file-excel-o" aria-hidden="true"></i> Download Excel</a>
-            <a href="{{ route('pdcPosting') }}" class="btn btn-outline-secondary btn-sm">Back to PDC Posting</a>
-            <a href="{{ route('pdcBankSheetDay', substr($upload->created_at, 0, 10)) }}" class="btn btn-outline-secondary btn-sm">All postings that day</a>
-            <a href="{{ route('pdcBankSheetUploads') }}" class="btn btn-outline-secondary btn-sm">Posting history</a>
-          </dd>
         </dl>
       </div>
+    </div>
+
+    <div class="bsr-toolbar">
+      <nav class="bsr-toolbar-nav" aria-label="Bank sheet posting">
+        <a href="{{ route('pdcPosting') }}" class="bsr-btn"><i class="fa fa-arrow-left" aria-hidden="true"></i> Back to PDC Posting</a>
+        <a href="{{ route('pdcBankSheetDay', substr($upload->created_at, 0, 10)) }}" class="bsr-btn"><i class="fa fa-calendar" aria-hidden="true"></i> All postings that day</a>
+        <a href="{{ route('pdcBankSheetUploads') }}" class="bsr-btn"><i class="fa fa-history" aria-hidden="true"></i> Posting history</a>
+      </nav>
+      <a href="{{ route('pdcBankSheetResultExcel', $upload->id) }}" class="bsr-btn bsr-btn-primary"><i class="fa fa-file-excel-o" aria-hidden="true"></i> Download Excel</a>
     </div>
   </div>
 </div>
