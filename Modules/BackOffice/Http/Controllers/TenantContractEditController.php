@@ -7,6 +7,8 @@ use Illuminate\Http\Response;
 use App\Http\Controllers\Controller;
 
 use Modules\BackOffice\Entities\TenantContractEdit;
+use Modules\BackOffice\Services\MunicipalityRegistrationLedger;
+use Modules\BackOffice\Exceptions\MunicipalityLedgerException;
 use Modules\Sales\Entities\LandlordContract;
 use Modules\BackOffice\Entities\TenantContractRevokeTemp;
 use Modules\BackOffice\Entities\TenantContractRevokeNote;	
@@ -1746,49 +1748,71 @@ public function tenantPopupAction(Request $request){
   public function tenantContractAddMunicipality(Request $request){
     $tenant_contract_id = $request->tenant_contract_id;
     $tenantContractInfo = TenantContract::where('id',$tenant_contract_id)->first();
-    return view('backoffice::TenantContract.tenant_contract_municipality_modal',compact('tenant_contract_id','tenantContractInfo'));
+    $municipality = (new MunicipalityRegistrationLedger())->modalData($tenantContractInfo);
+    return view('backoffice::TenantContract.tenant_contract_municipality_modal',compact('tenant_contract_id','tenantContractInfo','municipality'));
   }
 
   public function tenantContractAddMunicipalityStore(Request $request){
 
-    $this->validate($request, [        
-        'tenant_contract_muncipality_agr_no'=>'required',
-        'tenant_contract_registered_in'=>'required',
+    $this->validate($request, [
+        'tenant_contract_muncipality_agr_no'       => 'required',
+        'tenant_contract_registered_in'            => 'required',
+        'tenant_contract_registered_date'          => 'required|date',
+        'tenant_contract_municipality_tax_amt'     => 'required|numeric|min:0',
+        'tenant_contract_municipality_penalty_amt' => 'nullable|numeric|min:0',
         ]);
-		
-	$tenant_contract_id = $request->tenant_contract_id;
-	$tenant_contract_muncipality_agr_no = $request->tenant_contract_muncipality_agr_no;
-	$tenant_contract_registered_in = $request->tenant_contract_registered_in;
-	$tenant_contract_registered_date = $request->tenant_contract_registered_date;
-	$tenant_contract_note = $request->tenant_contract_note;
 
-	$tenant_contract_guarantee_cheque_details = $request->tenant_contract_guarantee_cheque_details;
-	$pdc_check = $request->pdc_check;
-	$deposit_check = $request->deposit_check;
+    $tenant_contract_id = $request->tenant_contract_id;
 
-  //upload Muncipality Agreement here.....
-
-  $agreement = null;
-
-  $documents = $request->file('tenant_document_file_name');
+    // Upload the municipality agreement; only overwrite the stored one when a new file is sent.
+    $agreement = null;
+    $documents = $request->file('tenant_document_file_name');
     if(!empty($documents)) {
       foreach($documents as $document){
-        $uniqueFileName = $document->getClientOriginalName();
-        $img_path =    Storage::putFile('public/Document', $document);
-        $agreement = $img_path;
+        if ($document) {
+          $agreement = Storage::putFile('public/Document', $document);
+        }
       }
     }
 
+    // Municipal tax / processing / penalty and their General Ledger vouchers are saved with the
+    // contract in one transaction; a posted voucher whose amount would change stops the save.
+    try {
+      DB::transaction(function () use ($request, $tenant_contract_id, $agreement) {
+        $contract = TenantContract::where('id', $tenant_contract_id)->lockForUpdate()->firstOrFail();
 
-	TenantContract::where('id',$tenant_contract_id)->update(['tenant_contract_muncipality_agr_no'=>$tenant_contract_muncipality_agr_no,'tenant_contract_registered_in'=>$tenant_contract_registered_in,'tenant_contract_registered_date'=>$tenant_contract_registered_date,'tenant_contract_note'=>$tenant_contract_note,'tenant_contract_is_reg_municipality'=>1,
-		'tenant_contract_guarantee_cheque_details'=>$tenant_contract_guarantee_cheque_details,
-		'pdc_check'=>$pdc_check,
-		'deposit_check'=>$deposit_check,'tenant_muncipality_agreement'=>$agreement
-	]);
+        $charges = (new MunicipalityRegistrationLedger())->sync(
+          $contract,
+          $request->tenant_contract_municipality_tax_amt,
+          $request->tenant_contract_municipality_penalty_amt,
+          $request->tenant_contract_registered_date,
+          \Auth::user()->id,
+          \Auth::user()->can('ledger_approval')
+        );
 
-
-
-
+        $fields = [
+          'tenant_contract_muncipality_agr_no'          => $request->tenant_contract_muncipality_agr_no,
+          'tenant_contract_registered_in'               => $request->tenant_contract_registered_in,
+          'tenant_contract_registered_date'             => $request->tenant_contract_registered_date,
+          'tenant_contract_note'                        => $request->tenant_contract_note,
+          'tenant_contract_is_reg_municipality'         => 1,
+          'tenant_contract_guarantee_cheque_details'    => $request->tenant_contract_guarantee_cheque_details,
+          'pdc_check'                                   => $request->pdc_check,
+          'deposit_check'                               => $request->deposit_check,
+          'tenant_contract_municipality_tax_amt'        => $charges['tax_amt'],
+          'tenant_contract_municipality_processing_amt' => $charges['processing_amt'],
+          'tenant_contract_municipality_penalty_amt'    => $charges['penalty_amt'],
+          'tenant_contract_municipality_gl_id'          => $charges['tax_gl_id'],
+          'tenant_contract_municipality_penalty_gl_id'  => $charges['penalty_gl_id'],
+        ];
+        if ($agreement !== null) {
+          $fields['tenant_muncipality_agreement'] = $agreement;
+        }
+        TenantContract::where('id', $contract->id)->update($fields);
+      });
+    } catch (MunicipalityLedgerException $e) {
+      return redirect()->back()->withInput()->with('error', $e->getMessage());
+    }
 
       session()->flash('success', 'Tenant Contract Municipality Changed Successfully');
       return redirect()->route('tenant-contract.index');
@@ -1796,7 +1820,8 @@ public function tenantPopupAction(Request $request){
 	public function tenantContractAddMunicipalityview(Request $request){
     $tenant_contract_id = $request->tenant_contract_id;
     $tenantContractInfo = TenantContract::where('id',$tenant_contract_id)->first();
-    return view('backoffice::TenantContract.tenant_contract_municipality_modal_view',compact('tenant_contract_id','tenantContractInfo'));
+    $municipality = (new MunicipalityRegistrationLedger())->modalData($tenantContractInfo);
+    return view('backoffice::TenantContract.tenant_contract_municipality_modal_view',compact('tenant_contract_id','tenantContractInfo','municipality'));
   }
 
     public function tenantContractAddMunicipalityViewStore(Request $request){
