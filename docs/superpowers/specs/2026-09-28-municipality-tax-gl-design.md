@@ -1,7 +1,7 @@
 # Municipality Tax on Contract Registration — Design
 
 Date: 2026-09-28
-Status: approved in chat, awaiting spec review
+Status: approved 2026-09-28
 
 ## Goal
 
@@ -141,8 +141,13 @@ properties.
 - Vacating Unit Inspection keeps its own municipal tax rule.
 - No vouchers for contracts registered before go-live.
 - No change to GL posting or AX.
-- Existing behaviour where re-saving the modal without a file clears
-  `tenant_muncipality_agreement` is not changed here.
+
+## Fix included: agreement file kept on re-save
+
+Today `tenantContractAddMunicipalityStore` writes `tenant_muncipality_agreement`
+= null when the modal is saved without uploading a file, wiping the earlier
+upload. After this change the column is only written when a new file is
+uploaded; otherwise the existing path is kept.
 
 ## Testing
 
