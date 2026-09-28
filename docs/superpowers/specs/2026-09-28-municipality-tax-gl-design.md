@@ -92,6 +92,17 @@ Everything below runs in one DB transaction with the contract row locked.
    - posted → same rejection rule as the tax voucher
 4. Total of 0 (tax 0 and processing 0) → no tax voucher; an unposted one is
    soft-deleted.
+5. Legacy contracts (already registered, `tenant_contract_is_reg_municipality`
+   = 1, no stored tax, no vouchers — i.e. registered before go-live): the modal
+   shows a note instead of the charge fields, tax is not required, and saving
+   never creates vouchers.
+6. An unchanged voucher (same amount and date) is left exactly as it is, so
+   Finance's edits and approvals survive a remark-only re-save. When the amount
+   or date changes, the voucher's approval resets to the saver's level (approved
+   if they can `ledger_approval`, else draft) so the new amount is re-approved.
+7. A voucher Finance deleted in General Ledger is never recreated: it is treated
+   like a posted one (amount locked, message "was deleted in General Ledger");
+   clearing a penalty whose voucher was deleted just drops the link.
 
 ### Voucher shape
 

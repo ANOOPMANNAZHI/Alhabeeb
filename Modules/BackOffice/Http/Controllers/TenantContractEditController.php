@@ -1754,11 +1754,15 @@ public function tenantPopupAction(Request $request){
 
   public function tenantContractAddMunicipalityStore(Request $request){
 
+    // Contracts registered before the municipal tax vouchers went live have no charge fields in the modal.
+    $existing = TenantContract::find($request->tenant_contract_id);
+    $legacy = $existing && (new MunicipalityRegistrationLedger())->isLegacy($existing);
+
     $this->validate($request, [
         'tenant_contract_muncipality_agr_no'       => 'required',
         'tenant_contract_registered_in'            => 'required',
         'tenant_contract_registered_date'          => 'required|date',
-        'tenant_contract_municipality_tax_amt'     => 'required|numeric|min:0',
+        'tenant_contract_municipality_tax_amt'     => ($legacy ? 'nullable' : 'required') . '|numeric|min:0',
         'tenant_contract_municipality_penalty_amt' => 'nullable|numeric|min:0',
         ]);
 
@@ -1799,12 +1803,14 @@ public function tenantPopupAction(Request $request){
           'tenant_contract_guarantee_cheque_details'    => $request->tenant_contract_guarantee_cheque_details,
           'pdc_check'                                   => $request->pdc_check,
           'deposit_check'                               => $request->deposit_check,
-          'tenant_contract_municipality_tax_amt'        => $charges['tax_amt'],
-          'tenant_contract_municipality_processing_amt' => $charges['processing_amt'],
-          'tenant_contract_municipality_penalty_amt'    => $charges['penalty_amt'],
-          'tenant_contract_municipality_gl_id'          => $charges['tax_gl_id'],
-          'tenant_contract_municipality_penalty_gl_id'  => $charges['penalty_gl_id'],
         ];
+        if (empty($charges['legacy'])) {
+          $fields['tenant_contract_municipality_tax_amt']        = $charges['tax_amt'];
+          $fields['tenant_contract_municipality_processing_amt'] = $charges['processing_amt'];
+          $fields['tenant_contract_municipality_penalty_amt']    = $charges['penalty_amt'];
+          $fields['tenant_contract_municipality_gl_id']          = $charges['tax_gl_id'];
+          $fields['tenant_contract_municipality_penalty_gl_id']  = $charges['penalty_gl_id'];
+        }
         if ($agreement !== null) {
           $fields['tenant_muncipality_agreement'] = $agreement;
         }

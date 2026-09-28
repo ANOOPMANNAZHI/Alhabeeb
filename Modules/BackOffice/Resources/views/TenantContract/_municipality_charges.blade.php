@@ -6,6 +6,11 @@
   $taxVal = old('tenant_contract_municipality_tax_amt', number_format($m['tax'], 3, '.', ''));
   $penVal = old('tenant_contract_municipality_penalty_amt', number_format($m['penalty'], 3, '.', ''));
 @endphp
+@if ($m['legacy'])
+<div class="col-sm-12">
+  <div class="form-group text-muted">Registered with the municipality before municipal tax vouchers were introduced &mdash; no tax voucher is created for this contract.</div>
+</div>
+@else
 <div class="col-sm-12 municipality-charges" data-processing="{{ $m['processing'] }}">
   <div class="row">
     <div class="col-md-6 col-sm-12">
@@ -52,3 +57,4 @@
     box.find('.mc-total').val((tax + processing).toLocaleString('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3}));
   });
 </script>
+@endif

@@ -39,14 +39,27 @@ class MunicipalityRegistrationLedger
         ];
     }
 
+    /**
+     * Registered with the municipality before this feature went live: no stored tax
+     * and no vouchers. Its tax was booked by hand, so saving it must not create vouchers.
+     */
+    public function isLegacy($contract)
+    {
+        return (int) $contract->tenant_contract_is_reg_municipality === 1
+            && $contract->tenant_contract_municipality_tax_amt === null
+            && !$contract->tenant_contract_municipality_gl_id
+            && !$contract->tenant_contract_municipality_penalty_gl_id;
+    }
+
     public function modalData($contract)
     {
         $s = $this->settings();
         $taxGl = $this->voucher($contract->tenant_contract_municipality_gl_id);
         $penGl = $this->voucher($contract->tenant_contract_municipality_penalty_gl_id);
-        $taxPosted = $taxGl && (int) $taxGl->general_ledger_status === self::POSTED;
+        $taxPosted = $taxGl && $this->isLocked($taxGl);
 
         return [
+            'legacy'          => $this->isLegacy($contract),
             'contract_value'  => Charges::money($contract->tenant_contract_value),
             'rate'            => $s['rate'],
             'processing'      => $taxPosted && $contract->tenant_contract_municipality_processing_amt !== null
@@ -58,12 +71,23 @@ class MunicipalityRegistrationLedger
             'tax_voucher'     => $this->voucherInfo($taxGl),
             'penalty_voucher' => $this->voucherInfo($penGl),
             'tax_locked'      => $taxPosted,
-            'penalty_locked'  => $penGl && (int) $penGl->general_ledger_status === self::POSTED,
+            'penalty_locked'  => $penGl && $this->isLocked($penGl),
         ];
     }
 
     public function sync($contract, $taxInput, $penaltyInput, $docDate, $userId, $canApprove)
     {
+        if ($this->isLegacy($contract)) {
+            return [
+                'legacy'         => true,
+                'tax_amt'        => null,
+                'processing_amt' => null,
+                'penalty_amt'    => Charges::money($contract->tenant_contract_municipality_penalty_amt),
+                'tax_gl_id'      => null,
+                'penalty_gl_id'  => null,
+            ];
+        }
+
         $s = $this->settings();
         $tax = Charges::money($taxInput);
         $penalty = Charges::money($penaltyInput);
@@ -72,10 +96,9 @@ class MunicipalityRegistrationLedger
         $penGl = $this->voucher($contract->tenant_contract_municipality_penalty_gl_id);
 
         // ---- tax + processing ------------------------------------------
-        if ($taxGl && (int) $taxGl->general_ledger_status === self::POSTED) {
+        if ($taxGl && $this->isLocked($taxGl)) {
             if (!Charges::sameAmount($tax, $contract->tenant_contract_municipality_tax_amt)) {
-                throw new MunicipalityLedgerException('Municipality tax voucher ' . $taxGl->voucher_no
-                    . ' is already posted to AX; make a correcting entry in General Ledger.');
+                throw new MunicipalityLedgerException($this->lockedMessage('tax', $taxGl));
             }
             $tax = Charges::money($contract->tenant_contract_municipality_tax_amt);
             $processing = Charges::money($contract->tenant_contract_municipality_processing_amt);
@@ -96,10 +119,11 @@ class MunicipalityRegistrationLedger
         }
 
         // ---- penalty -------------------------------------------------
-        if ($penGl && (int) $penGl->general_ledger_status === self::POSTED) {
+        if ($penGl && $penGl->trashed() && $penalty <= 0) {
+            $penGlId = null; // deleted in General Ledger and no penalty any more: just drop the link
+        } elseif ($penGl && $this->isLocked($penGl)) {
             if (!Charges::sameAmount($penalty, $contract->tenant_contract_municipality_penalty_amt)) {
-                throw new MunicipalityLedgerException('Municipality penalty voucher ' . $penGl->voucher_no
-                    . ' is already posted to AX; make a correcting entry in General Ledger.');
+                throw new MunicipalityLedgerException($this->lockedMessage('penalty', $penGl));
             }
             $penalty = Charges::money($contract->tenant_contract_municipality_penalty_amt);
             $penGlId = $penGl->id;
@@ -115,6 +139,7 @@ class MunicipalityRegistrationLedger
         }
 
         return [
+            'legacy'         => false,
             'tax_amt'        => $tax,
             'processing_amt' => $processing,
             'penalty_amt'    => $penalty,
@@ -132,10 +157,23 @@ class MunicipalityRegistrationLedger
             ? $row->configuration_value : $this->defaults[$key];
     }
 
-    /** Live (not soft-deleted) voucher or null. */
+    /** Linked voucher, including one deleted in General Ledger (so it is never silently recreated). */
     private function voucher($id)
     {
-        return $id ? GeneralLedger::find($id) : null;
+        return $id ? GeneralLedger::withTrashed()->find($id) : null;
+    }
+
+    /** Posted to AX, or deleted by Finance in General Ledger: its amount can no longer change from here. */
+    private function isLocked($gl)
+    {
+        return $gl->trashed() || (int) $gl->general_ledger_status === self::POSTED;
+    }
+
+    private function lockedMessage($what, $gl)
+    {
+        return 'Municipality ' . $what . ' voucher ' . $gl->voucher_no
+            . ($gl->trashed() ? ' was deleted in General Ledger; ask Finance before changing the amount.'
+                              : ' is already posted to AX; make a correcting entry in General Ledger.');
     }
 
     private function voucherInfo($gl)
@@ -146,7 +184,7 @@ class MunicipalityRegistrationLedger
         $parts = explode('|', (string) $gl->general_ledger_status_name);
         return [
             'voucher_no' => $gl->voucher_no,
-            'status'     => trim(isset($parts[1]) ? $parts[1] : ''),
+            'status'     => $gl->trashed() ? 'Deleted in General Ledger' : trim(isset($parts[1]) ? $parts[1] : ''),
             'posted'     => (int) $gl->general_ledger_status === self::POSTED,
         ];
     }
@@ -163,6 +201,12 @@ class MunicipalityRegistrationLedger
 
     private function writeVoucher($gl, $amount, $prefix, $debitValue, $debitSetting, $creditValue, $contract, $docDate, $userId, $canApprove)
     {
+        // Nothing changed: leave the voucher (and any edits / approval Finance made) alone.
+        if ($gl && Charges::sameAmount($gl->amount, $amount)
+            && $gl->doc_date && $gl->doc_date->format('Y-m-d') === Carbon::parse($docDate)->format('Y-m-d')) {
+            return $gl;
+        }
+
         $debit = $this->account($debitValue, $debitSetting);
         $credit = $this->account($creditValue, 'municipality_payment_account');
 
@@ -179,7 +223,13 @@ class MunicipalityRegistrationLedger
         ];
 
         if ($gl) {
-            $gl->update($header);
+            // Amount or date changed: back to the saver's approval level, so an approved
+            // voucher is approved again before anyone can post the new amount.
+            $gl->update($header + [
+                'updated_by'                     => $userId,
+                'general_ledger_status'          => $canApprove ? 2 : 1,
+                'general_ledger_approval_status' => $canApprove ? 4 : 0,
+            ]);
             $gl->generalLedgerDim()->delete();
         } else {
             $gl = GeneralLedger::create($header + [
