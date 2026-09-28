@@ -12,6 +12,45 @@ use Modules\BackOffice\Services\RentOutstanding;
  */
 class RentOutstandingTest extends TestCase
 {
+    public function test_short_contract_is_capped_at_contract_value()
+    {
+        // TAG2601977: 15/09/2026 -> 30/09/2026 (16 days), rent 250, value 133.333.
+        // One started month would be 250; the tenant can never owe more than the value.
+        $r = RentOutstanding::compute('2026-09-15', '2026-09-30', 250, 0, '133.333', '2026-09-30');
+        $this->assertSame(133.333, $r['rent_due']);
+        $this->assertSame(133.333, $r['outstanding']);
+
+        $paid = RentOutstanding::compute('2026-09-15', '2026-09-30', 250, 133.333, '133.333', '2026-09-30');
+        $this->assertSame(0.0, $paid['outstanding']);
+        $this->assertSame(0.0, $paid['overpaid']);
+    }
+
+    public function test_contract_ending_part_way_through_a_month_is_trimmed()
+    {
+        // 12 started months = 1350 at 112.5; value 1260 (the last month is partial)
+        $this->assertSame(1260.0, RentOutstanding::contractValueCap('2021-01-10', '2021-12-31', 112.5, '1260'));
+        $this->assertSame(1260.0, RentOutstanding::compute('2021-01-10', '2021-12-31', 112.5, 0, '1260', '2021-12-31')['rent_due']);
+        // part way through the contract: months x rent is already below the value -> unchanged
+        $this->assertSame(225.0, RentOutstanding::compute('2021-01-10', '2021-02-15', 112.5, 0, '1260', '2021-12-31')['rent_due']);
+    }
+
+    public function test_value_that_is_not_the_contract_total_is_ignored()
+    {
+        // TAG1901408: 12 x 1400 = 16800 but value holds one month (1400) -> not a trim, ignore it
+        $this->assertNull(RentOutstanding::contractValueCap('2019-01-01', '2019-12-31', 1400, '1400'));
+        $this->assertSame(16800.0, RentOutstanding::compute('2019-01-01', '2019-12-31', 1400, 0, '1400', '2019-12-31')['rent_due']);
+    }
+
+    public function test_no_cap_without_value_or_contract_end()
+    {
+        $this->assertNull(RentOutstanding::contractValueCap('2026-09-15', '2026-09-30', 250, null));
+        $this->assertNull(RentOutstanding::contractValueCap('2026-09-15', '2026-09-30', 250, '0'));
+        $this->assertNull(RentOutstanding::contractValueCap('2026-09-15', null, 250, '133.333'));
+        $this->assertSame(250.0, RentOutstanding::compute('2026-09-15', '2026-09-30', 250, 0)['rent_due']);
+        // value equal to the full term (normal contract) -> cap equals the full rent, nothing changes
+        $this->assertSame(2280.0, RentOutstanding::compute('2025-09-01', '2026-08-31', 190, 0, '2,280.000', '2026-08-31')['rent_due']);
+    }
+
     public function test_full_year_contract_is_twelve_months()
     {
         // TAG2502151: 01/09/2025 -> 31/08/2026, rent 190. Legacy %m-only maths gave 11m 30d.

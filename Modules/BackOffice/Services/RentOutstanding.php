@@ -63,11 +63,40 @@ class RentOutstanding
     }
 
     /**
+     * The contract value, when it can be trusted as the rent for the whole
+     * term; null otherwise. A started month counts as a whole month, so a
+     * contract shorter than a month, or ending part way through one, would be
+     * charged more than it is worth (TAG2601977: 16 days = 133.333, not 250).
+     * The value is used only when it trims less than one month's rent off the
+     * full-term figure: on some old contracts it holds a single month's rent
+     * (TAG1901408: 1400 of 16800) and must not be used as a cap.
+     */
+    public static function contractValueCap($from, $contractEnd, $rentPerMonth, $contractValue)
+    {
+        $value = self::money($contractValue);
+        $rent  = self::money($rentPerMonth);
+        if ($value <= 0 || $rent <= 0 || !self::day($contractEnd)) {
+            return null;
+        }
+        $fullTerm = self::rentDue($from, $contractEnd, $rent);
+        if ($value > $fullTerm || $fullTerm - $value >= $rent) {
+            return null;
+        }
+        return $value;
+    }
+
+    /**
+     * @param mixed $contractValue / $contractEnd  optional: cap rent due at a
+     *        trusted contract value (see contractValueCap)
      * @return array months, rent_due, paid, outstanding, overpaid
      */
-    public static function compute($from, $to, $rentPerMonth, $paid)
+    public static function compute($from, $to, $rentPerMonth, $paid, $contractValue = null, $contractEnd = null)
     {
         $due  = self::rentDue($from, $to, $rentPerMonth);
+        $cap  = self::contractValueCap($from, $contractEnd, $rentPerMonth, $contractValue);
+        if ($cap !== null && $due > $cap) {
+            $due = $cap;
+        }
         $paid = self::money($paid);
         $net  = round($due - $paid, self::DECIMALS);
         return [
@@ -100,7 +129,8 @@ class RentOutstanding
     public static function forContract($contractId, $asOf = null)
     {
         $contract = DB::table('tenant_contracts')->where('id', $contractId)
-            ->first(['tenant_contract_effective_date', 'tenant_contract_start_date', 'tenant_contract_rent']);
+            ->first(['tenant_contract_effective_date', 'tenant_contract_start_date', 'tenant_contract_rent',
+                     'tenant_contract_value', 'tenant_contract_valid_to_date']);
         if (!$contract) {
             return array_merge(self::compute(null, null, 0, 0), ['as_of' => null]);
         }
@@ -108,7 +138,8 @@ class RentOutstanding
             $asOf = DB::table('termination')->where('contract_id', $contractId)->orderBy('id', 'desc')->value('termination_date') ?: date('Y-m-d');
         }
         $from = $contract->tenant_contract_effective_date ?: $contract->tenant_contract_start_date;
-        $r = self::compute($from, $asOf, $contract->tenant_contract_rent, self::paidForContract($contractId));
+        $r = self::compute($from, $asOf, $contract->tenant_contract_rent, self::paidForContract($contractId),
+            $contract->tenant_contract_value, $contract->tenant_contract_valid_to_date);
         $r['as_of'] = $asOf ? date('Y-m-d', strtotime($asOf)) : null;
         return $r;
     }
