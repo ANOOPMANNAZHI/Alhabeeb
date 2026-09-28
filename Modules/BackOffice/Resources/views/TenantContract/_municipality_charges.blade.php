@@ -13,7 +13,7 @@
 @else
 <div class="col-sm-12 municipality-charges" data-processing="{{ $m['processing'] }}">
   <div class="row">
-    <div class="col-md-6 col-sm-12">
+    <div class="col-md-12 col-sm-12">
       <div class="form-group">
         <label for="tenant_contract_municipality_tax_amt">Municipality Tax Amount<small class="textRed">*</small></label>
         <input type="number" step="0.001" min="0" class="form-control mc-tax" id="tenant_contract_municipality_tax_amt"
@@ -21,26 +21,26 @@
         <small class="text-muted">Contract value {{ $fmt($m['contract_value']) }} &times; {{ $rateLabel }} = {{ $fmt($m['contract_value'] * $m['rate'] / 100) }}</small>
       </div>
     </div>
-    <div class="col-md-3 col-sm-6">
+    <div class="col-md-12 col-sm-12">
       <div class="form-group">
         <label>Processing Charge</label>
         <input type="text" class="form-control" value="{{ $fmt($m['processing']) }}" readonly>
       </div>
     </div>
-    <div class="col-md-3 col-sm-6">
+    <div class="col-md-12 col-sm-12">
       <div class="form-group">
         <label>Total (Tax + Processing)</label>
         <input type="text" class="form-control mc-total" value="{{ $fmt((float) $taxVal + $m['processing']) }}" readonly>
       </div>
     </div>
-    <div class="col-md-6 col-sm-12">
+    <div class="col-md-12 col-sm-12">
       <div class="form-group">
         <label for="tenant_contract_municipality_penalty_amt">Penalty Amount</label>
         <input type="number" step="0.001" min="0" class="form-control" id="tenant_contract_municipality_penalty_amt"
                name="tenant_contract_municipality_penalty_amt" value="{{ $penVal }}" {{ $m['penalty_locked'] ? 'readonly' : '' }}>
       </div>
     </div>
-    <div class="col-md-6 col-sm-12">
+    <div class="col-md-12 col-sm-12">
       @foreach (['Tax voucher' => $m['tax_voucher'], 'Penalty voucher' => $m['penalty_voucher']] as $label => $v)
         @if ($v)
           <div><strong>{{ $label }}:</strong> {{ $v['voucher_no'] }} &mdash; {{ $v['status'] }}@if($v['posted']) <span class="text-muted">(posted to AX, amount locked)</span>@endif</div>
