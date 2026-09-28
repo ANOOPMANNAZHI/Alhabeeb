@@ -17,6 +17,7 @@ class Kernel extends ConsoleKernel
          Commands\NotificationCommand::class,
          \Modules\BackOffice\Console\TerminationDuesBackfill::class,
          \Modules\BackOffice\Console\TerminationDuesRefresh::class,
+         \Modules\BackOffice\Console\RentOutstandingCorrectShortContracts::class,
     ];
 
     /**

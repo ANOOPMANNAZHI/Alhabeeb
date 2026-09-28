@@ -589,6 +589,12 @@ if (!$tenantContract) {
 }
 $effectiveDate = $tenantContract->tenant_contract_effective_date ?: $tenantContract->tenant_contract_start_date;
 $sumOfRent = \Modules\BackOffice\Services\RentOutstanding::rentDue($effectiveDate, $terminationDate, $tenantContract->tenant_contract_rent);
+// A contract shorter than a month (or ending part way through one) never owes more than its value.
+$cap = \Modules\BackOffice\Services\RentOutstanding::contractValueCap($effectiveDate, $tenantContract->tenant_contract_valid_to_date,
+    $tenantContract->tenant_contract_rent, $tenantContract->tenant_contract_value);
+if ($cap !== null && $sumOfRent > $cap) {
+    $sumOfRent = $cap;
+}
 
 return number_format((float)$sumOfRent, 3, '.', '');
 }
