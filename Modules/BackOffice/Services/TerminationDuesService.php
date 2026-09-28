@@ -22,6 +22,97 @@ class TerminationDuesService
     const FINAL_STAGE = 505;
     const INSPECTION_STAGE = 503;
 
+    /** Message of the last failed rent calculation in buildInputFor() (null when it worked). */
+    public $lastRentError = null;
+
+    /**
+     * Can a dues record be created for this contract from the Termination Dues
+     * screen? Same scope as the backfill: terminated (status 8) with an approved
+     * tenant termination (505) and no dues record yet.
+     *
+     * @return array ok, reason, contract, final (Termination), dues (existing record)
+     */
+    public function assessForManualCreate($contractNo)
+    {
+        $no = trim((string) $contractNo);
+        $out = ['ok' => false, 'reason' => null, 'contract' => null, 'final' => null, 'dues' => null];
+
+        $contract = $no !== '' ? TenantContract::where('tenant_contract_no', $no)->first() : null;
+        if (!$contract) {
+            $out['reason'] = 'Contract ' . $no . ' was not found.';
+            return $out;
+        }
+        $out['contract'] = $contract;
+
+        $dues = TerminationDues::where('tenant_contract_id', $contract->id)->first();
+        if ($dues) {
+            $out['dues'] = $dues;
+            $out['reason'] = 'A termination dues record already exists for contract ' . $no . '.';
+            return $out;
+        }
+        if ((int) $contract->tenant_renewal_termination_status !== 8) {
+            $out['reason'] = 'Contract ' . $no . ' is not terminated, so it has no termination dues.';
+            return $out;
+        }
+        $final = Termination::where('contract_id', $contract->id)->where('work_flow_processes_code', self::FINAL_STAGE)
+            ->orderBy('id', 'desc')->first();
+        if (!$final) {
+            $out['reason'] = 'Contract ' . $no . ' has no approved tenant termination (it may have been closed by a building handover), so dues cannot be created here.';
+            return $out;
+        }
+        $out['final'] = $final;
+        $out['ok'] = true;
+        return $out;
+    }
+
+    /**
+     * Build the dues record exactly as the backfill does and report what it
+     * holds. Nothing is kept unless $save is true and a balance remains.
+     *
+     * @return array outcome (preview|created|nothing_owed|settled|error), message, result (refresh() result), dues
+     */
+    public function manualCreate(Termination $final, $userId, $save)
+    {
+        $out = ['outcome' => 'error', 'message' => null, 'result' => null, 'dues' => null];
+        DB::beginTransaction();
+        try {
+            $this->lastRentError = null;
+            $lines = TerminationDuesBuilder::build($this->buildInputFor($final->contract_id, $final));
+            if ($this->lastRentError !== null) {
+                DB::rollBack();
+                $out['message'] = 'The outstanding rent could not be calculated: ' . $this->lastRentError;
+                return $out;
+            }
+            $dues = $lines ? $this->createForTermination($final, $userId) : null;
+            if (!$dues) {
+                DB::rollBack();
+                $out['outcome'] = 'nothing_owed';
+                $out['message'] = 'Nothing is owed on this contract (rent, E&W and checklist charges are all zero).';
+                return $out;
+            }
+            $out['result'] = $this->refresh($dues);
+            if ($out['result']['total']['balance'] <= 0.005) {
+                DB::rollBack();
+                $out['outcome'] = 'settled';
+                $out['message'] = 'Everything owed is already settled by receipts or deposit deductions, so no dues record is needed.';
+                return $out;
+            }
+            if ($save) {
+                DB::commit();
+                $out['outcome'] = 'created';
+                $out['dues'] = $dues;
+                return $out;
+            }
+            DB::rollBack();
+            $out['outcome'] = 'preview';
+            return $out;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $out['message'] = 'The dues record could not be built: ' . $e->getMessage();
+            return $out;
+        }
+    }
+
     /**
      * Called from the 505 block of TenantTerminationController. Idempotent:
      * a contract that already has dues is left alone.
@@ -140,6 +231,7 @@ class TerminationDuesService
         try {
             $rentOs = RentOutstanding::amountForContract($contractId, $terminationDate);
         } catch (\Exception $e) {
+            $this->lastRentError = $e->getMessage();
             Log::warning('TerminationDues: rent OS calculation failed for contract ' . $contractId . ': ' . $e->getMessage());
         }
 

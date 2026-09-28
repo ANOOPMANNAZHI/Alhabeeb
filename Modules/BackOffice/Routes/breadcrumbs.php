@@ -867,6 +867,11 @@ Breadcrumbs::for('termination-dues.index', function ($trail) {
     $trail->push('Termination Dues', route('termination-dues.index'));
 });
 
+Breadcrumbs::for('termination-dues.create-check', function ($trail) {
+    $trail->parent('termination-dues.index');
+    $trail->push('Create Dues for a Contract', route('termination-dues.create-check'));
+});
+
 Breadcrumbs::for('termination-dues.show', function ($trail, $dues) {
     $trail->parent('termination-dues.index');
     $trail->push(optional($dues->tenantContract)->tenant_contract_no ?: ('Dues #' . $dues->id), route('termination-dues.show', $dues->id));

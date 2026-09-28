@@ -24,6 +24,47 @@ class TerminationDuesController extends Controller
         $this->middleware('auth');
         // summary feeds the box on the receipt / deposit refund forms; any signed-in user may read it
         $this->middleware('permission:view_termination_dues_backoffice|view_termination_dues_maintenance')->except('summary');
+        $this->middleware('permission:create_termination_dues')->only(['createCheck', 'createForContract']);
+    }
+
+    /**
+     * "Create dues for a contract": check a terminated contract that has no dues
+     * record (e.g. terminated before the feature) and preview what the record
+     * would hold - same calculation as termination-dues:backfill, nothing saved.
+     */
+    public function createCheck(Request $request)
+    {
+        $contractNo = trim((string) $request->input('contract_no'));
+        $assessment = null;
+        $preview = null;
+        if ($contractNo !== '') {
+            $svc = new TerminationDuesService();
+            $assessment = $svc->assessForManualCreate($contractNo);
+            if ($assessment['ok']) {
+                $preview = $svc->manualCreate($assessment['final'], \Auth::user()->id, false);
+            }
+        }
+        return view('backoffice::TerminationDues.create_check', compact('contractNo', 'assessment', 'preview'));
+    }
+
+    /** Create the dues record previewed by createCheck(); rent receipts on the contract then work. */
+    public function createForContract(Request $request)
+    {
+        $this->validate($request, ['contract_no' => 'required']);
+        $contractNo = trim($request->input('contract_no'));
+        $back = redirect()->route('termination-dues.create-check', ['contract_no' => $contractNo]);
+
+        $svc = new TerminationDuesService();
+        $assessment = $svc->assessForManualCreate($contractNo);
+        if (!$assessment['ok']) {
+            return $back->with('error', $assessment['reason']);
+        }
+        $result = $svc->manualCreate($assessment['final'], \Auth::user()->id, true);
+        if ($result['outcome'] !== 'created') {
+            return $back->with('error', $result['message']);
+        }
+        return redirect()->route('termination-dues.show', $result['dues']->id)
+            ->with('success', 'Termination dues created for contract ' . $contractNo . '. Rent receipts can now be created against the open rent.');
     }
 
     /** Teams the current user may see, in tab order. */
