@@ -17,4 +17,20 @@
   .bsr-pill-bad  { background:#fee2e2; color:#991b1b; }
   .bsr-pill-off  { background:#e5e7eb; color:#374151; }
   .bsr tr.bsr-total td { font-weight:700; background:#f7fdfb; }
+
+  /* Action toolbar: its own row under the summary, navigation left, Download right */
+  .bsr .bsr-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px;
+                      margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0; }
+  .bsr .bsr-toolbar-nav { display:flex; flex-wrap:wrap; gap:8px; }
+  .bsr .bsr-btn { display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 16px;
+                  border:1px solid #94a3b8; border-radius:6px; background:#fff; color:#0f172a;
+                  font-size:14px; font-weight:600; line-height:1; text-decoration:none; white-space:nowrap; }
+  .bsr .bsr-btn:hover { background:#f1f5f9; border-color:#475569; color:#0f172a; text-decoration:none; }
+  .bsr .bsr-btn:focus-visible { outline:2px solid #2f4fd6; outline-offset:2px; }
+  .bsr .bsr-btn-primary { background:#16a34a; border-color:#16a34a; color:#fff; }
+  .bsr .bsr-btn-primary:hover { background:#15803d; border-color:#15803d; color:#fff; }
+  @media (max-width: 575px) {
+    .bsr .bsr-toolbar, .bsr .bsr-toolbar-nav { flex-direction:column; align-items:stretch; }
+    .bsr .bsr-btn { justify-content:center; }
+  }
 </style>
