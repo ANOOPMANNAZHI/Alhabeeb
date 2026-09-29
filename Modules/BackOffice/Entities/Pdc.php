@@ -82,19 +82,10 @@ class Pdc extends Model
     * PDC Cance Reason
     */
      public function getPdcCancelReasonNameAttribute()
-      {     
-        switch($this->pdc_bounce_reason){
-          case '1' : return 'Insufficient Funds';        
-          case '2' : return 'Signature Missing';
-          case '3' : return 'Signature Mismatch';
-          case '4' : return 'Word in amount and figure differ';
-          case '5' : return 'Stop Payment';
-          case '6' : return 'Refer to Drawer';
-          case '7' : return 'Correction';
-          case '8' : return 'Stale Cheque (Beyond six months)';
-          case '9' : return 'Misc';
-        }
-      }  
+      {
+        // names come from Masters -> Bounce Reasons (switched-off reasons still show their name)
+        return \Modules\Masters\Entities\PdcBounceReason::nameFor($this->pdc_bounce_reason);
+      }
         /*
   *  Scope are
   *

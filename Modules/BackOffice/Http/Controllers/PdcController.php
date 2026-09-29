@@ -128,7 +128,7 @@ e     */
                         'pdc_cancel_date' => $cancel,
                         'pdc_cancel_reason' => isset($request->{'pdc_cancel_reason_'.$i})?$request->{'pdc_cancel_reason_'.$i}:0, // '1 - Bounce , 2 - Exchange , 3 - Other'
                         'pdc_bounce_reason' => $request->{'pdc_bounce_reason_'.$i},
-                         //'1 -Insufficient Funds , 2 -Signature Missing , 3 -Signature Mismatch, 4 -Word in amount and figure differ ,5 -Stop Payment , 6 -Refer to Drawer,7 -Correction , 8 -Stale Cheque (Beyond six months), 9 - Misc';
+                         // codes: Masters -> Bounce Reason (pdc_bounce_reasons.id)
                         'pdc_is_saved'=> 1,     
                         'pdc_type' =>$request->{'pdc_type_'.$i},
                         'pdc_remark' =>$request->{'pdc_remark_'.$i},

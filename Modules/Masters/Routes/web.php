@@ -57,6 +57,9 @@ Route::post('/workLinkStatus/{id}', 'ContractorWorkLinkController@changeStatus')
 Route::resource('bank', 'BankController');
 Route::post('/bankStatus/{id}', 'BankController@changeStatus')->name('bank.changeStatus');
 
+// Masters -> Bounce Reason (codes stored in pdc.pdc_bounce_reason; no delete, switch off instead)
+Route::resource('bounce-reason', 'BounceReasonController')->except(['show', 'destroy'])->parameters(['bounce-reason' => 'bounceReason']);
+
 Route::resource('homeUtility', 'HomeUtilityController');
 Route::post('/homeUtilityStatus/{id}', 'HomeUtilityController@changeStatus')->name('homeUtility.changeStatus');
 
