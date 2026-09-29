@@ -75,6 +75,7 @@
                   <option value="">All</option>
                   <option value="inhouse">In-house</option>
                   <option value="subcontractor">Subcontractor</option>
+                  <option value="gl">General Ledger</option>
                 </select>
               </div>
             </div>
