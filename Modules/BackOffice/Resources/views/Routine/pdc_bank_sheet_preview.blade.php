@@ -541,6 +541,7 @@
       <table class="table display product-overview mb-30">
         <thead>
           <tr>
+            <th width="3%"><input type="checkbox" id="bsp-bounce-all" aria-label="Select all rejected cheques that can be bounced" title="Select all"></th>
             <th width="5%">Sheet Row</th>
             <th width="10%">Cheque No</th>
             <th width="14%">Bank (sheet)</th>
@@ -548,21 +549,30 @@
             <th class="num" width="8%">Amount</th>
             <th width="14%">Bank's reason</th>
             <th>PLMS PDC</th>
-            <th width="22%">
-              <label style="display:inline-flex;align-items:center;gap:6px;margin:0;cursor:pointer;font-weight:600">
-                <input type="checkbox" id="bsp-bounce-all" aria-label="Select all cheques that can be bounced"> Mark as bounced
-              </label>
-            </th>
+            <th width="22%">Mark as bounced</th>
           </tr>
         </thead>
         <tbody>
           @if(count($rejected) === 0)
-          <tr><td colspan="8" align="center"><p>None — the bank accepted every cheque on this sheet.</p></td></tr>
+          <tr><td colspan="9" align="center"><p>None — the bank accepted every cheque on this sheet.</p></td></tr>
           @endif
           @foreach($rejected as $x)
           @php $suggested = \Modules\BackOffice\Services\BankSheetRejectedCheques::bounceReasonFor($x['row']['reject_reason']); @endphp
           @foreach(($x['groups'] ?: [null]) as $group)
+          @php
+            $canBounce = false;
+            if ($group !== null) {
+                foreach ($group as $p) { if ($p->pdc_cancel_reason !== \Modules\BackOffice\Services\BankSheetRejectedCheques::BOUNCED) { $canBounce = true; } }
+            }
+          @endphp
           <tr>
+            <td>
+              @if($canBounce)
+                {{-- same cheque no. and amount on several contracts ("choose"): never ticked by select all, only one is right --}}
+                <input type="checkbox" class="bsp-bounce-pick" data-choose="{{ $x['status'] === 'choose' ? 1 : 0 }}"
+                       aria-label="Select cheque {{ $x['row']['cheque_no'] }}{{ $x['status'] === 'choose' ? ' (' . $group[0]->tenant_contract_no . ')' : '' }} to bounce">
+              @endif
+            </td>
             @if($loop->first)
             <td rowspan="{{ max(count($x['groups']), 1) }}">{{ $x['row']['row_no'] }}</td>
             <td rowspan="{{ max(count($x['groups']), 1) }}"><b>{{ $x['row']['cheque_no'] }}</b></td>
@@ -575,17 +585,12 @@
               <td>-</td>
               <td><span class="bsp-sub" style="display:inline">Not found in PLMS (no open or bounced PDC with this cheque no.)</span></td>
             @else
-              <td>{!! $plmsCell($group) !!}@if($x['status'] === 'choose')<span class="bsp-sub"><b>Same cheque no. on {{ count($x['groups']) }} contracts: bounce only the right one.</b></span>@endif</td>
+              <td>{!! $plmsCell($group) !!}@if($x['status'] === 'choose')<span class="bsp-sub"><b>Same cheque no. and amount on {{ count($x['groups']) }} contracts: tick and bounce only the right one.</b></span>@endif</td>
               <td class="bsp-bounce-cell">
                 @php $bounced = true; foreach ($group as $p) { if ($p->pdc_cancel_reason !== \Modules\BackOffice\Services\BankSheetRejectedCheques::BOUNCED) { $bounced = false; } } @endphp
                 @if($bounced)
                   <span class="bsp-pill bsp-pill-cannot"><i class="fa fa-check" aria-hidden="true"></i>Already bounced{{ $group[0]->bounce_reason_name ? ': ' . $group[0]->bounce_reason_name : '' }}</span>
                 @else
-                  <label style="display:flex;align-items:center;gap:6px;margin:0 0 6px;cursor:pointer;font-size:13px">
-                    {{-- rows with the same cheque no. on several contracts are left out of "select all": only one of them is right --}}
-                    <input type="checkbox" class="bsp-bounce-pick" data-choose="{{ $x['status'] === 'choose' ? 1 : 0 }}"
-                           aria-label="Select cheque {{ $x['row']['cheque_no'] }} to bounce"> Select
-                  </label>
                   <select class="bsp-bounce-reason" aria-label="Bounce reason for cheque {{ $x['row']['cheque_no'] }}">
                     <option value="">Select reason</option>
                     @foreach($bounceReasons as $code => $label)
@@ -659,12 +664,14 @@ function bspBounceCell($cell) {
   if (!reason) { $msg.text('Select the bounce reason first.'); return d.resolve('skipped').promise(); }
   var ids = String($btn.data('ids')).split(',').filter(function (v) { return v !== ''; });
   $btn.prop('disabled', true).text('Marking...');
-  $cell.find('.bsp-bounce-reason, .bsp-bounce-pick').prop('disabled', true);
+  $cell.find('.bsp-bounce-reason').prop('disabled', true);
+  var $pick = $cell.closest('tr').find('.bsp-bounce-pick').prop('disabled', true);
   var token = $('meta[name="csrf-token"]').attr('content');
   (function next(i) {
     if (i >= ids.length) {
       $cell.html('<span class="bsp-pill bsp-pill-cannot"><i class="fa fa-check" aria-hidden="true"></i>Marked bounced: ' +
         $('<div>').text($cell.find('option:selected').text() || '').html() + '</span>');
+      $pick.prop('checked', false);
       d.resolve('ok');
       return;
     }
@@ -674,7 +681,8 @@ function bspBounceCell($cell) {
         // the bounce action saves first and answers with an empty body when the building has no ARE assigned
         if (x.status === 200) { next(i + 1); return; }
         $btn.prop('disabled', false).text('Mark as bounced');
-        $cell.find('.bsp-bounce-reason, .bsp-bounce-pick').prop('disabled', false);
+        $cell.find('.bsp-bounce-reason').prop('disabled', false);
+        $pick.prop('disabled', false);
         $msg.text('Error ' + x.status + ' while marking cheque ' + $btn.data('cheque') + ' bounced. It may already be saved (the notification can fail after saving): check the PDC before trying again.');
         d.resolve('failed');
       });
@@ -703,7 +711,7 @@ $(document).on('change', '#bsp-bounce-all', function () {
   bspBulkRefresh();
 });
 $(document).on('click', '#bsp-bounce-selected', function () {
-  var $cells = $('.bsp-bounce-pick:enabled:checked').closest('.bsp-bounce-cell');
+  var $cells = $('.bsp-bounce-pick:enabled:checked').closest('tr').find('.bsp-bounce-cell');
   if (!$cells.length) { return; }
   if (!confirm('Mark ' + $cells.length + ' cheque(s) as bounced?\n\nEach one is bounced like the PDC bounce screen: receipt cancelled if any, ARE notified, the bank\'s reason saved as remarks.')) { return; }
   var $status = $('#bsp-bulk-status'), $go = $(this).prop('disabled', true), $all = $('#bsp-bounce-all').prop('disabled', true);
