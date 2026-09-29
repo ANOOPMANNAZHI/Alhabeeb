@@ -130,6 +130,52 @@ class TenantMessagesTest extends TestCase
         $this->get(route('inspectionSendMail', $t->id))->assertRedirect(route('handoverAssigned'))->assertSessionHas('success');
     }
 
+    // --- scheduled: birthday, PDC due reminder ---
+
+    public function test_birthday_goes_to_personal_email_first()
+    {
+        $c = $this->contract();
+        $this->assertSame('sent', TenantMessages::birthday($c->tenant)['email']);
+        Mail::assertSent(TemplatedMail::class, function ($m) { return $m->hasTo('personal@example.com') && $m->subject === 'Happy Birthday'; });
+    }
+
+    private function rentPdc()
+    {
+        $pdc = \Modules\BackOffice\Entities\Pdc::where('pdc_type', 1)->whereHas('tenantContractInfo', function ($q) { $q->whereHas('tenant'); })->latest('id')->first();
+        if (!$pdc) {
+            $this->markTestSkipped('No rent PDC');
+        }
+        $pdc->tenantContractInfo->tenant->update(['tenant_contact_no' => '99001122', 'tenant_contact_email' => 'contact@example.com']);
+        return \Modules\BackOffice\Entities\Pdc::find($pdc->id);
+    }
+
+    public function test_pdc_reminder_sends_sms_only()
+    {
+        MessageTemplate::where('key', 'pdc_due_reminder')->update(['is_active' => true, 'sms_enabled' => true]);
+        $pdc = $this->rentPdc();
+        $this->assertSame('sent', TenantMessages::pdcDueReminder($pdc));
+        Mail::assertNothingSent();
+        $this->assertSame('99001122', $this->sms[0][0]);
+        $this->assertContains((string) $pdc->pdc_check_no, $this->sms[0][1]);
+        $this->assertContains(number_format($pdc->pdc_amt, 3), $this->sms[0][1]);
+    }
+
+    public function test_pdc_reminder_with_sms_off_sends_nothing()
+    {
+        MessageTemplate::where('key', 'pdc_due_reminder')->update(['is_active' => true, 'sms_enabled' => false]);
+        $this->assertNull(TenantMessages::pdcDueReminder($this->rentPdc()));
+        $this->assertSame([], $this->sms);
+        Mail::assertNothingSent();
+    }
+
+    public function test_pdc_reminder_without_mobile_is_logged()
+    {
+        MessageTemplate::where('key', 'pdc_due_reminder')->update(['is_active' => true, 'sms_enabled' => true]);
+        $pdc = $this->rentPdc();
+        $pdc->tenantContractInfo->tenant->update(['tenant_contact_no' => null]);
+        $this->assertSame('skipped_no_mobile', TenantMessages::pdcDueReminder(\Modules\BackOffice\Entities\Pdc::find($pdc->id)));
+    }
+
     // --- renewal form ---
 
     public function test_renewal_button_emails_the_pdf_with_cc_and_counts_it()

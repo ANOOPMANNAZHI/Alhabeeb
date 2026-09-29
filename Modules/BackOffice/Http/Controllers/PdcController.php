@@ -668,24 +668,13 @@ public function printPreview($contract_id){
           $failCount = 0;
 
           foreach ($pdcs as $pdc) {
-              $tenant = $pdc->tenantContractInfo->tenant ?? null;
-              if (!$tenant || empty($tenant->tenant_contact_no)) {
-                  Log::warning('pdcExpiryReminderSms: Skipping PDC #' . $pdc->id . ' - no tenant or contact number');
-                  continue;
-              }
-
-              $amount = number_format($pdc->pdc_amt, 3);
-              $chequeDate = Carbon::parse($pdc->pdc_check_date)->format('d-m-Y');
-              $chequeNo = $pdc->pdc_check_no;
-
-              $msg = "Dear Tenant, your cheque No. {$chequeNo} of amount {$amount} is due on {$chequeDate}. Please ensure sufficient funds are available in your account to avoid penalty charges. - Al Habib";
-
-              $result = sendSms($tenant->tenant_contact_no, $msg, []);
-              if ($result) {
+              // System template pdc_due_reminder (SMS); every attempt is in Mail > Sent log
+              $status = \Modules\BackOffice\Services\TenantMessages::pdcDueReminder($pdc);
+              if ($status === \Modules\BackOffice\Entities\MessageLog::SENT) {
                   $sentCount++;
               } else {
                   $failCount++;
-                  Log::warning('pdcExpiryReminderSms: SMS failed for PDC #' . $pdc->id . ', mobile: ' . $tenant->tenant_contact_no);
+                  Log::warning('pdcExpiryReminderSms: PDC #' . $pdc->id . ' not sent (' . ($status ?: 'SMS switched off') . ')');
               }
           }
 

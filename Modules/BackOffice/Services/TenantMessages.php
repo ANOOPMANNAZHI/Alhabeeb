@@ -50,6 +50,27 @@ class TenantMessages
         return $r['email'];
     }
 
+    /** Daily 10:00 birthday wish; personal email first (as before). */
+    public static function birthday($tenant)
+    {
+        return SystemMessenger::send('tenant_birthday', ComplaintMessages::tenantRecipient($tenant, 'personal'),
+            MessageValues::tenant($tenant), ['related' => ['tenant', $tenant->id]]);
+    }
+
+    /**
+     * Daily 10:00 SMS for a rent cheque due in 5 days, to the tenant's contact number only (as before).
+     * @return string|null SMS status; null when the template's Send SMS switch is off
+     */
+    public static function pdcDueReminder($pdc)
+    {
+        $contract = $pdc->tenantContractInfo;
+        $tenant = $contract ? $contract->tenant : null;
+        $to = new MessageRecipient($tenant ? $tenant->tenant_name : '', null, $tenant ? $tenant->tenant_contact_no : null);
+        $r = SystemMessenger::send('pdc_due_reminder', $to, MessageValues::contract($contract) + MessageValues::cheque($pdc),
+            ['related' => ['pdc', $pdc->id]]);
+        return $r['sms'] !== null ? $r['sms'] : ($r['email'] === \Modules\BackOffice\Entities\MessageLog::SKIPPED_OFF ? $r['email'] : null);
+    }
+
     /** What to tell the user after a manual send (flash type + text). */
     public static function flashFor($status)
     {

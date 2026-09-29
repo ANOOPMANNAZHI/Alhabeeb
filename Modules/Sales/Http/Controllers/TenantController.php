@@ -25,7 +25,7 @@ use Illuminate\Http\Response;
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
-use Modules\Sales\Emails\TenantBirthdayEmail;
+use Modules\BackOffice\Services\TenantMessages;
 use Modules\Sales\Emails\AreReminderEmail;
 use Dynamics;
 use Exception;
@@ -457,14 +457,9 @@ class TenantController extends Controller
       }
 
       $tenants = Tenant::active()->birthdays()->get();
-       foreach ($tenants as $key => $tenant) {
-        $tenant_birthday = $tenant->tenant_date_of_birth;
-        $tenant->tenant_subject = "Happy Birthday";
-        $tenant->tenant_content = "Wish you a Happy Birthday!! We hope that you have a great year and accomplish all the fabulous goals you have set. May the coming years be filled with happiness, peace, and love. Have a Great day ahead.";
-          $email = $tenant->tenant_personal_email ?? $tenant->tenant_contact_email;
-          if(!empty($email)){
-         Mail::to($email)->send(new TenantBirthdayEmail($tenant)); //Email Notification
-         }
+       foreach ($tenants as $tenant) {
+         // System template tenant_birthday
+         TenantMessages::birthday($tenant);
        }
     }
     /*
