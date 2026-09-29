@@ -101,6 +101,16 @@ class MessageTemplateRendererTest extends TestCase
         $this->assertFalse(R::isBlankHtml('<p><img src="logo.png"></p>'));
     }
 
+    public function test_blocks_are_raw_in_body_and_empty_elsewhere()
+    {
+        $t = (object) ['email_subject' => 'Report {details}', 'email_body' => '<p>{tenant_name}</p>{details}', 'sms_body' => 'See {details}email'];
+        $r = R::render($t, ['tenant_name' => 'A<b>'], ['details' => '<table><tr><td>{rent}</td></tr></table>']);
+        $this->assertSame('<p>A&lt;b&gt;</p><table><tr><td>{rent}</td></tr></table>', $r['html']);
+        $this->assertSame('Report', $r['subject']);
+        $this->assertSame('See email', $r['sms']);
+        $this->assertSame([], $r['unknown']); // {rent} inside a block is neither expanded nor reported
+    }
+
     public function test_placeholders_in_text()
     {
         $this->assertSame(['rent', 'tenant_name'], R::placeholdersIn('{tenant_name} owes {rent}; {tenant_name}'));

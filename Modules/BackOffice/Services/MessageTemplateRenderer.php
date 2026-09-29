@@ -6,20 +6,32 @@ namespace Modules\BackOffice\Services;
  * Renders message templates. Placeholders ({name}) are replaced as text:
  * escaped in the email body, raw in the subject and SMS; template content is
  * never executed. Values are not re-expanded, so a value containing "{x}"
- * stays literal. Pure: no DB. PHP < 7.4: no arrow functions.
+ * stays literal. Block placeholders carry trusted HTML built in code (a table,
+ * say) and are inserted only in the email body. Pure: no DB. PHP < 7.4: no arrow functions.
  */
 class MessageTemplateRenderer
 {
     const PLACEHOLDER = '/\{([A-Za-z0-9_]+)\}/';
 
-    public static function fill($text, array $values, $escapeHtml, array &$unknown)
+    /**
+     * $blocks: name => trusted HTML built in code. $blockMode 'raw' inserts it
+     * (email body), 'empty' drops it (subject, SMS).
+     */
+    public static function fill($text, array $values, $escapeHtml, array &$unknown, array $blocks = [], $blockMode = 'raw')
     {
         $lower = [];
         foreach ($values as $k => $v) {
             $lower[strtolower($k)] = $v;
         }
-        return preg_replace_callback(self::PLACEHOLDER, function ($m) use ($lower, $escapeHtml, &$unknown) {
+        $lowerBlocks = [];
+        foreach ($blocks as $k => $v) {
+            $lowerBlocks[strtolower($k)] = $v;
+        }
+        return preg_replace_callback(self::PLACEHOLDER, function ($m) use ($lower, $escapeHtml, &$unknown, $lowerBlocks, $blockMode) {
             $key = strtolower($m[1]);
+            if (array_key_exists($key, $lowerBlocks)) {
+                return $blockMode === 'raw' ? (string) $lowerBlocks[$key] : '';
+            }
             if (!array_key_exists($key, $lower)) {
                 $unknown[$key] = true;
                 return $m[0];
@@ -29,7 +41,7 @@ class MessageTemplateRenderer
         }, (string) $text);
     }
 
-    public static function render($template, array $values)
+    public static function render($template, array $values, array $blocks = [])
     {
         $t = (object) $template;
         $unknown = [];
@@ -38,9 +50,9 @@ class MessageTemplateRenderer
         $sms     = isset($t->sms_body) && $t->sms_body !== '' ? $t->sms_body : null;
 
         $out = [
-            'subject' => $subject === null ? null : trim(preg_replace('/\s*[\r\n]+\s*/', ' ', self::fill($subject, $values, false, $unknown))),
-            'html'    => $body === null ? null : self::fill($body, $values, true, $unknown),
-            'sms'     => $sms === null ? null : self::fill($sms, $values, false, $unknown),
+            'subject' => $subject === null ? null : trim(preg_replace('/\s*[\r\n]+\s*/', ' ', self::fill($subject, $values, false, $unknown, $blocks, 'empty'))),
+            'html'    => $body === null ? null : self::fill($body, $values, true, $unknown, $blocks, 'raw'),
+            'sms'     => $sms === null ? null : self::fill($sms, $values, false, $unknown, $blocks, 'empty'),
         ];
         $keys = array_keys($unknown);
         sort($keys);
