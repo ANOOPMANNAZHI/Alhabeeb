@@ -106,7 +106,11 @@ class SystemMessenger
             }
         }
         try {
-            MessageLog::create($row + ['created_at' => now()]);
+            // Inside a caller's transaction this is a SAVEPOINT: a failed insert rolls back only
+            // itself instead of aborting the caller's (PostgreSQL) transaction, e.g. a bank-sheet posting.
+            \DB::transaction(function () use ($row) {
+                MessageLog::create($row + ['created_at' => now()]);
+            });
         } catch (\Throwable $e) {
             \Log::error('message_log write failed: ' . $e->getMessage());
         }

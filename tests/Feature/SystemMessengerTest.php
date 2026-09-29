@@ -143,6 +143,14 @@ class SystemMessengerTest extends TestCase
         $this->assertSame(['sms', '99001122', 'skipped_off'], [$log->channel, $log->recipient, $log->status]);
     }
 
+    /** C3 review: sends run inside posting transactions; a failed log insert must not abort them (PostgreSQL). */
+    public function test_failed_log_insert_does_not_abort_the_callers_transaction()
+    {
+        // related_id is an integer column: a non-numeric value makes the log INSERT fail
+        SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com'), $this->values(), ['related' => ['pdc', 'not-a-number']]);
+        $this->assertSame(1, (int) DB::selectOne('select 1 as one')->one, 'transaction still usable');
+    }
+
     public function test_unknown_key_is_a_programming_error()
     {
         $this->expectException(\InvalidArgumentException::class);
