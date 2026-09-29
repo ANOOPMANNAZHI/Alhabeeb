@@ -118,6 +118,22 @@ class SystemMessengerTest extends TestCase
         $this->assertSame('jdoe', \Modules\BackOffice\Services\MessageValues::employee($user)['employee_name']);
     }
 
+    public function test_contract_unit_uses_the_unit_number()
+    {
+        $contract = \Modules\Sales\Entities\TenantContract::whereHas('unit', function ($q) { $q->whereNotNull('unit_no')->where('unit_no', '<>', ''); })->latest('id')->first();
+        if (!$contract) {
+            $this->markTestSkipped('No contract with a unit number');
+        }
+        $this->assertSame($contract->unit->unit_no, \Modules\BackOffice\Services\MessageValues::contract($contract)['unit']);
+    }
+
+    public function test_overlong_fields_are_truncated_in_the_log()
+    {
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient(str_repeat('N', 300), 'are@example.com'), $this->values());
+        $this->assertSame('sent', $r['email']);
+        $this->assertSame(150, strlen(MessageLog::latest('id')->first()->recipient_name));
+    }
+
     public function test_unknown_key_is_a_programming_error()
     {
         $this->expectException(\InvalidArgumentException::class);

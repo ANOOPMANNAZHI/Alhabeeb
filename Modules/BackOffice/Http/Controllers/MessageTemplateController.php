@@ -109,7 +109,7 @@ class MessageTemplateController extends Controller
             'key'           => $request->input('key'),
         ];
         $samples = MessagePlaceholders::samples($source->audience, $source->key);
-        $out = Renderer::render($source, $samples);
+        $out = Renderer::render($source, $samples, MessagePlaceholders::blockSamples($source->audience, $source->key));
         $out['sms_parts'] = Renderer::smsParts($out['sms']);
         return response()->json($out);
     }

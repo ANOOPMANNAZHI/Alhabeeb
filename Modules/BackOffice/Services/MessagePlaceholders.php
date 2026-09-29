@@ -47,21 +47,39 @@ class MessagePlaceholders
         self::$system[$key] = $extra;
     }
 
+    /**
+     * A system template (registered key) offers the common placeholders plus
+     * exactly the ones its send site fills; other templates get the audience set.
+     */
     public static function forTemplate($audience, $key = null)
     {
-        $audience = isset(self::$byAudience[$audience]) ? $audience : 'any';
-        $out = self::$common + self::$byAudience[$audience];
         if ($key !== null && isset(self::$system[$key])) {
-            $out = $out + self::$system[$key];
+            return self::$common + self::$system[$key];
         }
-        return $out;
+        $audience = isset(self::$byAudience[$audience]) ? $audience : 'any';
+        return self::$common + self::$byAudience[$audience];
     }
 
+    /** Sample values for text placeholders (blocks excluded). */
     public static function samples($audience, $key = null)
     {
         $out = [];
         foreach (self::forTemplate($audience, $key) as $name => $p) {
-            $out[$name] = (string) $p['sample'];
+            if (empty($p['block'])) {
+                $out[$name] = (string) $p['sample'];
+            }
+        }
+        return $out;
+    }
+
+    /** Sample HTML for block placeholders (tables built in code). */
+    public static function blockSamples($audience, $key = null)
+    {
+        $out = [];
+        foreach (self::forTemplate($audience, $key) as $name => $p) {
+            if (!empty($p['block'])) {
+                $out[$name] = (string) $p['sample'];
+            }
         }
         return $out;
     }

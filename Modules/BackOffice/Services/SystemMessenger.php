@@ -95,6 +95,13 @@ class SystemMessenger
 
     private static function log(array $row)
     {
+        // Fit the columns: on PostgreSQL an overflowing insert would abort a caller's open transaction.
+        $limits = ['template_key' => 100, 'recipient_name' => 150, 'recipient' => 190, 'subject' => 255, 'related_type' => 50];
+        foreach ($limits as $field => $max) {
+            if (isset($row[$field]) && mb_strlen((string) $row[$field], 'UTF-8') > $max) {
+                $row[$field] = mb_substr((string) $row[$field], 0, $max, 'UTF-8');
+            }
+        }
         try {
             MessageLog::create($row + ['created_at' => now()]);
         } catch (\Throwable $e) {

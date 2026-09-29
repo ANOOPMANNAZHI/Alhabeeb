@@ -138,6 +138,7 @@
       $('.mt-ph').each(function () {
         var $s = $(this).empty().append('<option value="">Insert placeholder…</option>');
         $.each(current(), function (name, p) {
+          if (p.block) { return; } // tables go in the email body only
           $s.append($('<option>').val('{' + name + '}').text(p.label + '  {' + name + '}'));
         });
       });

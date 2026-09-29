@@ -11,16 +11,32 @@ use Illuminate\Support\Facades\DB;
  */
 class SystemTemplateDefaults
 {
-    private static function contractPlaceholders()
+    // Placeholder sets. A system template offers {today}, {company_name} and exactly
+    // the sets listed in its 'placeholders' — the values its send site fills in.
+
+    private static function tenantPlaceholders()
     {
         return [
             'tenant_name' => ['label' => 'Tenant name', 'sample' => 'Mohammed Al Balushi'],
-            'contract_no' => ['label' => 'Contract no.', 'sample' => 'TAG2601977'],
-            'building'    => ['label' => 'Building', 'sample' => 'Al Qandeel-2 Bldg'],
-            'unit'        => ['label' => 'Unit', 'sample' => '84'],
+            'mobile'      => ['label' => 'Tenant mobile', 'sample' => '99123456'],
         ];
     }
 
+    /** MessageValues::contract() fills these (and tenant_name, mobile). */
+    private static function contractPlaceholders()
+    {
+        return [
+            'contract_no'    => ['label' => 'Contract no.', 'sample' => 'TAG2601977'],
+            'building'       => ['label' => 'Building', 'sample' => 'Al Qandeel-2 Bldg'],
+            'unit'           => ['label' => 'Unit', 'sample' => '84'],
+            'location'       => ['label' => 'Location', 'sample' => 'Al Khuwair'],
+            'rent'           => ['label' => 'Monthly rent', 'sample' => '250.000'],
+            'contract_start' => ['label' => 'Contract start', 'sample' => '15/09/2026'],
+            'contract_end'   => ['label' => 'Contract end', 'sample' => '30/09/2027'],
+        ];
+    }
+
+    /** MessageValues::cheque() fills these. */
     private static function chequePlaceholders()
     {
         return [
@@ -30,6 +46,11 @@ class SystemTemplateDefaults
             'bounce_reason' => ['label' => 'Bounce reason', 'sample' => 'Insufficient Funds'],
             'remarks'       => ['label' => 'Remarks', 'sample' => 'FUNDS NOT SUFFICIENT'],
         ];
+    }
+
+    private static function employeePlaceholders()
+    {
+        return ['employee_name' => ['label' => 'Employee name', 'sample' => 'Rashid Al Harthy']];
     }
 
     public static function all()
@@ -45,7 +66,7 @@ class SystemTemplateDefaults
                     . '<p>Regards,<br>Al Habib Team</p>',
                 'sms_body' => 'Cheque {cheque_no} of {tenant_name} ({building} {unit}) bounced: {bounce_reason}. - Al Habib',
                 'is_active' => true, 'sms_enabled' => false,
-                'placeholders' => self::contractPlaceholders() + self::chequePlaceholders(),
+                'placeholders' => self::employeePlaceholders() + self::tenantPlaceholders() + self::contractPlaceholders() + self::chequePlaceholders(),
             ],
             'pdc_bounce_tenant' => [
                 'name' => 'Cheque bounced (to tenant)', 'audience' => 'tenant', 'stage' => 'C1',
@@ -58,7 +79,7 @@ class SystemTemplateDefaults
                     . '<p>Regards,<br>Al Habib Team</p>',
                 'sms_body' => 'Dear {tenant_name}, your cheque {cheque_no} for OMR {amount} was returned by the bank ({bounce_reason}). Please contact Al Habib to replace it.',
                 'is_active' => false, 'sms_enabled' => false,
-                'placeholders' => self::chequePlaceholders(),
+                'placeholders' => self::tenantPlaceholders() + self::contractPlaceholders() + self::chequePlaceholders(),
             ],
         ];
     }

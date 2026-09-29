@@ -38,6 +38,23 @@ class MessagePlaceholdersTest extends TestCase
         $this->assertArrayNotHasKey('cheque_no', P::samples('staff'));
     }
 
+    public function test_system_key_offers_only_common_and_its_own_placeholders()
+    {
+        P::registerSystem('t_scope', ['cheque_no' => ['label' => 'Cheque no.', 'sample' => '1']]);
+        $this->assertSame(['cheque_no', 'company_name', 'today'], self::sorted(array_keys(P::forTemplate('tenant', 't_scope'))));
+    }
+
+    public function test_blocks_are_kept_out_of_samples()
+    {
+        P::registerSystem('t_block', [
+            'tenant_name' => ['label' => 'Tenant', 'sample' => 'Ali'],
+            'details' => ['label' => 'Details (table)', 'sample' => '<table><tr><td>x</td></tr></table>', 'block' => true],
+        ]);
+        $this->assertArrayNotHasKey('details', P::samples('tenant', 't_block'));
+        $this->assertSame('Ali', P::samples('tenant', 't_block')['tenant_name']);
+        $this->assertSame(['details' => '<table><tr><td>x</td></tr></table>'], P::blockSamples('tenant', 't_block'));
+    }
+
     public function test_unknown_audience_falls_back_to_common()
     {
         $this->assertSame(self::sorted(array_keys(P::forTemplate('any'))), self::sorted(array_keys(P::forTemplate('nope'))));
