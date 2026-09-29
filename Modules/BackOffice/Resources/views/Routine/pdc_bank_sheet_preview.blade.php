@@ -383,7 +383,17 @@
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
             <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
-            <td>{{ $first->tenant_name }}</td>
+            @php $tenantCount = count(array_unique(array_map(function ($p) { return $p->tenant_id; }, $r['pdcs']))); @endphp
+            <td>
+              @if($tenantCount > 1)
+                {{-- one cheque paying for several tenants: one name per PDC line, next to its contract --}}
+                @foreach($r['pdcs'] as $p)
+                  {{ $p->tenant_name }}@if(!$loop->last)<br>@endif
+                @endforeach
+              @else
+                {{ $first->tenant_name }}
+              @endif
+            </td>
             <td>
               @foreach($r['pdcs'] as $p)
                 {{ $p->tenant_contract_no }}@if(!$loop->last)<br>@endif
@@ -404,7 +414,8 @@
             <td>{!! $accCell($r, $r['pdcs']) !!}</td>
             <td>
               @if(count($r['pdcs']) > 1)
-                <span class="btn-circle btn-info btn-sm m-b-10 status" title="One cheque across {{ count($r['pdcs']) }} PDC rows"><b>{{ count($r['pdcs']) }} split</b></span>
+                <span class="btn-circle btn-info btn-sm m-b-10 status" title="{{ $tenantCount > 1 ? $r['reason'] : 'One cheque across ' . count($r['pdcs']) . ' PDC rows' }}"><b>{{ count($r['pdcs']) }} split</b></span>
+                @if($tenantCount > 1)<div style="font-size:12px;color:#475569;margin-top:4px">{{ $tenantCount }} tenants</div>@endif
               @else
                 1
               @endif

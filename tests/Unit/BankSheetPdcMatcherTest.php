@@ -144,6 +144,55 @@ class BankSheetPdcMatcherTest extends TestCase
         $this->assertStringContainsString('800', $out[0]['reason']);
     }
 
+    /** Cheque 681545: one cheque of 1500 paying four contracts held by four group companies (4 x 375). */
+    private function groupCompanyPdcs(array $amounts, $month = '2026-09-25')
+    {
+        $names = ['Modern Food Company LLC', 'Al Daud Foods Co LLC', 'Talal & Rashid Trading Co.LLC', 'Abhi LLC', 'Other LLC'];
+        $out = [];
+        foreach (array_values($amounts) as $i => $amt) {
+            $out[] = $this->pdc(['pdc_check_no' => '681545', 'bank_id' => 17, 'pdc_amt' => $amt, 'pdc_check_date' => $month,
+                'tenant_contract_id' => 9100 + $i, 'tenant_id' => 700 + $i, 'tenant_name' => $names[$i]]);
+        }
+        return $out;
+    }
+
+    public function test_one_cheque_for_several_tenants_matches_when_all_their_pdcs_sum_to_the_bank_amount()
+    {
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '00681545', 'bank_code' => '30', 'amount' => 1500.0, 'cheque_date' => '2026-09-25'])],
+            $this->groupCompanyPdcs([375, 375, 375, 375]));
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([9100, 9101, 9102, 9103], array_column($out[0]['pdcs'], 'tenant_contract_id'));
+        $this->assertStringContainsString('One cheque for 4 tenants', $out[0]['reason']);
+        $this->assertStringContainsString('Modern Food Company LLC', $out[0]['reason']);
+    }
+
+    public function test_several_tenants_with_a_leftover_pdc_are_not_matched()
+    {
+        // 375 x 4 = 1500 but a fifth tenant's 100 is on the same cheque number/bank/month: not all of them add up
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '681545', 'bank_code' => '30', 'amount' => 1500.0, 'cheque_date' => '2026-09-25'])],
+            $this->groupCompanyPdcs([375, 375, 375, 375, 100]));
+
+        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
+    }
+
+    public function test_several_tenants_not_summing_to_the_bank_amount_stay_an_amount_mismatch()
+    {
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '681545', 'bank_code' => '30', 'amount' => 1500.0, 'cheque_date' => '2026-09-25'])],
+            $this->groupCompanyPdcs([375, 375, 375]));
+
+        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
+    }
+
+    public function test_several_tenants_rule_ignores_pdcs_of_another_month()
+    {
+        $pdcs = array_merge($this->groupCompanyPdcs([750, 750]), $this->groupCompanyPdcs([375], '2026-10-25'));
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '681545', 'bank_code' => '30', 'amount' => 1500.0, 'cheque_date' => '2026-09-25'])], $pdcs);
+
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertCount(2, $out[0]['pdcs']);
+    }
+
     public function test_coincidental_duplicate_number_resolves_by_amount()
     {
         $pdcs = [
