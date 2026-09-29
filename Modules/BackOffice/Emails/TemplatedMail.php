@@ -10,19 +10,20 @@ class TemplatedMail extends Mailable
 {
     use Queueable;
 
-    public $html;
+    /** Rendered template body. Not "$html": Mailable::$html would bypass the layout view. */
+    public $bodyHtml;
     private $files;
 
     public function __construct($subject, $html, array $attachments = [])
     {
         $this->subject = $subject;
-        $this->html = $html;
+        $this->bodyHtml = $html;
         $this->files = $attachments;
     }
 
     public function build()
     {
-        $mail = $this->view('backoffice::Email.templated', ['bodyHtml' => $this->html]);
+        $mail = $this->view('backoffice::Email.templated', ['bodyHtml' => $this->bodyHtml]);
         foreach ($this->files as $f) {
             $mail->attachData($f['data'], $f['name'], ['mime' => $f['mime']]);
         }

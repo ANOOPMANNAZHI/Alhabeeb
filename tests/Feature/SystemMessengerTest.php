@@ -48,7 +48,7 @@ class SystemMessengerTest extends TestCase
         $this->assertSame(['email' => 'sent', 'sms' => null], $r);
         Mail::assertSent(TemplatedMail::class, function ($m) {
             return $m->hasTo('are@example.com') && $m->hasCc('cc@example.com') && $m->subject === 'Cheque bounced - A & B (123)'
-                && strpos($m->html, 'A &amp; B') !== false;
+                && strpos($m->bodyHtml, 'A &amp; B') !== false;
         });
         $log = MessageLog::where('template_key', 'pdc_bounce_are')->latest('id')->first();
         $this->assertSame(['email', 'are@example.com', 'sent', 'pdc', 77], [$log->channel, $log->recipient, $log->status, $log->related_type, $log->related_id]);
@@ -100,11 +100,22 @@ class SystemMessengerTest extends TestCase
 
     public function test_templated_mail_renders_in_the_plms_layout()
     {
+        // Go through Mailable::buildView() — what the mailer really uses — not the view directly.
         $mail = (new TemplatedMail('Subj', '<p>Dear <strong>Ali</strong></p>'))->build();
-        $html = view($mail->view, $mail->viewData)->render();
+        $method = new \ReflectionMethod($mail, 'buildView');
+        $method->setAccessible(true);
+        $view = $method->invoke($mail);
+        $this->assertInternalType('string', $view, 'must render the PLMS view, not raw html');
+        $html = view($view, $mail->buildViewData())->render();
         $this->assertContains('logo_habib.png', $html);
         $this->assertContains('<p>Dear <strong>Ali</strong></p>', $html);
         $this->assertContains('Al Habib 2018', $html);
+    }
+
+    public function test_employee_name_falls_back_to_username_when_employee_record_missing()
+    {
+        $user = new \App\User(['username' => 'jdoe']); // employee() has withDefault(): an empty, unsaved Employee
+        $this->assertSame('jdoe', \Modules\BackOffice\Services\MessageValues::employee($user)['employee_name']);
     }
 
     public function test_unknown_key_is_a_programming_error()

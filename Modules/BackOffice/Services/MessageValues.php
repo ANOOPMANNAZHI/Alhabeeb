@@ -40,7 +40,7 @@ class MessageValues
         $employee = $user ? $user->employee : null;
         $role = $user && method_exists($user, 'getRoleNames') ? $user->getRoleNames()->first() : '';
         return [
-            'employee_name' => self::v($employee ? $employee->employee_name : ($user ? $user->username : '')),
+            'employee_name' => self::v($employee && $employee->exists && $employee->employee_name ? $employee->employee_name : ($user ? $user->username : '')),
             'role'          => self::v($role ? ucwords(str_replace('_', ' ', $role)) : ''),
         ];
     }

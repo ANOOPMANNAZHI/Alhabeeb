@@ -13,6 +13,15 @@ use Modules\BackOffice\Events\ChequeBounceAre;
 class PdcBounceNotifier
 {
     /**
+     * pdc_cancel_reason before and after a save: only a change to 1 (bounce) is a new bounce.
+     * The PDC grid re-posts already-bounced rows on every save, which must not notify again.
+     */
+    public static function isNewBounce($before, $after)
+    {
+        return (int) $after === 1 && (int) $before !== 1;
+    }
+
+    /**
      * @param string   $href            link for the in-app alert
      * @param int|null $notificationId  id stored on the in-app alert (some screens use the contract id)
      * @return array ['ares' => number of ARE users messaged, 'tenant' => email status]
@@ -39,7 +48,7 @@ class PdcBounceNotifier
             $employee = $user->employee;
             $mobile = $employee ? ($employee->employee_contact_no ?: $employee->employee_secondary_no) : null;
             SystemMessenger::send('pdc_bounce_are',
-                new MessageRecipient($employee ? $employee->employee_name : $user->username, $user->email, $mobile),
+                new MessageRecipient($employee && $employee->exists && $employee->employee_name ? $employee->employee_name : $user->username, $user->email, $mobile),
                 $values + MessageValues::employee($user), $related);
         }
 

@@ -111,7 +111,8 @@ e     */
                     if(isset($request->{'pdc_cancel_reason_'.$i})){
                         $cancel = date('Y-m-d');
                     }
-                    Pdc::where('id','=',$request->{'pdc_check_id_'.$i})->update([    
+                    $cancelReasonBefore = Pdc::where('id', $request->{'pdc_check_id_'.$i})->value('pdc_cancel_reason');
+                    Pdc::where('id','=',$request->{'pdc_check_id_'.$i})->update([
                         'pdc_check_no' => $request->{'pdc_check_no_'.$i},
                         'pdc_check_date' => $request->{'pdc_check_date'.'_'.$i},
                         'pdc_recieve_date' => $request->{'pdc_recieve_date_'.$i},
@@ -141,7 +142,8 @@ e     */
                     /* Check whether it is bounce*/
 
                     $bounce = $request->{'pdc_cancel_reason_'.$i};
-                    if($bounce == 1){
+                    // Bounced rows are re-posted on every grid save: notify only when it newly became a bounce.
+                    if(PdcBounceNotifier::isNewBounce($cancelReasonBefore, $bounce)){
                         $pdc_id = $request->{'pdc_check_id_'.$i};
                         $pdcData = Pdc::where('id',$pdc_id)->first();
 
