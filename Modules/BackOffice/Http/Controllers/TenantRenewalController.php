@@ -41,7 +41,8 @@ use Modules\BackOffice\Events\TenantRenewalReject;
 use Modules\Sales\Http\Controllers\TenantContractController as Contract ;
 use Modules\General\Http\Controllers\GeneralController as General;
 use Illuminate\Support\Facades\Mail;
-use Modules\BackOffice\Emails\RenewalFormPdfEmail;
+use Modules\BackOffice\Entities\MessageLog;
+use Modules\BackOffice\Services\TenantMessages;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 
 class TenantRenewalController extends Controller 
@@ -1983,8 +1984,10 @@ class TenantRenewalController extends Controller
     * generatePDF
     *
     */
-    public function generatePDF(TenantContract $tenant_contract)
+    public function generatePDF($contract_id)
     {
+      // The route passes {contract_id}; a TenantContract type-hint was never bound and gave an empty contract.
+      $tenant_contract = TenantContract::findOrFail($contract_id);
       $areEmail= null;
       if(isset($tenant_contract->building->buildingAssignToAre->buildingAssignToName->areUser)){
 
@@ -1995,7 +1998,6 @@ class TenantRenewalController extends Controller
       $userDetails = User::where('id',\Auth::user()->id)->first();
       $tenantContract->username = $userDetails->username;
       $tenantContract->email = $userDetails->email;
-      $contractDate = $tenantContract->tenant_contract_valid_to_date->format('d/m/Y');
       $data['tenantContract'] = $tenantContract;
       
       $pdf = \PDF::loadView('backoffice::RenewalOrTermination.renewal_contract_form_pdf',$data)->setPaper('a3');
@@ -2010,28 +2012,18 @@ class TenantRenewalController extends Controller
        $nextCode=$prefix.$random;
 
        $pdfName=$nextCode.'.pdf';
-        //Email Notification
-        $tenantDetail = Tenant::where('id',$tenantContract->tenant_id)->first();
-        $tenantEmail = $tenantDetail->tenant_contact_email;
-        $tenantDetail->pdf = $pdf;
-        $tenantDetail->pdfname = $pdfName; 
-        $tenantDetail->todate = $contractDate;
-        $tenantDetail->building = $tenantContract->building->building_name;
-        $tenantDetail->unitno = $tenantContract->Unit->unit_no;
-        
-        if($tenantEmail == "")$tenantEmail = $tenantDetail->tenant_personal_email;
-
-        if(!empty($tenantEmail)){
-
-          Mail::to($tenantEmail)
-                ->cc([$userDetails->email,$areEmail])
-                ->send(new RenewalFormPdfEmail($tenantDetail));
+        // Email to the tenant with the form attached (system template renewal_form); cc sender + ARE
+        $status = TenantMessages::renewalForm($tenantContract, $pdf->output(), $pdfName, [$userDetails->email, $areEmail]);
+        if ($status === MessageLog::SENT) {
           TenantContract::where('id',$tenantContract->id)->update(['email_count'=>$tenantContract->email_count+1]);
           session()->flash('success', ' Mail Send Successfully');
           return redirect()->route('tenantRenewal.index');
-        }else{
-          return  $pdf->download($pdfName);
         }
+        // Not emailed (no address, template switched off, or send failed): give the user the form instead.
+        if ($status === MessageLog::FAILED) {
+          session()->flash('error', 'The email could not be sent (see Mail > Sent log). The form has been downloaded instead.');
+        }
+        return $pdf->download($pdfName);
 
                
     }
