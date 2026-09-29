@@ -12,54 +12,21 @@ class BankSheetRejectedCheques
 {
     const BOUNCED = 1; // pdc_cancel_reason
 
-    /** pdc_bounce_reason codes, as labelled by Pdc::getPdcCancelReasonNameAttribute. */
+    /** Active bounce reasons (Masters -> Bounce Reasons), code => name. */
     public static function reasons()
     {
-        return [
-            1 => 'Insufficient Funds',
-            2 => 'Signature Missing',
-            3 => 'Signature Mismatch',
-            4 => 'Word in amount and figure differ',
-            5 => 'Stop Payment',
-            6 => 'Refer to Drawer',
-            7 => 'Correction',
-            8 => 'Stale Cheque (Beyond six months)',
-            9 => 'Misc',
-        ];
+        return \Modules\Masters\Entities\PdcBounceReason::options();
     }
 
     /**
-     * PLMS bounce reason (Pdc::getPdcCancelReasonNameAttribute codes) for the
-     * bank's free-text reason; null when the sheet gives no real reason.
+     * Bounce reason code for the bank's rejection text, from the "bank sheet words"
+     * on Masters -> Bounce Reasons; null when nothing matches (the user picks).
+     * $matchers: PdcBounceReason::matchers() shape; loaded from the master when null.
      */
-    public static function bounceReasonFor($bankText)
+    public static function bounceReasonFor($bankText, array $matchers = null)
     {
-        $t = strtolower(trim((string) $bankText));
-        if ($t === '' || strpos($t, 'no clearing reason') !== false) {
-            return null;
-        }
-        if (preg_match('/insufficient|not sufficient|nsf|funds/', $t)) {
-            return 1; // Insufficient Funds
-        }
-        if (strpos($t, 'signature') !== false || strpos($t, 'unsigned') !== false) {
-            return preg_match('/missing|absent|without|unsigned|not signed/', $t) ? 2 : 3; // Missing / Mismatch
-        }
-        if (preg_match('/words?\b.*figure|figure.*\bwords?/', $t)) {
-            return 4; // Word in amount and figure differ
-        }
-        if (strpos($t, 'stop') !== false) {
-            return 5; // Stop Payment
-        }
-        if (strpos($t, 'refer') !== false) {
-            return 6; // Refer to Drawer
-        }
-        if (preg_match('/correction|alter/', $t)) {
-            return 7; // Correction
-        }
-        if (strpos($t, 'stale') !== false) {
-            return 8; // Stale Cheque
-        }
-        return 9; // Misc
+        return \Modules\Masters\Entities\PdcBounceReason::match($bankText,
+            $matchers !== null ? $matchers : \Modules\Masters\Entities\PdcBounceReason::matchers());
     }
 
     /**

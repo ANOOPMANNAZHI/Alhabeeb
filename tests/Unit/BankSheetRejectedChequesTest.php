@@ -23,17 +23,25 @@ class BankSheetRejectedChequesTest extends TestCase
 
     public function test_bounce_reason_from_bank_text()
     {
-        $this->assertSame(1, R::bounceReasonFor('Insufficient Funds'));
-        $this->assertSame(1, R::bounceReasonFor('FUNDS NOT SUFFICIENT'));
-        $this->assertSame(2, R::bounceReasonFor('Signature missing'));
-        $this->assertSame(3, R::bounceReasonFor('Signature differs'));
-        $this->assertSame(4, R::bounceReasonFor('Amount in words and figures differ'));
-        $this->assertSame(5, R::bounceReasonFor('Payment stopped by drawer'));
-        $this->assertSame(6, R::bounceReasonFor('Refer to drawer'));
-        $this->assertSame(8, R::bounceReasonFor('Stale cheque'));
-        $this->assertSame(9, R::bounceReasonFor('Account closed'));
-        $this->assertNull(R::bounceReasonFor('No clearing reason on sheet'));
-        $this->assertNull(R::bounceReasonFor(''));
+        // the master's starting data (no database in unit tests)
+        $m = [];
+        foreach (\Modules\Masters\Entities\PdcBounceReason::DEFAULTS as $d) {
+            if ($d['is_active']) {
+                $m[] = ['id' => $d['id'], 'keywords' => \Modules\Masters\Entities\PdcBounceReason::splitKeywords($d['bank_keywords']),
+                        'fallback' => $d['is_fallback'], 'sort_order' => $d['sort_order']];
+            }
+        }
+        $this->assertSame(1, R::bounceReasonFor('Insufficient Funds', $m));
+        $this->assertSame(1, R::bounceReasonFor('FUNDS NOT SUFFICIENT', $m));
+        $this->assertSame(2, R::bounceReasonFor('Signature missing', $m));
+        $this->assertSame(3, R::bounceReasonFor('Signature differs', $m));
+        $this->assertSame(4, R::bounceReasonFor('Amount in words and figures differ', $m));
+        $this->assertSame(5, R::bounceReasonFor('Payment stopped by drawer', $m));
+        $this->assertSame(6, R::bounceReasonFor('Refer to drawer', $m));
+        $this->assertSame(8, R::bounceReasonFor('Stale cheque', $m));
+        $this->assertSame(10, R::bounceReasonFor('Account closed', $m)); // was Misc (9) before the master
+        $this->assertNull(R::bounceReasonFor('No clearing reason on sheet', $m));
+        $this->assertNull(R::bounceReasonFor('', $m));
     }
 
     public function test_rejected_cheque_found_with_rent_and_vat_rows()

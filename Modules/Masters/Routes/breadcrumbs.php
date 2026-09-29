@@ -979,3 +979,16 @@ Breadcrumbs::for('showTenantDetailsReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Tenant Details - Building Wise', route('showTenantDetailsReport'));
 });
+// Bounce Reason
+Breadcrumbs::for('bounce-reason.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Bounce Reason', route('bounce-reason.index'));
+});
+Breadcrumbs::for('bounce-reason.create', function ($trail) {
+    $trail->parent('bounce-reason.index');
+    $trail->push('Add Bounce Reason', route('bounce-reason.create'));
+});
+Breadcrumbs::for('bounce-reason.edit', function ($trail, $reason) {
+    $trail->parent('bounce-reason.index');
+    $trail->push('Edit Bounce Reason', route('bounce-reason.edit', $reason->id));
+});

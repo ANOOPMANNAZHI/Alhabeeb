@@ -253,15 +253,7 @@
                   <i class="fa fa-money icn-add" aria-hidden="true"></i>
                   <select name="pdc_bounce_reason" class="form-control" required id="pdc_bounce_reason">
                     <option value="">Select</option>
-                    <option value="1" >Insufficient Funds</option>
-                    <option value="2" >Signature Missing</option>
-                    <option value="3" >Signature Mismatch</option> 
-                    <option value="4" >Word in amount and figure differ</option>
-                    <option value="5" >Stop Payment</option>
-                    <option value="6" >Refer to Drawer</option>
-                    <option value="7" >Correction</option>  
-                    <option value="8" >Stale Cheque (Beyond six months)</option>
-                    <option value="9" >Misc</option>
+                    @include('backoffice::Pdc._bounce_reason_options', ['selected' => null])
                   </select>                
                 </div>
               </div>

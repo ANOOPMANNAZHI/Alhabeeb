@@ -137,25 +137,7 @@
 						  {{($item->pdc_cancel_reason == 1)?'Bounce':($item->pdc_cancel_reason == 2)?'Exchange':($item->pdc_cancel_reason == 3)?'Replace':''}}
 					  </td>
                       <td>
-						  @if($item->pdc_bounce_reason == 1)
-								Insufficient Funds
-                          @elseif($item->pdc_bounce_reason == 2)
-								Signature Missing
-                          @elseif($item->pdc_bounce_reason == 3)
-								Signature Mismatch
-                          @elseif($item->pdc_bounce_reason == 4)
-								Word in amount and figure differ
-						  @elseif($item->pdc_bounce_reason == 5)
-								Stop Payment
-                          @elseif($item->pdc_bounce_reason == 6)
-								Refer to Drawer
-                          @elseif($item->pdc_bounce_reason == 7)
-								Correction
-                          @elseif($item->pdc_bounce_reason == 8)
-								Stale Cheque (Beyond six months)
-						  @elseif($item->pdc_bounce_reason == 9)
-								Misc
-						  @endif
+						  {{ \Modules\Masters\Entities\PdcBounceReason::nameFor($item->pdc_bounce_reason) }}
                           </select>   
 						  
 					  </td>
