@@ -18,7 +18,9 @@ class ChequeBounceAre
     public function __construct(Pdc $pdc,$user)
     {
         $this->enquiry = $pdc;          
-        $this->enquiry->text = "Pdc Cheque Bounced  -  ".$pdc->pdc_check_no." for the Contract ".$pdc->tenantContractInfo->tenant_contract_no."  Added by ".\Auth::user()->username; 
+        $this->enquiry->text = "Pdc Cheque Bounced  -  ".$pdc->pdc_check_no." for the Contract ".$pdc->tenantContractInfo->tenant_contract_no."  Added by ".\Auth::user()->username
+            . ($pdc->pdc_cancel_reason_name ? ". Reason: " . $pdc->pdc_cancel_reason_name : '')
+            . ($pdc->bounce_remark ? ", Remarks: " . $pdc->bounce_remark : '');
         $this->enquiry->icon = 'fa-envelope-o';
         $this->enquiry->icon_color = 'blue-bgcolor';
         

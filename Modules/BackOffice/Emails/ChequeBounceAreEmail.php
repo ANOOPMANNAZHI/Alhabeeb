@@ -25,6 +25,8 @@ class ChequeBounceAreEmail extends Mailable
                   $are_name = $assign->buildingAssignToName->areUser->employee->employee_name??'';
         $this->areName = $are_name;
         $this->buildingName = $pdc->tenantContractInfo->building->building_name;
+        $this->bounceReason = $pdc->pdc_cancel_reason_name;   // from pdc_bounce_reason
+        $this->bounceRemark = $pdc->bounce_remark;            // e.g. the bank's rejection reason; may be null
     }
     /**
      * Build the message.
@@ -34,6 +36,7 @@ class ChequeBounceAreEmail extends Mailable
     public function build()
     {
 
-        return $this->markdown('backoffice::Email.cheque_bounce_are_mail')->with(['tenantName'=>$this->tenantName,'areName'=>$this->areName,'pdcCheckNo'=>$this->pdcCheckNo,'buildingName'=>$this->buildingName])->subject('Cheque Bounce');
+        return $this->markdown('backoffice::Email.cheque_bounce_are_mail')->with(['tenantName'=>$this->tenantName,'areName'=>$this->areName,'pdcCheckNo'=>$this->pdcCheckNo,'buildingName'=>$this->buildingName,
+                     'bounceReason'=>$this->bounceReason,'bounceRemark'=>$this->bounceRemark])->subject('Cheque Bounce');
     }
 }

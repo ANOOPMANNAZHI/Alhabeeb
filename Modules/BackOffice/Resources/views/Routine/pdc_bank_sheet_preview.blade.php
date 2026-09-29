@@ -566,7 +566,7 @@
                   </select>
                   <button type="button" class="bsp-bounce-btn"
                           data-ids="{{ implode(',', array_map(function ($p) { return $p->id; }, array_filter($group, function ($p) { return $p->pdc_cancel_reason !== \Modules\BackOffice\Services\BankSheetRejectedCheques::BOUNCED; }))) }}"
-                          data-cheque="{{ $x['row']['cheque_no'] }}">Mark as bounced</button>
+                          data-cheque="{{ $x['row']['cheque_no'] }}" data-remark="{{ $x['row']['reject_reason'] }}">Mark as bounced</button>
                   <span class="bsp-sub bsp-bounce-msg"></span>
                 @endif
               </td>
@@ -637,7 +637,7 @@ $(document).on('click', '.bsp-bounce-btn', function () {
         $('<div>').text($cell.find('option:selected').text() || '').html() + '</span>');
       return;
     }
-    $.ajax({method: 'POST', url: @json(route('tenantAjaxPdcBounceSearch')), data: {id: ids[i], pdc_bounce_reason: reason, _token: token}, dataType: 'json'})
+    $.ajax({method: 'POST', url: @json(route('tenantAjaxPdcBounceSearch')), data: {id: ids[i], pdc_bounce_reason: reason, bounce_remark: $btn.data('remark') || '', _token: token}, dataType: 'json'})
       .done(function () { next(i + 1); })
       .fail(function (x) {
         // the bounce action saves first and answers with an empty body when the building has no ARE assigned
