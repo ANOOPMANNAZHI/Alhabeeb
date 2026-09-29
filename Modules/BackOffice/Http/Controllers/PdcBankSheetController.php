@@ -10,6 +10,7 @@ use Modules\BackOffice\Entities\Pdc;
 use Modules\BackOffice\Exports\PdcBankSheetResultExport;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Services\BankSheetPdcMatcher;
+use Modules\BackOffice\Services\BankSheetRejectedCheques;
 use Modules\BackOffice\Services\BankSheetReader;
 use Modules\BackOffice\Services\VatReceiptCreator;
 use Modules\Masters\Entities\Bank;
@@ -86,8 +87,12 @@ class PdcBankSheetController extends Controller
             'cannot'    => count($sections['cannot']),
         ];
 
-        $matched = $this->paginate($sections['matched'], $request, 'mpage', $stored);
-        $cannot  = $this->paginate($sections['cannot'], $request, 'cpage', $stored);
+        $matched = $this->paginate($sections['matched'], $request, 'mpage', $stored, 'matched');
+        $cannot  = $this->paginate($sections['cannot'], $request, 'cpage', $stored, 'cannot');
+
+        // Which result tab opens: ?tab=, else the tab being paged / filtered, else Auto-matched
+        $activeTab = in_array($request->input('tab'), ['matched', 'cannot', 'rejected'], true) ? $request->input('tab')
+            : (($request->has('cpage') || count($filters['cannot']) > 0) ? 'cannot' : 'matched');
 
         $chosen = 0;
         foreach ($selection['choice'] as $v) {
@@ -108,7 +113,20 @@ class PdcBankSheetController extends Controller
         // deposit date defaults to the day the bank scanned the batch, never later than today
         $defaultDate = $analysis['batch_date'] && $analysis['batch_date'] <= date('Y-m-d') ? $analysis['batch_date'] : date('Y-m-d');
 
+        // Cheques the bank rejected, matched to their PDCs so they can be marked bounced here
+        $rejectedRows = [];
+        foreach ($analysis['results'] as $r) {
+            if ($r['status'] === BankSheetPdcMatcher::REJECTED) {
+                $rejectedRows[] = $r['row'];
+            }
+        }
+        $rejected = $rejectedRows
+            ? BankSheetRejectedCheques::match($rejectedRows, $this->candidatePdcs($rejectedRows, true), $this->bankMap())
+            : [];
+
         return view('backoffice::Routine.pdc_bank_sheet_preview', [
+            'rejected'      => $rejected,
+            'activeTab'     => $activeTab,
             'stored'        => $stored,
             'fileName'      => $this->originalName($stored),
             'banks'         => $banks,
@@ -609,7 +627,7 @@ class PdcBankSheetController extends Controller
         return ['results' => $results, 'sections' => $sections, 'counts' => $counts, 'batch_date' => BankSheetReader::batchDate($rows)];
     }
 
-    private function paginate(array $items, Request $request, $pageName, $stored)
+    private function paginate(array $items, Request $request, $pageName, $stored, $tab = null)
     {
         $page = max(1, (int) $request->input($pageName, 1));
         $paginator = new LengthAwarePaginator(
@@ -619,7 +637,11 @@ class PdcBankSheetController extends Controller
             $page,
             ['path' => route('pdcBankSheetPreview', $stored), 'pageName' => $pageName]
         );
-        return $paginator->appends($request->except([$pageName]));
+        $paginator->appends($request->except([$pageName]));
+        if ($tab !== null) {
+            $paginator->appends('tab', $tab); // paging a tab keeps that tab open
+        }
+        return $paginator;
     }
 
     private function selectionKey($stored)
@@ -768,21 +790,29 @@ class PdcBankSheetController extends Controller
      * Unposted, uncancelled rent/deposit PDCs whose cheque number appears on
      * the sheet, as light objects the matcher and the preview both read.
      */
-    private function candidatePdcs(array $rows)
+    /**
+     * $forRejected: cheques the bank rejected may already be posted (receipt made)
+     * or already marked bounced, so those are included; still never cleared or
+     * cancelled for another reason.
+     */
+    private function candidatePdcs(array $rows, $forRejected = false)
     {
         $numbers = [];
         foreach ($rows as $r) {
             $numbers[BankSheetPdcMatcher::normaliseChequeNo($r['cheque_no'])] = true;
         }
 
-        $pdcs = Pdc::with(['tenantContractInfo.tenant', 'tenantContractInfo.building', 'tenantContractInfo.Unit', 'bankInfo'])
+        $q = Pdc::with(['tenantContractInfo.tenant', 'tenantContractInfo.building', 'tenantContractInfo.Unit', 'bankInfo'])
             ->whereIn('pdc_check_no', array_keys($numbers))
-            ->where('pdc_is_posted', 0)
             ->whereNull('pdc_clear_date')
-            ->where('pdc_cancel_reason', 0)
             ->whereIn('pdc_type', [1, 2, 3])
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+        if ($forRejected) {
+            $q->whereIn('pdc_cancel_reason', [0, BankSheetRejectedCheques::BOUNCED]);
+        } else {
+            $q->where('pdc_is_posted', 0)->where('pdc_cancel_reason', 0);
+        }
+        $pdcs = $q->get();
 
         $out = [];
         foreach ($pdcs as $pdc) {
@@ -804,6 +834,10 @@ class PdcBankSheetController extends Controller
                 'pdc_account_no'     => $pdc->pdc_account_no,
                 'pdc_type'           => (int) $pdc->pdc_type,
                 'management_id'      => $contract && $contract->building ? (int) $contract->building->management_id : 0,
+                'pdc_cancel_reason'  => (int) $pdc->pdc_cancel_reason,
+                'pdc_is_posted'      => (int) $pdc->pdc_is_posted,
+                'pdc_receipt_no'     => $pdc->pdc_receipt_no,
+                'bounce_reason_name' => (int) $pdc->pdc_cancel_reason === BankSheetRejectedCheques::BOUNCED ? $pdc->pdc_cancel_reason_name : null,
             ];
         }
         return $out;

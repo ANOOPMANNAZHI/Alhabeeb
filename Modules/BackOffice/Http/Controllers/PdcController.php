@@ -391,13 +391,24 @@ e     */
         if(!$pdc_id)
             response()->json(['error'=>'Something Error in Server']);
 
-        $isPosted           = Pdc::where('id',$pdc_id)->first(); 
+        $isPosted           = Pdc::where('id',$pdc_id)->first();
+
+        // Optional bounce remark (e.g. the bank's rejection reason from the bank sheet):
+        // appended to the PDC remarks and shown in the ARE email / notification.
+        $bounceRemark = trim((string) $request->input('bounce_remark'));
+        $remarkUpdate = [];
+        if ($bounceRemark !== '') {
+            $existingRemark = trim((string) $isPosted->pdc_remark);
+            $remarkUpdate['pdc_remark'] = ($existingRemark !== '' ? $existingRemark . ' | ' : '') . 'Bounced: ' . $bounceRemark;
+        }
+        $isPosted->pdc_bounce_reason = $pdc_bounce_reason; // so the email / notification can name the reason
+        $isPosted->bounce_remark     = $bounceRemark !== '' ? $bounceRemark : null;
 
 
 
         if(empty($isPosted->pdc_is_posted)){ // Delete status - 2
 
-            Pdc::where('id',$pdc_id)->update(['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_is_saved'=>2,'pdc_cancel_by' => \Auth::user()->id]);
+            Pdc::where('id',$pdc_id)->update($remarkUpdate + ['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_is_saved'=>2,'pdc_cancel_by' => \Auth::user()->id]);
 
             ReceiptsGeneration::where('receipts_generation_receipt_no',$isPosted->pdc_receipt_no)->update(['receipts_generation_cancel_date'=>date('Y-m-d'),'receipts_generation_status'=>2,'receipts_generation_reason_cancel'=>'PDC Bounce','receipts_generation_cancel_by' => \Auth::user()->id]);
 
@@ -430,7 +441,7 @@ e     */
           }
           else{
 
-            Pdc::where('id',$pdc_id)->update(['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_cancel_by' => \Auth::user()->id]);
+            Pdc::where('id',$pdc_id)->update($remarkUpdate + ['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_cancel_by' => \Auth::user()->id]);
 
             ReceiptsGeneration::where('receipts_generation_receipt_no',$isPosted->pdc_receipt_no)->update(['receipts_generation_cancel_date'=>date('Y-m-d'),'receipts_generation_status'=>2,'receipts_generation_reason_cancel'=>'PDC Bounce','receipts_generation_cancel_by' => \Auth::user()->id]);
 
