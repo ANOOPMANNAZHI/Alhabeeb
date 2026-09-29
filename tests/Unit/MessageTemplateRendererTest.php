@@ -1,0 +1,66 @@
+<?php
+
+namespace Tests\Unit;
+
+use PHPUnit\Framework\TestCase;
+use Modules\BackOffice\Services\MessageTemplateRenderer as R;
+
+class MessageTemplateRendererTest extends TestCase
+{
+    public function test_fills_placeholders_and_reports_unknown()
+    {
+        $t = (object) ['email_subject' => "Rent due for {unit}\n", 'email_body' => '<p>Dear {tenant_name}, pay {amount}.</p>', 'sms_body' => 'Dear {tenant_name}: {nope}'];
+        $r = R::render($t, ['tenant_name' => 'Ali', 'unit' => 'S 03']);
+        $this->assertSame('Rent due for S 03', $r['subject']);
+        $this->assertSame('<p>Dear Ali, pay {amount}.</p>', $r['html']);
+        $this->assertSame('Dear Ali: {nope}', $r['sms']);
+        $this->assertSame(['amount', 'nope'], $r['unknown']);
+    }
+
+    public function test_values_are_escaped_in_html_and_never_re_expanded()
+    {
+        $t = (object) ['email_subject' => '{tenant_name}', 'email_body' => '<b>{tenant_name}</b>', 'sms_body' => '{tenant_name}'];
+        $r = R::render($t, ['tenant_name' => 'A & B <x> {rent}', 'rent' => '999']);
+        $this->assertSame('<b>A &amp; B &lt;x&gt; {rent}</b>', $r['html']);
+        $this->assertSame('A & B <x> {rent}', $r['sms']);
+        $this->assertSame('A & B <x> {rent}', $r['subject']);
+        $this->assertSame([], $r['unknown']);
+    }
+
+    public function test_missing_channels_render_as_null()
+    {
+        $r = R::render((object) ['email_subject' => null, 'email_body' => null, 'sms_body' => 'Hi'], []);
+        $this->assertNull($r['subject']);
+        $this->assertNull($r['html']);
+        $this->assertSame('Hi', $r['sms']);
+    }
+
+    public function test_placeholder_names_are_case_insensitive()
+    {
+        $unknown = [];
+        $this->assertSame('Hi Ali', R::fill('Hi {Tenant_Name}', ['tenant_name' => 'Ali'], false, $unknown));
+    }
+
+    public function test_sms_parts_gsm_and_unicode()
+    {
+        $this->assertSame(['chars' => 0, 'unicode' => false, 'parts' => 0], R::smsParts(''));
+        $this->assertSame(1, R::smsParts(str_repeat('a', 160))['parts']);
+        $this->assertSame(2, R::smsParts(str_repeat('a', 161))['parts']);
+        $this->assertSame(3, R::smsParts(str_repeat('a', 307))['parts']);
+        $ar = R::smsParts(str_repeat('ب', 70));
+        $this->assertSame(['chars' => 70, 'unicode' => true, 'parts' => 1], $ar);
+        $this->assertSame(2, R::smsParts(str_repeat('ب', 71))['parts']);
+    }
+
+    public function test_clean_html_strips_scripts_and_handlers()
+    {
+        $dirty = '<p onclick="x()">Hi<script>alert(1)</script></p><a href="javascript:bad()">l</a><iframe src="x"></iframe><style>p{}</style><img src="a.png" onerror="y()">';
+        $clean = R::cleanHtml($dirty);
+        $this->assertSame('<p>Hi</p><a href="#">l</a><img src="a.png">', $clean);
+    }
+
+    public function test_placeholders_in_text()
+    {
+        $this->assertSame(['rent', 'tenant_name'], R::placeholdersIn('{tenant_name} owes {rent}; {tenant_name}'));
+    }
+}
