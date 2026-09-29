@@ -640,6 +640,8 @@ Route::middleware('auth')->group(function () {
 
 	  /***************** Mass Mail **************/
 
+	Route::post('message-templates/preview', 'MessageTemplateController@preview')->name('message-templates.preview');
+	Route::resource('message-templates', 'MessageTemplateController')->except(['show'])->parameters(['message-templates' => 'messageTemplate']);
 	Route::resource('massMail', 'MassMailController');
 	Route::get('emailAutocomplete', 'MassMailController@emailAutocomplete')->name('emailAutocomplete');
 	Route::get('/massEmailAutocomplete', 'MassMailController@massEmailAutocomplete')->name('massEmailAutocomplete');
