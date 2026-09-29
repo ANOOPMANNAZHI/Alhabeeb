@@ -1,0 +1,115 @@
+<?php
+
+namespace Tests\Feature;
+
+use Tests\TestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
+use Modules\BackOffice\Emails\TemplatedMail;
+use Modules\BackOffice\Entities\MessageLog;
+use Modules\BackOffice\Entities\MessageTemplate;
+use Modules\BackOffice\Services\MessageRecipient;
+use Modules\BackOffice\Services\SystemMessenger;
+
+class SystemMessengerTest extends TestCase
+{
+    use DatabaseTransactions;
+
+    private $sms;
+
+    protected function setUp()
+    {
+        parent::setUp();
+        Mail::fake();
+        $this->sms = [];
+        $self = $this;
+        SystemMessenger::$smsSender = function ($mobile, $msg) use ($self) { $self->smsSent($mobile, $msg); return true; };
+        MessageTemplate::where('key', 'pdc_bounce_are')->update(['is_active' => true, 'sms_enabled' => false]);
+    }
+
+    public function smsSent($mobile, $msg) { $this->sms[] = [$mobile, $msg]; }
+
+    protected function tearDown()
+    {
+        SystemMessenger::$smsSender = 'sendSms';
+        parent::tearDown();
+    }
+
+    private function values()
+    {
+        return ['employee_name' => 'Anoop', 'tenant_name' => 'A & B', 'contract_no' => 'TAG1', 'building' => 'Rex', 'unit' => '5',
+                'cheque_no' => '123', 'amount' => '250.000', 'cheque_date' => '15/09/2026', 'bounce_reason' => 'Insufficient Funds', 'remarks' => '-'];
+    }
+
+    public function test_sends_email_and_logs_it()
+    {
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com', '99123456', ['cc@example.com']), $this->values(), ['related' => ['pdc', 77]]);
+        $this->assertSame(['email' => 'sent', 'sms' => null], $r);
+        Mail::assertSent(TemplatedMail::class, function ($m) {
+            return $m->hasTo('are@example.com') && $m->hasCc('cc@example.com') && $m->subject === 'Cheque bounced - A & B (123)'
+                && strpos($m->html, 'A &amp; B') !== false;
+        });
+        $log = MessageLog::where('template_key', 'pdc_bounce_are')->latest('id')->first();
+        $this->assertSame(['email', 'are@example.com', 'sent', 'pdc', 77], [$log->channel, $log->recipient, $log->status, $log->related_type, $log->related_id]);
+        $this->assertSame([], $this->sms);
+    }
+
+    public function test_switched_off_sends_nothing()
+    {
+        MessageTemplate::where('key', 'pdc_bounce_are')->update(['is_active' => false, 'sms_enabled' => true]);
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com', '99123456'), $this->values());
+        $this->assertSame(['email' => 'skipped_off', 'sms' => null], $r);
+        Mail::assertNothingSent();
+        $this->assertSame([], $this->sms);
+    }
+
+    public function test_no_email_sms_off_is_skipped_no_address()
+    {
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', '', '99123456'), $this->values());
+        $this->assertSame(['email' => 'skipped_no_address', 'sms' => null], $r);
+        $this->assertSame([], $this->sms);
+    }
+
+    public function test_sms_on_sends_sms_even_with_email()
+    {
+        MessageTemplate::where('key', 'pdc_bounce_are')->update(['sms_enabled' => true]);
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com', '99123456'), $this->values());
+        $this->assertSame(['email' => 'sent', 'sms' => 'sent'], $r);
+        $this->assertSame('99123456', $this->sms[0][0]);
+        $this->assertContains('A & B', $this->sms[0][1]);
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com', null), $this->values());
+        $this->assertSame('skipped_no_mobile', $r['sms']);
+    }
+
+    public function test_mail_exception_is_logged_not_thrown()
+    {
+        Mail::shouldReceive('to')->andThrow(new \Exception('SMTP 554 rejected'));
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com'), $this->values());
+        $this->assertSame('failed', $r['email']);
+        $this->assertContains('SMTP 554', MessageLog::latest('id')->first()->note);
+    }
+
+    public function test_missing_row_uses_default_wording()
+    {
+        DB::table('message_templates')->where('key', 'pdc_bounce_are')->delete();
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com'), $this->values());
+        $this->assertSame('sent', $r['email']);
+        $this->assertContains('template_missing', MessageLog::latest('id')->first()->note);
+    }
+
+    public function test_templated_mail_renders_in_the_plms_layout()
+    {
+        $mail = (new TemplatedMail('Subj', '<p>Dear <strong>Ali</strong></p>'))->build();
+        $html = view($mail->view, $mail->viewData)->render();
+        $this->assertContains('logo_habib.png', $html);
+        $this->assertContains('<p>Dear <strong>Ali</strong></p>', $html);
+        $this->assertContains('Al Habib 2018', $html);
+    }
+
+    public function test_unknown_key_is_a_programming_error()
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        SystemMessenger::send('no_such_key', new MessageRecipient('x', 'x@example.com'), []);
+    }
+}
