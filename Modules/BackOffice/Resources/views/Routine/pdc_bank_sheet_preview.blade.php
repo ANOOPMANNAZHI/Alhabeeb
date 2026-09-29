@@ -25,6 +25,25 @@
   .bsp-pill-cannot  { background:#fee2e2; color:#991b1b; }
   .bsp-pill-vat { background:#e0e7ff; color:#3730a3; }
   .bsp-pill-acct { background:#fef3c7; color:#92400e; margin-top:4px; }
+  /* Result tabs: Auto-matched / Cannot post / Rejected by bank */
+  .bsp .bsp-tabs-card { overflow:hidden; }
+  .bsp .bsp-tablist { display:flex; gap:4px; padding:8px 16px 0; background:#f8fafc; border-bottom:1px solid #e2e8f0; overflow-x:auto; }
+  .bsp .bsp-tab { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 16px; margin-bottom:-1px;
+                  border:0; border-bottom:3px solid transparent; border-radius:6px 6px 0 0; background:transparent;
+                  color:#475569; font-size:14px; font-weight:600; white-space:nowrap; cursor:pointer; transition:background .15s, color .15s; }
+  .bsp .bsp-tab:hover { background:#f1f5f9; color:#0f172a; }
+  .bsp .bsp-tab[aria-selected="true"] { background:#fff; color:#0f172a; border-bottom-color:#2f4fd6; }
+  .bsp .bsp-tab:focus-visible { outline:2px solid #2f4fd6; outline-offset:-2px; }
+  .bsp .bsp-tab-ok i { color:#166534; }
+  .bsp .bsp-tab-bad i { color:#991b1b; }
+  .bsp .bsp-tab-count { min-width:24px; padding:2px 8px; border-radius:12px; font-size:12px; line-height:18px; text-align:center; font-variant-numeric:tabular-nums; }
+  .bsp .bsp-tab-ok .bsp-tab-count { background:#dcfce7; color:#166534; }
+  .bsp .bsp-tab-bad .bsp-tab-count { background:#fee2e2; color:#991b1b; }
+  .bsp .bsp-panel { padding:16px 24px 24px; }
+  .bsp .bsp-panel[hidden] { display:none; }
+  .bsp .bsp-panel:focus-visible { outline:2px solid #2f4fd6; outline-offset:-2px; }
+  @media (max-width: 575px) { .bsp .bsp-panel { padding:16px; } .bsp .bsp-tablist { padding:8px 8px 0; } }
+  @media (prefers-reduced-motion: reduce) { .bsp .bsp-tab { transition:none; } }
   /* Rejected by the bank: own-styled controls (the theme's .btn sizing clips labels) */
   .bsp .bsp-bounce-reason { width:100%; height:36px; padding:0 8px; border:1px solid #94a3b8; border-radius:6px; margin-bottom:8px; }
   .bsp .bsp-bounce-btn { display:inline-flex; align-items:center; height:36px; padding:0 16px; border:1px solid #dc2626; border-radius:6px;
@@ -113,7 +132,7 @@
           <span class="bsp-sub">
             {{ $counts['accepted'] }} accepted cheques on sheet
             @if($counts['rejected'] > 0)
-              · <a href="#bsp-rejected">{{ $counts['rejected'] }} rejected by bank (see below)</a>
+              · <a href="#bsp-tabs" class="bsp-goto-tab" data-tab="rejected">{{ $counts['rejected'] }} rejected by bank (see below)</a>
             @endif
           </span>
           <div style="margin-top:6px">
@@ -292,12 +311,30 @@
 </div></div>
 @endif
 
-{{-- ── 2. Auto-matched ───────────────────────────────────────── --}}
-<div class="row"><div class="col-md-12 col-sm-12">
-<div class="card card-box">
-  <div class="card-body">
+{{-- ── 2–4. Results as tabs: Auto-matched / Cannot post / Rejected by bank ── --}}
+@php
+  $bspTabs = [
+      'matched'  => ['Auto-matched', 'fa-check-circle', 'ok', ($filtering['matched'] ? $shown['matched'] . ' of ' : '') . $counts['matched']],
+      'cannot'   => ['Cannot post', 'fa-ban', 'bad', ($filtering['cannot'] ? $shown['cannot'] . ' of ' : '') . $counts['cannot']],
+      'rejected' => ['Rejected by bank', 'fa-times-circle', 'bad', count($rejected)],
+  ];
+@endphp
+<input type="hidden" name="tab" id="bsp-tab-input" form="bsp-filter-form" value="{{ $activeTab }}">
+<div class="row" id="bsp-tabs"><div class="col-md-12 col-sm-12">
+<div class="card card-box bsp-tabs-card">
+  <div class="bsp-tablist" role="tablist" aria-label="Cheques on the sheet">
+    @foreach($bspTabs as $key => $t)
+    <button type="button" role="tab" class="bsp-tab bsp-tab-{{ $t[2] }}" id="bsp-tab-{{ $key }}" data-tab="{{ $key }}"
+            aria-controls="bsp-panel-{{ $key }}" aria-selected="{{ $activeTab === $key ? 'true' : 'false' }}" tabindex="{{ $activeTab === $key ? '0' : '-1' }}">
+      <i class="fa {{ $t[1] }}" aria-hidden="true"></i>
+      <span>{{ $t[0] }}</span>
+      <span class="bsp-tab-count">{{ $t[3] }}</span>
+    </button>
+    @endforeach
+  </div>
+
+<div class="bsp-panel" role="tabpanel" id="bsp-panel-matched" aria-labelledby="bsp-tab-matched" tabindex="0" {{ $activeTab === 'matched' ? '' : 'hidden' }}>
     <div class="bsp-head">
-      <h4><i class="fa fa-check-circle" style="color:#166534" aria-hidden="true"></i> Auto-matched <span class="bsp-pill bsp-pill-matched">{{ $filtering['matched'] ? $shown['matched'] . ' of ' : '' }}{{ $counts['matched'] }}</span></h4>
       <span class="bsp-hint">These will be posted. Untick any you want to hold back — your ticks are kept while you filter and page.</span>
       @if($filtering['matched'])<a href="#" class="bsp-clear" data-prefix="m">Clear filters</a>@endif
     </div>
@@ -380,16 +417,10 @@
       </table>
     </div></div>
     <div id="pagination_m"><div class="text-center">{{ $matched->links() }}</div></div>
-  </div>
 </div>
-</div></div>
 
-{{-- ── 3. Cannot post ────────────────────────────────────────── --}}
-<div class="row"><div class="col-md-12 col-sm-12">
-<div class="card card-box">
-  <div class="card-body">
+<div class="bsp-panel" role="tabpanel" id="bsp-panel-cannot" aria-labelledby="bsp-tab-cannot" tabindex="0" {{ $activeTab === 'cannot' ? '' : 'hidden' }}>
     <div class="bsp-head">
-      <h4><i class="fa fa-ban" style="color:#991b1b" aria-hidden="true"></i> Cannot post <span class="bsp-pill bsp-pill-cannot">{{ $filtering['cannot'] ? $shown['cannot'] . ' of ' : '' }}{{ $counts['cannot'] }}</span></h4>
       <span class="bsp-hint">Accepted by the bank but no clean PDC match. Nothing happens to these — post them on the manual screen.</span>
       @if($filtering['cannot'])<a href="#" class="bsp-clear" data-prefix="c">Clear filters</a>@endif
     </div>
@@ -469,12 +500,9 @@
       </table>
     </div></div>
     <div id="pagination_c"><div class="text-center">{{ $cannot->links() }}</div></div>
-  </div>
 </div>
-</div></div>
 
-{{-- ── 4. Rejected by the bank: mark the PDC bounced ─────────────── --}}
-@if(count($rejected) > 0)
+{{-- Rejected by the bank: mark the PDC bounced --}}
 @php
   $bounceReasons = \Modules\BackOffice\Services\BankSheetRejectedCheques::reasons();
   $plmsCell = function ($group) {
@@ -486,11 +514,8 @@
            . (count($group) > 1 ? ' (rent + VAT)' : '') . ($receipts ? ' · receipt ' . e(implode(', ', $receipts)) . ' will be cancelled' : '') . '</span>';
   };
 @endphp
-<div class="row" id="bsp-rejected"><div class="col-md-12 col-sm-12">
-<div class="card card-box">
-  <div class="card-body">
+<div class="bsp-panel" role="tabpanel" id="bsp-panel-rejected" aria-labelledby="bsp-tab-rejected" tabindex="0" {{ $activeTab === 'rejected' ? '' : 'hidden' }}>
     <div class="bsp-head">
-      <h4><i class="fa fa-times-circle" style="color:#991b1b" aria-hidden="true"></i> Rejected by the bank <span class="bsp-pill bsp-pill-cannot">{{ count($rejected) }}</span></h4>
       <span class="bsp-hint">Not posted. Mark the PDC bounced here: the same as the PDC bounce screen (receipt cancelled if any, ARE notified).</span>
     </div>
     <div class="table-wrap"><div class="table-responsive">
@@ -508,6 +533,9 @@
           </tr>
         </thead>
         <tbody>
+          @if(count($rejected) === 0)
+          <tr><td colspan="8" align="center"><p>None — the bank accepted every cheque on this sheet.</p></td></tr>
+          @endif
           @foreach($rejected as $x)
           @php $suggested = \Modules\BackOffice\Services\BankSheetRejectedCheques::bounceReasonFor($x['row']['reject_reason']); @endphp
           @foreach(($x['groups'] ?: [null]) as $group)
@@ -549,16 +577,50 @@
         </tbody>
       </table>
     </div></div>
-  </div>
 </div>
-</div></div>
-@endif
+
+</div>{{-- /card --}}
+</div></div>{{-- /#bsp-tabs --}}
 
 </div>
 @endsection
 
 @section('scripts')
 <script>
+// Result tabs (WAI-ARIA tabs pattern): click / arrow keys switch, the tab is kept in the URL
+// (?tab=) and in the filter form, so paging, filtering and Back return to the same tab.
+(function () {
+  var $tabs = $('.bsp-tab');
+  function activate(key, focus) {
+    $tabs.each(function () {
+      var on = $(this).data('tab') === key;
+      $(this).attr({'aria-selected': on ? 'true' : 'false', tabindex: on ? '0' : '-1'});
+      $('#' + $(this).attr('aria-controls')).prop('hidden', !on);
+      if (on && focus) { this.focus(); }
+    });
+    $('#bsp-tab-input').val(key);
+    if (window.history && window.history.replaceState) {
+      var url = new URL(window.location.href);
+      url.searchParams.set('tab', key);
+      window.history.replaceState(null, '', url.toString());
+    }
+  }
+  $tabs.on('click', function () { activate($(this).data('tab'), false); });
+  $tabs.on('keydown', function (e) {
+    var i = $tabs.index(this), n = $tabs.length, j = null;
+    if (e.key === 'ArrowRight') { j = (i + 1) % n; }
+    else if (e.key === 'ArrowLeft') { j = (i - 1 + n) % n; }
+    else if (e.key === 'Home') { j = 0; }
+    else if (e.key === 'End') { j = n - 1; }
+    if (j !== null) { e.preventDefault(); activate($tabs.eq(j).data('tab'), true); }
+  });
+  $(document).on('click', '.bsp-goto-tab', function (e) {
+    e.preventDefault();
+    activate($(this).data('tab'), true);
+    document.getElementById('bsp-tabs').scrollIntoView({block: 'start'});
+  });
+})();
+
 // Rejected by the bank: mark the PDC(s) of one cheque bounced through the PDC bounce action
 $(document).on('click', '.bsp-bounce-btn', function () {
   var $btn = $(this), $cell = $btn.closest('.bsp-bounce-cell');

@@ -87,8 +87,12 @@ class PdcBankSheetController extends Controller
             'cannot'    => count($sections['cannot']),
         ];
 
-        $matched = $this->paginate($sections['matched'], $request, 'mpage', $stored);
-        $cannot  = $this->paginate($sections['cannot'], $request, 'cpage', $stored);
+        $matched = $this->paginate($sections['matched'], $request, 'mpage', $stored, 'matched');
+        $cannot  = $this->paginate($sections['cannot'], $request, 'cpage', $stored, 'cannot');
+
+        // Which result tab opens: ?tab=, else the tab being paged / filtered, else Auto-matched
+        $activeTab = in_array($request->input('tab'), ['matched', 'cannot', 'rejected'], true) ? $request->input('tab')
+            : (($request->has('cpage') || count($filters['cannot']) > 0) ? 'cannot' : 'matched');
 
         $chosen = 0;
         foreach ($selection['choice'] as $v) {
@@ -122,6 +126,7 @@ class PdcBankSheetController extends Controller
 
         return view('backoffice::Routine.pdc_bank_sheet_preview', [
             'rejected'      => $rejected,
+            'activeTab'     => $activeTab,
             'stored'        => $stored,
             'fileName'      => $this->originalName($stored),
             'banks'         => $banks,
@@ -622,7 +627,7 @@ class PdcBankSheetController extends Controller
         return ['results' => $results, 'sections' => $sections, 'counts' => $counts, 'batch_date' => BankSheetReader::batchDate($rows)];
     }
 
-    private function paginate(array $items, Request $request, $pageName, $stored)
+    private function paginate(array $items, Request $request, $pageName, $stored, $tab = null)
     {
         $page = max(1, (int) $request->input($pageName, 1));
         $paginator = new LengthAwarePaginator(
@@ -632,7 +637,11 @@ class PdcBankSheetController extends Controller
             $page,
             ['path' => route('pdcBankSheetPreview', $stored), 'pageName' => $pageName]
         );
-        return $paginator->appends($request->except([$pageName]));
+        $paginator->appends($request->except([$pageName]));
+        if ($tab !== null) {
+            $paginator->appends('tab', $tab); // paging a tab keeps that tab open
+        }
+        return $paginator;
     }
 
     private function selectionKey($stored)
