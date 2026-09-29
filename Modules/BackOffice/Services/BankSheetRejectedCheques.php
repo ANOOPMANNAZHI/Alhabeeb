@@ -103,6 +103,22 @@ class BankSheetRejectedCheques
                     $groups = $inMonth;
                 }
             }
+            // Still several contracts (different customers' cheques can share a number): the sheet amount decides.
+            if (count($groups) > 1 && isset($row['amount']) && (float) $row['amount'] > 0) {
+                $month = !empty($row['cheque_date']) ? substr($row['cheque_date'], 0, 7) : null;
+                $byAmount = array_values(array_filter($groups, function ($g) use ($row, $month) {
+                    $sum = 0.0;
+                    foreach ($g as $p) {
+                        if ($month === null || substr((string) $p->pdc_check_date, 0, 7) === $month) {
+                            $sum += (float) $p->pdc_amt;
+                        }
+                    }
+                    return abs($sum - (float) $row['amount']) < 0.005;
+                }));
+                if (count($byAmount) > 0) {
+                    $groups = $byAmount;
+                }
+            }
 
             if (count($groups) === 0) {
                 $status = 'not_found';

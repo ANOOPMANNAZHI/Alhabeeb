@@ -73,6 +73,34 @@ class BankSheetRejectedChequesTest extends TestCase
         $this->assertCount(2, $two[0]['groups']);
     }
 
+    /** Sheet 28-09-2026, cheque 02100063: same number on two tenants' contracts in the same month — the amount decides. */
+    public function test_same_month_contracts_are_narrowed_by_the_sheet_amount()
+    {
+        $right = $this->pdc(['tenant_contract_id' => 21, 'pdc_amt' => 250.0, 'pdc_check_date' => '2026-09-10']);
+        $other = $this->pdc(['tenant_contract_id' => 22, 'pdc_amt' => 400.0, 'pdc_check_date' => '2026-09-25']);
+        $out = R::match([$this->row(['amount' => 250.0, 'cheque_date' => '2026-09-10'])], [$right, $other], ['27' => 3]);
+        $this->assertSame('found', $out[0]['status']);
+        $this->assertSame($right->id, $out[0]['groups'][0][0]->id);
+    }
+
+    public function test_rent_plus_vat_group_amount_counts_both_rows()
+    {
+        $rent = $this->pdc(['tenant_contract_id' => 31, 'pdc_amt' => 250.0]);
+        $vat  = $this->pdc(['tenant_contract_id' => 31, 'pdc_type' => 3, 'pdc_amt' => 12.5]);
+        $other = $this->pdc(['tenant_contract_id' => 32, 'pdc_amt' => 250.0]);
+        $out = R::match([$this->row(['amount' => 262.5])], [$rent, $vat, $other], ['27' => 3]);
+        $this->assertSame('found', $out[0]['status']);
+        $this->assertCount(2, $out[0]['groups'][0]);
+    }
+
+    public function test_same_amount_on_both_contracts_still_needs_a_choice()
+    {
+        $a = $this->pdc(['tenant_contract_id' => 41]);
+        $b = $this->pdc(['tenant_contract_id' => 42]);
+        $out = R::match([$this->row()], [$a, $b], ['27' => 3]);
+        $this->assertSame('choose', $out[0]['status']);
+    }
+
     public function test_already_bounced_group()
     {
         $out = R::match([$this->row()], [$this->pdc(['pdc_cancel_reason' => 1])], ['27' => 3]);

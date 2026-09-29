@@ -528,11 +528,20 @@
 <div class="bsp-panel" role="tabpanel" id="bsp-panel-rejected" aria-labelledby="bsp-tab-rejected" tabindex="0" {{ $activeTab === 'rejected' ? '' : 'hidden' }}>
     <div class="bsp-head">
       <span class="bsp-hint">Not posted. Mark the PDC bounced here: the same as the PDC bounce screen (receipt cancelled if any, ARE notified).</span>
+      @if(count($rejected) > 0)
+      <div class="bsp-bulk" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:flex-end;margin-left:auto">
+        <span class="bsp-sub" id="bsp-bulk-status" role="status" aria-live="polite" style="display:inline"></span>
+        <button type="button" class="bsp-bounce-btn" id="bsp-bounce-selected" disabled>
+          <i class="fa fa-times-circle" aria-hidden="true" style="margin-right:6px"></i>Bounce selected cheques (<span id="bsp-bounce-count">0</span>)
+        </button>
+      </div>
+      @endif
     </div>
     <div class="table-wrap"><div class="table-responsive">
       <table class="table display product-overview mb-30">
         <thead>
           <tr>
+            <th width="3%"><input type="checkbox" id="bsp-bounce-all" aria-label="Select all rejected cheques that can be bounced" title="Select all"></th>
             <th width="5%">Sheet Row</th>
             <th width="10%">Cheque No</th>
             <th width="14%">Bank (sheet)</th>
@@ -545,12 +554,25 @@
         </thead>
         <tbody>
           @if(count($rejected) === 0)
-          <tr><td colspan="8" align="center"><p>None — the bank accepted every cheque on this sheet.</p></td></tr>
+          <tr><td colspan="9" align="center"><p>None — the bank accepted every cheque on this sheet.</p></td></tr>
           @endif
           @foreach($rejected as $x)
           @php $suggested = \Modules\BackOffice\Services\BankSheetRejectedCheques::bounceReasonFor($x['row']['reject_reason']); @endphp
           @foreach(($x['groups'] ?: [null]) as $group)
+          @php
+            $canBounce = false;
+            if ($group !== null) {
+                foreach ($group as $p) { if ($p->pdc_cancel_reason !== \Modules\BackOffice\Services\BankSheetRejectedCheques::BOUNCED) { $canBounce = true; } }
+            }
+          @endphp
           <tr>
+            <td>
+              @if($canBounce)
+                {{-- same cheque no. and amount on several contracts ("choose"): never ticked by select all, only one is right --}}
+                <input type="checkbox" class="bsp-bounce-pick" data-choose="{{ $x['status'] === 'choose' ? 1 : 0 }}"
+                       aria-label="Select cheque {{ $x['row']['cheque_no'] }}{{ $x['status'] === 'choose' ? ' (' . $group[0]->tenant_contract_no . ')' : '' }} to bounce">
+              @endif
+            </td>
             @if($loop->first)
             <td rowspan="{{ max(count($x['groups']), 1) }}">{{ $x['row']['row_no'] }}</td>
             <td rowspan="{{ max(count($x['groups']), 1) }}"><b>{{ $x['row']['cheque_no'] }}</b></td>
@@ -563,7 +585,7 @@
               <td>-</td>
               <td><span class="bsp-sub" style="display:inline">Not found in PLMS (no open or bounced PDC with this cheque no.)</span></td>
             @else
-              <td>{!! $plmsCell($group) !!}@if($x['status'] === 'choose')<span class="bsp-sub"><b>Same cheque no. on {{ count($x['groups']) }} contracts: bounce only the right one.</b></span>@endif</td>
+              <td>{!! $plmsCell($group) !!}@if($x['status'] === 'choose')<span class="bsp-sub"><b>Same cheque no. and amount on {{ count($x['groups']) }} contracts: tick and bounce only the right one.</b></span>@endif</td>
               <td class="bsp-bounce-cell">
                 @php $bounced = true; foreach ($group as $p) { if ($p->pdc_cancel_reason !== \Modules\BackOffice\Services\BankSheetRejectedCheques::BOUNCED) { $bounced = false; } } @endphp
                 @if($bounced)
@@ -632,20 +654,25 @@
   });
 })();
 
-// Rejected by the bank: mark the PDC(s) of one cheque bounced through the PDC bounce action
-$(document).on('click', '.bsp-bounce-btn', function () {
-  var $btn = $(this), $cell = $btn.closest('.bsp-bounce-cell');
+// Rejected by the bank: mark the PDC(s) of one cheque bounced through the PDC bounce action.
+// Returns a promise resolved with 'ok', 'skipped' (no reason chosen) or 'failed'.
+function bspBounceCell($cell) {
+  var d = $.Deferred();
+  var $btn = $cell.find('.bsp-bounce-btn');
   var reason = $cell.find('.bsp-bounce-reason').val();
   var $msg = $cell.find('.bsp-bounce-msg');
-  if (!reason) { $msg.text('Select the bounce reason first.'); return; }
+  if (!reason) { $msg.text('Select the bounce reason first.'); return d.resolve('skipped').promise(); }
   var ids = String($btn.data('ids')).split(',').filter(function (v) { return v !== ''; });
   $btn.prop('disabled', true).text('Marking...');
   $cell.find('.bsp-bounce-reason').prop('disabled', true);
+  var $pick = $cell.closest('tr').find('.bsp-bounce-pick').prop('disabled', true);
   var token = $('meta[name="csrf-token"]').attr('content');
   (function next(i) {
     if (i >= ids.length) {
       $cell.html('<span class="bsp-pill bsp-pill-cannot"><i class="fa fa-check" aria-hidden="true"></i>Marked bounced: ' +
         $('<div>').text($cell.find('option:selected').text() || '').html() + '</span>');
+      $pick.prop('checked', false);
+      d.resolve('ok');
       return;
     }
     $.ajax({method: 'POST', url: @json(route('tenantAjaxPdcBounceSearch')), data: {id: ids[i], pdc_bounce_reason: reason, bounce_remark: $btn.data('remark') || '', _token: token}, dataType: 'json'})
@@ -655,10 +682,53 @@ $(document).on('click', '.bsp-bounce-btn', function () {
         if (x.status === 200) { next(i + 1); return; }
         $btn.prop('disabled', false).text('Mark as bounced');
         $cell.find('.bsp-bounce-reason').prop('disabled', false);
+        $pick.prop('disabled', false);
         $msg.text('Error ' + x.status + ' while marking cheque ' + $btn.data('cheque') + ' bounced. It may already be saved (the notification can fail after saving): check the PDC before trying again.');
+        d.resolve('failed');
       });
   })(0);
+  return d.promise();
+}
+
+$(document).on('click', '.bsp-bounce-cell .bsp-bounce-btn', function () {
+  bspBounceCell($(this).closest('.bsp-bounce-cell')).always(bspBulkRefresh);
 });
+
+// Bulk: tick cheques (or "select all") and bounce them one after another.
+function bspBulkRefresh() {
+  var $picks = $('.bsp-bounce-pick:enabled');
+  var n = $picks.filter(':checked').length;
+  $('#bsp-bounce-count').text(n);
+  $('#bsp-bounce-selected').prop('disabled', n === 0);
+  var $auto = $picks.filter('[data-choose="0"]');
+  $('#bsp-bounce-all').prop('checked', $auto.length > 0 && $auto.filter(':checked').length === $auto.length)
+                      .prop('disabled', $picks.length === 0);
+}
+$(document).on('change', '.bsp-bounce-pick', bspBulkRefresh);
+$(document).on('change', '#bsp-bounce-all', function () {
+  // same cheque no. on several contracts (data-choose=1): never ticked automatically
+  $('.bsp-bounce-pick:enabled[data-choose="0"]').prop('checked', this.checked);
+  bspBulkRefresh();
+});
+$(document).on('click', '#bsp-bounce-selected', function () {
+  var $cells = $('.bsp-bounce-pick:enabled:checked').closest('tr').find('.bsp-bounce-cell');
+  if (!$cells.length) { return; }
+  if (!confirm('Mark ' + $cells.length + ' cheque(s) as bounced?\n\nEach one is bounced like the PDC bounce screen: receipt cancelled if any, ARE notified, the bank\'s reason saved as remarks.')) { return; }
+  var $status = $('#bsp-bulk-status'), $go = $(this).prop('disabled', true), $all = $('#bsp-bounce-all').prop('disabled', true);
+  var done = {ok: 0, skipped: 0, failed: 0}, total = $cells.length;
+  (function next(i) {
+    if (i >= total) {
+      $status.text(done.ok + ' marked bounced' + (done.skipped ? ', ' + done.skipped + ' skipped (no reason selected)' : '')
+        + (done.failed ? ', ' + done.failed + ' failed (see the message on the row)' : '') + '.');
+      $all.prop('disabled', false);
+      bspBulkRefresh();
+      return;
+    }
+    $status.text('Marking ' + (i + 1) + ' of ' + total + '...');
+    bspBounceCell($cells.eq(i)).always(function (r) { done[r] = (done[r] || 0) + 1; next(i + 1); });
+  })(0);
+});
+$(bspBulkRefresh);
 
 $(function () {
   var selectUrl = '{{ route('pdcBankSheetSelect', $stored) }}';
