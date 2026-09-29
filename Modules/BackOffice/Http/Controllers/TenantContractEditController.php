@@ -47,7 +47,7 @@ use Modules\Sales\Http\Controllers\TenantContractController as Contract ;
 use Modules\General\Http\Controllers\GeneralController as General ;
 use Modules\Sales\Events\RevokeCreate;
 use Modules\Sales\Events\RevokeEnquiry;
-use Modules\Masters\Emails\LegalEmail;
+use Modules\BackOffice\Services\LegalMessages;
 use Modules\Sales\Entities\TenantSequence;
 use Dynamics;
 use App\Setting;
@@ -758,23 +758,8 @@ class TenantContractEditController extends Controller
 
             //Notification starts
       if($tenantData->status == 5){
-        $legal = Legal::where('tenant_contract_id',$tenantData->id)->first();
-        $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-        $legalUsers = array_flatten($legalUsers);
-
-        $legal->textContent = "Tenant Contract Revoked";
-        foreach($legalUsers as $legalUser){
-          $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-          $msg = "Tenant Contract Revoked !";
-          $params = 'optional data';
-          if(!empty($legalUser->email)){
-      Mail::to($legalUser->email)->send(new LegalEmail($legal,$legalUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
+        // System template legal_contract_revoked
+        LegalMessages::toRoles('legal_contract_revoked', ['are','backoffice_manager','legal_advisor'], $tenantData);
  }
 	 $userLists = User::role(['backoffice_manager','backoffice_executive'])->where('id','!=',\Auth::user()->id)->get(); 
 
@@ -1393,18 +1378,8 @@ class TenantContractEditController extends Controller
 
       event(new LegalApprove($legalCase,$plmusers));
 
-      foreach($plmusers as $plmuser){
-        $mobile = $plmuser->employee->employee_contact_no ?? $plmuser->employee->employee_secondary_no;
-
-        $msg = "New Legal Case has been Received !";
-        $params = 'optional data';
-        if(!empty($plmuser->email)){
-      Mail::to($plmuser->email)->send(new LegalEmail($legalCase,$plmuser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   } 
+      // System template legal_case_received
+      LegalMessages::toUsers('legal_case_received', $plmusers, $legalCase->tenantContract);
  }
 
  session()->flash('success', 'Tenant Contract Status Changed Successfully');

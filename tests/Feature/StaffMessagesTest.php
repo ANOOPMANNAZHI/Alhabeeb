@@ -120,6 +120,38 @@ class StaffMessagesTest extends TestCase
         Mail::assertSent(TemplatedMail::class, function ($m) use ($name) { return strpos($m->bodyHtml, 'Dear ' . $name) !== false; });
     }
 
+    // --- legal alerts ---
+
+    public function test_legal_alert_one_message_per_distinct_user_with_contract_values()
+    {
+        $contract = \Modules\Sales\Entities\TenantContract::whereHas('tenant')->whereHas('building')->latest('id')->first();
+        $a = $this->staff('a@example.com', '91111111', 0);
+        $b = $this->staff('b@example.com', '92222222', 1);
+        \Modules\BackOffice\Services\LegalMessages::toUsers('legal_rental_income_posted', [$a, $b, $a], $contract, ['invoice_no' => 'INV-77']);
+        Mail::assertSent(TemplatedMail::class, 2);
+        Mail::assertSent(TemplatedMail::class, function ($m) use ($contract) {
+            return strpos($m->subject, $contract->tenant_contract_no) !== false && strpos($m->bodyHtml, 'INV-77') !== false;
+        });
+        $this->assertSame(2, MessageLog::where('template_key', 'legal_rental_income_posted')->where('related_type', 'contract')->where('related_id', $contract->id)->count());
+    }
+
+    public function test_legal_alert_for_users_by_role_dedupes_across_roles()
+    {
+        $contract = \Modules\Sales\Entities\TenantContract::whereHas('tenant')->latest('id')->first();
+        $n = \App\User::role(['are', 'backoffice_manager', 'legal_advisor'])->get()->unique('id')->count();
+        \Modules\BackOffice\Services\LegalMessages::toRoles('legal_deposit_refund_posted', ['are', 'backoffice_manager', 'legal_advisor'], $contract);
+        $this->assertSame($n, MessageLog::where('template_key', 'legal_deposit_refund_posted')->count());
+    }
+
+    public function test_switched_off_legal_alert_is_skipped()
+    {
+        $contract = \Modules\Sales\Entities\TenantContract::whereHas('tenant')->latest('id')->first();
+        MessageTemplate::where('key', 'legal_case_referback')->update(['is_active' => false]);
+        \Modules\BackOffice\Services\LegalMessages::toUsers('legal_case_referback', [$this->staff('a@example.com')], $contract);
+        Mail::assertNothingSent();
+        $this->assertSame('skipped_off', MessageLog::where('template_key', 'legal_case_referback')->value('status'));
+    }
+
     public function test_assignment_switched_off_sends_nothing()
     {
         MessageTemplate::where('key', 'complaint_assigned')->update(['is_active' => false]);
