@@ -39,8 +39,11 @@ class SystemMessenger
         $result = ['email' => null, 'sms' => null];
 
         if (!$template->is_active) {
-            self::log($base + ['channel' => 'email', 'recipient' => $to->email, 'status' => MessageLog::SKIPPED_OFF, 'note' => $note]);
-            $result['email'] = MessageLog::SKIPPED_OFF;
+            // Log against the channel the template actually uses (an SMS-only template shows as SMS).
+            $channel = ($template->email_subject || $template->email_body || !$template->sms_body) ? 'email' : 'sms';
+            self::log($base + ['channel' => $channel, 'recipient' => $channel === 'sms' ? $to->mobile : $to->email,
+                               'status' => MessageLog::SKIPPED_OFF, 'note' => $note]);
+            $result[$channel] = MessageLog::SKIPPED_OFF;
             return $result;
         }
 

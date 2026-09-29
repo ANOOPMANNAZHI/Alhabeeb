@@ -134,6 +134,15 @@ class SystemMessengerTest extends TestCase
         $this->assertSame(150, strlen(MessageLog::latest('id')->first()->recipient_name));
     }
 
+    public function test_switched_off_sms_only_template_is_logged_as_sms()
+    {
+        MessageTemplate::where('key', 'pdc_due_reminder')->update(['is_active' => false]);
+        $r = SystemMessenger::send('pdc_due_reminder', new MessageRecipient('Ali', null, '99001122'), ['tenant_name' => 'Ali']);
+        $this->assertSame(['email' => null, 'sms' => 'skipped_off'], $r);
+        $log = MessageLog::where('template_key', 'pdc_due_reminder')->latest('id')->first();
+        $this->assertSame(['sms', '99001122', 'skipped_off'], [$log->channel, $log->recipient, $log->status]);
+    }
+
     public function test_unknown_key_is_a_programming_error()
     {
         $this->expectException(\InvalidArgumentException::class);

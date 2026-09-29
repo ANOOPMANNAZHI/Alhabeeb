@@ -1984,10 +1984,11 @@ class TenantRenewalController extends Controller
     * generatePDF
     *
     */
-    public function generatePDF($contract_id)
+    public function generatePDF($contract)
     {
-      // The route passes {contract_id}; a TenantContract type-hint was never bound and gave an empty contract.
-      $tenant_contract = TenantContract::findOrFail($contract_id);
+      // Called with the contract by tenantRenewalTemplateStore (the renewal modal), or with an id by the
+      // generatePdfEmail route ({contract_id} — its old TenantContract type-hint was never bound).
+      $tenant_contract = $contract instanceof TenantContract ? $contract : TenantContract::findOrFail($contract);
       $areEmail= null;
       if(isset($tenant_contract->building->buildingAssignToAre->buildingAssignToName->areUser)){
 

@@ -124,6 +124,28 @@ class TenantMessagesTest extends TestCase
         $this->assertContains('Dear ' . e($contract->tenant->tenant_name), $log->body);
     }
 
+    /** Data gaps in the old table view must not turn the button into a 500 (final review, important 2). */
+    public function test_inspection_with_broken_contract_data_fails_softly()
+    {
+        $t = $this->termination();
+        \DB::table('tenant_contracts')->where('id', $t->contract_id)->update(['tenant_contract_duration_countdown' => null]);
+        $contract = TenantContract::find($t->contract_id);
+        $this->assertSame('failed', TenantMessages::inspection($t, $contract));
+        Mail::assertNothingSent();
+        $log = MessageLog::where('template_key', 'inspection_details')->where('related_id', $t->id)->first();
+        $this->assertSame('failed', $log->status);
+        $this->assertContains('table could not be built', $log->note);
+        $this->get(route('inspectionSendMail', $t->id))->assertRedirect(route('handoverAssigned'))->assertSessionHas('error');
+    }
+
+    public function test_switched_off_termination_email_does_not_build_the_table()
+    {
+        $t = $this->termination();
+        \DB::table('tenant_contracts')->where('id', $t->contract_id)->update(['tenant_contract_duration_countdown' => null]);
+        MessageTemplate::where('key', 'termination_details')->update(['is_active' => false]);
+        $this->assertSame('skipped_off', TenantMessages::terminationDetails($t, TenantContract::find($t->contract_id)));
+    }
+
     public function test_inspection_route_redirects_with_success()
     {
         $t = $this->termination();
@@ -192,6 +214,22 @@ class TenantMessagesTest extends TestCase
             return $m->hasTo('contact@example.com') && $m->hasCc(User::find(1)->email) && count($m->rawAttachments) === 1
                 && $m->rawAttachments[0]['options']['mime'] === 'application/pdf';
         });
+        $this->assertSame($before + 1, (int) TenantContract::find($c->id)->email_count);
+    }
+
+    /** The live path: the renewal list's Email/PDF buttons open a modal that posts here (final review, critical 1). */
+    public function test_renewal_modal_saves_the_form_and_emails_the_pdf()
+    {
+        $c = $this->contract();
+        $before = (int) $c->email_count;
+        $level = error_reporting(E_ALL & ~E_WARNING); // local libpng/dompdf warning, see above
+        $response = $this->post(route('tenantRenewalTemplateStore', $c->id), [
+            'tenant_contract_rent' => '250.000', 'tenant_contract_start_date' => '2026-10-01',
+            'tenant_contract_valid_to_date' => '2027-09-30', 'tenant_contract_payment_type' => 1,
+        ]);
+        error_reporting($level);
+        $response->assertRedirect(route('tenantRenewal.index'));
+        Mail::assertSent(TemplatedMail::class, function ($m) { return $m->hasTo('contact@example.com'); });
         $this->assertSame($before + 1, (int) TenantContract::find($c->id)->email_count);
     }
 
