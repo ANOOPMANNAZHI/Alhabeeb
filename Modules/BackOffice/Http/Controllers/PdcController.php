@@ -19,9 +19,7 @@ use URL;
 use Route;
 use App\User;
 use Illuminate\Support\Facades\Mail;
-use Modules\BackOffice\Emails\ChequeBounceEmail;
-use Modules\BackOffice\Emails\ChequeBounceAreEmail;
-use Modules\BackOffice\Events\ChequeBounceAre;
+use Modules\BackOffice\Services\PdcBounceNotifier;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -145,30 +143,10 @@ e     */
                     $bounce = $request->{'pdc_cancel_reason_'.$i};
                     if($bounce == 1){
                         $pdc_id = $request->{'pdc_check_id_'.$i};
-                        $pdcData = Pdc::where('id',$pdc_id)->first(); 
+                        $pdcData = Pdc::where('id',$pdc_id)->first();
 
-                        /*-----------Tenant Email Starts--------------------
-                        if(!empty($pdcData->tenantContractInfo->tenant->tenant_contact_email) || !empty($pdcData->tenantContractInfo->tenant->tenant_personal_email)){
-                            $tenant_email = $pdcData->tenantContractInfo->tenant->tenant_contact_email ?
-                            $pdcData->tenantContractInfo->tenant->tenant_contact_email:$pdcData->tenantContractInfo->tenant->tenant_personal_email ;
-                            Mail::to($tenant_email)->send(new ChequeBounceEmail($pdcData));
-                        }
-                        -----------Tenant Email Ends--------------------*/
-
-                        /*-----------Are Email Starts--------------------*/
-                        if(count($pdcData->tenantContractInfo->building->buildingAssignTo) > 0)
-                            foreach($pdcData->tenantContractInfo->building->buildingAssignTo as $assign)
-                                
-                              $are_email = $assign->buildingAssignToName->areUser->employee->user->email??'';
-
-                          $user = $assign->buildingAssignToName->areUser;
-                          $users = User::where('id',$user->id)->get();
-                          $pdcData->href = "pdc/".$pdcData->tenantContractInfo->id."/edit";
-
-                          Mail::to($are_email)->send(new ChequeBounceAreEmail($pdcData));
-
-                          event(new ChequeBounceAre($pdcData,$users)); 
-                          /*-----------Are Email Ends--------------------*/
+                        // Emails / SMS to all AREs and the tenant (system templates) + in-app alert.
+                        PdcBounceNotifier::notify($pdcData, "pdc/".$pdcData->tenantContractInfo->id."/edit");
                       }
 
 
@@ -414,29 +392,8 @@ e     */
 
             \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
-            /*-----------Tenant Email Starts--------------------
-            if(!empty($isPosted->tenantContractInfo->tenant->tenant_personal_email) || !empty($isPosted->tenantContractInfo->tenant->tenant_contact_email)){
-                $tenant_email = $isPosted->tenantContractInfo->tenant->tenant_personal_email ?
-                $isPosted->tenantContractInfo->tenant->tenant_personal_email:$isPosted->tenantContractInfo->tenant->tenant_contact_email ;
-                Mail::to($tenant_email)->send(new ChequeBounceEmail($isPosted));
-            }*/
-            /*-----------Tenant Email Ends--------------------*/
-            /*-----------Are Email Starts--------------------*/
-            if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
-                foreach($isPosted->tenantContractInfo->building->buildingAssignTo as $assign)
-
-                  $are_email = $assign->buildingAssignToName->areUser->employee->user->email??'';
-				if(isset($assign)){
-				  $user = $assign->buildingAssignToName->areUser;
-				  $users = User::where('id',$user->id)->get();
-
-				  $isPosted->href = url("pdc/".$isPosted->tenantContractInfo->id."/edit");
-					$isPosted->id =$isPosted->tenantContractInfo->id;
-				  Mail::to($are_email)->send(new ChequeBounceAreEmail($isPosted));
-
-				  event(new ChequeBounceAre($isPosted,$users)); 
-					/*-----------Are Email Ends--------------------*/
-				}
+            // Emails / SMS to all AREs and the tenant (system templates) + in-app alert.
+            PdcBounceNotifier::notify($isPosted, url("pdc/".$isPosted->tenantContractInfo->id."/edit"), $isPosted->tenantContractInfo->id);
               return response()->json(['success'=>'Data is successfully added']);
           }
           else{
@@ -447,28 +404,8 @@ e     */
 
             \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
-            /*-----------Tenant Email Starts--------------------
-            if(!empty($isPosted->tenantContractInfo->tenant->tenant_personal_email) || !empty($isPosted->tenantContractInfo->tenant->tenant_contact_email )){
-                $tenant_email = $isPosted->tenantContractInfo->tenant->tenant_personal_email ?
-                $isPosted->tenantContractInfo->tenant->tenant_personal_email:$isPosted->tenantContractInfo->tenant->tenant_contact_email ;
-                Mail::to($tenant_email)->send(new ChequeBounceEmail($isPosted));
-            }*/
-            /*-----------Tenant Email Ends--------------------*/
-     
-            /*-----------Are Email Starts--------------------*/
-            if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
-                foreach($isPosted->tenantContractInfo->building->buildingAssignTo as $assign)
-
-					$are_email = $assign->buildingAssignToName->areUser->employee->user->email??'';
-					if(isset($assign->buildingAssignToName->areUser)){
-						$user = $assign->buildingAssignToName->areUser;
-						$users = User::where('id',$user->id)->get(); 
-						$isPosted->href = url("pdc/".$isPosted->tenantContractInfo->id."/edit");
-						$isPosted->id =$isPosted->tenantContractInfo->id;
-						Mail::to($are_email)->send(new ChequeBounceAreEmail($isPosted));
-						event(new ChequeBounceAre($isPosted,$users)); 
-              /*-----------Are Email Ends--------------------*/
-					}
+            // Emails / SMS to all AREs and the tenant (system templates) + in-app alert.
+            PdcBounceNotifier::notify($isPosted, url("pdc/".$isPosted->tenantContractInfo->id."/edit"), $isPosted->tenantContractInfo->id);
               return response()->json(['success'=>'Data is successfully added']);
           }
 
