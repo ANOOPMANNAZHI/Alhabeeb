@@ -529,11 +529,11 @@
     <div class="bsp-head">
       <span class="bsp-hint">Not posted. Mark the PDC bounced here: the same as the PDC bounce screen (receipt cancelled if any, ARE notified).</span>
       @if(count($rejected) > 0)
-      <div class="bsp-bulk" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:8px">
+      <div class="bsp-bulk" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:flex-end;margin-left:auto">
+        <span class="bsp-sub" id="bsp-bulk-status" role="status" aria-live="polite" style="display:inline"></span>
         <button type="button" class="bsp-bounce-btn" id="bsp-bounce-selected" disabled>
           <i class="fa fa-times-circle" aria-hidden="true" style="margin-right:6px"></i>Bounce selected cheques (<span id="bsp-bounce-count">0</span>)
         </button>
-        <span class="bsp-sub" id="bsp-bulk-status" role="status" aria-live="polite" style="display:inline"></span>
       </div>
       @endif
     </div>
