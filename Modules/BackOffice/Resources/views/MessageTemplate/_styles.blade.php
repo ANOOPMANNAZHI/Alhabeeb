@@ -42,7 +42,7 @@
   .mt .mt-form { max-width:960px; }
   .mt .mt-footer { display:flex; flex-wrap:wrap; gap:8px; border-top:1px solid var(--mt-line); padding-top:16px; }
   #mt-preview-modal .mt-pv-subject { font-weight:600; padding:8px 12px; background:#f1f5f9; border-radius:6px; margin-bottom:12px; }
-  #mt-preview-modal .mt-pv-body { border:1px solid #e2e8f0; border-radius:6px; padding:16px; max-height:420px; overflow:auto; }
+  #mt-preview-modal .mt-pv-body { display:block; width:100%; height:380px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; }
   #mt-preview-modal .mt-pv-sms { background:#dcfce7; border-radius:14px 14px 14px 4px; padding:10px 14px; max-width:340px; white-space:pre-wrap; word-wrap:break-word; }
   #mt-preview-modal .mt-pv-warn { background:#fef9c3; border:1px solid #fde047; color:#713f12; border-radius:6px; padding:8px 12px; margin-bottom:12px; display:none; }
   #mt-preview-modal .mt-pv-none { color:#475569; font-style:italic; }

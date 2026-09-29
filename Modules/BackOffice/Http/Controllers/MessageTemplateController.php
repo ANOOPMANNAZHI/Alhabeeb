@@ -116,12 +116,15 @@ class MessageTemplateController extends Controller
         $this->validate($request, [
             'name'          => 'required|max:150',
             'audience'      => 'required|in:' . implode(',', array_keys(MessagePlaceholders::AUDIENCES)),
-            'email_subject' => 'nullable|max:255|required_with:email_body',
-            'email_body'    => 'nullable|required_with:email_subject',
-            'sms_body'      => 'nullable|max:1000',
+            'email_subject' => 'nullable|string|max:255',
+            'email_body'    => 'nullable|string',
+            'sms_body'      => 'nullable|string|max:1000',
         ]);
-        $body = trim(strip_tags((string) $request->input('email_body'))) === '' && stripos((string) $request->input('email_body'), '<img') === false
-            ? null : Renderer::cleanHtml($request->input('email_body'));
+        // The editor posts "<p>&nbsp;</p>" and similar when empty: treat those as no body.
+        $body = Renderer::isBlankHtml($request->input('email_body')) ? null : Renderer::cleanHtml($request->input('email_body'));
+        if ($body !== null && Renderer::isBlankHtml($body)) {
+            $body = null;
+        }
         $data = [
             'name'          => trim($request->input('name')),
             'audience'      => $request->input('audience'),
@@ -130,6 +133,12 @@ class MessageTemplateController extends Controller
             'sms_body'      => $request->filled('sms_body') ? $request->input('sms_body') : null,
             'is_active'     => (bool) $request->input('is_active'),
         ];
+        if ($data['email_subject'] !== null && $data['email_body'] === null) {
+            throw ValidationException::withMessages(['email_body' => 'Write the email body, or clear the subject for an SMS-only template.']);
+        }
+        if ($data['email_body'] !== null && $data['email_subject'] === null) {
+            throw ValidationException::withMessages(['email_subject' => 'Write the email subject, or clear the body for an SMS-only template.']);
+        }
         if ($data['email_subject'] === null && $data['sms_body'] === null) {
             throw ValidationException::withMessages(['channels' => 'Fill in the email (subject and body) or the SMS text, or both.']);
         }

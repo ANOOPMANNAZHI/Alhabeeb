@@ -28,9 +28,10 @@
         $('#mt-pv-warn').hide();
       }
       if (r.subject !== null || r.html !== null) {
-        $('#mt-pv-email').html('<div class="mt-pv-subject"></div><div class="mt-pv-body"></div>');
+        // Body goes into a sandboxed iframe (no allow-scripts) so nothing in it can run in PLMS.
+        $('#mt-pv-email').html('<div class="mt-pv-subject"></div><iframe class="mt-pv-body" sandbox="" title="Email body preview"></iframe>');
         $('#mt-pv-email .mt-pv-subject').text('Subject: ' + (r.subject || ''));
-        $('#mt-pv-email .mt-pv-body').html(r.html || '');
+        $('#mt-pv-email .mt-pv-body').attr('srcdoc', '<!doctype html><meta charset="utf-8"><body style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a">' + (r.html || '') + '</body>');
       } else {
         $('#mt-pv-email').html('<div class="mt-pv-none">No email version.</div>');
       }

@@ -59,6 +59,48 @@ class MessageTemplateRendererTest extends TestCase
         $this->assertSame('<p>Hi</p><a href="#">l</a><img src="a.png">', $clean);
     }
 
+    /** Inputs that got past the first regex cleaner (final review I1). */
+    public function test_clean_html_resists_bypasses()
+    {
+        $cases = [
+            '<scr<script>ipt>alert(1)</scr<script>ipt>',
+            '<svg/onload=alert(1)>',
+            '<img src="x"onerror="alert(1)">',
+            '<a href=javascript:alert(1)>x</a>',
+            "<a href=\"java\tscript:alert(1)\">x</a>",
+            '<a href="jav&#x61;script:alert(1)">x</a>',
+            "<a href='javascript:alert(\"x\")'>x</a>",
+            '<form><button formaction="javascript:alert(1)">x</button></form>',
+            '<meta http-equiv="refresh" content="0;url=javascript:alert(1)">',
+            '<IMG SRC=x ONERROR=alert(1)>',
+            '<p style="background:url(javascript:alert(1))">x</p>',
+        ];
+        foreach ($cases as $dirty) {
+            $clean = R::cleanHtml($dirty);
+            $this->assertNotRegExp('/<script|<svg|<form|<button|<meta|\son[a-z]+\s*=|javascript:|formaction/i', $clean, $dirty . ' => ' . $clean);
+        }
+    }
+
+    public function test_clean_html_keeps_normal_content()
+    {
+        $this->assertSame('<p>Pay online = easy</p>', R::cleanHtml('<p>Pay online = easy</p>'));
+        $this->assertSame('<p dir="rtl">مرحبا {tenant_name}</p>', R::cleanHtml('<p dir="rtl">مرحبا {tenant_name}</p>'));
+        $this->assertSame('<p><a href="https://alhabib.om/pay?a=1&amp;b=2" target="_blank">Pay</a> <a href="{link}">here</a></p>',
+            R::cleanHtml('<p><a href="https://alhabib.om/pay?a=1&amp;b=2" target="_blank">Pay</a> <a href="{link}">here</a></p>'));
+        $this->assertSame('<table border="1"><tbody><tr><td style="color: red;"><strong>A</strong></td></tr></tbody></table>',
+            R::cleanHtml('<table border="1"><tbody><tr><td style="color: red;"><strong>A</strong></td></tr></tbody></table>'));
+        $this->assertSame('', R::cleanHtml(''));
+    }
+
+    public function test_blank_html()
+    {
+        foreach (['', '   ', '<p></p>', '<p><br></p>', '<p>&nbsp;</p>', "<p>\xC2\xA0 </p>", null] as $blank) {
+            $this->assertTrue(R::isBlankHtml($blank), var_export($blank, true));
+        }
+        $this->assertFalse(R::isBlankHtml('<p>Hi</p>'));
+        $this->assertFalse(R::isBlankHtml('<p><img src="logo.png"></p>'));
+    }
+
     public function test_placeholders_in_text()
     {
         $this->assertSame(['rent', 'tenant_name'], R::placeholdersIn('{tenant_name} owes {rent}; {tenant_name}'));
