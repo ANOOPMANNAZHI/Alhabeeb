@@ -954,3 +954,8 @@ Breadcrumbs::for('showLeasingConsultantPerformance', function ($trail) {
     $trail->parent('home');
     $trail->push('Leasing Consultant Performance', route('showLeasingConsultantPerformance'));
 });
+
+Breadcrumbs::for('message-log.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Sent log', route('message-log.index'));
+});
