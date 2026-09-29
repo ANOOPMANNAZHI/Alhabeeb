@@ -4,6 +4,7 @@
   $isSystem = $template && $template->isSystem();
   $audience = old('audience', $template ? $template->audience : 'tenant');
   $active = old('_submitted') ? (bool) old('is_active') : ($template ? $template->is_active : true);
+  $smsOn = old('_submitted') ? (bool) old('sms_enabled') : ($template ? (bool) $template->sms_enabled : false);
 @endphp
 
 @section('css')
@@ -57,9 +58,15 @@
             </div>
           @endif
         </div>
-        <label class="mt-switch"><input type="checkbox" name="is_active" value="1" {{ $active ? 'checked' : '' }}> Active</label>
+        <div class="mt-row" style="gap:24px;flex-wrap:wrap">
+          <label class="mt-switch"><input type="checkbox" name="is_active" value="1" {{ $active ? 'checked' : '' }}> Active</label>
+          @if($isSystem)
+            <label class="mt-switch"><input type="checkbox" name="sms_enabled" value="1" {{ $smsOn ? 'checked' : '' }}> Send SMS</label>
+          @endif
+        </div>
         @if($isSystem)
-          <p class="mt-help" style="margin-top:8px">System template: used by PLMS for an automatic message. It cannot be deleted; switch it off to stop using it.</p>
+          <p class="mt-help" style="margin-top:8px">System template: PLMS sends it automatically. Switch <strong>Active</strong> off to stop sending it (it cannot be deleted).
+            With <strong>Send SMS</strong> on, the SMS text is sent to the recipient's mobile every time, as well as the email.</p>
         @endif
       </div>
 
@@ -101,8 +108,17 @@
         <button type="submit" class="mt-btn mt-btn-primary"><i class="fa fa-check" aria-hidden="true"></i> Save template</button>
         <button type="button" class="mt-btn" id="mt-preview-btn"><i class="fa fa-eye" aria-hidden="true"></i> Preview</button>
         <a href="{{ route('message-templates.index') }}" class="mt-btn">Cancel</a>
+        @if($isSystem)
+          <button type="submit" form="mt-reset-form" class="mt-btn" style="margin-left:auto"><i class="fa fa-undo" aria-hidden="true"></i> Reset to default</button>
+        @endif
       </div>
     </form>
+    @if($isSystem)
+      <form method="POST" id="mt-reset-form" action="{{ route('message-templates.reset', $template->id) }}"
+            onsubmit="return confirm('Replace the subject, body and SMS text with the default wording? Your changes will be lost.');">
+        @csrf
+      </form>
+    @endif
   </div>
 </div>
 </div>

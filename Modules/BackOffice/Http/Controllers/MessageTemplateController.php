@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Modules\BackOffice\Entities\MessageTemplate;
 use Modules\BackOffice\Services\MessagePlaceholders;
+use Modules\BackOffice\Services\SystemTemplateDefaults;
 use Modules\BackOffice\Services\MessageTemplateRenderer as Renderer;
 
 /** Mail -> Templates: editable email + SMS templates (project A of the messaging roadmap). */
@@ -81,6 +82,21 @@ class MessageTemplateController extends Controller
         return redirect()->route('message-templates.index')->with('success', 'Template "' . $messageTemplate->name . '" deleted.');
     }
 
+    /** System templates: put back the default subject, body and SMS text (switches are kept). */
+    public function reset(MessageTemplate $messageTemplate)
+    {
+        abort_unless($messageTemplate->isSystem(), 404);
+        $d = SystemTemplateDefaults::get($messageTemplate->key);
+        if (!$d) {
+            return redirect()->route('message-templates.edit', $messageTemplate->id)->with('error', 'No default wording exists for this template.');
+        }
+        $messageTemplate->update([
+            'email_subject' => $d['email_subject'], 'email_body' => $d['email_body'], 'sms_body' => $d['sms_body'],
+            'updated_by' => \Auth::user()->id,
+        ]);
+        return redirect()->route('message-templates.edit', $messageTemplate->id)->with('success', 'Default wording restored.');
+    }
+
     /** JSON preview with sample values: from a saved template (id) or the editor's current content. */
     public function preview(Request $request)
     {
@@ -138,6 +154,9 @@ class MessageTemplateController extends Controller
         }
         if ($data['email_body'] !== null && $data['email_subject'] === null) {
             throw ValidationException::withMessages(['email_subject' => 'Write the email subject, or clear the body for an SMS-only template.']);
+        }
+        if ($template && $template->isSystem()) {
+            $data['sms_enabled'] = (bool) $request->input('sms_enabled');
         }
         if ($data['email_subject'] === null && $data['sms_body'] === null) {
             throw ValidationException::withMessages(['channels' => 'Fill in the email (subject and body) or the SMS text, or both.']);

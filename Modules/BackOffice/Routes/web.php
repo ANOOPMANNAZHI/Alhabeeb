@@ -640,7 +640,10 @@ Route::middleware('auth')->group(function () {
 
 	  /***************** Mass Mail **************/
 
+	Route::get('message-log', 'MessageLogController@index')->name('message-log.index');
+	Route::get('message-log/{id}', 'MessageLogController@show')->name('message-log.show');
 	Route::post('message-templates/preview', 'MessageTemplateController@preview')->name('message-templates.preview');
+	Route::post('message-templates/{messageTemplate}/reset', 'MessageTemplateController@reset')->name('message-templates.reset');
 	Route::resource('message-templates', 'MessageTemplateController')->except(['show'])->parameters(['message-templates' => 'messageTemplate']);
 	Route::resource('massMail', 'MassMailController');
 	Route::get('emailAutocomplete', 'MassMailController@emailAutocomplete')->name('emailAutocomplete');

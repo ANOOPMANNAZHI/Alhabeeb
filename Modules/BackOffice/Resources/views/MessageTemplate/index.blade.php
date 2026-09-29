@@ -66,7 +66,15 @@
               <td>{{ isset($audiences[$t->audience]) ? $audiences[$t->audience] : $t->audience }}</td>
               <td>
                 @if($t->email_subject)<span class="mt-badge"><i class="fa fa-envelope-o" aria-hidden="true"></i> Email</span>@endif
-                @if($t->sms_body)<span class="mt-badge"><i class="fa fa-mobile" aria-hidden="true"></i> SMS</span>@endif
+                @if($t->sms_body)
+                  @if(!$t->isSystem())
+                    <span class="mt-badge"><i class="fa fa-mobile" aria-hidden="true"></i> SMS</span>
+                  @elseif($t->sms_enabled)
+                    <span class="mt-badge mt-badge-on"><i class="fa fa-mobile" aria-hidden="true"></i> SMS on</span>
+                  @else
+                    <span class="mt-badge"><i class="fa fa-mobile" aria-hidden="true"></i> SMS off</span>
+                  @endif
+                @endif
               </td>
               <td>
                 @if($t->is_active)
