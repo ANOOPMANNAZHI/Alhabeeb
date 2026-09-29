@@ -25,6 +25,13 @@
   .bsp-pill-cannot  { background:#fee2e2; color:#991b1b; }
   .bsp-pill-vat { background:#e0e7ff; color:#3730a3; }
   .bsp-pill-acct { background:#fef3c7; color:#92400e; margin-top:4px; }
+  /* Rejected by the bank: own-styled controls (the theme's .btn sizing clips labels) */
+  .bsp .bsp-bounce-reason { width:100%; height:36px; padding:0 8px; border:1px solid #94a3b8; border-radius:6px; margin-bottom:8px; }
+  .bsp .bsp-bounce-btn { display:inline-flex; align-items:center; height:36px; padding:0 16px; border:1px solid #dc2626; border-radius:6px;
+                         background:#dc2626; color:#fff; font-size:14px; font-weight:600; white-space:nowrap; cursor:pointer; }
+  .bsp .bsp-bounce-btn:hover { background:#b91c1c; border-color:#b91c1c; }
+  .bsp .bsp-bounce-btn:focus-visible { outline:2px solid #2f4fd6; outline-offset:2px; }
+  .bsp .bsp-bounce-btn[disabled] { opacity:.6; cursor:not-allowed; }
 
   /* section headings */
   .bsp .bsp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
@@ -106,7 +113,7 @@
           <span class="bsp-sub">
             {{ $counts['accepted'] }} accepted cheques on sheet
             @if($counts['rejected'] > 0)
-              · {{ $counts['rejected'] }} rejected by bank not shown
+              · <a href="#bsp-rejected">{{ $counts['rejected'] }} rejected by bank (see below)</a>
             @endif
           </span>
           <div style="margin-top:6px">
@@ -466,11 +473,120 @@
 </div>
 </div></div>
 
+{{-- ── 4. Rejected by the bank: mark the PDC bounced ─────────────── --}}
+@if(count($rejected) > 0)
+@php
+  $bounceReasons = \Modules\BackOffice\Services\BankSheetRejectedCheques::reasons();
+  $plmsCell = function ($group) {
+      $first = $group[0];
+      $amount = 0; $receipts = [];
+      foreach ($group as $p) { $amount += $p->pdc_amt; if ($p->pdc_receipt_no) { $receipts[] = $p->pdc_receipt_no; } }
+      return e($first->tenant_name) . '<span class="bsp-sub">' . e($first->tenant_contract_no) . ' · ' . e($first->building_name) . ' / ' . e($first->unit_no)
+           . ' · PDC ' . numberFormat($amount) . ' on ' . e(\Carbon\Carbon::parse($first->pdc_check_date)->format('d/m/Y'))
+           . (count($group) > 1 ? ' (rent + VAT)' : '') . ($receipts ? ' · receipt ' . e(implode(', ', $receipts)) . ' will be cancelled' : '') . '</span>';
+  };
+@endphp
+<div class="row" id="bsp-rejected"><div class="col-md-12 col-sm-12">
+<div class="card card-box">
+  <div class="card-body">
+    <div class="bsp-head">
+      <h4><i class="fa fa-times-circle" style="color:#991b1b" aria-hidden="true"></i> Rejected by the bank <span class="bsp-pill bsp-pill-cannot">{{ count($rejected) }}</span></h4>
+      <span class="bsp-hint">Not posted. Mark the PDC bounced here: the same as the PDC bounce screen (receipt cancelled if any, ARE notified).</span>
+    </div>
+    <div class="table-wrap"><div class="table-responsive">
+      <table class="table display product-overview mb-30">
+        <thead>
+          <tr>
+            <th width="5%">Sheet Row</th>
+            <th width="10%">Cheque No</th>
+            <th width="14%">Bank (sheet)</th>
+            <th width="9%">Cheque Date</th>
+            <th class="num" width="8%">Amount</th>
+            <th width="14%">Bank's reason</th>
+            <th>PLMS PDC</th>
+            <th width="22%">Mark as bounced</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach($rejected as $x)
+          @php $suggested = \Modules\BackOffice\Services\BankSheetRejectedCheques::bounceReasonFor($x['row']['reject_reason']); @endphp
+          @foreach(($x['groups'] ?: [null]) as $group)
+          <tr>
+            @if($loop->first)
+            <td rowspan="{{ max(count($x['groups']), 1) }}">{{ $x['row']['row_no'] }}</td>
+            <td rowspan="{{ max(count($x['groups']), 1) }}"><b>{{ $x['row']['cheque_no'] }}</b></td>
+            <td rowspan="{{ max(count($x['groups']), 1) }}">{{ $x['row']['bank_name'] }}</td>
+            <td rowspan="{{ max(count($x['groups']), 1) }}">{{ $fmtDate($x['row']['cheque_date']) }}</td>
+            <td rowspan="{{ max(count($x['groups']), 1) }}" class="num">{{ numberFormat($x['row']['amount']) }}</td>
+            <td rowspan="{{ max(count($x['groups']), 1) }}">{{ $x['row']['reject_reason'] ?: '-' }}</td>
+            @endif
+            @if($group === null)
+              <td>-</td>
+              <td><span class="bsp-sub" style="display:inline">Not found in PLMS (no open or bounced PDC with this cheque no.)</span></td>
+            @else
+              <td>{!! $plmsCell($group) !!}@if($x['status'] === 'choose')<span class="bsp-sub"><b>Same cheque no. on {{ count($x['groups']) }} contracts: bounce only the right one.</b></span>@endif</td>
+              <td class="bsp-bounce-cell">
+                @php $bounced = true; foreach ($group as $p) { if ($p->pdc_cancel_reason !== \Modules\BackOffice\Services\BankSheetRejectedCheques::BOUNCED) { $bounced = false; } } @endphp
+                @if($bounced)
+                  <span class="bsp-pill bsp-pill-cannot"><i class="fa fa-check" aria-hidden="true"></i>Already bounced{{ $group[0]->bounce_reason_name ? ': ' . $group[0]->bounce_reason_name : '' }}</span>
+                @else
+                  <select class="bsp-bounce-reason" aria-label="Bounce reason for cheque {{ $x['row']['cheque_no'] }}">
+                    <option value="">Select reason</option>
+                    @foreach($bounceReasons as $code => $label)
+                    <option value="{{ $code }}" {{ $suggested === $code ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                  </select>
+                  <button type="button" class="bsp-bounce-btn"
+                          data-ids="{{ implode(',', array_map(function ($p) { return $p->id; }, array_filter($group, function ($p) { return $p->pdc_cancel_reason !== \Modules\BackOffice\Services\BankSheetRejectedCheques::BOUNCED; }))) }}"
+                          data-cheque="{{ $x['row']['cheque_no'] }}">Mark as bounced</button>
+                  <span class="bsp-sub bsp-bounce-msg"></span>
+                @endif
+              </td>
+            @endif
+          </tr>
+          @endforeach
+          @endforeach
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+</div></div>
+@endif
+
 </div>
 @endsection
 
 @section('scripts')
 <script>
+// Rejected by the bank: mark the PDC(s) of one cheque bounced through the PDC bounce action
+$(document).on('click', '.bsp-bounce-btn', function () {
+  var $btn = $(this), $cell = $btn.closest('.bsp-bounce-cell');
+  var reason = $cell.find('.bsp-bounce-reason').val();
+  var $msg = $cell.find('.bsp-bounce-msg');
+  if (!reason) { $msg.text('Select the bounce reason first.'); return; }
+  var ids = String($btn.data('ids')).split(',').filter(function (v) { return v !== ''; });
+  $btn.prop('disabled', true).text('Marking...');
+  $cell.find('.bsp-bounce-reason').prop('disabled', true);
+  var token = $('meta[name="csrf-token"]').attr('content');
+  (function next(i) {
+    if (i >= ids.length) {
+      $cell.html('<span class="bsp-pill bsp-pill-cannot"><i class="fa fa-check" aria-hidden="true"></i>Marked bounced: ' +
+        $('<div>').text($cell.find('option:selected').text() || '').html() + '</span>');
+      return;
+    }
+    $.ajax({method: 'POST', url: @json(route('tenantAjaxPdcBounceSearch')), data: {id: ids[i], pdc_bounce_reason: reason, _token: token}, dataType: 'json'})
+      .done(function () { next(i + 1); })
+      .fail(function (x) {
+        // the bounce action saves first and answers with an empty body when the building has no ARE assigned
+        if (x.status === 200) { next(i + 1); return; }
+        $btn.prop('disabled', false).text('Mark as bounced');
+        $cell.find('.bsp-bounce-reason').prop('disabled', false);
+        $msg.text('Error ' + x.status + ' while marking cheque ' + $btn.data('cheque') + ' bounced. It may already be saved (the notification can fail after saving): check the PDC before trying again.');
+      });
+  })(0);
+});
+
 $(function () {
   var selectUrl = '{{ route('pdcBankSheetSelect', $stored) }}';
   var token = $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}';
