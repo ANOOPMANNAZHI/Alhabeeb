@@ -45,6 +45,27 @@ class SystemTemplateDefaultsTest extends TestCase
         }
     }
 
+    public function test_c3_keys_exist_with_expected_switches()
+    {
+        $legal = ['legal_deposit_refund_posted', 'legal_rental_income_posted', 'legal_pdc_posted', 'legal_receipt_posted', 'legal_contract_revoked',
+                  'legal_case_received', 'legal_case_approved', 'legal_case_referback', 'legal_advisor_approved', 'legal_advisor_referback',
+                  'legal_case_closed', 'legal_advisor_closed', 'legal_status_note'];
+        $keys = array_merge(['complaint_assigned', 'complaint_subassigned', 'enquiry_new', 'enquiry_assigned', 'enquiry_reassigned', 'enquiry_rejected'], $legal);
+        foreach ($keys as $key) {
+            $d = D::get($key);
+            $this->assertNotNull($d, $key);
+            $this->assertSame('C3', $d['stage'], $key);
+            $this->assertSame(in_array($key, ['complaint_assigned', 'complaint_subassigned'], true), $d['sms_enabled'], "$key SMS default");
+            $this->assertSame(!in_array($key, ['legal_case_referback', 'legal_advisor_approved'], true), $d['is_active'], "$key active default");
+        }
+        $this->assertSame('any', D::get('enquiry_new')['audience']);
+        $this->assertContains('{invoice_no}', D::get('legal_rental_income_posted')['email_body']);
+        $this->assertContains('{cheque_no}', D::get('legal_pdc_posted')['email_body']);
+        $this->assertContains('{receipt_no}', D::get('legal_receipt_posted')['email_body']);
+        $this->assertContains('{status_note}', D::get('legal_status_note')['email_body']);
+        $this->assertContains('{works_code}', D::get('complaint_assigned')['sms_body']);
+    }
+
     public function test_every_default_is_complete_and_uses_only_known_placeholders()
     {
         D::registerPlaceholders();

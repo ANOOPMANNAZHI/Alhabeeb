@@ -81,7 +81,123 @@ class SystemTemplateDefaults
                 'is_active' => false, 'sms_enabled' => false,
                 'placeholders' => self::tenantPlaceholders() + self::contractPlaceholders() + self::chequePlaceholders(),
             ],
-        ] + self::c2();
+        ] + self::c2() + self::c3();
+    }
+
+    /** C3: staff messages (complaint assignment, enquiries) and legal alerts. */
+    private static function c3()
+    {
+        $employee = self::employeePlaceholders();
+        $assignment = $employee + [
+            'works_code'       => ['label' => 'Work code', 'sample' => 'PLB'],
+            'work_desc'        => ['label' => 'Work description', 'sample' => 'Kitchen sink leaking'],
+            'complaint_no'     => ['label' => 'Complaint no.', 'sample' => 'CMP2609123'],
+            'complaint_date'   => ['label' => 'Complaint date & time', 'sample' => '29/09/2026 10:15'],
+            'complaint_mobile' => ['label' => 'Complainer GSM', 'sample' => '99123456'],
+        ] + self::placePlaceholders();
+        $enquiry = [
+            'enquiry_no'    => ['label' => 'Enquiry no.', 'sample' => 'ENQ2609045'],
+            'enquiry_type'  => ['label' => 'Enquiry type', 'sample' => 'Tenant'],
+            'enquirer_name' => ['label' => 'Enquirer name', 'sample' => 'Salim Al Hinai'],
+        ];
+        $assignSms = 'Please attend {works_code} - {work_desc} Building Name: {building} Flat No: {unit} GSM Number: {complaint_mobile} Comp No- {complaint_no} Date & Time: {complaint_date}';
+        $assignBody = function ($verb) {
+            return '<p>Dear {employee_name},</p>'
+                . '<p>Complaint no. <strong>{complaint_no}</strong> has been ' . $verb . ' to you. Please attend:</p>'
+                . '<p>{works_code} - {work_desc}<br>Building: {building}, flat {unit}<br>GSM number: {complaint_mobile}<br>Date &amp; time: {complaint_date}</p>'
+                . self::regards();
+        };
+        $enquiryStaff = function ($what) {
+            return '<p>Dear {employee_name},</p><p>' . $what . '</p>' . self::regards();
+        };
+
+        $out = [
+            'complaint_assigned' => [
+                'name' => 'Complaint assigned (technician)', 'audience' => 'staff', 'stage' => 'C3',
+                'email_subject' => 'Complaint {complaint_no} assigned to you', 'email_body' => $assignBody('assigned'),
+                'sms_body' => $assignSms, 'is_active' => true, 'sms_enabled' => true, 'placeholders' => $assignment,
+            ],
+            'complaint_subassigned' => [
+                'name' => 'Complaint ticket sub-assigned (technician)', 'audience' => 'staff', 'stage' => 'C3',
+                'email_subject' => 'Complaint {complaint_no} ticket sub-assigned to you', 'email_body' => $assignBody('sub-assigned'),
+                'sms_body' => $assignSms, 'is_active' => true, 'sms_enabled' => true, 'placeholders' => $assignment,
+            ],
+            'enquiry_new' => [
+                'name' => 'New enquiry (to the customer)', 'audience' => 'any', 'stage' => 'C3',
+                'email_subject' => 'Your enquiry {enquiry_no} has been received',
+                'email_body' => '<p>Dear {enquirer_name},</p><p>Thank you for your interest. Your {enquiry_type} enquiry no. <strong>{enquiry_no}</strong> '
+                    . 'has been registered and our team will contact you shortly.</p>' . self::regards(),
+                'sms_body' => 'Dear {enquirer_name}, your enquiry {enquiry_no} has been received. Our team will contact you shortly. - Al Habib',
+                'is_active' => true, 'sms_enabled' => false, 'placeholders' => $enquiry,
+            ],
+            'enquiry_assigned' => [
+                'name' => 'Enquiry assigned (staff)', 'audience' => 'staff', 'stage' => 'C3',
+                'email_subject' => '{enquiry_type} enquiry {enquiry_no} assigned to you',
+                'email_body' => $enquiryStaff('New {enquiry_type} enquiry <strong>{enquiry_no}</strong> ({enquirer_name}) has been assigned to you.'),
+                'sms_body' => 'Enquiry {enquiry_no} ({enquirer_name}) has been assigned to you. - PLMS',
+                'is_active' => true, 'sms_enabled' => false, 'placeholders' => $employee + $enquiry,
+            ],
+            'enquiry_reassigned' => [
+                'name' => 'Enquiry re-assigned (staff)', 'audience' => 'staff', 'stage' => 'C3',
+                'email_subject' => '{enquiry_type} enquiry {enquiry_no} re-assigned',
+                'email_body' => $enquiryStaff('{enquiry_type} enquiry <strong>{enquiry_no}</strong> ({enquirer_name}) has been re-assigned and needs your action.'),
+                'sms_body' => 'Enquiry {enquiry_no} ({enquirer_name}) has been re-assigned. - PLMS',
+                'is_active' => true, 'sms_enabled' => false, 'placeholders' => $employee + $enquiry,
+            ],
+            'enquiry_rejected' => [
+                'name' => 'Preliminary documentation rejected (staff)', 'audience' => 'staff', 'stage' => 'C3',
+                'email_subject' => 'Preliminary documentation rejected - enquiry {enquiry_no}',
+                'email_body' => $enquiryStaff('The preliminary documentation for enquiry <strong>{enquiry_no}</strong> ({enquirer_name}) has been rejected.'),
+                'sms_body' => 'Preliminary documentation rejected for enquiry {enquiry_no}. - PLMS',
+                'is_active' => true, 'sms_enabled' => false, 'placeholders' => $employee + $enquiry,
+            ],
+        ];
+
+        // Legal alerts: [name, subject, sentence, sms, extra placeholders, active]
+        $legal = [
+            'legal_deposit_refund_posted' => ['Legal: deposit refund posted', 'Deposit refund posted - contract {contract_no} (under legal)',
+                'A deposit refund has been posted for contract {contract_no}, which is under legal.', 'Deposit refund posted for contract {contract_no} (under legal). - PLMS', [], true],
+            'legal_rental_income_posted' => ['Legal: rental income posted', 'Rental income posted - contract {contract_no} (under legal)',
+                'Rental income invoice no. {invoice_no} has been posted for contract {contract_no}, which is under legal.', 'Rental income {invoice_no} posted for contract {contract_no} (under legal). - PLMS',
+                ['invoice_no' => ['label' => 'Invoice no.', 'sample' => 'INV2609001']], true],
+            'legal_pdc_posted' => ['Legal: PDC posted', 'PDC posted - contract {contract_no} (under legal)',
+                'Cheque no. {cheque_no} has been posted for contract {contract_no}, which is under legal.', 'PDC {cheque_no} posted for contract {contract_no} (under legal). - PLMS',
+                ['cheque_no' => ['label' => 'Cheque no.', 'sample' => '82079797']], true],
+            'legal_receipt_posted' => ['Legal: tenant receipt posted', 'Tenant receipt posted - contract {contract_no} (under legal)',
+                'Receipt no. {receipt_no} has been posted for contract {contract_no}, which is under legal.', 'Receipt {receipt_no} posted for contract {contract_no} (under legal). - PLMS',
+                ['receipt_no' => ['label' => 'Receipt no.', 'sample' => 'CPY2621842']], true],
+            'legal_contract_revoked' => ['Legal: tenant contract revoked', 'Tenant contract revoked - {contract_no}',
+                'Tenant contract {contract_no} ({tenant_name}), which is under legal, has been revoked.', 'Tenant contract {contract_no} revoked (under legal). - PLMS', [], true],
+            'legal_case_received' => ['Legal: new legal case received', 'New legal case received - contract {contract_no}',
+                'A new legal case has been received for contract {contract_no} ({tenant_name}).', 'New legal case received for contract {contract_no}. - PLMS', [], true],
+            'legal_case_approved' => ['Legal: legal case approved', 'Legal case approved - contract {contract_no}',
+                'The legal case for contract {contract_no} ({tenant_name}) has been approved.', 'Legal case approved for contract {contract_no}. - PLMS', [], true],
+            'legal_case_referback' => ['Legal: legal case referred back', 'Legal case referred back - contract {contract_no}',
+                'The legal case for contract {contract_no} ({tenant_name}) has been referred back.', 'Legal case referred back for contract {contract_no}. - PLMS', [], false],
+            'legal_advisor_approved' => ['Legal: legal advisor approved', 'Legal advisor approved - contract {contract_no}',
+                'The legal advisor has approved the legal case for contract {contract_no} ({tenant_name}).', 'Legal advisor approved the case for contract {contract_no}. - PLMS', [], false],
+            'legal_advisor_referback' => ['Legal: legal advisor referred back', 'Legal advisor referred back - contract {contract_no}',
+                'The legal advisor has referred back the legal case for contract {contract_no} ({tenant_name}).', 'Legal advisor referred back the case for contract {contract_no}. - PLMS', [], true],
+            'legal_case_closed' => ['Legal: legal case closed', 'Legal case closed - contract {contract_no}',
+                'The legal case for contract {contract_no} ({tenant_name}) has been closed.', 'Legal case closed for contract {contract_no}. - PLMS', [], true],
+            'legal_advisor_closed' => ['Legal: legal advisor closed', 'Legal advisor closed - contract {contract_no}',
+                'The legal advisor has closed the legal case for contract {contract_no} ({tenant_name}).', 'Legal advisor closed the case for contract {contract_no}. - PLMS', [], true],
+            'legal_status_note' => ['Legal: advisor added a status note', 'Legal status note - contract {contract_no}',
+                'The legal advisor added a status note for contract {contract_no} ({tenant_name}): {status_note}', 'Legal status note for contract {contract_no}: {status_note} - PLMS',
+                ['status_note' => ['label' => 'Status note', 'sample' => 'Court hearing scheduled']], true],
+        ];
+        $legalBase = $employee + ['tenant_name' => self::tenantPlaceholders()['tenant_name']]
+            + ['contract_no' => self::contractPlaceholders()['contract_no']] + self::placePlaceholders();
+        foreach ($legal as $key => $l) {
+            $out[$key] = [
+                'name' => $l[0], 'audience' => 'staff', 'stage' => 'C3',
+                'email_subject' => $l[1],
+                'email_body' => '<p>Dear {employee_name},</p><p>' . $l[2] . '</p><p>Building: {building}, unit {unit}</p>' . self::regards(),
+                'sms_body' => $l[3], 'is_active' => $l[5], 'sms_enabled' => false,
+                'placeholders' => $legalBase + $l[4],
+            ];
+        }
+        return $out;
     }
 
     private static function complaintPlaceholders()

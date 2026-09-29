@@ -66,6 +66,34 @@ class MessageValues
         ] + self::tenant($complaint ? $complaint->tenant : null);
     }
 
+    /** A complaint ticket (checklist row) being assigned to a technician. */
+    public static function assignment($checklist, $complaint)
+    {
+        $work = $checklist ? $checklist->work : null;
+        $enquiry = $checklist && $checklist->complaintEnquiry ? $checklist->complaintEnquiry : $complaint;
+        $building = $enquiry ? $enquiry->building : null;
+        $unit = $enquiry ? $enquiry->Unit : null;
+        $when = $complaint && $complaint->complaint_date ? strtotime($complaint->complaint_date) : false;
+        return [
+            'works_code'       => self::v($work ? $work->works_code : ''),
+            'work_desc'        => self::v($checklist ? $checklist->checklist_desc : ''),
+            'complaint_no'     => self::v($complaint ? $complaint->complaint_no : ''),
+            'complaint_date'   => $when ? date(date('H:i', $when) === '00:00' ? 'd/m/Y' : 'd/m/Y H:i', $when) : '-',
+            'complaint_mobile' => self::v($enquiry ? $enquiry->complaint_mob_no : ''),
+            'building'         => self::v($building ? $building->building_name : ''),
+            'unit'             => self::v(self::unitNo($unit)),
+        ];
+    }
+
+    public static function enquiry($enquiry)
+    {
+        return [
+            'enquiry_no'    => self::v($enquiry ? $enquiry->sales_enquiry_no : ''),
+            'enquiry_type'  => self::v($enquiry ? $enquiry->sales_type_name : ''),
+            'enquirer_name' => self::v($enquiry ? $enquiry->sales_enquiry_name : ''),
+        ];
+    }
+
     public static function vendor($vendor)
     {
         return ['landlord_name' => self::v($vendor ? $vendor->vendor_name : '')];
