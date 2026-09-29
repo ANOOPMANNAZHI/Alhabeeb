@@ -33,7 +33,7 @@ use Modules\General\Http\Controllers\GeneralController as General ;
 use Modules\Maintenance\Events\ComplaintAssigned;
 use Modules\Maintenance\Events\ComplaintReminder;
 use Illuminate\Support\Facades\Mail;
-use Modules\Maintenance\Emails\ComplaintCloseEmail;
+use Modules\BackOffice\Services\ComplaintMessages;
 use Modules\Maintenance\Emails\ComplaintStageEmail;
 
 class ComplaintStageController extends Controller
@@ -1329,12 +1329,8 @@ class ComplaintStageController extends Controller
      clearNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification',$complaint_id);
      readNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification',$complaint_id);
      $this->closeNotify($complaint_id);
-      //Email Notification
-	  if(isset( $tenantDetail->tenant_contact_email) || isset( $tenantDetail->tenant_personal_email)){
-		$tenantEmail = $tenantDetail->tenant_contact_email ?? $tenantDetail->tenant_personal_email;
-		if($tenantEmail == "")$tenantEmail = $tenantDetail->tenant_personal_email;
-		Mail::to($tenantEmail)->send(new ComplaintCloseEmail($tenantDetail));
-	  }
+      // Email / SMS to the tenant (system template complaint_closed)
+      ComplaintMessages::closed(ComplaintEnquiry::find($complaint_id));
     
     return redirect($url);
   }
@@ -1836,22 +1832,8 @@ class ComplaintStageController extends Controller
         $complaintEnqu->text = "Complaint - ".$complaintEnqu->complaint_no." Tickets-". $TicketNO." To Closed "; 
         event(new ComplaintAssigned($complaintEnqu,$users)); 
 
-         $complaintEnqu->subject = "Complaint Completed";
-       
-       $complaintEnqu->textContent ="Your complaint No ".$complaintEnqu->complaint_no." is successfully attended by Al Habib Maintenance Team. Thanks for your kind co-operation."; 
-
-       $tenant_email = $complaintEnqu->tenant->tenant_personal_email ?? $complaintEnqu->tenant->tenant_contact_email;
-
-        $user_name = $complaintEnqu->tenant->tenant_name;
-        $mobile = $complaintEnqu->tenant->tenant_contact_no ?? $complaintEnqu->tenant->tenant_residence_tel;
-
-        $msg = "Complaint Completed";
-        $params = 'optional data';
-        if(!empty($tenant_email)){
-      Mail::to($tenant_email)->send(new ComplaintStageEmail($complaintEnqu,$user_name)); //Email Notification
-    }else{
-      sendSms($mobile,$msg,$params); //SMS Notification
-    }
+        // Email / SMS to the tenant (system template complaint_completed)
+        ComplaintMessages::completed($complaintEnqu);
       }
       
       return $url;
