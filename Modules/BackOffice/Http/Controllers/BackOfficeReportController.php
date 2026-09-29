@@ -3234,14 +3234,15 @@ public function showExpenseDetailsReportV2(){
  */
 private function expenseDetailsV2Query($date1, $date2, $buildingName, $expenseType = '')
 {
-  // General Ledger rows only appear when no expense type is chosen ("All").
-  // Selecting In-house or Subcontractor filters to maintenance-invoice rows
-  // of that type only - GL rows are excluded.
+  // "All": maintenance invoices + General Ledger. In-house / Subcontractor: maintenance-invoice
+  // rows of that type only. General Ledger ('gl'): GL rows only.
   $expenseTypeFilter = '';
   $params = [];
   if ($expenseType === 'inhouse' || $expenseType === 'subcontractor') {
     $expenseTypeFilter = " AND a.expense_type = ?";
     $params[] = $expenseType === 'inhouse' ? 'In-house' : 'Subcontractor';
+  } elseif ($expenseType === 'gl') {
+    $expenseTypeFilter = " AND a.source = 'GL'";
   }
 
   if ($buildingName === '') {
