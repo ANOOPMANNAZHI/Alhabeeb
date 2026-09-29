@@ -21,6 +21,30 @@ class SystemTemplateDefaultsTest extends TestCase
         $this->assertNull(D::get('nope'));
     }
 
+    public function test_c2_keys_exist_with_expected_switches()
+    {
+        $keys = ['complaint_registered', 'complaint_completed', 'complaint_closed', 'key_accepted_tenant', 'key_accepted_landlord',
+                 'renewal_form', 'inspection_details', 'termination_details', 'tenant_birthday', 'pdc_due_reminder'];
+        foreach ($keys as $key) {
+            $this->assertNotNull(D::get($key), $key);
+            $this->assertSame('C2', D::get($key)['stage'], $key);
+        }
+        $this->assertFalse(D::get('termination_details')['is_active']);
+        $reminder = D::get('pdc_due_reminder');
+        $this->assertTrue($reminder['sms_enabled']);
+        $this->assertNull($reminder['email_subject']);
+        $this->assertNull($reminder['email_body']);
+        $this->assertContains('{contract_end}', D::get('renewal_form')['email_body']);
+        $this->assertContains('{inspection_details}', D::get('inspection_details')['email_body']);
+        $this->assertTrue(D::get('inspection_details')['placeholders']['inspection_details']['block']);
+        $this->assertSame('landlord', D::get('key_accepted_landlord')['audience']);
+        foreach ($keys as $key) {
+            if ($key !== 'pdc_due_reminder') {
+                $this->assertFalse(D::get($key)['sms_enabled'], "$key SMS off by default");
+            }
+        }
+    }
+
     public function test_every_default_is_complete_and_uses_only_known_placeholders()
     {
         D::registerPlaceholders();
@@ -34,7 +58,9 @@ class SystemTemplateDefaultsTest extends TestCase
                     $this->assertContains($ph, $known, "$key uses unregistered {{$ph}}");
                 }
             }
-            $this->assertSame($d['email_body'], R::cleanHtml($d['email_body']), "$key body survives the cleaner unchanged");
+            if ($d['email_body'] !== null) {
+                $this->assertSame($d['email_body'], R::cleanHtml($d['email_body']), "$key body survives the cleaner unchanged");
+            }
         }
     }
 }
