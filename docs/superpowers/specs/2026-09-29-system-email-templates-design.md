@@ -124,8 +124,8 @@ permission, defaults registry, renderer blocks, `SystemMessenger`,
 
 | Key | Recipient | Extra placeholders | Default |
 |---|---|---|---|
-| `pdc_bounce_are` | every ARE assigned to the building (today: last one only) | are_name, cheque_no, amount, cheque_date, bounce_reason, remarks + contract set | on, SMS off |
-| `pdc_bounce_tenant` | tenant | cheque_no, amount, cheque_date, bounce_reason, remarks + contract set | **off**, SMS off |
+| `pdc_bounce_are` | every ARE assigned to the building (today: last one only) | employee_name (the ARE, from the staff audience), cheque_no, amount, cheque_date, bounce_reason, remarks + tenant_name, contract_no, building, unit | on, SMS off |
+| `pdc_bounce_tenant` | tenant | cheque_no, amount, cheque_date, bounce_reason, remarks + the tenant audience set | **off**, SMS off |
 
 Send sites: `PdcController` store (inside the row loop), and
 `tenantAjaxPdcBounceSearch` (both branches) — currently :168, :435, :468 for
