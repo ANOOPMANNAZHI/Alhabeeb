@@ -79,6 +79,47 @@ class StaffMessagesTest extends TestCase
         $this->assertSame(1, MessageLog::where('template_key', 'complaint_subassigned')->where('status', 'skipped_no_address')->count());
     }
 
+    // --- enquiries ---
+
+    private function enquiry()
+    {
+        $e = \Modules\Sales\Entities\SalesEnquiry::latest('id')->first();
+        if (!$e) {
+            $this->markTestSkipped('No enquiry');
+        }
+        $e->update(['sales_email' => 'customer@example.com', 'sales_enquiry_name' => 'Salim Al Hinai']);
+        return \Modules\Sales\Entities\SalesEnquiry::find($e->id);
+    }
+
+    public function test_new_enquiry_goes_to_the_customer()
+    {
+        $e = $this->enquiry();
+        $this->assertSame('sent', StaffMessages::enquiryNew($e)['email']);
+        Mail::assertSent(TemplatedMail::class, function ($m) use ($e) {
+            return $m->hasTo('customer@example.com') && strpos($m->subject, $e->sales_enquiry_no) !== false && strpos($m->bodyHtml, 'Dear Salim Al Hinai') !== false;
+        });
+    }
+
+    public function test_reassign_reaches_every_user_and_empty_list_is_safe()
+    {
+        $e = $this->enquiry();
+        $a = $this->staff('a@example.com', '91111111', 0);
+        $b = $this->staff('b@example.com', '92222222', 1);
+        StaffMessages::enquiryToStaff('enquiry_reassigned', $e, collect([$a, $b]));
+        Mail::assertSent(TemplatedMail::class, 2);
+        StaffMessages::enquiryToStaff('enquiry_reassigned', $e, collect());
+        Mail::assertSent(TemplatedMail::class, 2);
+    }
+
+    public function test_rejected_greets_the_employee_by_name()
+    {
+        $e = $this->enquiry();
+        $u = $this->staff('a@example.com');
+        StaffMessages::enquiryToStaff('enquiry_rejected', $e, [$u]);
+        $name = e($u->employee->employee_name);
+        Mail::assertSent(TemplatedMail::class, function ($m) use ($name) { return strpos($m->bodyHtml, 'Dear ' . $name) !== false; });
+    }
+
     public function test_assignment_switched_off_sends_nothing()
     {
         MessageTemplate::where('key', 'complaint_assigned')->update(['is_active' => false]);
