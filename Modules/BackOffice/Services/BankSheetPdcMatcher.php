@@ -146,6 +146,22 @@ class BankSheetPdcMatcher
             // Case A: an agreement's rent rows + its VAT PDC(s) on this cheque add up exactly
             $candidates = $this->rentPlusVatGroups($inMonth, $vatFound, $amount);
         }
+        if (count($candidates) === 0) {
+            // One cheque paying for several tenants (e.g. group companies): the same split rule as
+            // within one tenant, but only when ALL of this cheque's PDCs for the month add up exactly.
+            $tenantGroups = $this->groupByTenant($inMonth);
+            if (count($tenantGroups) > 1 && $this->sameAmount($this->sum($inMonth), $amount)) {
+                $names = [];
+                foreach ($inMonth as $pdc) {
+                    $name = trim((string) (isset($pdc->tenant_name) ? $pdc->tenant_name : ''));
+                    if ($name !== '' && !in_array($name, $names, true)) {
+                        $names[] = $name;
+                    }
+                }
+                return $this->result($row, self::MATCHED, $inMonth, [],
+                    'One cheque for ' . count($tenantGroups) . ' tenants: ' . implode(', ', $names));
+            }
+        }
 
         if (count($candidates) > 1) {
             // the drawer's account on the sheet settles it when exactly one candidate carries it
