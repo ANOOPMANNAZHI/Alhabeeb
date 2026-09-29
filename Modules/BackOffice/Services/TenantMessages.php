@@ -23,6 +23,48 @@ class TenantMessages
         return SystemMessenger::send('key_accepted_landlord', $to, $place + MessageValues::vendor($vendor), $related);
     }
 
+    /** Inspection report (take-over supervisor → tenant). @return string|null email status */
+    public static function inspection($termination, $contract)
+    {
+        return self::terminationMessage('inspection_details', 'inspection_details', $termination, $contract);
+    }
+
+    /** Termination inspection details (arrives switched off). @return string|null email status */
+    public static function terminationDetails($termination, $contract)
+    {
+        return self::terminationMessage('termination_details', 'termination_details', $termination, $contract);
+    }
+
+    private static function terminationMessage($key, $block, $termination, $contract)
+    {
+        $html = view('backoffice::Email.partials.' . $block, [
+            'termination' => $termination,
+            'tenantContract' => $contract,
+            'terminationChecklistOther' => $contract->terminationChecklistOther,
+            'groupedWork' => $contract->terminationChecklist->groupBy('work_id'),
+        ])->render();
+        $r = SystemMessenger::send($key, ComplaintMessages::tenantRecipient($contract->tenant, 'contact'), MessageValues::contract($contract), [
+            'blocks' => [$block => $html],
+            'related' => ['termination', $termination->id],
+        ]);
+        return $r['email'];
+    }
+
+    /** What to tell the user after a manual send (flash type + text). */
+    public static function flashFor($status)
+    {
+        switch ($status) {
+            case \Modules\BackOffice\Entities\MessageLog::SENT:
+                return ['success', ' Mail Send Successfully'];
+            case \Modules\BackOffice\Entities\MessageLog::SKIPPED_NO_ADDRESS:
+                return ['error', 'Tenant email not found.'];
+            case \Modules\BackOffice\Entities\MessageLog::SKIPPED_OFF:
+                return ['error', 'This email is switched off in Mail > Templates.'];
+            default:
+                return ['error', 'The email could not be sent (see Mail > Sent log).'];
+        }
+    }
+
     /**
      * Renewal form to the tenant with the PDF attached; cc = sender and ARE.
      * @return string|null email status (MessageLog::SENT etc.)

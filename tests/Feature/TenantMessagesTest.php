@@ -78,6 +78,58 @@ class TenantMessagesTest extends TestCase
         });
     }
 
+    // --- inspection / termination details ---
+
+    private function termination($withChecklist = true)
+    {
+        $q = \Modules\BackOffice\Entities\Termination::whereHas('tenantContract', function ($c) { $c->whereHas('tenant'); });
+        $ids = \DB::table('termination_checklists')->whereNotNull('work_id')->distinct()->pluck('termination_contract_id')->all();
+        $withChecklist ? $q->whereIn('contract_id', $ids) : $q->whereNotIn('contract_id', $ids);
+        $t = $q->latest('id')->first();
+        if (!$t) {
+            $this->markTestSkipped('No suitable termination');
+        }
+        TenantContract::find($t->contract_id)->tenant->update(['tenant_contact_email' => 'contact@example.com', 'tenant_personal_email' => 'personal@example.com']);
+        return $t;
+    }
+
+    public function test_inspection_email_carries_the_tables()
+    {
+        $t = $this->termination();
+        $contract = TenantContract::find($t->contract_id);
+        $status = TenantMessages::inspection($t, $contract);
+        $this->assertSame('sent', $status);
+        $log = MessageLog::where('template_key', 'inspection_details')->where('related_id', $t->id)->first();
+        $this->assertContains('<table', $log->body);
+        $this->assertContains($contract->tenant_contract_no, $log->body);
+        $this->assertNotContains('{inspection_details}', $log->body);
+        Mail::assertSent(TemplatedMail::class, function ($m) { return $m->hasTo('contact@example.com'); });
+    }
+
+    public function test_inspection_without_checklist_rows_still_sends()
+    {
+        $t = $this->termination(false);
+        $this->assertSame('sent', TenantMessages::inspection($t, TenantContract::find($t->contract_id)));
+    }
+
+    public function test_termination_details_off_by_default_then_named_when_on()
+    {
+        $t = $this->termination();
+        $contract = TenantContract::find($t->contract_id);
+        MessageTemplate::where('key', 'termination_details')->update(['is_active' => false]);
+        $this->assertSame('skipped_off', TenantMessages::terminationDetails($t, $contract));
+        MessageTemplate::where('key', 'termination_details')->update(['is_active' => true]);
+        $this->assertSame('sent', TenantMessages::terminationDetails($t, $contract));
+        $log = MessageLog::where('template_key', 'termination_details')->where('status', 'sent')->latest('id')->first();
+        $this->assertContains('Dear ' . e($contract->tenant->tenant_name), $log->body);
+    }
+
+    public function test_inspection_route_redirects_with_success()
+    {
+        $t = $this->termination();
+        $this->get(route('inspectionSendMail', $t->id))->assertRedirect(route('handoverAssigned'))->assertSessionHas('success');
+    }
+
     // --- renewal form ---
 
     public function test_renewal_button_emails_the_pdf_with_cc_and_counts_it()
