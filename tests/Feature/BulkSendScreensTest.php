@@ -76,6 +76,24 @@ class BulkSendScreensTest extends TestCase
             ->assertViewHas('statusCounts', ['pending' => 1, 'sent' => 0, 'failed' => 1, 'skipped' => 0, 'cancelled' => 0]);
     }
 
+    public function test_detail_has_tabs_with_counts_tiles_and_sent_log_link()
+    {
+        $send = $this->send();
+        $html = $this->get(route('bulk-send.show', [$send->id, 'status' => 'failed']))->assertOk()->getContent();
+        $this->assertRegExp('/href="[^"]*status=failed"[^>]*aria-current="page"[^>]*>\s*Failed\s*<span class="bs-tab-n">1<\/span>/', $html);
+        $this->assertRegExp('/>\s*All\s*<span class="bs-tab-n">2<\/span>/', $html);
+        $this->assertRegExp('/>\s*Sent\s*<span class="bs-tab-n">0<\/span>/', $html);
+        $this->assertNotContains('<select name="status"', $html);
+        $this->assertContains('bs-tile', $html);
+        $this->assertContains('0 of 2 processed', $html);
+        $this->assertContains('email: failed', $html);
+        $this->assertContains('bs-row-failed', $html);
+        $this->assertContains('bs-badge-failed', $html);
+        $this->assertContains(e(route('message-log.index', ['bulk_send' => $send->id])), $html);
+        $this->assertContains('Open in Sent log', $html);
+        $this->assertContains(route('bulk-send.pause', $send->id), $html);
+    }
+
     public function test_actions()
     {
         $send = $this->send();
