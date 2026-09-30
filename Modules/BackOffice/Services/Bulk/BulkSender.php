@@ -15,6 +15,8 @@ use Modules\BackOffice\Services\SystemMessenger;
 class BulkSender
 {
     const SAFETY_STOP_AFTER = 5;
+    /** Office 365 allows 30 messages a minute per mailbox; a higher setting is capped. */
+    const MAX_PER_MINUTE = 30;
 
     private static function setting($key, $default)
     {
@@ -33,7 +35,7 @@ class BulkSender
     public static function run()
     {
         $summary = ['processed' => 0, 'sent' => 0, 'failed' => 0, 'skipped' => 0];
-        $perMinute = self::setting('bulk_emails_per_minute', 25);
+        $perMinute = min(self::MAX_PER_MINUTE, self::setting('bulk_emails_per_minute', 25));
         $perDay = self::setting('bulk_emails_per_day', 8000);
         $today = self::emailsToday();
 
@@ -117,7 +119,9 @@ class BulkSender
         if ($result['email'] === MessageLog::FAILED) {
             $send->increment('email_fail_streak');
             if ((int) $send->fresh()->email_fail_streak >= self::SAFETY_STOP_AFTER) {
-                $send->update(['status' => BulkSend::PAUSED, 'note' => BulkSend::NOTE_SAFETY_STOP]);
+                // only a running send: never overwrite a Cancel (or Pause) pressed meanwhile
+                BulkSend::where('id', $send->id)->where('status', BulkSend::RUNNING)
+                    ->update(['status' => BulkSend::PAUSED, 'note' => BulkSend::NOTE_SAFETY_STOP]);
             }
         } elseif ($result['email'] === MessageLog::SENT && (int) $send->email_fail_streak !== 0) {
             $send->update(['email_fail_streak' => 0]);

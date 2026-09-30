@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\BackOffice\Entities\BulkSend;
-use Modules\BackOffice\Entities\BulkSendRecipient;
 use Modules\BackOffice\Entities\MessageTemplate;
+use Modules\BackOffice\Services\Bulk\BulkSender;
 use Modules\BackOffice\Services\Bulk\BulkSendService;
 use Modules\BackOffice\Services\Bulk\RecipientFinder;
 use Modules\BackOffice\Services\MessagePlaceholders;
@@ -94,7 +94,7 @@ class BulkSendController extends Controller
             $list[] = ['key' => $key, 'name' => $p['name'], 'email' => $p['email'], 'mobile' => $p['mobile']];
         }
         $perMinute = (int) (prefixData('bulk_emails_per_minute') ? prefixData('bulk_emails_per_minute')->configuration_value : 25);
-        $perMinute = $perMinute > 0 ? $perMinute : 25;
+        $perMinute = $perMinute > 0 ? min(BulkSender::MAX_PER_MINUTE, $perMinute) : 25;
         // One-time token: a double click or a resubmitted page cannot start the same send twice.
         $token = Str::random(40);
         $tokens = (array) $request->session()->get('bulk_send_tokens', []);

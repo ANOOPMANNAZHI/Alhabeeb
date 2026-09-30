@@ -138,6 +138,32 @@ class BulkSenderTest extends TestCase
         $this->assertContains('SMTP 554 blocked', $note);
     }
 
+    public function test_rate_setting_is_capped_at_30_per_minute()
+    {
+        DB::table('configuration')->where('configuration_settings', 'bulk_emails_per_minute')->update(['configuration_value' => '100']);
+        $send = $this->send(35);
+        $r = BulkSender::run();
+        $this->assertSame(30, $r['processed']);
+        $this->assertSame(5, $send->pendingCount());
+    }
+
+    public function test_safety_stop_does_not_overwrite_a_cancel()
+    {
+        $send = $this->send(8);
+        $n = 0;
+        Mail::shouldReceive('to')->andReturnUsing(function () use (&$n, $send) {
+            if (++$n === 5) {
+                // the user presses Cancel while the 5th message is on its way
+                DB::table('bulk_sends')->where('id', $send->id)->update(['status' => BulkSend::CANCELLED]);
+            }
+            throw new \Exception('SMTP 554 blocked');
+        });
+        BulkSender::run();
+        $f = $send->fresh();
+        $this->assertSame(BulkSend::CANCELLED, $f->status);
+        $this->assertNotSame(BulkSend::NOTE_SAFETY_STOP, $f->note);
+    }
+
     public function test_one_bad_row_is_marked_failed_and_the_run_goes_on()
     {
         $send = $this->send(3);

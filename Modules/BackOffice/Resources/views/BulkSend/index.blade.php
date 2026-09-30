@@ -14,7 +14,7 @@
     <thead><tr><th>#</th><th>Started</th><th>By</th><th>Message</th><th>To</th><th>Channels</th><th>Status</th><th>Sent / Failed / Skipped / Pending</th><th></th></tr></thead>
     <tbody>
     @forelse($sends as $s)
-      @php $pending = $s->total - $s->sent - $s->failed - $s->skipped; @endphp
+      @php $pending = $s->status === 'cancelled' ? 0 : $s->total - $s->sent - $s->failed - $s->skipped; @endphp
       <tr>
         <td><a href="{{ route('bulk-send.show', $s->id) }}">{{ $s->id }}</a></td>
         <td>{{ $s->created_at ? $s->created_at->format('d/m/Y H:i') : '' }}</td>

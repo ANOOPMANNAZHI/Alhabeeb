@@ -83,6 +83,14 @@ class BulkSendScreensTest extends TestCase
         $this->assertSame($before + 1, BulkSend::count());
     }
 
+    public function test_cancelled_send_shows_nothing_pending()
+    {
+        $send = $this->send(['status' => BulkSend::CANCELLED, 'total' => 10, 'sent' => 2, 'failed' => 1]);
+        $html = $this->get(route('bulk-send.index'))->getContent();
+        $this->assertContains('2 / 1 / 0 / 0', $html);
+        $this->assertNotContains('2 / 1 / 0 / 7', $html);
+    }
+
     public function test_resend_button_only_for_a_finished_send_not_yet_resent()
     {
         $send = $this->send(['failed' => 1]);
