@@ -27,6 +27,9 @@ use Illuminate\Support\Facades\Log;
 
 class PdcController extends Controller
 {
+    /** Tenant bounce email switched off 2026-09-30 (SMS still sent); set true to send it again. */
+    const TENANT_BOUNCE_EMAIL = false;
+
     public function __construct()
     {
 
@@ -690,7 +693,7 @@ public function printPreview($contract_id){
       }
 
       $email = $tenant->tenant_contact_email ?: $tenant->tenant_personal_email;
-      if (!empty($email)) {
+      if (self::TENANT_BOUNCE_EMAIL && !empty($email)) {
           try {
               Mail::to($email)->send(new ChequeBounceEmail($pdc));
           } catch (\Throwable $e) {
