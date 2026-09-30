@@ -90,6 +90,17 @@ class SystemMessengerTest extends TestCase
         $this->assertContains('SMTP 554', MessageLog::latest('id')->first()->note);
     }
 
+    public function test_secret_is_hidden_in_the_note_of_a_failed_send()
+    {
+        $secret = 'https://plms.test/password/reset/zz999?email=a%40b.om';
+        Mail::shouldReceive('to')->andThrow(new \Exception('SMTP refused ' . $secret));
+        $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com'), $this->values(), ['secret' => [$secret]]);
+        $this->assertSame('failed', $r['email']);
+        $note = (string) MessageLog::latest('id')->first()->note;
+        $this->assertContains('[link hidden]', $note);
+        $this->assertNotContains('zz999', $note);
+    }
+
     public function test_missing_row_uses_default_wording()
     {
         DB::table('message_templates')->where('key', 'pdc_bounce_are')->delete();
@@ -164,6 +175,7 @@ class SystemMessengerTest extends TestCase
         });
         $this->assertContains('abc123', $this->sms[0][1]);
         $rows = MessageLog::where('template_key', 'pdc_bounce_are')->latest('id')->take(2)->get();
+        $this->assertCount(2, $rows);
         foreach ($rows as $row) {
             $this->assertNotContains('abc123', (string) $row->body, $row->channel);
             $this->assertContains('[link hidden]', (string) $row->body, $row->channel);

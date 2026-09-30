@@ -107,7 +107,8 @@ class SystemMessenger
     private static function log(array $row, array $secrets = [])
     {
         if ($secrets) {
-            foreach (['subject', 'body'] as $field) {
+            // note holds exception messages, which can echo the secret (e.g. a URL)
+            foreach (['subject', 'body', 'note'] as $field) {
                 if (isset($row[$field])) {
                     $row[$field] = str_replace(array_unique($secrets), '[link hidden]', (string) $row[$field]);
                 }
