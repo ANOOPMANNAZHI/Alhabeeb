@@ -51,6 +51,15 @@ class BulkSendComposeTest extends TestCase
         $this->assertNotContains((string) MessageTemplate::where('kind', 'system')->value('name'), $html);
     }
 
+    public function test_email_box_keeps_an_sms_only_choice_after_a_validation_error()
+    {
+        $this->assertRegExp('/id="bs-email"\s+checked/', $this->get(route('bulk-send.create'))->getContent());
+        $html = $this->withSession(['_old_input' => ['audience' => 'staff', 'send_sms' => '1']])
+            ->get(route('bulk-send.create'))->assertOk()->getContent();
+        $this->assertNotRegExp('/id="bs-email"\s+checked/', $html);
+        $this->assertRegExp('/id="bs-send-sms"\s+checked/', $html);
+    }
+
     public function test_count_matches_the_finder()
     {
         $this->post(route('bulk-send.count'), ['audience' => 'staff', 'roles' => ['super_admin']])

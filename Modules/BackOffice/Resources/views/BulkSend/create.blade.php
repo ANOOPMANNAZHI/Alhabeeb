@@ -27,7 +27,7 @@
         <select class="mt-input mt-ph" data-target="#bs-sms"></select></div>
     </div>
     <div class="mt-field"><label>Send by</label>
-      <label><input type="checkbox" name="send_email" value="1" id="bs-email" {{ old('send_email', 1) ? 'checked' : '' }}> Email</label>
+      <label><input type="checkbox" name="send_email" value="1" id="bs-email" {{ (session()->hasOldInput() ? old('send_email') : true) ? 'checked' : '' }}> Email</label>
       <label><input type="checkbox" name="send_sms" value="1" id="bs-send-sms" {{ old('send_sms') ? 'checked' : '' }}> Also send SMS</label>
       <div class="mt-help" id="bs-sms-help"></div>
     </div>
