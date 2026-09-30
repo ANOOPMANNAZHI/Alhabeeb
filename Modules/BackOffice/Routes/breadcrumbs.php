@@ -963,6 +963,10 @@ Breadcrumbs::for('bulk-send.index', function ($trail) {
     $trail->parent('home');
     $trail->push('Send', route('bulk-send.index'));
 });
+Breadcrumbs::for('bulk-send.create', function ($trail) {
+    $trail->parent('bulk-send.index');
+    $trail->push('New send', route('bulk-send.create'));
+});
 Breadcrumbs::for('bulk-send.show', function ($trail, $send) {
     $trail->parent('bulk-send.index');
     $trail->push('Send #' . $send->id, route('bulk-send.show', $send->id));

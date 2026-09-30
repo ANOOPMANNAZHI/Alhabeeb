@@ -4,10 +4,15 @@ namespace Modules\BackOffice\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\BackOffice\Entities\BulkSend;
 use Modules\BackOffice\Entities\BulkSendRecipient;
+use Modules\BackOffice\Entities\MessageTemplate;
 use Modules\BackOffice\Services\Bulk\BulkSendService;
+use Modules\BackOffice\Services\Bulk\RecipientFinder;
+use Modules\BackOffice\Services\MessagePlaceholders;
+use Modules\BackOffice\Services\MessageTemplateRenderer;
 
 /** Mail -> Send: bulk messages to tenants, landlords or staff. */
 class BulkSendController extends Controller
@@ -24,6 +29,112 @@ class BulkSendController extends Controller
     {
         $sends = BulkSend::with(['template', 'creator'])->orderBy('id', 'desc')->paginate(self::PER_PAGE);
         return view('backoffice::BulkSend.index', compact('sends'));
+    }
+
+    /** Request -> the input BulkSendService expects. */
+    private function input(Request $request)
+    {
+        $audience = (string) $request->input('audience');
+        $filters = [];
+        if ($audience === 'staff') {
+            $filters['roles'] = array_values(array_filter((array) $request->input('roles', [])));
+        } else {
+            $filters['locations'] = array_values(array_filter((array) $request->input('locations', [])));
+            $filters['buildings'] = array_values(array_filter((array) $request->input('buildings', [])));
+        }
+        return [
+            'template_id'   => $request->input('template_id') ? (int) $request->input('template_id') : null,
+            'email_subject' => $request->input('email_subject'),
+            'email_body'    => $request->input('email_body'),
+            'sms_body'      => $request->input('sms_body'),
+            'audience'      => $audience,
+            'filters'       => $filters,
+            'send_email'    => (bool) $request->input('send_email'),
+            'send_sms'      => (bool) $request->input('send_sms'),
+            'exclude'       => array_values((array) $request->input('exclude', [])),
+            'add'           => array_values((array) $request->input('add', [])),
+        ];
+    }
+
+    public function create()
+    {
+        $templates = MessageTemplate::where('kind', MessageTemplate::KIND_BULK)->where('is_active', true)->orderBy('name')
+            ->get(['id', 'name', 'audience', 'email_subject', 'email_body', 'sms_body']);
+        $locations = DB::table('locations')->where('locations_status', 1)->orderBy('locations_name')->get(['id', 'locations_name']);
+        $buildings = DB::table('buildings')->where('building_status', 1)->orderBy('building_name')->get(['id', 'building_name', 'location_id']);
+        $roles = DB::table('roles')->orderBy('name')->pluck('name');
+        $placeholders = [];
+        foreach (array_keys(MessagePlaceholders::AUDIENCES) as $a) {
+            $placeholders[$a] = MessagePlaceholders::forTemplate($a);
+        }
+        return view('backoffice::BulkSend.create', compact('templates', 'locations', 'buildings', 'roles', 'placeholders'));
+    }
+
+    public function count(Request $request)
+    {
+        $in = $this->input($request);
+        if (!isset(BulkSend::AUDIENCE_LABELS[$in['audience']])) {
+            return response()->json(['total' => 0, 'email' => 0, 'mobile' => 0]);
+        }
+        return response()->json(RecipientFinder::count($in['audience'], $in['filters']));
+    }
+
+    public function review(Request $request)
+    {
+        $in = $this->input($request);
+        try {
+            $texts = BulkSendService::checkMessage($in);
+        } catch (ValidationException $e) {
+            return redirect()->route('bulk-send.create')->withErrors($e->errors())->withInput();
+        }
+        $people = RecipientFinder::people($in['audience'], $in['filters']);
+        $list = [];
+        foreach ($people as $key => $p) {
+            $list[] = ['key' => $key, 'name' => $p['name'], 'email' => $p['email'], 'mobile' => $p['mobile']];
+        }
+        $perMinute = (int) (prefixData('bulk_emails_per_minute') ? prefixData('bulk_emails_per_minute')->configuration_value : 25);
+        $perMinute = $perMinute > 0 ? $perMinute : 25;
+        return view('backoffice::BulkSend.review', [
+            'in' => $in, 'texts' => $texts, 'list' => $list, 'perMinute' => $perMinute,
+            'audienceLabel' => BulkSend::AUDIENCE_LABELS[$in['audience']],
+            'template' => $texts['template_id'] ? MessageTemplate::find($texts['template_id']) : null,
+        ]);
+    }
+
+    public function search(Request $request)
+    {
+        $audience = (string) $request->input('audience');
+        if (!isset(BulkSend::AUDIENCE_LABELS[$audience])) {
+            return response()->json([]);
+        }
+        return response()->json(RecipientFinder::search($audience, $request->input('q')));
+    }
+
+    public function preview(Request $request)
+    {
+        $in = $this->input($request);
+        if (!isset(BulkSend::AUDIENCE_LABELS[$in['audience']])) {
+            return response()->json(['subject' => null, 'html' => null, 'sms' => null]);
+        }
+        try {
+            $texts = BulkSendService::texts($in, $in['audience']);
+        } catch (ValidationException $e) {
+            return response()->json(['error' => collect($e->errors())->flatten()->first()], 422);
+        }
+        $person = RecipientFinder::person($in['audience'], (string) $request->input('key'));
+        $values = ($person ? $person['values'] : []) + ['today' => date('d/m/Y'), 'company_name' => 'Al Habib & Co. L.L.C'];
+        $out = MessageTemplateRenderer::render($texts, $values);
+        return response()->json(['subject' => $out['subject'], 'html' => $out['html'], 'sms' => $out['sms']]);
+    }
+
+    public function store(Request $request)
+    {
+        try {
+            $send = BulkSendService::start($this->input($request), \Auth::id());
+        } catch (ValidationException $e) {
+            return redirect()->route('bulk-send.create')->withErrors($e->errors())->withInput();
+        }
+        return redirect()->route('bulk-send.index')->with('success', 'Send #' . $send->id . ' started: ' . $send->total . ' people.');
     }
 
     public function show(Request $request, BulkSend $bulkSend)

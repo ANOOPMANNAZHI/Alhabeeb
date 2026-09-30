@@ -643,6 +643,12 @@ Route::middleware('auth')->group(function () {
 	Route::get('message-log', 'MessageLogController@index')->name('message-log.index');
 	Route::get('message-log/{id}', 'MessageLogController@show')->name('message-log.show');
 	Route::get('bulk-send', 'BulkSendController@index')->name('bulk-send.index');
+	Route::get('bulk-send/create', 'BulkSendController@create')->name('bulk-send.create');
+	Route::post('bulk-send/count', 'BulkSendController@count')->name('bulk-send.count');
+	Route::post('bulk-send/review', 'BulkSendController@review')->name('bulk-send.review');
+	Route::get('bulk-send/search', 'BulkSendController@search')->name('bulk-send.search');
+	Route::post('bulk-send/preview', 'BulkSendController@preview')->name('bulk-send.preview');
+	Route::post('bulk-send', 'BulkSendController@store')->name('bulk-send.store');
 	Route::get('bulk-send/{bulkSend}', 'BulkSendController@show')->name('bulk-send.show')->where('bulkSend', '[0-9]+');
 	Route::post('bulk-send/{bulkSend}/pause', 'BulkSendController@pause')->name('bulk-send.pause');
 	Route::post('bulk-send/{bulkSend}/resume', 'BulkSendController@resume')->name('bulk-send.resume');
