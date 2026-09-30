@@ -34,8 +34,8 @@
           @if(in_array($s->status, ['running', 'paused']))
             <form method="post" action="{{ route('bulk-send.cancel', $s->id) }}" style="display:inline" onsubmit="return confirm('Cancel send #{{ $s->id }}? Messages not sent yet will not be sent.')">@csrf<button class="mt-btn mt-btn-sm mt-btn-danger">Cancel</button></form>
           @endif
-          @if(in_array($s->status, ['done', 'cancelled']) && $s->failed > 0)
-            <form method="post" action="{{ route('bulk-send.resend-failed', $s->id) }}" style="display:inline">@csrf<button class="mt-btn mt-btn-sm">Resend to failed</button></form>
+          @if(in_array($s->status, ['done', 'cancelled']) && $s->failed > 0 && !$s->resent_send_id)
+            <form method="post" action="{{ route('bulk-send.resend-failed', $s->id) }}" style="display:inline" onsubmit="if (!confirm('Resend the failed messages of send #{{ $s->id }}?')) { return false; } $(this).find('button').prop('disabled', true); return true;">@csrf<button class="mt-btn mt-btn-sm">Resend to failed</button></form>
           @endif
         </td>
       </tr>

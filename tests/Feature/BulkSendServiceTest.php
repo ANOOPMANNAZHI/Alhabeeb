@@ -132,9 +132,41 @@ class BulkSendServiceTest extends TestCase
         $this->assertSame(1, (int) $again->total);
         $this->assertSame($first->email, $again->recipients()->first()->email);
         $this->assertSame($c->email_subject, $again->email_subject);
+        $this->assertSame($again->id, (int) $c->fresh()->resent_send_id);
 
         $again->recipients()->update(['status' => 'sent']);
-        $this->expectException(ValidationException::class);
-        S::resendFailed($again->fresh(), 1);
+        $again->update(['status' => BulkSend::DONE]);
+        $this->assertSame(['No failed messages to resend.'], $this->resendErrors($again->fresh()));
+    }
+
+    private function resendErrors(BulkSend $send)
+    {
+        try {
+            S::resendFailed($send, 1);
+        } catch (ValidationException $e) {
+            return $e->errors()['recipients'];
+        }
+        $this->fail('No validation error');
+    }
+
+    public function test_resend_only_for_a_finished_send_and_only_once()
+    {
+        $t = $this->template('staff');
+        $send = S::start($this->base(['template_id' => $t->id]), 1);
+        $send->recipients()->orderBy('id')->first()->update(['status' => BulkSendRecipient::FAILED, 'note' => 'email: failed']);
+        $before = BulkSend::count();
+
+        $this->assertSame(['Resend is only possible for a finished or cancelled send.'], $this->resendErrors($send->fresh()));
+        S::pause($send);
+        $this->assertSame(['Resend is only possible for a finished or cancelled send.'], $this->resendErrors($send->fresh()));
+        $this->assertSame($before, BulkSend::count());
+
+        $send->update(['status' => BulkSend::DONE]);
+        $stale = $send->fresh();
+        $new = S::resendFailed($send->fresh(), 1);
+        $this->assertSame($new->id, (int) $send->fresh()->resent_send_id);
+        // a second click (even from a page loaded before the first resend) is refused
+        $this->assertSame(['Failed messages of this send were already resent (send #' . $new->id . ').'], $this->resendErrors($stale));
+        $this->assertSame($before + 1, BulkSend::count());
     }
 }

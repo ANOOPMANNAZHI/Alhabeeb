@@ -145,11 +145,19 @@ class BulkSendService
 
     public static function resendFailed(BulkSend $send, $userId)
     {
-        $failed = $send->recipients()->where('status', BulkSendRecipient::FAILED)->orderBy('id')->get();
-        if ($failed->isEmpty()) {
-            self::fail('recipients', 'No failed messages to resend.');
-        }
-        return DB::transaction(function () use ($send, $failed, $userId) {
+        return DB::transaction(function () use ($send, $userId) {
+            // Locked re-read: two clicks (or two open pages) cannot both resend.
+            $send = BulkSend::where('id', $send->id)->lockForUpdate()->firstOrFail();
+            if (!in_array($send->status, [BulkSend::DONE, BulkSend::CANCELLED], true)) {
+                self::fail('recipients', 'Resend is only possible for a finished or cancelled send.');
+            }
+            if ($send->resent_send_id) {
+                self::fail('recipients', 'Failed messages of this send were already resent (send #' . $send->resent_send_id . ').');
+            }
+            $failed = $send->recipients()->where('status', BulkSendRecipient::FAILED)->orderBy('id')->get();
+            if ($failed->isEmpty()) {
+                self::fail('recipients', 'No failed messages to resend.');
+            }
             $new = BulkSend::create($send->texts() + [
                 'template_id' => $send->template_id, 'audience' => $send->audience, 'filters' => $send->filters,
                 'send_email' => $send->send_email, 'send_sms' => $send->send_sms,
@@ -161,6 +169,7 @@ class BulkSendService
                              'email' => $r->email, 'mobile' => $r->mobile, 'values' => $r->values ? $r->values : []];
             }
             self::insertRecipients($new, $people);
+            $send->update(['resent_send_id' => $new->id]);
             return $new;
         });
     }

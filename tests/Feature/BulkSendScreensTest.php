@@ -83,6 +83,19 @@ class BulkSendScreensTest extends TestCase
         $this->assertSame($before + 1, BulkSend::count());
     }
 
+    public function test_resend_button_only_for_a_finished_send_not_yet_resent()
+    {
+        $send = $this->send(['failed' => 1]);
+        $url = route('bulk-send.resend-failed', $send->id);
+        $this->assertNotContains($url, $this->get(route('bulk-send.index'))->getContent());
+        $this->post(route('bulk-send.cancel', $send->id));
+        $html = $this->get(route('bulk-send.index'))->getContent();
+        $this->assertContains($url, $html);
+        $this->assertContains('Resend the failed messages of send #' . $send->id . '?', $html);
+        $this->post($url)->assertSessionHas('success');
+        $this->assertNotContains($url, $this->get(route('bulk-send.index'))->getContent());
+    }
+
     public function test_sent_log_shows_a_readable_label_for_bulk_rows()
     {
         $t = MessageTemplate::create(['name' => 'Water notice', 'kind' => 'bulk', 'audience' => 'tenant', 'sms_body' => 'x', 'is_active' => true, 'created_by' => 1]);
