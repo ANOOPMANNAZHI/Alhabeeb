@@ -60,6 +60,39 @@ class BulkSendComposeTest extends TestCase
         $this->assertRegExp('/id="bs-send-sms"\s+checked/', $html);
     }
 
+    public function test_create_page_has_steps_cards_toggles_and_a_summary()
+    {
+        $t = $this->template();
+        $location = DB::table('locations')->where('locations_status', 1)->orderBy('locations_name')->first();
+        $html = $this->withSession(['_old_input' => ['template_id' => (string) $t->id, 'audience' => 'landlord', 'locations' => [(string) $location->id], 'send_email' => '1']])
+            ->get(route('bulk-send.create'))->assertOk()->getContent();
+        $this->assertContains('class="bs-stepper"', $html);
+        $this->assertRegExp('/<input type="radio" name="template_id" value="' . $t->id . '"[^>]*checked/', $html);
+        $this->assertRegExp('/<input type="radio" name="template_id" value=""/', $html);
+        $this->assertContains('Write a one-off message', $html);
+        $this->assertContains('SMS (costs money)', $html);
+        $this->assertRegExp('/<input type="radio" name="audience" value="landlord"[^>]*checked/', $html);
+        $this->assertContains('data-count-for="staff"', $html);
+        $this->assertRegExp('/<input type="checkbox" name="locations\[\]" value="' . $location->id . '"[^>]*checked/', $html);
+        $this->assertRegExp('/<input type="checkbox" name="roles\[\]" value="super_admin"/', $html);
+        $this->assertContains(json_encode(route('bulk-send.audience-counts'), 15), $html); // as @json writes it
+        $this->assertContains(json_encode(route('bulk-send.place-counts'), 15), $html);
+        $this->assertRegExp('/id="bs-summary-card"[^>]*data-per-minute="([1-9]|[12][0-9]|30)"/', $html);
+        $this->assertRegExp('/<button type="submit"[^>]*>[^<]*(<i[^>]*><\/i>)?\s*Review/', $html);
+    }
+
+    public function test_create_page_shows_errors_next_to_their_section()
+    {
+        $errors = (new \Illuminate\Support\ViewErrorBag())->put('default', new \Illuminate\Support\MessageBag([
+            'template_id' => ['Choose an active Bulk template.'], 'recipients' => ['Nobody to send to.'],
+        ]));
+        $html = $this->withSession(['errors' => $errors, '_old_input' => ['audience' => 'staff']])->get(route('bulk-send.create'))->assertOk()->getContent();
+        $this->assertRegExp('/id="bs-errors"[^>]*role="alert"/', $html);
+        $this->assertRegExp('/id="bs-err-message"[^>]*>.*Choose an active Bulk template\./s', $html);
+        $this->assertRegExp('/id="bs-err-recipients"[^>]*>.*Nobody to send to\./s', $html);
+        $this->assertContains('href="#bs-sec-message"', $html);
+    }
+
     public function test_count_matches_the_finder()
     {
         $this->post(route('bulk-send.count'), ['audience' => 'staff', 'roles' => ['super_admin']])

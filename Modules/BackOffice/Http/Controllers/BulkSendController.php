@@ -68,7 +68,15 @@ class BulkSendController extends Controller
         foreach (array_keys(MessagePlaceholders::AUDIENCES) as $a) {
             $placeholders[$a] = MessagePlaceholders::forTemplate($a);
         }
-        return view('backoffice::BulkSend.create', compact('templates', 'locations', 'buildings', 'roles', 'placeholders'));
+        $perMinute = $this->perMinute();
+        return view('backoffice::BulkSend.create', compact('templates', 'locations', 'buildings', 'roles', 'placeholders', 'perMinute'));
+    }
+
+    /** Messages per minute for the time estimate: the bulk_emails_per_minute setting, capped like BulkSender. */
+    private function perMinute()
+    {
+        $perMinute = (int) (prefixData('bulk_emails_per_minute') ? prefixData('bulk_emails_per_minute')->configuration_value : 25);
+        return $perMinute > 0 ? min(BulkSender::MAX_PER_MINUTE, $perMinute) : 25;
     }
 
     public function count(Request $request)
@@ -144,8 +152,7 @@ class BulkSendController extends Controller
         foreach ($people as $key => $p) {
             $list[] = ['key' => $key, 'name' => $p['name'], 'email' => $p['email'], 'mobile' => $p['mobile']];
         }
-        $perMinute = (int) (prefixData('bulk_emails_per_minute') ? prefixData('bulk_emails_per_minute')->configuration_value : 25);
-        $perMinute = $perMinute > 0 ? min(BulkSender::MAX_PER_MINUTE, $perMinute) : 25;
+        $perMinute = $this->perMinute();
         // One-time token: a double click or a resubmitted page cannot start the same send twice.
         $token = Str::random(40);
         $tokens = (array) $request->session()->get('bulk_send_tokens', []);
