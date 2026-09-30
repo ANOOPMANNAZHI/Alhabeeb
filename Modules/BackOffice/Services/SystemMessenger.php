@@ -37,12 +37,20 @@ class SystemMessenger
             'triggered_by' => \Auth::check() ? \Auth::id() : null,
         ];
         $result = ['email' => null, 'sms' => null];
+        // Values that must never reach the sent log (e.g. set-password links)
+        $secrets = [];
+        foreach (isset($options['secret']) ? (array) $options['secret'] : [] as $s) {
+            if ((string) $s !== '') {
+                $secrets[] = (string) $s;
+                $secrets[] = htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+            }
+        }
 
         if (!$template->is_active) {
             // Log against the channel the template actually uses (an SMS-only template shows as SMS).
             $channel = ($template->email_subject || $template->email_body || !$template->sms_body) ? 'email' : 'sms';
             self::log($base + ['channel' => $channel, 'recipient' => $channel === 'sms' ? $to->mobile : $to->email,
-                               'status' => MessageLog::SKIPPED_OFF, 'note' => $note]);
+                               'status' => MessageLog::SKIPPED_OFF, 'note' => $note], $secrets);
             $result[$channel] = MessageLog::SKIPPED_OFF;
             return $result;
         }
@@ -72,7 +80,7 @@ class SystemMessenger
                     $row['note'] = trim($note . ' ' . $e->getMessage());
                 }
             }
-            self::log($row + ['status' => $result['email']]);
+            self::log($row + ['status' => $result['email']], $secrets);
         }
 
         if ($template->sms_enabled && $out['sms'] !== null) {
@@ -91,13 +99,20 @@ class SystemMessenger
                     $row['note'] = trim($note . ' ' . $e->getMessage());
                 }
             }
-            self::log($row + ['status' => $result['sms']]);
+            self::log($row + ['status' => $result['sms']], $secrets);
         }
         return $result;
     }
 
-    private static function log(array $row)
+    private static function log(array $row, array $secrets = [])
     {
+        if ($secrets) {
+            foreach (['subject', 'body'] as $field) {
+                if (isset($row[$field])) {
+                    $row[$field] = str_replace(array_unique($secrets), '[link hidden]', (string) $row[$field]);
+                }
+            }
+        }
         // Fit the columns: on PostgreSQL an overflowing insert would abort a caller's open transaction.
         $limits = ['template_key' => 100, 'recipient_name' => 150, 'recipient' => 190, 'subject' => 255, 'related_type' => 50];
         foreach ($limits as $field => $max) {

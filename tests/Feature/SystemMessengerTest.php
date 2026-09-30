@@ -151,6 +151,25 @@ class SystemMessengerTest extends TestCase
         $this->assertSame(1, (int) DB::selectOne('select 1 as one')->one, 'transaction still usable');
     }
 
+    public function test_secret_values_are_hidden_in_the_log_but_sent()
+    {
+        MessageTemplate::where('key', 'pdc_bounce_are')->update(['is_active' => true, 'sms_enabled' => true,
+            'email_body' => '<p>Link: <a href="{remarks}">go</a> {remarks}</p>', 'sms_body' => 'Link {remarks}']);
+        $secret = 'https://plms.test/password/reset/abc123?email=a%40b.om&x=1';
+        $values = ['remarks' => $secret] + $this->values();
+        SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com', '99123456'), $values, ['secret' => [$secret]]);
+
+        Mail::assertSent(TemplatedMail::class, function ($m) {
+            return strpos($m->bodyHtml, 'abc123') !== false;
+        });
+        $this->assertContains('abc123', $this->sms[0][1]);
+        $rows = MessageLog::where('template_key', 'pdc_bounce_are')->latest('id')->take(2)->get();
+        foreach ($rows as $row) {
+            $this->assertNotContains('abc123', (string) $row->body, $row->channel);
+            $this->assertContains('[link hidden]', (string) $row->body, $row->channel);
+        }
+    }
+
     public function test_unknown_key_is_a_programming_error()
     {
         $this->expectException(\InvalidArgumentException::class);
