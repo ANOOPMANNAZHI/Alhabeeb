@@ -163,6 +163,10 @@ the ARE; the tenant send is added at the same three places (template off).
 | `password_forgot` | login page "Forgot password" | `User::sendPasswordResetNotification` routed through the messenger; {reset_link} |
 | `are_residence_reminder` | cron `areReminderNotification` | **off**; the cron call is re-enabled so switching the template on is enough |
 
+Implemented notes: the ARE reminder runs only at 09:00 (it is called from the
+every-minute command) and sends one message per ARE per tenant/contract;
+set-password and reset links are replaced by `[link hidden]` in the sent log.
+
 Links use Laravel's password broker tokens (`password_resets`, existing
 reset page); link lifetime raised from 60 minutes to 24 hours
 (`config/auth.php` expire 1440). A user without an email cannot receive a
