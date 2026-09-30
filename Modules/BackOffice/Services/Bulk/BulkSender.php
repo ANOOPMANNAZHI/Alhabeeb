@@ -57,7 +57,21 @@ class BulkSender
             if ($send->fresh()->status !== BulkSend::RUNNING) {
                 continue;
             }
-            $status = self::sendOne($send, $row);
+            try {
+                $status = self::sendOne($send, $row);
+            } catch (\Throwable $e) {
+                // One bad row must never stall the send or be sent again on the next run.
+                $status = BulkSendRecipient::FAILED;
+                $changed = BulkSendRecipient::where('id', $row->id)->where('status', BulkSendRecipient::PENDING)->update([
+                    'status' => BulkSendRecipient::FAILED,
+                    'note' => mb_substr('error: ' . $e->getMessage(), 0, 255, 'UTF-8'),
+                    'processed_at' => now(),
+                ]);
+                if ($changed === 1) {
+                    $send->increment('failed');
+                }
+                \Log::error('Bulk send #' . $send->id . ' row #' . $row->id . ' failed: ' . $e->getMessage());
+            }
             $summary['processed']++;
             $summary[$status]++;
         }

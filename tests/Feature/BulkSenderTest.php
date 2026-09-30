@@ -135,6 +135,32 @@ class BulkSenderTest extends TestCase
         $this->assertSame(3, $send->pendingCount());
     }
 
+    public function test_one_bad_row_is_marked_failed_and_the_run_goes_on()
+    {
+        $send = $this->send(3);
+        $bad = $send->recipients()->where('person_id', 2)->first();
+        // values that are not an array: passing them to sendTexts(array $values) throws a TypeError in BulkSender itself
+        DB::table('bulk_send_recipients')->where('id', $bad->id)->update(['values' => '"not an array"']);
+
+        $r = BulkSender::run();
+        $this->assertSame(3, $r['processed']);
+        $this->assertSame(1, $r['failed']);
+        $this->assertSame(2, $r['sent']);
+        $bad = $bad->fresh();
+        $this->assertSame(BulkSendRecipient::FAILED, $bad->status);
+        $this->assertStringStartsWith('error:', $bad->note);
+        $this->assertNotNull($bad->processed_at);
+        $this->assertSame(BulkSendRecipient::SENT, $send->recipients()->where('person_id', 3)->value('status'));
+        $f = $send->fresh();
+        $this->assertSame(1, (int) $f->failed);
+        $this->assertSame(2, (int) $f->sent);
+        $this->assertSame(BulkSend::DONE, $f->status);
+
+        $again = BulkSender::run();
+        $this->assertSame(0, $again['processed']);
+        $this->assertSame(1, (int) $send->fresh()->failed);
+    }
+
     public function test_pause_between_runs_stops_further_messages()
     {
         $send = $this->send(30);
