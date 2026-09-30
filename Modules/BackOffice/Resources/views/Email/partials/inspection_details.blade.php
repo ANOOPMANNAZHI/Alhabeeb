@@ -1,11 +1,4 @@
-@component('mail::message')
-
-Hi {{$tenantName}},
-</br></br><br>
-
-This is to inform you that the Your Inspection Report for the Contract No : <b>{{$tenantContract->tenant_contract_no}} </b>.
-</br></br>
-
+{{-- Inspection tables for the inspection_details system template block. Vars: $termination, $tenantContract, $terminationChecklistOther, $groupedWork --}}
 <div class="col-md-12"> 
 	<div class="card card-box salesSearchBox ">
 		<!-- ends -->
@@ -343,7 +336,3 @@ This is to inform you that the Your Inspection Report for the Contract No : <b>{
 	</div>
 </div>
 
-Sincerely,</br>
-Admin
-
-@endcomponent

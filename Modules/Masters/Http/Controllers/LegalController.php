@@ -25,7 +25,7 @@ use App\User;
 use Illuminate\Support\Facades\Mail;
 use Modules\Masters\Events\LegalApprove;
 use Modules\Masters\Events\LegalReferBack;
-use Modules\Masters\Emails\LegalEmail;
+use Modules\BackOffice\Services\LegalMessages;
 
 class LegalController extends Controller
 {
@@ -609,22 +609,8 @@ if($process_flow==801 && $action_key=='APRV'){
   event(new LegalApprove($legalCase,$users)); 
 
 
-  $legalCase->subject = "Legal Case Approved ";
-  $legalCase->textContent = "Legal Case Approved ";
-  //Notifications starts Legal Advisor and ARE
-  foreach($legalUsers as $legalUser){
-    $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-    $msg = "Legal Case Approved !";
-    $params = 'optional data';
-    if(!empty($legalUser->email)){
-      Mail::to($legalUser->email)->send(new LegalEmail($legalCase,$legalUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
-  //Notifications ends
+  // Legal advisor and ARE (system template legal_case_approved)
+  LegalMessages::toUsers('legal_case_approved', $legalUsers, $legalCase->tenantContract);
   //update status as leagal approved
   
 
@@ -636,45 +622,15 @@ if($process_flow==801 && $action_key=='APRV'){
   $legalCase->href = url('legalCase/'.$legalCase->id);
   event(new LegalReferBack($legalCase,$are));
 
-  $legalCase->subject = "Legal Case RefferBack ";
-  $legalCase->textContent = "Legal Case RefferBack ";
-  //Notifications starts  ARE
-  $are = User::role(['are'])->get(); 
-  $are = array_flatten($are);
-  // foreach($are as $ar){
-    // $mobile = $ar->employee->employee_contact_no ?? $ar->employee->employee_secondary_no;
-
-    // $msg = "Legal Case RefferBack !";
-    // $params = 'optional data';
-    // if(!empty($ar->email)){
-      // Mail::to($ar->email)->send(new LegalEmail($legalCase,$ar)); //Email Notification
-    // }else{
-       // sendSms($mobile,$msg,$params); //SMS Notification
-     // }
-
-   // }
-  //Notifications ends
+  // ARE (system template legal_case_referback — arrives switched off; it was commented out before)
+  LegalMessages::toRoles('legal_case_referback', ['are'], $legalCase->tenantContract);
 
   session()->flash('success', 'Legal Case Refer Back Successfully');
   return redirect()->route('plmsApproval');
 }elseif($process_flow==802 && $action_key=='APRV'){
 	Legal::where('id',$request->legal_id)->update(['legal_is_closed'=>2]);
-    $legalCase->subject = "Legal Advisor Approved ";
-  $legalCase->textContent = "Legal Advisor Approved ";
-  //Notifications starts BO and ARE
-  // foreach($otherUsers as $otherUser){
-    // $mobile = $otherUser->employee->employee_contact_no ?? $otherUser->employee->employee_secondary_no;
-
-    // $msg = "Legal Advisor Approved !";
-    // $params = 'optional data';
-    // if(!empty($otherUser->email)){
-      // Mail::to($otherUser->email)->send(new LegalEmail($legalCase,$otherUser)); //Email Notification
-    // }else{
-       // sendSms($mobile,$msg,$params); //SMS Notification
-     // }
-
-   // }
-  //Notifications ends
+  // Back office and ARE (system template legal_advisor_approved — arrives switched off; it was commented out before)
+  LegalMessages::toUsers('legal_advisor_approved', $otherUsers, $legalCase->tenantContract);
 
 	
 
@@ -684,22 +640,8 @@ if($process_flow==801 && $action_key=='APRV'){
   $legalCase->href = url('legalCase/'.$legalCase->id);
   event(new LegalReferBack($legalCase,$are));
 
-   $legalCase->subject = "Legal Advisor RefferBack ";
-  $legalCase->textContent = "Legal Advisor RefferBack ";
-  //Notifications starts  ARE
-  foreach($are as $ar){
-    $mobile = $ar->employee->employee_contact_no ?? $ar->employee->employee_secondary_no;
-
-    $msg = "Legal Advisor RefferBack !";
-    $params = 'optional data';
-    if(!empty($ar->email)){
-      Mail::to($ar->email)->send(new LegalEmail($legalCase,$ar)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
-  //Notifications ends
+  // ARE (system template legal_advisor_referback)
+  LegalMessages::toUsers('legal_advisor_referback', $are, $legalCase->tenantContract);
 
 
   session()->flash('success', 'Lawyer Refer Back Legal Case Successfully');
@@ -1166,45 +1108,16 @@ public function legalCaseClose(Request $request){
     $are = array_flatten($are);
 
 
-   $legal->subject = "Legal Case Closed ";
-   $legal->textContent = "Legal Case Closed ";
-
-  //Notifications starts  ARE
-   foreach($are as $ar){
-    $mobile = $ar->employee->employee_contact_no ?? $ar->employee->employee_secondary_no;
-
-    $msg = "Legal Case Closed !";
-    $params = 'optional data';
-    if(!empty($ar->email)){
-      Mail::to($ar->email)->send(new LegalEmail($legal,$ar)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
-  //Notifications ends
+  // ARE (system template legal_case_closed)
+  LegalMessages::toUsers('legal_case_closed', $are, $legal->tenantContract);
 
 
    session()->flash('success', 'Legal Case Closed Successfully');
    return redirect()->route('plmsApproval');
  }else{
 
-  $legal->subject = "Legal Advisor Closed ";
-  $legal->textContent = "Legal Advisor Closed ";
-  //Notifications starts BO and ARE
-  foreach($otherUsers as $otherUser){
-    $mobile = $otherUser->employee->employee_contact_no ?? $otherUser->employee->employee_secondary_no;
-
-    $msg = "Legal Advisor Closed !";
-    $params = 'optional data';
-    if(!empty($otherUser->email)){
-      Mail::to($otherUser->email)->send(new LegalEmail($legal,$otherUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
-  //Notifications ends
+  // Back office and ARE (system template legal_advisor_closed)
+  LegalMessages::toUsers('legal_advisor_closed', $otherUsers, $legal->tenantContract);
 
 
   session()->flash('success', 'Lawyer Closed Legal Case Successfully');
@@ -1320,22 +1233,8 @@ public function legalNoteStore(Request $request){
   $otherUsers = array_flatten($otherUsers);
   $legal      = Legal::where('id',$request->legal_id)->first();
 
-  $legal->subject = "Legal Advisor Added Status";
-  $legal->textContent = "Legal Advisor Added Status Note "."-".$request->legal_notes_status_name;
-  //Notifications starts BO and ARE
-  foreach($otherUsers as $otherUser){
-    $mobile = $otherUser->employee->employee_contact_no ?? $otherUser->employee->employee_secondary_no;
-
-    $msg = "Legal Advisor Added Status Note !"."-".$request->legal_notes_status_name;
-    $params = 'optional data';
-    if(!empty($otherUser->email)){
-      Mail::to($otherUser->email)->send(new LegalEmail($legal,$otherUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
-  //Notifications ends
+  // Back office and ARE (system template legal_status_note)
+  LegalMessages::toUsers('legal_status_note', $otherUsers, $legal->tenantContract, ['status_note' => $request->legal_notes_status_name]);
 
    
   session()->flash('success', 'Status Note added Successfully');

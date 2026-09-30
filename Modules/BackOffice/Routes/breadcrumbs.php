@@ -713,6 +713,19 @@ Breadcrumbs::for('massMail.view', function ($trail,$massMail) {
     $trail->parent('massMail.index');
     $trail->push('Compose Mail View', route('massMail.show',[$massMail->id]));
 });
+
+Breadcrumbs::for('message-templates.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Templates', route('message-templates.index'));
+});
+Breadcrumbs::for('message-templates.create', function ($trail) {
+    $trail->parent('message-templates.index');
+    $trail->push('New Template', route('message-templates.create'));
+});
+Breadcrumbs::for('message-templates.edit', function ($trail, $template) {
+    $trail->parent('message-templates.index');
+    $trail->push($template->name, route('message-templates.edit', $template->id));
+});
 Breadcrumbs::for('renewalPdc', function ($trail,$parent,$params) {
     $trail->parent($parent);
     $trail->push('Tenant PDC', route('pdcGeneration',[$params[0],$params[1],$params[2]]));
@@ -940,4 +953,9 @@ Breadcrumbs::for('showtenancyDetailsMeraReport', function ($trail) {
 Breadcrumbs::for('showLeasingConsultantPerformance', function ($trail) {
     $trail->parent('home');
     $trail->push('Leasing Consultant Performance', route('showLeasingConsultantPerformance'));
+});
+
+Breadcrumbs::for('message-log.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Sent log', route('message-log.index'));
 });

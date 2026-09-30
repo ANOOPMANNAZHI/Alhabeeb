@@ -29,7 +29,7 @@ use Modules\General\Http\Controllers\GeneralController as General ;
 use Modules\Maintenance\Events\NewComplaintEnquiry ;
 use Modules\Maintenance\Events\ComplaintReminder ;
 use Illuminate\Support\Facades\Mail;
-use Modules\Maintenance\Emails\ComplaintRegisterEmail;
+use Modules\BackOffice\Services\ComplaintMessages;
 
 class MaintenanceController extends Controller
 {
@@ -225,13 +225,9 @@ $i = 1;
         event(new NewComplaintEnquiry($complaint,$users_notify));
 
         if($request->cmp_type == 1){
-        //Email Notification
-        $tenantEmail = $tenantDetail->tenant_contact_email;
-        if($tenantEmail == "")$tenantEmail = $tenantDetail->tenant_personal_email;
-        if(!empty($tenantEmail)){
-          Mail::to($tenantEmail)->send(new ComplaintRegisterEmail($complaint));
+          // Email / SMS to the tenant (system template complaint_registered)
+          ComplaintMessages::registered($complaint);
         }
-      }
 
 
 

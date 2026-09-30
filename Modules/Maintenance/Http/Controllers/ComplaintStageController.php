@@ -33,8 +33,8 @@ use Modules\General\Http\Controllers\GeneralController as General ;
 use Modules\Maintenance\Events\ComplaintAssigned;
 use Modules\Maintenance\Events\ComplaintReminder;
 use Illuminate\Support\Facades\Mail;
-use Modules\Maintenance\Emails\ComplaintCloseEmail;
-use Modules\Maintenance\Emails\ComplaintStageEmail;
+use Modules\BackOffice\Services\ComplaintMessages;
+use Modules\BackOffice\Services\StaffMessages;
 
 class ComplaintStageController extends Controller
 {
@@ -529,28 +529,8 @@ class ComplaintStageController extends Controller
        event(new ComplaintAssigned($complaint,$users_notify)); 
 
 //dd($users_notify);
-        //Notification starts
-       $complaint->subject = "Complaint Assigned";
-       $complaint->textContent = " Please attend " .$checklist->work->works_code." - ". $checklist->checklist_desc. " Building Name: " .$checklist->complaintEnquiry->building->building_name;
-       if(isset($checklist->complaintEnquiry->unit->unit_no)){
-            $complaint->textContent .= " Flat No: ".$checklist->complaintEnquiry->unit->unit_no;
-       }
-
-       $complaint->textContent .= " GSM Number:" .$checklist->complaintEnquiry->complaint_mob_no." Comp No- ".$complaint->complaint_no." Date & Time: ".$complaint->complaint_date;
-
-       foreach ($users_notify as $key => $user) {
-        $user_email = $user->email;
-        $user_name = $user->employee->employee_name;
-        $mobile = $user->employee->employee_contact_no ?? $user->employee->employee_secondary_no;
-        $msg = "Complaint Assigned";
-        $params = 'optional data';
-        if(!empty($user_email)){
-      Mail::to($user_email)->send(new ComplaintStageEmail($complaint,$user_name)); //Email Notification
-    }else{
-     // sendSms($mobile,$msg,$params); //SMS Notification
-    }
-	  sendSms($mobile,$complaint->textContent,$params); //SMS Notification
-  }
+        // Email / SMS to the technician (system template complaint_assigned)
+       StaffMessages::complaintAssigned('complaint_assigned', $complaint, $checklist, $users_notify);
         //Notification ends
   /****** Activity log *****/
 
@@ -755,29 +735,8 @@ class ComplaintStageController extends Controller
         $complaint->href = url('SubAssignedList/'.$complaint->id.'/'.$user_id);     
         event(new ComplaintAssigned($complaint,$users_notify)); 
 
-                        //Notification starts
-       $complaint->subject = "Complaint Ticket SubAssigned";
-       $complaint->textContent = " Please attend " .$checklist->work->works_code." - ". $checklist->checklist_desc. " Building Name: " .$checklist->complaintEnquiry->building->building_name;
-       
-       if(isset($checklist->complaintEnquiry->unit->unit_no)){
-            $complaint->textContent .= " Flat No: ".$checklist->complaintEnquiry->unit->unit_no;
-       }
-
-       $complaint->textContent .=  " GSM Number:" .$checklist->complaintEnquiry->complaint_mob_no." Comp No- ".$complaint->complaint_no." Date & Time: ".$complaint->complaint_date;
-
-       foreach ($users_notify as $key => $user) {
-        $user_email = $user->email;
-        $user_name = $user->employee->employee_name;
-        $mobile = $user->employee->employee_contact_no ?? $user->employee->employee_secondary_no;
-        $msg = "Complaint Ticket SubAssigned";
-        $params = 'optional data';
-        if(!empty($user_email)){
-      Mail::to($user_email)->send(new ComplaintStageEmail($complaint,$user_name)); //Email Notification
-    }else{
-      //sendSms($mobile,$msg,$params); //SMS Notification
-    }
-	sendSms($mobile,$complaint->textContent,$params); //SMS Notification
-  }
+        // Email / SMS to the technician (system template complaint_subassigned)
+       StaffMessages::complaintAssigned('complaint_subassigned', $complaint, $checklist, $users_notify);
         //Notification ends
         /****** Activity log *****/
 
@@ -1329,12 +1288,8 @@ class ComplaintStageController extends Controller
      clearNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification',$complaint_id);
      readNotification('Modules\Maintenance\Notifications\ComplaintEnquiryNotification',$complaint_id);
      $this->closeNotify($complaint_id);
-      //Email Notification
-	  if(isset( $tenantDetail->tenant_contact_email) || isset( $tenantDetail->tenant_personal_email)){
-		$tenantEmail = $tenantDetail->tenant_contact_email ?? $tenantDetail->tenant_personal_email;
-		if($tenantEmail == "")$tenantEmail = $tenantDetail->tenant_personal_email;
-		Mail::to($tenantEmail)->send(new ComplaintCloseEmail($tenantDetail));
-	  }
+      // Email / SMS to the tenant (system template complaint_closed)
+      ComplaintMessages::closed(ComplaintEnquiry::find($complaint_id));
     
     return redirect($url);
   }
@@ -1836,22 +1791,8 @@ class ComplaintStageController extends Controller
         $complaintEnqu->text = "Complaint - ".$complaintEnqu->complaint_no." Tickets-". $TicketNO." To Closed "; 
         event(new ComplaintAssigned($complaintEnqu,$users)); 
 
-         $complaintEnqu->subject = "Complaint Completed";
-       
-       $complaintEnqu->textContent ="Your complaint No ".$complaintEnqu->complaint_no." is successfully attended by Al Habib Maintenance Team. Thanks for your kind co-operation."; 
-
-       $tenant_email = $complaintEnqu->tenant->tenant_personal_email ?? $complaintEnqu->tenant->tenant_contact_email;
-
-        $user_name = $complaintEnqu->tenant->tenant_name;
-        $mobile = $complaintEnqu->tenant->tenant_contact_no ?? $complaintEnqu->tenant->tenant_residence_tel;
-
-        $msg = "Complaint Completed";
-        $params = 'optional data';
-        if(!empty($tenant_email)){
-      Mail::to($tenant_email)->send(new ComplaintStageEmail($complaintEnqu,$user_name)); //Email Notification
-    }else{
-      sendSms($mobile,$msg,$params); //SMS Notification
-    }
+        // Email / SMS to the tenant (system template complaint_completed)
+        ComplaintMessages::completed($complaintEnqu);
       }
       
       return $url;

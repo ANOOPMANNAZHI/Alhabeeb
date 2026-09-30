@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Foundation\Auth\ResetsPasswords;
+use Illuminate\Http\Request;
 
 class ResetPasswordController extends Controller
 {
@@ -35,5 +36,11 @@ class ResetPasswordController extends Controller
     public function __construct()
     {
         $this->middleware('guest');
+    }
+
+    /** Only active users can reset (login also requires user_type_status). */
+    protected function credentials(Request $request)
+    {
+        return $request->only('email', 'password', 'password_confirmation', 'token') + ['user_type_status' => true];
     }
 }

@@ -37,8 +37,7 @@ use Modules\General\Http\Controllers\GeneralController as General;
 use Modules\BackOffice\Http\Controllers\TenantRenewalController as ContractRenewal ;
 use Modules\BackOffice\Events\TenantTermination;
 use Illuminate\Support\Facades\Mail;
-use Modules\BackOffice\Emails\TerminationTenantEmail;
-use Modules\BackOffice\Emails\InspectionSendEmail;
+use Modules\BackOffice\Services\TenantMessages;
 use Modules\BackOffice\Events\TenantTerminationReferBack;
 use Modules\BackOffice\Services\MunicipalTaxCalculator;
 use Modules\BackOffice\Services\UnpaidRentPeriod;
@@ -2654,21 +2653,10 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
   {
   	$termination = Termination::where('id',$termination_id)->first();
   	$tenantContract = TenantContract::where('id',$termination->contract_id)->first();
-  	$groupedWork = $tenantContract->terminationChecklist->groupBy('work_id');
-  	$tenantDetail = Tenant::where('id',$tenantContract->tenant_id)->first();
-  	$tenantEmail = $tenantDetail->tenant_contact_email;
-  	if($tenantEmail == "")$tenantEmail = $tenantDetail->tenant_personal_email;
-
-  	$termination->tenantName = $tenantDetail->tenant_name;
-  	if(!empty($tenantEmail)){
-
-      Mail::to($tenantEmail)->send(new TerminationTenantEmail($termination,$tenantContract,$tenantContract->terminationChecklistOther,$groupedWork));
-      session()->flash('success', ' Mail Send Successfully');
-      return redirect()->route('handoverAssigned');
-    }else{
-      session()->flash('success', ' Tenant Email Id Not Found');
-      return redirect()->route('handoverAssigned');
-    }
+  	// System template termination_details (tables as a block)
+  	list($type, $text) = TenantMessages::flashFor(TenantMessages::terminationDetails($termination, $tenantContract));
+  	session()->flash($type, $text);
+  	return redirect()->route('handoverAssigned');
 
   }
   /*
@@ -2772,16 +2760,10 @@ public function inspectionSendMail($termination_id){
   $termination  = Termination::where('id',$termination_id)->first();
   $tenantContract = TenantContract::where('id',$termination->contract_id)->first();
   //dd($tenantContract);
-  $groupedWork = $tenantContract->terminationChecklist->groupBy('work_id');
-  $terminationDocument = TerminationDocument::where('work_flow_processes_code',$termination->work_flow_processes_code)->where('termination_contract',$termination->contract_id)->where('termination_doc_type','!=','TerminationDocument')->get();
-  $tenant_email = $tenantContract->tenant->tenant_contact_email ?? $tenantContract->tenant->tenant_personal_email;
- //dd($tenant_email);
-  if(!empty($tenant_email)){
-    //Mail::to($tenant_email)->send(new InspectionSendEmail($tenantContract));
-   Mail::to($tenant_email)->send(new InspectionSendEmail($termination,$tenantContract,$tenantContract->terminationChecklistOther,$groupedWork));
-   session()->flash('success', ' Mail Send Successfully');
-   return redirect()->route('handoverAssigned');
- }
+  // System template inspection_details (tables as a block)
+  list($type, $text) = TenantMessages::flashFor(TenantMessages::inspection($termination, $tenantContract));
+  session()->flash($type, $text);
+  return redirect()->route('handoverAssigned');
 }
 /*
   *

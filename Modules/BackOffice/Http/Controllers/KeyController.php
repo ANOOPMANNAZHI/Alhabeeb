@@ -9,8 +9,7 @@ use Modules\Sales\Entities\Tenant;
 use Modules\Masters\Entities\Vendor;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
-use Modules\BackOffice\Emails\KeyHandoverEmail;
-use Modules\BackOffice\Emails\KeyHandoverEmailLandlord;
+use Modules\BackOffice\Services\TenantMessages;
 use DB;
 
 class KeyController extends Controller
@@ -368,31 +367,8 @@ class KeyController extends Controller
       $Key->unit_id = $unit_id;
       $Key->created_by           = \Auth::user()->id;
       $Key->save();
-      if($type == "Tenant"){
-
-          $tenant_id = $request['tenant_id'];
-          $tenant_name = $request['tenant_name'];
-		  $explodecode = explode('-',$tenant_name);
-          $arraycount = count($explodecode);
-          $details = Tenant::where('tenant_code',$explodecode[$arraycount-2].'-'.$explodecode[$arraycount-1])->first();
-          $tenantEmail = $details->tenant_contact_email;
-          if($tenantEmail == "")$tenantEmail = $details->tenant_personal_email;
-
-          if(!empty($tenantEmail)){
-
-            Mail::to($tenantEmail)->send(new KeyHandoverEmail($details));
-          }
-      }else{
-        
-        $vendor_id = $request['vendor_id'];
-        $vendorDetails = Vendor::where('id',$vendor_id)->first();
-        $vendorEmail = $vendorDetails->vendor_contact_email;
-       
-        if(!empty($vendorEmail)){
-
-          Mail::to($vendorEmail)->send(new KeyHandoverEmailLandlord($vendorDetails));
-        }
-      }
+      // Email / SMS to the tenant or landlord (system templates key_accepted_tenant / key_accepted_landlord)
+      TenantMessages::keyAccepted($Key);
       return redirect()->route('keyManagement.index'); 
 
     }

@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Mail;
 use Modules\BackOffice\Emails\ChequeBounceEmail;
 use Modules\BackOffice\Emails\ChequeBounceAreEmail;
 use Modules\BackOffice\Events\ChequeBounceAre;
+use Modules\BackOffice\Services\PdcBounceNotifier;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -116,7 +117,8 @@ e     */
                     if(isset($request->{'pdc_cancel_reason_'.$i})){
                         $cancel = date('Y-m-d');
                     }
-                    Pdc::where('id','=',$request->{'pdc_check_id_'.$i})->update([    
+                    $cancelReasonBefore = Pdc::where('id', $request->{'pdc_check_id_'.$i})->value('pdc_cancel_reason');
+                    Pdc::where('id','=',$request->{'pdc_check_id_'.$i})->update([
                         'pdc_check_no' => $request->{'pdc_check_no_'.$i},
                         'pdc_check_date' => $request->{'pdc_check_date'.'_'.$i},
                         'pdc_recieve_date' => $request->{'pdc_recieve_date_'.$i},
@@ -146,9 +148,10 @@ e     */
                     /* Check whether it is bounce*/
 
                     $bounce = $request->{'pdc_cancel_reason_'.$i};
-                    if($bounce == 1){
+                    // Bounced rows are re-posted on every grid save: notify only when it newly became a bounce.
+                    if(PdcBounceNotifier::isNewBounce($cancelReasonBefore, $bounce)){
                         $pdc_id = $request->{'pdc_check_id_'.$i};
-                        $pdcData = Pdc::where('id',$pdc_id)->first(); 
+                        $pdcData = Pdc::where('id',$pdc_id)->first();
 
                         $this->notifyTenantBounce($pdcData);
                         $this->notifyBounceCopies($pdcData);
@@ -771,24 +774,13 @@ public function printPreview($contract_id){
           $failCount = 0;
 
           foreach ($pdcs as $pdc) {
-              $tenant = $pdc->tenantContractInfo->tenant ?? null;
-              if (!$tenant || empty($tenant->tenant_contact_no)) {
-                  Log::warning('pdcExpiryReminderSms: Skipping PDC #' . $pdc->id . ' - no tenant or contact number');
-                  continue;
-              }
-
-              $amount = number_format($pdc->pdc_amt, 3);
-              $chequeDate = Carbon::parse($pdc->pdc_check_date)->format('d-m-Y');
-              $chequeNo = $pdc->pdc_check_no;
-
-              $msg = "Dear Tenant, your cheque No. {$chequeNo} of amount {$amount} is due on {$chequeDate}. Please ensure sufficient funds are available in your account to avoid penalty charges. - Al Habib";
-
-              $result = sendSms($tenant->tenant_contact_no, $msg, []);
-              if ($result) {
+              // System template pdc_due_reminder (SMS); every attempt is in Mail > Sent log
+              $status = \Modules\BackOffice\Services\TenantMessages::pdcDueReminder($pdc);
+              if ($status === \Modules\BackOffice\Entities\MessageLog::SENT) {
                   $sentCount++;
               } else {
                   $failCount++;
-                  Log::warning('pdcExpiryReminderSms: SMS failed for PDC #' . $pdc->id . ', mobile: ' . $tenant->tenant_contact_no);
+                  Log::warning('pdcExpiryReminderSms: PDC #' . $pdc->id . ' not sent (' . ($status ?: 'SMS switched off') . ')');
               }
           }
 

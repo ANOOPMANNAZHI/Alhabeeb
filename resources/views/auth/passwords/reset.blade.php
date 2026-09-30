@@ -30,7 +30,7 @@
                      @endif
                             
                         <div class="wrap-input100 validate-input" data-validate="Enter E-Mail Address">                           
-                            <input  id="email" type="email"   class="input100 {{ $errors->has('email') ? ' is-invalid' : '' }}" name="email" value="{{ old('email') }}" required autofocus       placeholder="E-Mail Address">
+                            <input  id="email" type="email"   class="input100 {{ $errors->has('email') ? ' is-invalid' : '' }}" name="email" value="{{ old('email', isset($email) ? $email : '') }}" required autofocus       placeholder="E-Mail Address">
                             <span class="focus-input100" data-placeholder="&#xf207;"></span>
                             <!-- <i class="material-icons">account_circle</i> -->
                              @if ($errors->has('email'))

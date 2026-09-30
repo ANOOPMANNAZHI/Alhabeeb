@@ -67,5 +67,13 @@ class User extends Authenticatable
         return $this->hasOne('Modules\Masters\Entities\AreBuildingAssign','user_id','id'); 
      }
 
+    /**
+     * Login page "Forgot password": the system template password_forgot
+     * (Mail -> Templates) instead of Laravel's built-in notification.
+     */
+    public function sendPasswordResetNotification($token)
+    {
+        \Modules\BackOffice\Services\AccountMessages::forgot($this, $token);
+    }
 
 }

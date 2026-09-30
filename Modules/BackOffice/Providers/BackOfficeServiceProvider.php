@@ -27,6 +27,7 @@ class BackOfficeServiceProvider extends ServiceProvider
         $this->registerFactories();
         $this->registerBreadcrumbs();
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
+        \Modules\BackOffice\Services\SystemTemplateDefaults::registerPlaceholders();
     }
 
     /**

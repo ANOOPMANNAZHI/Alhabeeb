@@ -19,7 +19,7 @@ use Modules\BackOffice\Entities\AccountParams;
 use Modules\Masters\Entities\Legal;
 use App\User;
 use Illuminate\Support\Facades\Mail;
-use Modules\Masters\Emails\LegalEmail;
+use Modules\BackOffice\Services\LegalMessages;
 use Dynamics;
 use App\Setting;
 use DB;
@@ -278,24 +278,10 @@ class RoutinesController extends Controller
         //Notification Starts
         $legal = Legal::where('tenant_contract_id',$contractInfo->tenant_contract_id)->first();
          if($contractInfo->status == 5){
-            $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-            $legalUsers = array_flatten($legalUsers);
-			$legal = Legal::where('tenant_contract_id',$contractInfo->id)->first();
-			if($legal!=null){
-			$legal->subject = "PDC Posted !"; 
-            $legal->textContent = "PDC Posted having Cheque No: ".$pdcData->pdc_check_no." which is under Legal";
-            foreach($legalUsers as $legalUser){
-              $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-              $msg = "PDC Posted";
-              $params = 'optional data';
-                if(!empty($legalUser->email)){
-				  Mail::to($legalUser->email)->send(new LegalEmail($legal,$legalUser)); //Email Notification
-				}else{
-				   sendSms($mobile,$msg,$params); //SMS Notification
-				}
-
-			}
+			// System template legal_pdc_posted (kept: only when a legal case row exists, as before)
+			if(Legal::where('tenant_contract_id',$contractInfo->id)->exists()){
+				LegalMessages::toRoles('legal_pdc_posted', ['are','backoffice_manager','legal_advisor'], $contractInfo,
+					['cheque_no' => $pdcData->pdc_check_no]);
 			}
 
             
@@ -951,23 +937,9 @@ $receiptId =  ReceiptsGeneration::create([
     $legal = Legal::where('tenant_contract_id',$receiptGeneration->tenant_contract_id)->first();
 
     if($tenantContract->status == 5){
-      $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-      $legalUsers = array_flatten($legalUsers);
-
-      $legal->subject = "Tenant Receipt Posted !"; 
-      $legal->textContent = "Tenant Receipt Posted having Receipt No: ".$receiptGeneration->receipts_generation_receipt_no." which is under Legal";
-      foreach($legalUsers as $legalUser){
-        $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-        $msg = "Tenant Receipt Posted";
-        $params = 'optional data';
-        if(!empty($legalUser->email)){
-      Mail::to($legalUser->email)->send(new LegalEmail($legal,$legalUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
+      // System template legal_receipt_posted
+      LegalMessages::toRoles('legal_receipt_posted', ['are','backoffice_manager','legal_advisor'], $tenantContract,
+          ['receipt_no' => $receiptGeneration->receipts_generation_receipt_no]);
   //Notifications ends
  }
  

@@ -1,13 +1,4 @@
-@component('mail::message')
-
-Hi {{$tenantName}},
-</br></br><br>
-This letter is your official notice that your Inspection Details.
-So,We have attached Detailed View from this mail.
-</br></br>
-
-
-</br>
+{{-- Termination item tables for the termination_details system template block. Vars: $termination, $tenantContract, $terminationChecklistOther, $groupedWork --}}
 @if(count($groupedWork)> 0)
 
 <div class="row">
@@ -144,7 +135,3 @@ So,We have attached Detailed View from this mail.
 
 
 
-Sincerely,</br>
-Admin
-
-@endcomponent

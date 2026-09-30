@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Mail;
 use Modules\Sales\Events\NewEnquiry;
 use Modules\Sales\Events\UpdateEnquiry;
 use Modules\Sales\Events\ReminderEnquiry;
-use Modules\Sales\Emails\SalesEnquiryEmail;
+use Modules\BackOffice\Services\StaffMessages;
 
 
 
@@ -287,18 +287,8 @@ class SalesEnquiryController extends Controller
   else{
 
     event(new NewEnquiry($salesEnquiry,$users_notify));  //internal Notification
-    $sales_email = $request->sales_email;
-    $sales_mobile = $request->sales_mobile_no;
-    $alternative_mobile = $request->alternative_no;
-    $mobile = $sales_mobile ?? $alternative_mobile;
-    //dd($mobile);
-    $msg = 'New Enquiry Added !';
-    $params = 'optional data';
-    if(!empty($sales_email)){
-      Mail::to($sales_email)->send(new SalesEnquiryEmail($salesEnquiry)); //Email Notification
-    }else{
-      sendSms($mobile,$msg,$params); //SMS Notification
-    }
+    // Email / SMS to the enquirer (system template enquiry_new)
+    StaffMessages::enquiryNew($salesEnquiry);
     
 
 
