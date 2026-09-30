@@ -147,13 +147,7 @@ e     */
                         $pdc_id = $request->{'pdc_check_id_'.$i};
                         $pdcData = Pdc::where('id',$pdc_id)->first(); 
 
-                        /*-----------Tenant Email Starts--------------------
-                        if(!empty($pdcData->tenantContractInfo->tenant->tenant_contact_email) || !empty($pdcData->tenantContractInfo->tenant->tenant_personal_email)){
-                            $tenant_email = $pdcData->tenantContractInfo->tenant->tenant_contact_email ?
-                            $pdcData->tenantContractInfo->tenant->tenant_contact_email:$pdcData->tenantContractInfo->tenant->tenant_personal_email ;
-                            Mail::to($tenant_email)->send(new ChequeBounceEmail($pdcData));
-                        }
-                        -----------Tenant Email Ends--------------------*/
+                        $this->notifyTenantBounce($pdcData);
 
                         /*-----------Are Email Starts--------------------*/
                         if(count($pdcData->tenantContractInfo->building->buildingAssignTo) > 0)
@@ -414,13 +408,7 @@ e     */
 
             \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
-            /*-----------Tenant Email Starts--------------------
-            if(!empty($isPosted->tenantContractInfo->tenant->tenant_personal_email) || !empty($isPosted->tenantContractInfo->tenant->tenant_contact_email)){
-                $tenant_email = $isPosted->tenantContractInfo->tenant->tenant_personal_email ?
-                $isPosted->tenantContractInfo->tenant->tenant_personal_email:$isPosted->tenantContractInfo->tenant->tenant_contact_email ;
-                Mail::to($tenant_email)->send(new ChequeBounceEmail($isPosted));
-            }*/
-            /*-----------Tenant Email Ends--------------------*/
+            $this->notifyTenantBounce($isPosted);
             /*-----------Are Email Starts--------------------*/
             if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
                 foreach($isPosted->tenantContractInfo->building->buildingAssignTo as $assign)
@@ -447,13 +435,7 @@ e     */
 
             \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
-            /*-----------Tenant Email Starts--------------------
-            if(!empty($isPosted->tenantContractInfo->tenant->tenant_personal_email) || !empty($isPosted->tenantContractInfo->tenant->tenant_contact_email )){
-                $tenant_email = $isPosted->tenantContractInfo->tenant->tenant_personal_email ?
-                $isPosted->tenantContractInfo->tenant->tenant_personal_email:$isPosted->tenantContractInfo->tenant->tenant_contact_email ;
-                Mail::to($tenant_email)->send(new ChequeBounceEmail($isPosted));
-            }*/
-            /*-----------Tenant Email Ends--------------------*/
+            $this->notifyTenantBounce($isPosted);
      
             /*-----------Are Email Starts--------------------*/
             if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
@@ -691,6 +673,41 @@ public function printPreview($contract_id){
         $tenant_bank = Bank::where('id',$tenantPdcInfo[0]->bank_id)->get();
 
     return view('backoffice::Pdc.print_view',compact('tenantContract','bankMaster','tenantPdcInfo','pdc_transaction_no','pdc_transaction_date','tenant_bank'));
+  }
+
+  /**
+   * Tell the tenant their cheque bounced: email (contact, else personal) and SMS
+   * to the contact number. Failures are logged only, so the bounce itself never fails.
+   */
+  private function notifyTenantBounce(Pdc $pdc)
+  {
+      $tenant = $pdc->tenantContractInfo->tenant ?? null;
+      if (!$tenant) {
+          return;
+      }
+
+      $email = $tenant->tenant_contact_email ?: $tenant->tenant_personal_email;
+      if (!empty($email)) {
+          try {
+              Mail::to($email)->send(new ChequeBounceEmail($pdc));
+          } catch (\Throwable $e) {
+              Log::error('Tenant bounce email failed for PDC #' . $pdc->id . ': ' . $e->getMessage(), ['email' => $email]);
+          }
+      }
+
+      if (!empty($tenant->tenant_contact_no)) {
+          try {
+              $reason = $pdc->pdc_bounce_reason ? $pdc->pdc_cancel_reason_name : '';
+              $msg = "Dear Tenant, your cheque No. {$pdc->pdc_check_no} of amount " . number_format($pdc->pdc_amt, 3)
+                   . ' dated ' . Carbon::parse($pdc->pdc_check_date)->format('d-m-Y') . ' has been returned by the bank'
+                   . ($reason ? ' (' . $reason . ')' : '') . '. Please contact us to replace it. - Al Habib';
+              if (!sendSms($tenant->tenant_contact_no, $msg, [])) {
+                  Log::warning('Tenant bounce SMS not sent for PDC #' . $pdc->id . ', mobile: ' . $tenant->tenant_contact_no);
+              }
+          } catch (\Throwable $e) {
+              Log::error('Tenant bounce SMS failed for PDC #' . $pdc->id . ': ' . $e->getMessage());
+          }
+      }
   }
 
   /**
