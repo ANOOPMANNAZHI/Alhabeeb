@@ -30,8 +30,30 @@ class SystemMessenger
             $template = new MessageTemplate($d + ['key' => $key, 'kind' => MessageTemplate::KIND_SYSTEM]);
             $note = 'template_missing: default wording used';
         }
+        return self::deliver($key, $template, true, (bool) $template->sms_enabled, (bool) $template->is_active, $to, $values, $options, $note);
+    }
+
+    /**
+     * Send given texts (e.g. a bulk send's frozen copy) with the channels the
+     * caller chose. Same rendering, logging and masking as send().
+     */
+    public static function sendTexts($logKey, array $texts, MessageRecipient $to, array $values, array $options = [])
+    {
+        $channels = isset($options['channels']) ? $options['channels'] : [];
+        $emailOn = !isset($channels['email']) || (bool) $channels['email'];
+        $smsOn = !empty($channels['sms']);
+        $template = (object) [
+            'email_subject' => isset($texts['email_subject']) ? $texts['email_subject'] : null,
+            'email_body'    => isset($texts['email_body']) ? $texts['email_body'] : null,
+            'sms_body'      => isset($texts['sms_body']) ? $texts['sms_body'] : null,
+        ];
+        return self::deliver($logKey, $template, $emailOn, $smsOn, true, $to, $values, $options, null);
+    }
+
+    private static function deliver($logKey, $template, $emailOn, $smsOn, $active, MessageRecipient $to, array $values, array $options, $note)
+    {
         $base = [
-            'template_key' => $key, 'recipient_name' => $to->name,
+            'template_key' => $logKey, 'recipient_name' => $to->name,
             'related_type' => isset($options['related'][0]) ? $options['related'][0] : null,
             'related_id'   => isset($options['related'][1]) ? $options['related'][1] : null,
             'triggered_by' => \Auth::check() ? \Auth::id() : null,
@@ -46,7 +68,7 @@ class SystemMessenger
             }
         }
 
-        if (!$template->is_active) {
+        if (!$active) {
             // Log against the channel the template actually uses (an SMS-only template shows as SMS).
             $channel = ($template->email_subject || $template->email_body || !$template->sms_body) ? 'email' : 'sms';
             self::log($base + ['channel' => $channel, 'recipient' => $channel === 'sms' ? $to->mobile : $to->email,
@@ -62,7 +84,7 @@ class SystemMessenger
             $note = trim($note . ' unknown placeholders: ' . implode(', ', $out['unknown']));
         }
 
-        if ($out['subject'] !== null && $out['html'] !== null) {
+        if ($emailOn && $out['subject'] !== null && $out['html'] !== null) {
             $row = $base + ['channel' => 'email', 'recipient' => $to->email, 'cc' => $to->cc ? implode(', ', $to->cc) : null,
                             'subject' => $out['subject'], 'body' => $out['html'], 'note' => $note];
             if (!$to->email) {
@@ -83,7 +105,7 @@ class SystemMessenger
             self::log($row + ['status' => $result['email']], $secrets);
         }
 
-        if ($template->sms_enabled && $out['sms'] !== null) {
+        if ($smsOn && $out['sms'] !== null) {
             $row = $base + ['channel' => 'sms', 'recipient' => $to->mobile, 'body' => $out['sms'], 'note' => $note];
             if (!$to->mobile) {
                 $result['sms'] = MessageLog::SKIPPED_NO_MOBILE;
