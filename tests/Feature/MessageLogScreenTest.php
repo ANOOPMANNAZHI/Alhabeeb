@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Modules\BackOffice\Entities\BulkSend;
 use Modules\BackOffice\Entities\MessageLog;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -56,6 +57,27 @@ class MessageLogScreenTest extends TestCase
         $this->get(route('message-log.show', $this->rows['sent']->id))->assertOk()
             ->assertJson(['subject' => 'Cheque bounced - X', 'body' => '<p>Hello body</p>', 'status_label' => 'Sent', 'channel' => 'email']);
         $this->get(route('message-log.show', 999999999))->assertStatus(404);
+    }
+
+    public function test_filter_by_one_bulk_send_starts_at_the_send_date()
+    {
+        $send = BulkSend::create(['template_id' => null, 'audience' => 'staff', 'filters' => [], 'send_email' => true, 'send_sms' => false,
+            'email_subject' => 'Old send', 'email_body' => '<p>x</p>', 'status' => BulkSend::DONE, 'total' => 1, 'created_by' => 1,
+            'created_at' => now()->subDays(20)]);
+        $base = ['template_key' => 'bulk:one-off', 'channel' => 'email', 'status' => 'sent', 'related_type' => 'bulk_send'];
+        MessageLog::create($base + ['recipient' => 'bulk.mine@example.com', 'related_id' => $send->id, 'created_at' => now()->subDays(10)]);
+        MessageLog::create($base + ['recipient' => 'bulk.other@example.com', 'related_id' => $send->id + 100000, 'created_at' => now()]);
+
+        $html = $this->get(route('message-log.index', ['bulk_send' => $send->id]))->assertOk()->getContent();
+        $this->assertContains('bulk.mine@example.com', $html);
+        $this->assertNotContains('bulk.other@example.com', $html);
+        $this->assertNotContains('zeta.one@example.com', $html);
+        $this->assertContains('name="bulk_send" value="' . $send->id . '"', $html);
+        $this->assertContains('value="' . $send->created_at->format('Y-m-d') . '"', $html);
+
+        // the default 6-day window still applies without the filter; other filters still work with it
+        $this->assertNotContains('bulk.mine@example.com', $this->get(route('message-log.index'))->getContent());
+        $this->assertNotContains('bulk.mine@example.com', $this->get(route('message-log.index', ['bulk_send' => $send->id, 'channel' => 'sms']))->getContent());
     }
 
     public function test_needs_view_message_log_permission()

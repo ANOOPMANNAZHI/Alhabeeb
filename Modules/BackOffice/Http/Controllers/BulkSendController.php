@@ -80,6 +80,57 @@ class BulkSendController extends Controller
         return response()->json(RecipientFinder::count($in['audience'], $in['filters']));
     }
 
+    /** Compose page: how many people each audience has (no filters). */
+    public function audienceCounts()
+    {
+        $out = [];
+        foreach (array_keys(BulkSend::AUDIENCE_LABELS) as $audience) {
+            $out[$audience] = RecipientFinder::count($audience, [])['total'];
+        }
+        return response()->json($out);
+    }
+
+    /**
+     * Compose page: people of an audience per location / building (tenants, landlords) or per role (staff).
+     * A person counts once, for the building of the contract used for them.
+     */
+    public function placeCounts(Request $request)
+    {
+        $audience = (string) $request->input('audience');
+        if ($audience === 'staff') {
+            $ids = [];
+            foreach (RecipientFinder::people('staff', []) as $p) {
+                $ids[$p['person_id']] = true;
+            }
+            $rows = DB::table('model_has_roles')->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                ->where('model_has_roles.model_type', 'App\User')->get(['roles.name', 'model_has_roles.model_id']);
+            $roles = [];
+            foreach ($rows as $r) {
+                if (isset($ids[(int) $r->model_id])) {
+                    $roles[$r->name] = (isset($roles[$r->name]) ? $roles[$r->name] : 0) + 1;
+                }
+            }
+            return response()->json(['roles' => (object) $roles]);
+        }
+        $locations = [];
+        $buildings = [];
+        if (isset(BulkSend::AUDIENCE_LABELS[$audience])) {
+            $locationOf = DB::table('buildings')->pluck('location_id', 'id')->all();
+            foreach (RecipientFinder::people($audience, []) as $p) {
+                $b = $p['building_id'];
+                if (!$b) {
+                    continue;
+                }
+                $buildings[$b] = (isset($buildings[$b]) ? $buildings[$b] : 0) + 1;
+                $l = isset($locationOf[$b]) ? (int) $locationOf[$b] : 0;
+                if ($l) {
+                    $locations[$l] = (isset($locations[$l]) ? $locations[$l] : 0) + 1;
+                }
+            }
+        }
+        return response()->json(['locations' => (object) $locations, 'buildings' => (object) $buildings]);
+    }
+
     public function review(Request $request)
     {
         $in = $this->input($request);
@@ -159,7 +210,17 @@ class BulkSendController extends Controller
             $q->where('status', $status);
         }
         $recipients = $q->paginate(self::PER_PAGE)->appends(['status' => $status]);
-        return view('backoffice::BulkSend.show', ['send' => $bulkSend, 'recipients' => $recipients, 'status' => $status]);
+        $statusCounts = ['pending' => 0, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'cancelled' => 0];
+        $grouped = DB::table('bulk_send_recipients')->where('bulk_send_id', $bulkSend->id)
+            ->groupBy('status')->select('status', DB::raw('count(*) as n'))->pluck('n', 'status');
+        foreach ($grouped as $st => $n) {
+            if (isset($statusCounts[$st])) {
+                $statusCounts[$st] = (int) $n;
+            }
+        }
+        return view('backoffice::BulkSend.show', [
+            'send' => $bulkSend, 'recipients' => $recipients, 'status' => $status, 'statusCounts' => $statusCounts,
+        ]);
     }
 
     public function pause(BulkSend $bulkSend)

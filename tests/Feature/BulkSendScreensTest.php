@@ -69,6 +69,13 @@ class BulkSendScreensTest extends TestCase
         $this->assertNotContains('Alpha', $html);
     }
 
+    public function test_detail_has_status_counts()
+    {
+        $send = $this->send();
+        $this->get(route('bulk-send.show', $send->id))->assertOk()
+            ->assertViewHas('statusCounts', ['pending' => 1, 'sent' => 0, 'failed' => 1, 'skipped' => 0, 'cancelled' => 0]);
+    }
+
     public function test_actions()
     {
         $send = $this->send();

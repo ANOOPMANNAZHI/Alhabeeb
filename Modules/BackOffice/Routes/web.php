@@ -645,6 +645,8 @@ Route::middleware('auth')->group(function () {
 	Route::get('bulk-send', 'BulkSendController@index')->name('bulk-send.index');
 	Route::get('bulk-send/create', 'BulkSendController@create')->name('bulk-send.create');
 	Route::post('bulk-send/count', 'BulkSendController@count')->name('bulk-send.count');
+	Route::get('bulk-send/audience-counts', 'BulkSendController@audienceCounts')->name('bulk-send.audience-counts');
+	Route::get('bulk-send/place-counts', 'BulkSendController@placeCounts')->name('bulk-send.place-counts');
 	Route::post('bulk-send/review', 'BulkSendController@review')->name('bulk-send.review');
 	Route::get('bulk-send/search', 'BulkSendController@search')->name('bulk-send.search');
 	Route::post('bulk-send/preview', 'BulkSendController@preview')->name('bulk-send.preview');

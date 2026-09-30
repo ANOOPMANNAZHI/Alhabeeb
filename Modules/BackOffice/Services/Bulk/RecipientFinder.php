@@ -99,13 +99,15 @@ class RecipientFinder
         return array_values(array_unique($out));
     }
 
-    private static function row($type, $id, $name, $email, $mobile, array $values)
+    /** building_id: the building of the contract used for this person (null for staff / no contract). */
+    private static function row($type, $id, $name, $email, $mobile, array $values, $buildingId = null)
     {
         $email = trim((string) $email);
         $mobile = trim((string) $mobile);
         return [
             'person_type' => $type, 'person_id' => (int) $id, 'name' => trim((string) $name),
             'email' => $email !== '' ? $email : null, 'mobile' => $mobile !== '' ? $mobile : null, 'values' => $values,
+            'building_id' => $buildingId !== null && $buildingId !== '' ? (int) $buildingId : null,
         ];
     }
 
@@ -207,7 +209,7 @@ class RecipientFinder
             $c = $pool[0];
             $email = $c->tenant_contact_email ? $c->tenant_contact_email : $c->tenant_personal_email;
             $mobile = $c->tenant_contact_no ? $c->tenant_contact_no : $c->tenant_residence_tel;
-            $out['tenant:' . $tenantId] = self::row('tenant', $tenantId, $c->tenant_name, $email, $mobile, self::tenantValues($c));
+            $out['tenant:' . $tenantId] = self::row('tenant', $tenantId, $c->tenant_name, $email, $mobile, self::tenantValues($c), $c->building_id);
         }
         return $out;
     }
@@ -246,7 +248,7 @@ class RecipientFinder
                 'landlord_name' => self::dash($v->vendor_name),
                 'building'      => $c ? self::dash($c->building_name) : '-',
                 'location'      => $c ? self::dash($c->locations_name) : '-',
-            ]);
+            ], $c ? $c->building_id : null);
         }
         return $out;
     }

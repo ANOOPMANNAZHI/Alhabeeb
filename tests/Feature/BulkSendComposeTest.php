@@ -152,6 +152,46 @@ class BulkSendComposeTest extends TestCase
         $this->assertSame($before, BulkSend::count());
     }
 
+    public function test_audience_counts_match_the_finder()
+    {
+        $json = $this->get(route('bulk-send.audience-counts'))->assertOk()->json();
+        $this->assertSame(['tenant_active', 'tenant_past', 'landlord', 'staff'], array_keys($json));
+        foreach ($json as $audience => $n) {
+            $this->assertSame(RecipientFinder::count($audience, [])['total'], $n, $audience);
+        }
+    }
+
+    public function test_place_counts_per_building_location_and_role()
+    {
+        $locationOf = DB::table('buildings')->pluck('location_id', 'id')->all();
+        foreach (['tenant_active', 'landlord'] as $audience) {
+            $json = $this->get(route('bulk-send.place-counts', ['audience' => $audience]))->assertOk()->json();
+            $this->assertSame(['locations', 'buildings'], array_keys($json));
+            $byBuilding = [];
+            $byLocation = [];
+            foreach (RecipientFinder::people($audience, []) as $p) {
+                $b = $p['building_id'];
+                if (!$b) {
+                    continue;
+                }
+                $byBuilding[$b] = (isset($byBuilding[$b]) ? $byBuilding[$b] : 0) + 1;
+                $l = isset($locationOf[$b]) ? (int) $locationOf[$b] : 0;
+                if ($l) {
+                    $byLocation[$l] = (isset($byLocation[$l]) ? $byLocation[$l] : 0) + 1;
+                }
+            }
+            $gotB = $json['buildings'];
+            $gotL = $json['locations'];
+            ksort($byBuilding); ksort($gotB); ksort($byLocation); ksort($gotL);
+            $this->assertSame($byBuilding, $gotB, $audience);
+            $this->assertSame($byLocation, $gotL, $audience);
+        }
+        $json = $this->get(route('bulk-send.place-counts', ['audience' => 'staff']))->assertOk()->json();
+        $this->assertSame(['roles'], array_keys($json));
+        $this->assertSame(RecipientFinder::count('staff', ['roles' => ['super_admin']])['total'], $json['roles']['super_admin']);
+        $this->assertSame('{"locations":{},"buildings":{}}', $this->get(route('bulk-send.place-counts', ['audience' => 'nobody']))->assertOk()->getContent());
+    }
+
     public function test_compose_routes_need_the_permission()
     {
         $user = User::where('id', '<>', 1)->firstOrFail();
@@ -168,6 +208,8 @@ class BulkSendComposeTest extends TestCase
         $this->post(route('bulk-send.review'), ['audience' => 'staff'])->assertStatus(403);
         $this->get(route('bulk-send.search', ['audience' => 'staff', 'q' => 'a']))->assertStatus(403);
         $this->post(route('bulk-send.preview'), ['audience' => 'staff'])->assertStatus(403);
+        $this->get(route('bulk-send.audience-counts'))->assertStatus(403);
+        $this->get(route('bulk-send.place-counts', ['audience' => 'staff']))->assertStatus(403);
         $this->post(route('bulk-send.store'), ['audience' => 'staff', 'send_email' => 1, 'email_subject' => 'a', 'email_body' => '<p>b</p>'])->assertStatus(403);
         $this->assertSame($before, BulkSend::count());
     }
