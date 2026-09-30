@@ -23,31 +23,29 @@
   @if($in['send_sms'])<input type="hidden" name="send_sms" value="1">@endif
   <div id="bs-hidden"></div>
 
-  <div class="bs-head">
-    <div>
-      <h2>{{ $template ? $template->name : 'One-off message' }}</h2>
-      <div class="bs-chips">
-        <span class="bs-chip"><i class="fa fa-users" aria-hidden="true"></i> {{ $audienceLabel }}</span>
-        @if($in['send_email'])<span class="bs-chip"><i class="fa fa-envelope-o" aria-hidden="true"></i> Email</span>@endif
-        @if($in['send_sms'])<span class="bs-chip"><i class="fa fa-mobile" aria-hidden="true"></i> SMS</span>@endif
-      </div>
-    </div>
+  <div class="bs-review-head">
+    <h2>{{ $template ? $template->name : 'One-off message' }}</h2>
+    <span class="bs-chips">
+      <span class="bs-chip">{{ $audienceLabel }}</span>
+      @if($in['send_email'])<span class="bs-chip">Email</span>@endif
+      @if($in['send_sms'])<span class="bs-chip">SMS</span>@endif
+    </span>
   </div>
 
   <div class="bs-tiles" aria-live="polite">
-    <div class="bs-tile"><div class="bs-tile-label"><i class="fa fa-users" aria-hidden="true"></i> People</div><div class="bs-tile-value" id="bs-t-total">…</div></div>
+    <div class="bs-tile"><div class="bs-tile-label">People</div><div class="bs-tile-value" id="bs-t-total">…</div></div>
     @if($in['send_email'])
-      <div class="bs-tile"><div class="bs-tile-label"><i class="fa fa-envelope-o" aria-hidden="true"></i> Emails</div><div class="bs-tile-value" id="bs-t-email">…</div></div>
+      <div class="bs-tile"><div class="bs-tile-label">Emails</div><div class="bs-tile-value" id="bs-t-email">…</div></div>
     @endif
     @if($in['send_sms'])
-      <div class="bs-tile"><div class="bs-tile-label"><i class="fa fa-mobile" aria-hidden="true"></i> SMS</div><div class="bs-tile-value" id="bs-t-sms">…</div><div class="bs-tile-note">SMS costs money</div></div>
+      <div class="bs-tile"><div class="bs-tile-label">SMS</div><div class="bs-tile-value" id="bs-t-sms">…</div><div class="bs-tile-note">SMS costs money</div></div>
     @endif
-    <div class="bs-tile"><div class="bs-tile-label"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> No email</div><div class="bs-tile-value" id="bs-t-noemail">…</div></div>
-    <div class="bs-tile"><div class="bs-tile-label"><i class="fa fa-clock-o" aria-hidden="true"></i> Time needed</div><div class="bs-tile-value" id="bs-t-time">…</div><div class="bs-tile-note">at {{ (int) $perMinute }} a minute</div></div>
+    <div class="bs-tile"><div class="bs-tile-label">No email</div><div class="bs-tile-value" id="bs-t-noemail">…</div></div>
+    <div class="bs-tile"><div class="bs-tile-label">Time needed</div><div class="bs-tile-value" id="bs-t-time">…</div><div class="bs-tile-note">at {{ (int) $perMinute }} a minute</div></div>
   </div>
 
-  <section class="bs-card" aria-labelledby="bs-h-preview">
-    <h2 id="bs-h-preview">Preview <span class="mt-help" id="bs-pv-for" style="font-weight:400"></span></h2>
+  <section class="bs-sec" aria-labelledby="bs-h-preview">
+    <div class="bs-sec-head"><h2 id="bs-h-preview">Preview</h2> <span class="mt-help" id="bs-pv-for"></span></div>
     <div class="bs-preview">
       <div>
         @if($in['send_email'])
@@ -60,12 +58,12 @@
             <iframe id="bs-pv-frame" sandbox="" title="Email body preview"></iframe>
           </div>
         @else
-          <p class="mt-help"><i class="fa fa-envelope-o" aria-hidden="true"></i> Email is off for this send.</p>
+          <p class="mt-help">Email is off for this send.</p>
         @endif
       </div>
       @if($in['send_sms'])
         <div>
-          <h3><i class="fa fa-mobile" aria-hidden="true"></i> SMS</h3>
+          <h3 class="bs-sms-label">SMS</h3>
           <div class="bs-sms-bubble" id="bs-pv-sms">…</div>
           <div class="mt-count" id="bs-pv-sms-count"></div>
         </div>
@@ -74,8 +72,8 @@
     <p class="mt-error" id="bs-pv-error" role="alert" hidden></p>
   </section>
 
-  <section class="bs-card" aria-labelledby="bs-h-people">
-    <h2 id="bs-h-people">People</h2>
+  <section class="bs-sec" aria-labelledby="bs-h-people">
+    <div class="bs-sec-head"><h2 id="bs-h-people">People</h2></div>
     <div class="bs-people-tools">
       <div><label for="bs-filter">Search the list</label><input type="search" id="bs-filter" class="mt-input" autocomplete="off" placeholder="Name, email or mobile"></div>
       <div><label for="bs-add">Add a person</label><input type="search" id="bs-add" class="mt-input" autocomplete="off" placeholder="Type at least 2 letters of a name">

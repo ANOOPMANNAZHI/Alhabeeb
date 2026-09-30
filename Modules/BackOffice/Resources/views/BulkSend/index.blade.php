@@ -12,44 +12,53 @@
   @if(session('success'))<div class="alert alert-success" role="status"><i class="fa fa-check-circle" aria-hidden="true"></i> {{ session('success') }}</div>@endif
   @if(session('error'))<div class="alert alert-danger" role="alert"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> {{ session('error') }}</div>@endif
 
-  <div class="bs-head">
-    <div>
-      <h2>Bulk sends</h2>
+  <h2 class="bs-sr">Bulk sends</h2>
+  @if($bsRunning || (Route::has('bulk-send.create') && $sends->count()))
+    <div class="bs-head bs-head-end">
       @if($bsRunning)
         <p class="bs-refresh" id="bs-refresh" data-auto-refresh="1"><i class="fa fa-refresh" aria-hidden="true"></i>
           Updated <time id="bs-refresh-time">{{ now()->format('H:i:s') }}</time> · auto-refresh on</p>
       @endif
+      @if(Route::has('bulk-send.create') && $sends->count())
+        <a class="mt-btn mt-btn-primary" href="{{ route('bulk-send.create') }}"><i class="fa fa-paper-plane" aria-hidden="true"></i> New send</a>
+      @endif
     </div>
-    @if(Route::has('bulk-send.create') && $sends->count())
-      <a class="mt-btn mt-btn-primary" href="{{ route('bulk-send.create') }}"><i class="fa fa-paper-plane" aria-hidden="true"></i> New send</a>
-    @endif
-  </div>
+  @endif
 
   @if($sends->count())
-    <ul class="bs-list">
-      @foreach($sends as $s)
-        <li class="bs-send">
-          <div>
-            <h3 class="bs-send-title">
-              <a href="{{ route('bulk-send.show', $s->id) }}"><span class="bs-send-id">#{{ $s->id }}</span> {{ $s->template ? $s->template->name : 'One-off message' }}</a>
-              @include('backoffice::BulkSend._badge', ['st' => $s->status])
-            </h3>
-            @if($s->email_subject)<p class="bs-subject">{{ $s->email_subject }}</p>@endif
-            <div class="bs-chips">
-              <span class="bs-chip"><i class="fa fa-users" aria-hidden="true"></i> {{ isset($bsAudiences[$s->audience]) ? $bsAudiences[$s->audience] : $s->audience }}</span>
-              @if($s->send_email)<span class="bs-chip"><i class="fa fa-envelope-o" aria-hidden="true"></i> Email</span>@endif
-              @if($s->send_sms)<span class="bs-chip"><i class="fa fa-mobile" aria-hidden="true"></i> SMS</span>@endif
-            </div>
-            <div class="bs-meta">Started {{ $s->created_at ? $s->created_at->format('d/m/Y H:i') : '' }}@if($s->creator) by {{ $s->creator->username }}@endif</div>
-          </div>
-          <div>
-            @include('backoffice::BulkSend._progress', ['s' => $s])
-            @if($s->note)<p class="bs-warn"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> <span>{{ $s->note }}</span></p>@endif
-          </div>
-          @include('backoffice::BulkSend._actions', ['s' => $s])
-        </li>
-      @endforeach
-    </ul>
+    <div class="bs-table-wrap">
+      <table class="bs-sends">
+        <thead><tr>
+          <th scope="col" class="bs-col-id">#</th>
+          <th scope="col">Message</th>
+          <th scope="col">To</th>
+          <th scope="col" class="bs-col-status">Status</th>
+          <th scope="col" class="bs-col-progress">Progress</th>
+          <th scope="col" class="bs-col-started">Started</th>
+          <th scope="col" class="bs-col-actions"><span class="bs-sr">Actions</span></th>
+        </tr></thead>
+        <tbody>
+        @foreach($sends as $s)
+          <tr class="bs-send">
+            <td class="bs-col-id">#{{ $s->id }}</td>
+            <td>
+              <a class="bs-send-name" href="{{ route('bulk-send.show', $s->id) }}">{{ $s->template ? $s->template->name : 'One-off message' }}</a>
+              @if($s->email_subject)<span class="bs-sub">{{ $s->email_subject }}</span>@endif
+              @if($s->note)<p class="bs-warn"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> <span>{{ $s->note }}</span></p>@endif
+            </td>
+            <td>
+              {{ isset($bsAudiences[$s->audience]) ? $bsAudiences[$s->audience] : $s->audience }}
+              <span class="bs-sub">{{ implode(' + ', array_filter([$s->send_email ? 'Email' : null, $s->send_sms ? 'SMS' : null])) }}</span>
+            </td>
+            <td class="bs-col-status">@include('backoffice::BulkSend._badge', ['st' => $s->status])</td>
+            <td class="bs-col-progress">@include('backoffice::BulkSend._progress', ['s' => $s])</td>
+            <td class="bs-col-started">{{ $s->created_at ? $s->created_at->format('d/m/Y H:i') : '' }}@if($s->creator)<br>by {{ $s->creator->username }}@endif</td>
+            <td class="bs-col-actions">@include('backoffice::BulkSend._actions', ['s' => $s])</td>
+          </tr>
+        @endforeach
+        </tbody>
+      </table>
+    </div>
     <div style="margin-top:16px">{{ $sends->links() }}</div>
   @else
     <div class="bs-empty">

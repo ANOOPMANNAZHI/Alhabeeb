@@ -6,7 +6,6 @@
 @section('content')
 @php
   $bsTplLabels = \Modules\BackOffice\Services\MessagePlaceholders::AUDIENCES;
-  $bsAudienceIcons = ['tenant_active' => 'fa-home', 'tenant_past' => 'fa-history', 'landlord' => 'fa-building-o', 'staff' => 'fa-id-badge'];
   $bsOldTemplate = (string) old('template_id', '');
   $bsOldLocations = array_map('strval', (array) old('locations', []));
   $bsOldRoles = array_map('strval', (array) old('roles', []));
@@ -38,8 +37,8 @@
   @csrf
   <div class="bs-main">
     {{-- ① Message --}}
-    <section class="bs-card" id="bs-sec-message" aria-labelledby="bs-h-message">
-      <h2 id="bs-h-message" tabindex="-1"><span class="bs-step-no" aria-hidden="true">1</span> Message</h2>
+    <section class="bs-sec" id="bs-sec-message" aria-labelledby="bs-h-message">
+      <div class="bs-sec-head"><h2 id="bs-h-message" tabindex="-1">Message</h2></div>
       @if($bsErrMessage)
         <div class="bs-sec-error" id="bs-err-message"><i class="fa fa-exclamation-circle" aria-hidden="true"></i>
           <div>@foreach($bsErrMessage as $m)<div>{{ $m }}</div>@endforeach</div></div>
@@ -51,22 +50,22 @@
           @foreach($templates as $t)
             <label class="bs-choice" data-audience="{{ $t->audience }}">
               <input type="radio" name="template_id" value="{{ $t->id }}" data-sms="{{ $t->sms_body ? 1 : 0 }}" data-email="{{ ($t->email_subject && $t->email_body) ? 1 : 0 }}" {{ $bsOldTemplate === (string) $t->id ? 'checked' : '' }}>
+              @php
+                $bsTplAud = isset($bsTplLabels[$t->audience]) ? $bsTplLabels[$t->audience] : $t->audience;
+                $bsTplCh = implode(' + ', array_filter([($t->email_subject && $t->email_body) ? 'Email' : null, $t->sms_body ? 'SMS' : null]));
+              @endphp
               <span class="bs-choice-body">
                 <span class="bs-choice-title">{{ $t->name }}</span>
-                <span class="bs-chips">
-                  <span class="bs-chip"><i class="fa fa-users" aria-hidden="true"></i> {{ isset($bsTplLabels[$t->audience]) ? $bsTplLabels[$t->audience] : $t->audience }}</span>
-                  @if($t->email_subject && $t->email_body)<span class="bs-chip"><i class="fa fa-envelope-o" aria-hidden="true"></i> Email</span>@endif
-                  @if($t->sms_body)<span class="bs-chip"><i class="fa fa-mobile" aria-hidden="true"></i> SMS</span>@endif
-                </span>
-                <span class="bs-choice-note" hidden><i class="fa fa-info-circle" aria-hidden="true"></i> For {{ isset($bsTplLabels[$t->audience]) ? $bsTplLabels[$t->audience] : $t->audience }} only</span>
+                <span class="bs-choice-meta">{{ $bsTplAud }}@if($bsTplCh) · {{ $bsTplCh }}@endif</span>
+                <span class="bs-choice-note" hidden>(for {{ $bsTplAud }} only)</span>
               </span>
             </label>
           @endforeach
           <label class="bs-choice bs-choice-new">
             <input type="radio" name="template_id" value="" {{ $bsOldTemplate === '' ? 'checked' : '' }}>
             <span class="bs-choice-body">
-              <span class="bs-choice-title"><i class="fa fa-pencil" aria-hidden="true"></i> Write a one-off message</span>
-              <span class="mt-help">Your own subject, body and SMS text for this send only.</span>
+              <span class="bs-choice-title">Write a one-off message</span>
+              <span class="bs-choice-meta">Your own subject, body and SMS text for this send only</span>
             </span>
           </label>
         </div>
@@ -95,9 +94,9 @@
         <legend>Send by</legend>
         <div class="bs-toggles">
           <label class="bs-toggle"><input type="checkbox" name="send_email" value="1" id="bs-email" {{ (session()->hasOldInput() ? old('send_email') : true) ? 'checked' : '' }}>
-            <span><span class="bs-tick" aria-hidden="true"><i class="fa fa-check"></i></span><i class="fa fa-envelope-o" aria-hidden="true"></i> Email</span></label>
+            <span class="bs-track" aria-hidden="true"></span><span class="bs-toggle-text">Email</span></label>
           <label class="bs-toggle"><input type="checkbox" name="send_sms" value="1" id="bs-send-sms" {{ old('send_sms') ? 'checked' : '' }} aria-describedby="bs-sms-help">
-            <span><span class="bs-tick" aria-hidden="true"><i class="fa fa-check"></i></span><i class="fa fa-mobile" aria-hidden="true"></i> SMS (costs money)</span></label>
+            <span class="bs-track" aria-hidden="true"></span><span class="bs-toggle-text">SMS (costs money)</span></label>
         </div>
         <p class="mt-help" id="bs-sms-help" style="margin:8px 0 0"></p>
         <p class="mt-help" id="bs-email-help" style="margin:4px 0 0" hidden></p>
@@ -107,8 +106,8 @@
     </section>
 
     {{-- ② Recipients --}}
-    <section class="bs-card" id="bs-sec-recipients" aria-labelledby="bs-h-recipients">
-      <h2 id="bs-h-recipients" tabindex="-1"><span class="bs-step-no" aria-hidden="true">2</span> Recipients</h2>
+    <section class="bs-sec" id="bs-sec-recipients" aria-labelledby="bs-h-recipients">
+      <div class="bs-sec-head"><h2 id="bs-h-recipients" tabindex="-1">Recipients</h2></div>
       @if($bsErrRecipients)
         <div class="bs-sec-error" id="bs-err-recipients"><i class="fa fa-exclamation-circle" aria-hidden="true"></i>
           <div>@foreach($bsErrRecipients as $m)<div>{{ $m }}</div>@endforeach</div></div>
@@ -121,8 +120,8 @@
             <label class="bs-choice">
               <input type="radio" name="audience" value="{{ $value }}" {{ old('audience', 'tenant_active') === $value ? 'checked' : '' }}>
               <span class="bs-choice-body">
-                <span class="bs-choice-title"><i class="fa {{ $bsAudienceIcons[$value] }}" aria-hidden="true"></i> {{ $label }}</span>
-                <span><span class="bs-group-n" data-count-for="{{ $value }}">…</span> <span class="bs-group-n-label">people</span></span>
+                <span class="bs-choice-title">{{ $label }}</span>
+                <span class="bs-choice-meta"><span class="bs-group-n" data-count-for="{{ $value }}">…</span> people</span>
               </span>
             </label>
           @endforeach
@@ -131,16 +130,15 @@
       </fieldset>
 
       <div id="bs-place">
-        <p class="mt-help" style="margin:0 0 8px">Numbers next to each location/building count each person once, by their latest contract; ticking still includes everyone with a contract there.</p>
+        <p class="mt-help" style="margin:0 0 16px">Numbers next to each location/building count each person once, by their latest contract; ticking still includes everyone with a contract there.</p>
         <fieldset class="bs-pick" id="bs-loc">
-          <legend style="margin-bottom:6px">Locations</legend>
+          <legend>Locations</legend>
           <div class="bs-pick-head">
-            <div>
-              <label for="bs-loc-q" class="mt-help" style="font-weight:600">Search locations</label>
-              <input type="search" id="bs-loc-q" class="mt-input bs-pick-q" data-list="#bs-loc-list" autocomplete="off">
-            </div>
+            <label for="bs-loc-q" class="bs-sr">Search locations</label>
+            <input type="search" id="bs-loc-q" class="mt-input bs-pick-q" data-list="#bs-loc-list" autocomplete="off" placeholder="Search locations">
             <div class="bs-pick-tools">
               <button type="button" class="bs-link bs-pick-all" data-list="#bs-loc-list">Select all</button>
+              <span class="bs-pick-sep" aria-hidden="true">·</span>
               <button type="button" class="bs-link bs-pick-none" data-list="#bs-loc-list">Clear</button>
               <span class="bs-pick-status" id="bs-loc-status" aria-live="polite"></span>
             </div>
@@ -158,14 +156,13 @@
         </fieldset>
 
         <fieldset class="bs-pick" id="bs-bld">
-          <legend style="margin-bottom:6px">Buildings (optional)</legend>
+          <legend>Buildings (optional)</legend>
           <div class="bs-pick-head">
-            <div>
-              <label for="bs-bld-q" class="mt-help" style="font-weight:600">Search buildings</label>
-              <input type="search" id="bs-bld-q" class="mt-input bs-pick-q" data-list="#bs-bld-list" autocomplete="off">
-            </div>
+            <label for="bs-bld-q" class="bs-sr">Search buildings</label>
+            <input type="search" id="bs-bld-q" class="mt-input bs-pick-q" data-list="#bs-bld-list" autocomplete="off" placeholder="Search buildings">
             <div class="bs-pick-tools">
               <button type="button" class="bs-link bs-pick-all" data-list="#bs-bld-list">Select all</button>
+              <span class="bs-pick-sep" aria-hidden="true">·</span>
               <button type="button" class="bs-link bs-pick-none" data-list="#bs-bld-list">Clear</button>
               <span class="bs-pick-status" id="bs-bld-status" aria-live="polite"></span>
             </div>
@@ -176,10 +173,10 @@
 
       <fieldset id="bs-roles-box" hidden>
         <legend>Roles</legend>
-        <div class="bs-roles">
+        <div class="bs-pick-list bs-roles">
           @foreach($roles as $r)
-            <label class="bs-role"><input type="checkbox" name="roles[]" value="{{ $r }}" {{ in_array((string) $r, $bsOldRoles, true) ? 'checked' : '' }}>
-              <span>{{ $r }} <span class="bs-pick-n" data-role="{{ $r }}"></span></span></label>
+            <label class="bs-pick-item"><input type="checkbox" name="roles[]" value="{{ $r }}" {{ in_array((string) $r, $bsOldRoles, true) ? 'checked' : '' }}>
+              <span class="bs-pick-name">{{ $r }}</span> <span class="bs-pick-n" data-role="{{ $r }}"></span></label>
           @endforeach
         </div>
         <p class="mt-help" id="bs-roles-status" style="margin:8px 0 0" aria-live="polite">None ticked = all staff.</p>
@@ -189,16 +186,16 @@
 
   {{-- Summary --}}
   <aside class="bs-side" aria-labelledby="bs-h-summary">
-    <div class="bs-card bs-summary" id="bs-summary-card" data-per-minute="{{ (int) $perMinute }}">
+    <div class="bs-summary" id="bs-summary-card" data-per-minute="{{ (int) $perMinute }}">
       <h2 id="bs-h-summary">Summary</h2>
       <dl>
-        <div class="bs-summary-total"><dt><i class="fa fa-users" aria-hidden="true"></i> People</dt><dd id="bs-s-total">…</dd></div>
-        <div><dt><i class="fa fa-envelope-o" aria-hidden="true"></i> With email</dt><dd id="bs-s-email">…</dd></div>
-        <div id="bs-s-mobile-row" hidden><dt><i class="fa fa-mobile" aria-hidden="true"></i> With mobile (SMS)</dt><dd id="bs-s-mobile">…</dd></div>
-        <div><dt><i class="fa fa-exclamation-circle" aria-hidden="true"></i> No email</dt><dd id="bs-s-noemail">…</dd></div>
-        <div><dt><i class="fa fa-clock-o" aria-hidden="true"></i> Time needed</dt><dd id="bs-s-time">…</dd></div>
+        <div class="bs-summary-total"><dt>People</dt><dd id="bs-s-total">…</dd></div>
+        <div><dt>With email</dt><dd id="bs-s-email">…</dd></div>
+        <div id="bs-s-mobile-row" hidden><dt>With mobile (SMS)</dt><dd id="bs-s-mobile">…</dd></div>
+        <div><dt>No email</dt><dd id="bs-s-noemail">…</dd></div>
+        <div><dt>Time needed</dt><dd id="bs-s-time">…</dd></div>
       </dl>
-      <p class="mt-help" style="margin:-8px 0 12px">Estimate at {{ (int) $perMinute }} messages a minute.</p>
+      <p class="mt-help" style="margin:0 0 16px">Estimate at {{ (int) $perMinute }} messages a minute.</p>
       <p class="bs-sr" id="bs-s-live" aria-live="polite"></p>
       <button type="submit" class="mt-btn mt-btn-primary bs-btn-block" id="bs-review-btn">Review <i class="fa fa-arrow-right" aria-hidden="true"></i></button>
       <a href="{{ route('bulk-send.index') }}" class="mt-btn bs-btn-block">Back</a>

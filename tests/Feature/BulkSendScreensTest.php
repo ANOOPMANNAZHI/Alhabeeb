@@ -84,7 +84,7 @@ class BulkSendScreensTest extends TestCase
         $this->assertRegExp('/>\s*All\s*<span class="bs-tab-n">2<\/span>/', $html);
         $this->assertRegExp('/>\s*Sent\s*<span class="bs-tab-n">0<\/span>/', $html);
         $this->assertNotContains('<select name="status"', $html);
-        $this->assertContains('bs-tile', $html);
+        $this->assertContains('bs-show-progress', $html); // the progress + counts line replaced the stat tiles
         $this->assertContains('0 of 2 processed', $html);
         $this->assertContains('email: failed', $html);
         $this->assertContains('bs-row-failed', $html);
