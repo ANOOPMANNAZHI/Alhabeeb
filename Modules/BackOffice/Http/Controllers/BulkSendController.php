@@ -5,6 +5,7 @@ namespace Modules\BackOffice\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Modules\BackOffice\Entities\BulkSend;
 use Modules\BackOffice\Entities\BulkSendRecipient;
@@ -94,8 +95,13 @@ class BulkSendController extends Controller
         }
         $perMinute = (int) (prefixData('bulk_emails_per_minute') ? prefixData('bulk_emails_per_minute')->configuration_value : 25);
         $perMinute = $perMinute > 0 ? $perMinute : 25;
+        // One-time token: a double click or a resubmitted page cannot start the same send twice.
+        $token = Str::random(40);
+        $tokens = (array) $request->session()->get('bulk_send_tokens', []);
+        $tokens[] = $token;
+        $request->session()->put('bulk_send_tokens', array_slice($tokens, -10));
         return view('backoffice::BulkSend.review', [
-            'in' => $in, 'texts' => $texts, 'list' => $list, 'perMinute' => $perMinute,
+            'sendToken' => $token, 'in' => $in, 'texts' => $texts, 'list' => $list, 'perMinute' => $perMinute,
             'audienceLabel' => BulkSend::AUDIENCE_LABELS[$in['audience']],
             'template' => $texts['template_id'] ? MessageTemplate::find($texts['template_id']) : null,
         ]);
@@ -129,6 +135,14 @@ class BulkSendController extends Controller
 
     public function store(Request $request)
     {
+        $token = (string) $request->input('send_token');
+        $tokens = (array) $request->session()->get('bulk_send_tokens', []);
+        $at = $token === '' ? false : array_search($token, $tokens, true);
+        if ($at === false) {
+            return redirect()->route('bulk-send.index')->with('error', 'This send was already started (or the page expired). Check the list below.');
+        }
+        unset($tokens[$at]);
+        $request->session()->put('bulk_send_tokens', array_values($tokens));
         try {
             $send = BulkSendService::start($this->input($request), \Auth::id());
         } catch (ValidationException $e) {

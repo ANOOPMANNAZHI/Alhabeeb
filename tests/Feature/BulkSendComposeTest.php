@@ -85,7 +85,8 @@ class BulkSendComposeTest extends TestCase
     {
         $t = $this->template();
         $keys = array_keys(RecipientFinder::people('staff', []));
-        $this->post(route('bulk-send.store'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1, 'exclude' => [$keys[0]]])
+        $this->withSession(['bulk_send_tokens' => ['t1']])
+            ->post(route('bulk-send.store'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1, 'exclude' => [$keys[0]], 'send_token' => 't1'])
             ->assertRedirect(route('bulk-send.index'))->assertSessionHas('success');
         $send = BulkSend::latest('id')->first();
         $this->assertSame(count($keys) - 1, (int) $send->total);
@@ -96,11 +97,50 @@ class BulkSendComposeTest extends TestCase
     public function test_sms_needs_sms_text_and_one_off_works()
     {
         $t = $this->template('staff', null);
-        $this->post(route('bulk-send.store'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1, 'send_sms' => 1])
+        $this->withSession(['bulk_send_tokens' => ['t1', 't2']])
+            ->post(route('bulk-send.store'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1, 'send_sms' => 1, 'send_token' => 't1'])
             ->assertRedirect()->assertSessionHasErrors('sms_body');
         $this->post(route('bulk-send.store'), ['audience' => 'staff', 'roles' => ['super_admin'], 'send_email' => 1,
-            'email_subject' => 'Quick note', 'email_body' => '<p>Hello {employee_name}</p>'])->assertRedirect(route('bulk-send.index'));
+            'email_subject' => 'Quick note', 'email_body' => '<p>Hello {employee_name}</p>', 'send_token' => 't2'])->assertRedirect(route('bulk-send.index'));
         $this->assertSame('bulk:one-off', BulkSend::latest('id')->first()->logKey());
+    }
+
+    public function test_review_puts_a_one_time_token_in_the_form_and_session()
+    {
+        $t = $this->template();
+        $html = $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1])->assertOk()->getContent();
+        $tokens = session('bulk_send_tokens');
+        $this->assertCount(1, $tokens);
+        $this->assertSame(40, strlen($tokens[0]));
+        $this->assertContains('name="send_token" value="' . $tokens[0] . '"', $html);
+        for ($i = 0; $i < 12; $i++) {
+            $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1]);
+        }
+        $this->assertCount(10, session('bulk_send_tokens'));
+    }
+
+    public function test_store_twice_with_the_same_token_starts_one_send()
+    {
+        $t = $this->template();
+        $before = BulkSend::count();
+        $post = ['template_id' => $t->id, 'audience' => 'staff', 'roles' => ['super_admin'], 'send_email' => 1, 'send_token' => 't1'];
+        $this->withSession(['bulk_send_tokens' => ['t1']])->post(route('bulk-send.store'), $post)
+            ->assertRedirect(route('bulk-send.index'))->assertSessionHas('success');
+        $this->post(route('bulk-send.store'), $post)->assertRedirect(route('bulk-send.index'))
+            ->assertSessionHas('error', 'This send was already started (or the page expired). Check the list below.');
+        $this->assertSame($before + 1, BulkSend::count());
+    }
+
+    public function test_store_without_a_valid_token_starts_nothing()
+    {
+        $t = $this->template();
+        $before = BulkSend::count();
+        $post = ['template_id' => $t->id, 'audience' => 'staff', 'roles' => ['super_admin'], 'send_email' => 1];
+        $this->withSession(['bulk_send_tokens' => ['t1']])->post(route('bulk-send.store'), $post)
+            ->assertRedirect(route('bulk-send.index'))->assertSessionHas('error');
+        $this->post(route('bulk-send.store'), $post + ['send_token' => 'other'])
+            ->assertRedirect(route('bulk-send.index'))->assertSessionHas('error');
+        $this->assertSame($before, BulkSend::count());
     }
 
     public function test_compose_routes_need_the_permission()

@@ -7,6 +7,7 @@
 <div class="mt"><div class="card card-box"><div class="card-body">
 <form method="post" action="{{ route('bulk-send.store') }}" id="bs-store">
   @csrf
+  <input type="hidden" name="send_token" value="{{ $sendToken }}">
   <input type="hidden" name="template_id" value="{{ $in['template_id'] }}">
   @if(!$in['template_id'])
     <input type="hidden" name="email_subject" value="{{ $in['email_subject'] }}">
@@ -113,7 +114,9 @@
     });
   }
 
+  var submitted = false;
   $('#bs-store').on('submit', function () {
+    if (submitted) { return false; }
     var s = summary();
     if (!s.total) { alert('Nobody to send to.'); return false; }
     var msg = 'Start sending to ' + s.total + ' people?';
@@ -123,6 +126,8 @@
     var $h = $('#bs-hidden').empty();
     Object.keys(excluded).forEach(function (k) { $h.append($('<input type="hidden" name="exclude[]">').val(k)); });
     added.forEach(function (k) { if (!excluded[k]) { $h.append($('<input type="hidden" name="add[]">').val(k)); } });
+    submitted = true;
+    $(this).find('button[type=submit]').prop('disabled', true).text('Starting...');
     return true;
   });
 
