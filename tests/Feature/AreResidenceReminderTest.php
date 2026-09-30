@@ -51,8 +51,19 @@ class AreResidenceReminderTest extends TestCase
     public function test_switched_off_by_default_sends_nothing()
     {
         MessageTemplate::where('key', 'are_residence_reminder')->update(['is_active' => false]);
-        StaffMessages::areResidenceReminder([$this->row(5, 9)]);
+        $before = MessageLog::where('template_key', 'are_residence_reminder')->count();
+        $this->assertSame(0, StaffMessages::areResidenceReminder([$this->row(5, 9)]));
         Mail::assertNothingSent();
+        $this->assertSame($before, MessageLog::where('template_key', 'are_residence_reminder')->count());
+    }
+
+    public function test_missing_row_uses_the_default_which_is_off()
+    {
+        \Illuminate\Support\Facades\DB::table('message_templates')->where('key', 'are_residence_reminder')->delete();
+        $before = MessageLog::where('template_key', 'are_residence_reminder')->count();
+        $this->assertSame(0, StaffMessages::areResidenceReminder([$this->row(5, 9)]));
+        Mail::assertNothingSent();
+        $this->assertSame($before, MessageLog::where('template_key', 'are_residence_reminder')->count());
     }
 
     public function test_cron_does_nothing_outside_09_00()

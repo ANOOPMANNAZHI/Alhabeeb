@@ -399,6 +399,21 @@ class SystemTemplateDefaults
         return isset($all[$key]) ? $all[$key] : null;
     }
 
+    /**
+     * Is the system template switched on? The saved row decides; when the row is
+     * missing (code uploaded before its migration) the default's is_active does.
+     */
+    public static function isActive($key)
+    {
+        $row = \Modules\BackOffice\Entities\MessageTemplate::where('key', $key)
+            ->where('kind', \Modules\BackOffice\Entities\MessageTemplate::KIND_SYSTEM)->first();
+        if ($row) {
+            return (bool) $row->is_active;
+        }
+        $d = self::get($key);
+        return $d ? (bool) $d['is_active'] : false;
+    }
+
     public static function registerPlaceholders()
     {
         foreach (self::all() as $key => $d) {

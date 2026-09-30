@@ -52,6 +52,10 @@ class StaffMessages
      */
     public static function areResidenceReminder($rows)
     {
+        // Switched off: no sends and no skipped_off log rows (the cron runs every day).
+        if (!SystemTemplateDefaults::isActive('are_residence_reminder')) {
+            return 0;
+        }
         $done = [];
         $sent = 0;
         foreach ($rows as $r) {
