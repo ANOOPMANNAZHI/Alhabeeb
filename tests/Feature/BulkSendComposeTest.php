@@ -111,6 +111,34 @@ class BulkSendComposeTest extends TestCase
             ->assertRedirect()->assertSessionHasErrors('template_id');
     }
 
+    public function test_review_page_has_tiles_tabs_preview_and_an_in_page_confirm()
+    {
+        $t = $this->template();
+        $html = $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1, 'send_sms' => 1])->assertOk()->getContent();
+        $this->assertContains('class="bs-stepper"', $html);
+        $this->assertRegExp('/data-step="3"\s+aria-current="step"/', $html);
+        foreach (['People', 'Emails', 'SMS', 'No email', 'Time needed'] as $tile) {
+            $this->assertRegExp('/bs-tile-label">(<i[^>]*><\/i>)?\s*' . preg_quote($tile, '/') . '</', $html, $tile);
+        }
+        foreach (['all', 'excluded', 'noemail'] as $tab) {
+            $this->assertContains('data-tab="' . $tab . '"', $html);
+        }
+        $this->assertContains('Select all on this page', $html);
+        $this->assertContains('id="bs-pv-frame"', $html);
+        $this->assertContains('sandbox=""', $html);
+        $this->assertContains('id="bs-pv-sms"', $html);
+        $this->assertRegExp('/role="dialog"[^>]*aria-modal="true"/', $html);
+        $this->assertContains('SMS costs money', $html);
+        $this->assertContains('Start sending', $html);
+        $this->assertContains('class="bs-actionbar"', $html);
+        $this->assertNotContains('confirm(', $html);
+
+        // SMS off: no SMS tile or bubble
+        $html = $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1])->assertOk()->getContent();
+        $this->assertNotRegExp('/bs-tile-label">(<i[^>]*><\/i>)?\s*SMS</', $html);
+        $this->assertNotContains('id="bs-pv-sms"', $html);
+    }
+
     public function test_search_and_preview()
     {
         $t = $this->template();
