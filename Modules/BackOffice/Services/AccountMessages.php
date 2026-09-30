@@ -14,6 +14,9 @@ use Illuminate\Support\Str;
  */
 class AccountMessages
 {
+    /** Result status: another login user has the same email, so no link was made or sent. */
+    const DUPLICATE_EMAIL = 'duplicate_email';
+
     public static function randomPassword()
     {
         return Str::random(40);
@@ -28,12 +31,22 @@ class AccountMessages
 
     public static function welcome(User $user)
     {
-        return self::sendLink('employee_welcome', $user, 'set_password_link', $user->email ? self::passwordLink($user) : '');
+        return self::sendNewLink('employee_welcome', $user);
     }
 
     public static function passwordReset(User $user)
     {
-        return self::sendLink('employee_password_reset', $user, 'set_password_link', $user->email ? self::passwordLink($user) : '');
+        return self::sendNewLink('employee_password_reset', $user);
+    }
+
+    /** A new token only when there is an address and the template is on (a token replaces any older one). */
+    private static function sendNewLink($key, User $user)
+    {
+        if (self::emailShared($user)) {
+            return self::duplicateResult();
+        }
+        $link = ($user->email && SystemTemplateDefaults::isActive($key)) ? self::passwordLink($user) : '';
+        return self::sendLink($key, $user, 'set_password_link', $link);
     }
 
     /** Login page "Forgot password": the broker already made the token. */
@@ -47,8 +60,30 @@ class AccountMessages
         return route('password.reset', ['token' => $token, 'email' => $user->email]);
     }
 
+    /**
+     * The password broker finds the user by email (first match), so a link for an
+     * email that another login user also has could reset the wrong account.
+     */
+    private static function emailShared(User $user)
+    {
+        $email = mb_strtolower(trim((string) $user->email), 'UTF-8');
+        if ($email === '') {
+            return false;
+        }
+        return \DB::table('users')->where('id', '<>', $user->id)
+            ->whereRaw('LOWER(TRIM(email)) = ?', [$email])->exists();
+    }
+
+    private static function duplicateResult()
+    {
+        return ['email' => self::DUPLICATE_EMAIL, 'sms' => null];
+    }
+
     private static function sendLink($key, User $user, $linkKey, $link)
     {
+        if (self::emailShared($user)) {
+            return self::duplicateResult();
+        }
         $pair = StaffMessages::userRecipients([$user]);
         $values = MessageValues::employee($user) + ['username' => (string) $user->username, $linkKey => $link];
         $options = ['related' => ['user', $user->id], 'secret' => $link === '' ? [] : [$link]];

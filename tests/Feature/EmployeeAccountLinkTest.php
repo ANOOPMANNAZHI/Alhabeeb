@@ -68,6 +68,16 @@ class EmployeeAccountLinkTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    public function test_admin_reset_with_duplicate_email_explains_why()
+    {
+        $user = $this->employeeUser('shared@example.com');
+        $other = User::where('id', '<>', $user->id)->orderBy('id')->first();
+        DB::table('users')->where('id', $other->id)->update(['email' => 'SHARED@example.com']);
+        $this->get(route('employee.resetPassword', $user->user_type_id))
+            ->assertSessionHas('error', 'No link sent: another login user has the same email address. Give this employee a unique email and use Reset Password again.');
+        Mail::assertNothingSent();
+    }
+
     public function test_old_employee_mail_classes_are_gone()
     {
         $this->assertFileNotExists(base_path('Modules/Masters/Emails/EmployeeLoginEmail.php'));

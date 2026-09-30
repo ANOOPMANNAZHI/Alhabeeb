@@ -395,6 +395,9 @@ class EmployeeController extends Controller
       if ($status === MessageLog::SKIPPED_OFF) {
           return 'No link sent: the password email template is switched off (Mail -> Templates).';
       }
+      if ($status === AccountMessages::DUPLICATE_EMAIL) {
+          return 'No link sent: another login user has the same email address. Give this employee a unique email and use Reset Password again.';
+      }
       return 'The password email could not be sent. See Mail -> Sent log for the reason.';
     }
         public function deleteEmployeeImage(Request $request)

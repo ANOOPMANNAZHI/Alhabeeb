@@ -109,7 +109,27 @@ class AccountMessagesTest extends TestCase
     {
         MessageTemplate::where('key', 'employee_password_reset')->update(['is_active' => false]);
         $user = $this->staff('off@example.com');
+        $before = DB::table('password_resets')->count();
         $this->assertSame('skipped_off', AccountMessages::passwordReset($user)['email']);
         Mail::assertNothingSent();
+        $this->assertSame($before, DB::table('password_resets')->count());
+    }
+
+    public function test_duplicate_email_creates_no_token_and_sends_nothing()
+    {
+        $user = $this->staff('dup.staff@example.com');
+        $other = User::where('id', '<>', $user->id)->orderBy('id')->first();
+        DB::table('users')->where('id', $other->id)->update(['email' => ' Dup.Staff@Example.com ']);
+        $before = DB::table('password_resets')->count();
+        $logs = MessageLog::count();
+
+        $this->assertSame(['email' => AccountMessages::DUPLICATE_EMAIL, 'sms' => null], AccountMessages::welcome($user));
+        $this->assertSame('duplicate_email', AccountMessages::passwordReset($user)['email']);
+        $this->assertSame('duplicate_email', AccountMessages::forgot($user, 'tok-dup')['email']);
+
+        Mail::assertNothingSent();
+        $this->assertSame([], $this->sms);
+        $this->assertSame($before, DB::table('password_resets')->count());
+        $this->assertSame($logs, MessageLog::count());
     }
 }
