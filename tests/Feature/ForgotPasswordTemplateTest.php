@@ -55,6 +55,42 @@ class ForgotPasswordTemplateTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    private function userWithEmail($email, $active)
+    {
+        $user = User::whereHas('employee')->orderBy('id')->skip(3)->first();
+        DB::table('users')->where('id', $user->id)->update(['email' => $email, 'user_type_status' => $active]);
+        return User::find($user->id);
+    }
+
+    public function test_inactive_user_gets_no_forgot_link()
+    {
+        $this->userWithEmail('inactive.me@example.com', false);
+        $this->post(route('password.email'), ['email' => 'inactive.me@example.com'])->assertSessionHasErrors('email');
+        Mail::assertNothingSent();
+        $this->assertSame(0, DB::table('password_resets')->where('email', 'inactive.me@example.com')->count());
+    }
+
+    public function test_inactive_user_cannot_reset_with_a_valid_token()
+    {
+        $user = $this->userWithEmail('inactive.reset@example.com', false);
+        $token = \Illuminate\Support\Facades\Password::broker()->createToken($user);
+        $hash = $user->password;
+        $this->post(route('password.update'), ['token' => $token, 'email' => 'inactive.reset@example.com',
+            'password' => 'NewSecret#2026', 'password_confirmation' => 'NewSecret#2026']);
+        $this->assertSame($hash, DB::table('users')->where('id', $user->id)->value('password'));
+        $this->assertGuest();
+    }
+
+    public function test_active_user_can_reset_with_a_valid_token()
+    {
+        $user = $this->userWithEmail('active.reset@example.com', true);
+        $token = \Illuminate\Support\Facades\Password::broker()->createToken($user);
+        $hash = $user->password;
+        $this->post(route('password.update'), ['token' => $token, 'email' => 'active.reset@example.com',
+            'password' => 'NewSecret#2026', 'password_confirmation' => 'NewSecret#2026']);
+        $this->assertNotSame($hash, DB::table('users')->where('id', $user->id)->value('password'));
+    }
+
     public function test_reset_page_prefills_the_email_from_the_link()
     {
         $this->get(route('password.reset', ['token' => 'abc', 'email' => 'x.y@example.com']))
