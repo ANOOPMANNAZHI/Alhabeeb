@@ -183,6 +183,8 @@ class BulkSenderTest extends TestCase
                 $found = true;
                 $this->assertSame('* * * * *', $e->expression);
                 $this->assertTrue($e->withoutOverlapping);
+                // a crashed run must not block sending for the default 24 hours
+                $this->assertSame(10, $e->expiresAt);
             }
         }
         $this->assertTrue($found, 'bulk-messages:send is scheduled');

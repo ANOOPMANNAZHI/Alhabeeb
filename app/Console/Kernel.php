@@ -37,7 +37,7 @@ class Kernel extends ConsoleKernel
 
        $schedule->command('termination-dues:refresh --open-only')->dailyAt('01:30');
 
-       $schedule->command('bulk-messages:send')->everyMinute()->withoutOverlapping();
+       $schedule->command('bulk-messages:send')->everyMinute()->withoutOverlapping(10);
 
     }
 
