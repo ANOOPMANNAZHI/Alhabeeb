@@ -701,9 +701,14 @@ public function printPreview($contract_id){
       if (!empty($tenant->tenant_contact_no)) {
           try {
               $reason = $pdc->pdc_bounce_reason ? $pdc->pdc_cancel_reason_name : '';
-              $msg = "Dear Tenant, your cheque No. {$pdc->pdc_check_no} of amount " . number_format($pdc->pdc_amt, 3)
-                   . ' dated ' . Carbon::parse($pdc->pdc_check_date)->format('d-m-Y') . ' has been returned by the bank'
-                   . ($reason ? ' (' . $reason . ')' : '') . '. Please contact us to replace it. - Al Habib';
+              // Kept within one SMS (160 chars): the greeting is dropped when a long reason needs the room
+              $body = "your cheque {$pdc->pdc_check_no} of OMR " . number_format($pdc->pdc_amt, 3)
+                    . ' dated ' . Carbon::parse($pdc->pdc_check_date)->format('d-m-Y') . ' was returned by the bank'
+                    . ($reason ? ' (' . $reason . ')' : '') . '. Please contact us to replace it. -Al Habib';
+              $msg = strlen('Dear Tenant, ' . $body) <= 160 ? 'Dear Tenant, ' . $body : ucfirst($body);
+              if (strlen($msg) > 160) {
+                  $msg = str_replace('returned by the bank', 'returned by bank', $msg);
+              }
               if (!sendSms($tenant->tenant_contact_no, $msg, [])) {
                   Log::warning('Tenant bounce SMS not sent for PDC #' . $pdc->id . ', mobile: ' . $tenant->tenant_contact_no);
               }
