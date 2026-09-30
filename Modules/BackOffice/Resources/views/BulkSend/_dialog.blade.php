@@ -74,5 +74,12 @@
     $f.data('sent', true);
     setTimeout(function () { lock(form); }, 0); // after the browser has taken the submit
   });
+  // Back button (page restored from the cache): action forms work again. Not the review Start form: its token is used up.
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) { return; }
+    $('form.bs-action').each(function () {
+      $(this).removeData('sent').removeData('confirmed').find('button[type=submit]').prop('disabled', false).removeAttr('aria-disabled');
+    });
+  });
 })();
 </script>

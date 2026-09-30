@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
@@ -23,12 +24,22 @@ class BulkSendComposeTest extends TestCase
         parent::setUp();
         Mail::fake();
         SystemMessenger::$smsSender = function () { return true; };
+        $this->forgetCounts();
         $this->actingAs(User::find(1));
+    }
+
+    private function forgetCounts()
+    {
+        Cache::forget('bulk-send:audience-counts');
+        foreach (['tenant_active', 'tenant_past', 'landlord', 'staff'] as $a) {
+            Cache::forget('bulk-send:place-counts:' . $a);
+        }
     }
 
     protected function tearDown()
     {
         SystemMessenger::$smsSender = 'sendSms';
+        $this->forgetCounts();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         parent::tearDown();
     }
@@ -73,6 +84,10 @@ class BulkSendComposeTest extends TestCase
         $this->assertContains('SMS (costs money)', $html);
         $this->assertRegExp('/<input type="radio" name="audience" value="landlord"[^>]*checked/', $html);
         $this->assertContains('data-count-for="staff"', $html);
+        $this->assertContains('Counts refresh every 5 minutes; the Summary is always exact.', $html);
+        $this->assertContains('by their latest contract', $html);
+        $this->assertRegExp('/<fieldset[^>]*id="bs-loc"[^>]*>\s*<legend/', $html);
+        $this->assertRegExp('/<fieldset[^>]*id="bs-bld"[^>]*>\s*<legend/', $html);
         $this->assertRegExp('/<input type="checkbox" name="locations\[\]" value="' . $location->id . '"[^>]*checked/', $html);
         $this->assertRegExp('/<input type="checkbox" name="roles\[\]" value="super_admin"/', $html);
         $this->assertContains(json_encode(route('bulk-send.audience-counts'), 15), $html); // as @json writes it
@@ -220,6 +235,8 @@ class BulkSendComposeTest extends TestCase
         foreach ($json as $audience => $n) {
             $this->assertSame(RecipientFinder::count($audience, [])['total'], $n, $audience);
         }
+        $this->assertSame($json, $this->get(route('bulk-send.audience-counts'))->assertOk()->json());
+        $this->assertTrue(Cache::has('bulk-send:audience-counts'));
     }
 
     public function test_place_counts_per_building_location_and_role()
@@ -246,6 +263,20 @@ class BulkSendComposeTest extends TestCase
             ksort($byBuilding); ksort($gotB); ksort($byLocation); ksort($gotL);
             $this->assertSame($byBuilding, $gotB, $audience);
             $this->assertSame($byLocation, $gotL, $audience);
+            // Independent check: the building counts add up to the people that have a building.
+            $withBuilding = 0;
+            foreach (RecipientFinder::people($audience, []) as $p) {
+                if ($p['building_id']) {
+                    $withBuilding++;
+                }
+            }
+            $this->assertSame($withBuilding, array_sum($json['buildings']), $audience);
+            if ($json['buildings']) {
+                $b = array_keys($json['buildings'])[0];
+                $this->assertLessThanOrEqual(RecipientFinder::count($audience, ['buildings' => [$b]])['total'], $json['buildings'][$b], $audience);
+            }
+            // A second call (served from the cache) gives the same data.
+            $this->assertSame($json, $this->get(route('bulk-send.place-counts', ['audience' => $audience]))->assertOk()->json());
         }
         $json = $this->get(route('bulk-send.place-counts', ['audience' => 'staff']))->assertOk()->json();
         $this->assertSame(['roles'], array_keys($json));

@@ -4,6 +4,7 @@ namespace Modules\BackOffice\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -91,10 +92,14 @@ class BulkSendController extends Controller
     /** Compose page: how many people each audience has (no filters). */
     public function audienceCounts()
     {
-        $out = [];
-        foreach (array_keys(BulkSend::AUDIENCE_LABELS) as $audience) {
-            $out[$audience] = RecipientFinder::count($audience, [])['total'];
-        }
+        // Cached for 5 minutes: the tenant_past scan is heavy. The Summary counts stay exact.
+        $out = Cache::remember('bulk-send:audience-counts', 300, function () {
+            $out = [];
+            foreach (array_keys(BulkSend::AUDIENCE_LABELS) as $audience) {
+                $out[$audience] = RecipientFinder::count($audience, [])['total'];
+            }
+            return $out;
+        });
         return response()->json($out);
     }
 
@@ -105,6 +110,17 @@ class BulkSendController extends Controller
     public function placeCounts(Request $request)
     {
         $audience = (string) $request->input('audience');
+        if (!isset(BulkSend::AUDIENCE_LABELS[$audience])) {
+            return response()->json($this->computePlaceCounts($audience)); // nothing to scan, nothing to cache
+        }
+        $out = Cache::remember('bulk-send:place-counts:' . $audience, 300, function () use ($audience) {
+            return $this->computePlaceCounts($audience);
+        });
+        return response()->json($out);
+    }
+
+    private function computePlaceCounts($audience)
+    {
         if ($audience === 'staff') {
             $ids = [];
             foreach (RecipientFinder::people('staff', []) as $p) {
@@ -118,7 +134,7 @@ class BulkSendController extends Controller
                     $roles[$r->name] = (isset($roles[$r->name]) ? $roles[$r->name] : 0) + 1;
                 }
             }
-            return response()->json(['roles' => (object) $roles]);
+            return ['roles' => (object) $roles];
         }
         $locations = [];
         $buildings = [];
@@ -136,7 +152,7 @@ class BulkSendController extends Controller
                 }
             }
         }
-        return response()->json(['locations' => (object) $locations, 'buildings' => (object) $buildings]);
+        return ['locations' => (object) $locations, 'buildings' => (object) $buildings];
     }
 
     public function review(Request $request)

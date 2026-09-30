@@ -74,7 +74,9 @@
   <div class="mt-footer" style="margin-top:16px">
     <a href="{{ route('bulk-send.index') }}" class="mt-btn"><i class="fa fa-arrow-left" aria-hidden="true"></i> All sends</a>
     @if(Route::has('message-log.index'))
-      <a href="{{ route('message-log.index', ['bulk_send' => $send->id]) }}" class="mt-btn"><i class="fa fa-list-alt" aria-hidden="true"></i> Open in Sent log</a>
+      @can('view_message_log')
+        <a href="{{ route('message-log.index', ['bulk_send' => $send->id]) }}" class="mt-btn"><i class="fa fa-list-alt" aria-hidden="true"></i> Open in Sent log</a>
+      @endcan
     @endif
   </div>
 </div></div></div>

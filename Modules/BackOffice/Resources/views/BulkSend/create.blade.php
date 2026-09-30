@@ -127,13 +127,15 @@
             </label>
           @endforeach
         </div>
+        <p class="mt-help" style="margin:8px 0 0">Counts refresh every 5 minutes; the Summary is always exact.</p>
       </fieldset>
 
       <div id="bs-place">
+        <p class="mt-help" style="margin:0 0 8px">Numbers next to each location/building count each person once, by their latest contract; ticking still includes everyone with a contract there.</p>
         <fieldset class="bs-pick" id="bs-loc">
+          <legend style="margin-bottom:6px">Locations</legend>
           <div class="bs-pick-head">
             <div>
-              <legend style="margin-bottom:6px">Locations</legend>
               <label for="bs-loc-q" class="mt-help" style="font-weight:600">Search locations</label>
               <input type="search" id="bs-loc-q" class="mt-input bs-pick-q" data-list="#bs-loc-list" autocomplete="off">
             </div>
@@ -156,9 +158,9 @@
         </fieldset>
 
         <fieldset class="bs-pick" id="bs-bld">
+          <legend style="margin-bottom:6px">Buildings (optional)</legend>
           <div class="bs-pick-head">
             <div>
-              <legend style="margin-bottom:6px">Buildings (optional)</legend>
               <label for="bs-bld-q" class="mt-help" style="font-weight:600">Search buildings</label>
               <input type="search" id="bs-bld-q" class="mt-input bs-pick-q" data-list="#bs-bld-list" autocomplete="off">
             </div>
@@ -286,22 +288,22 @@
     var c = placeCache[audience()];
     if (!c) { return; }
     if (c.roles) {
-      $('[data-role]').each(function () { setN($(this), c.roles[$(this).attr('data-role')] || 0); });
+      $('#bs-form [data-role]').each(function () { setN($(this), c.roles[$(this).attr('data-role')] || 0); });
     } else {
-      $('[data-location]').each(function () { setN($(this), c.locations[$(this).attr('data-location')] || 0); });
-      $('[data-building]').each(function () { setN($(this), c.buildings[$(this).attr('data-building')] || 0); });
+      $('#bs-form [data-location]').each(function () { setN($(this), c.locations[$(this).attr('data-location')] || 0); });
+      $('#bs-form [data-building]').each(function () { setN($(this), c.buildings[$(this).attr('data-building')] || 0); });
     }
   }
   function loadPlaceCounts() {
     var a = audience();
     if (!a) { return; }
     if (placeCache[a]) { showPlaceCounts(); return; }
-    $('[data-location], [data-building], [data-role]').empty();
+    $('#bs-form [data-location], #bs-form [data-building], #bs-form [data-role]').empty();
     $.get(URLS.places, { audience: a }).done(function (c) { placeCache[a] = c; if (audience() === a) { showPlaceCounts(); } });
   }
   $.get(URLS.audiences).done(function (c) {
-    $('[data-count-for]').each(function () { var n = c[$(this).attr('data-count-for')]; $(this).text(n === undefined ? '—' : n); });
-  }).fail(function () { $('[data-count-for]').text('—'); });
+    $('#bs-form [data-count-for]').each(function () { var n = c[$(this).attr('data-count-for')]; $(this).text(n === undefined ? '—' : n); });
+  }).fail(function () { $('#bs-form [data-count-for]').text('—'); });
 
   // ---- summary --------------------------------------------------------------
   var timer, lastCount = null;

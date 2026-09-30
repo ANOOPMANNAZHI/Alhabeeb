@@ -29,7 +29,7 @@
   <div class="card-body">
     @if(!empty($filters['bulk_send']))
       <p class="mt-help" style="margin:0 0 12px"><i class="fa fa-filter" aria-hidden="true"></i>
-        Showing only the messages of <a href="{{ route('bulk-send.show', $filters['bulk_send']) }}">send #{{ $filters['bulk_send'] }}</a>.
+        Showing only the messages of @can('bulk_message_send')<a href="{{ route('bulk-send.show', $filters['bulk_send']) }}">send #{{ $filters['bulk_send'] }}</a>@else send #{{ $filters['bulk_send'] }}@endcan.
         <a href="{{ route('message-log.index') }}">Show all messages</a></p>
     @endif
     <form method="GET" action="{{ route('message-log.index') }}" class="mt-filters" style="margin-bottom:16px" role="search">

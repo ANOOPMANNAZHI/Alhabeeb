@@ -239,7 +239,8 @@
   }
 
   function preview() {
-    var first = included()[0]; if (!first) { return; }
+    var first = included()[0];
+    if (!first) { $('#bs-pv-for').text(''); $('#bs-pv-subject, #bs-pv-to, #bs-pv-sms').text('No one to preview'); $('#bs-pv-frame').attr('srcdoc', ''); return; }
     var data = $('#bs-store').serializeArray().filter(function (f) { return f.name !== '_token'; });
     data.push({ name: 'key', value: first.key }, { name: '_token', value: token });
     $('#bs-pv-for').text('for ' + first.name);
