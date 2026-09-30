@@ -91,14 +91,16 @@ class BulkSender
             $send->logKey(), $send->texts(),
             new MessageRecipient($row->name, $row->email, $row->mobile),
             $row->values ? $row->values : [],
-            ['related' => ['bulk_send', $send->id], 'channels' => ['email' => $send->send_email, 'sms' => $send->send_sms]]
+            ['related' => ['bulk_send', $send->id], 'channels' => ['email' => $send->send_email, 'sms' => $send->send_sms], 'with_notes' => true]
         );
 
         $parts = [];
         $statuses = [];
         foreach (['email', 'sms'] as $ch) {
             if ($result[$ch] !== null) {
-                $parts[] = $ch . ': ' . $result[$ch];
+                $reason = isset($result['notes'][$ch]) ? trim((string) $result['notes'][$ch]) : '';
+                // the failure reason, as written (masked) to the sent log
+                $parts[] = $ch . ': ' . $result[$ch] . ($result[$ch] === MessageLog::FAILED && $reason !== '' ? ' (' . $reason . ')' : '');
                 $statuses[] = $result[$ch];
             }
         }

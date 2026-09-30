@@ -133,6 +133,9 @@ class BulkSenderTest extends TestCase
         $this->assertSame(BulkSend::NOTE_SAFETY_STOP, $f->note);
         $this->assertSame(5, (int) $f->failed);
         $this->assertSame(3, $send->pendingCount());
+        $note = $send->recipients()->where('status', 'failed')->orderBy('id')->value('note');
+        $this->assertContains('email: failed', $note);
+        $this->assertContains('SMTP 554 blocked', $note);
     }
 
     public function test_one_bad_row_is_marked_failed_and_the_run_goes_on()

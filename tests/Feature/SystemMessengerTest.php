@@ -216,6 +216,21 @@ class SystemMessengerTest extends TestCase
         $this->assertSame([], $this->sms);
     }
 
+    public function test_send_texts_can_return_the_masked_failure_notes()
+    {
+        Mail::shouldReceive('to')->andThrow(new \Exception('SMTP 554 blocked for https://x.test/secret-link'));
+        SystemMessenger::$smsSender = function () { return false; };
+        $texts = ['email_subject' => 'S', 'email_body' => '<p>B</p>', 'sms_body' => 'Hi'];
+        $to = new MessageRecipient('A', 'a@example.com', '99111222');
+        $opts = ['channels' => ['email' => true, 'sms' => true], 'secret' => ['https://x.test/secret-link']];
+
+        $this->assertSame(['email' => 'failed', 'sms' => 'failed'], SystemMessenger::sendTexts('bulk:one-off', $texts, $to, [], $opts));
+        $r = SystemMessenger::sendTexts('bulk:one-off', $texts, $to, [], $opts + ['with_notes' => true]);
+        $this->assertSame('failed', $r['email']);
+        $this->assertSame('SMTP 554 blocked for [link hidden]', $r['notes']['email']);
+        $this->assertSame('SMS gateway refused or SMS is disabled in settings', $r['notes']['sms']);
+    }
+
     public function test_send_texts_adds_today_and_company_name()
     {
         $texts = ['email_subject' => 'X', 'email_body' => '<p>{company_name} {today}</p>', 'sms_body' => null];

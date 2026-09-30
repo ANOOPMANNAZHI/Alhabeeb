@@ -36,6 +36,8 @@ class SystemMessenger
     /**
      * Send given texts (e.g. a bulk send's frozen copy) with the channels the
      * caller chose. Same rendering, logging and masking as send().
+     * Option 'with_notes' => true adds 'notes' => ['email' => ..., 'sms' => ...]:
+     * the note written to the sent log per channel (secrets already masked).
      */
     public static function sendTexts($logKey, array $texts, MessageRecipient $to, array $values, array $options = [])
     {
@@ -59,6 +61,8 @@ class SystemMessenger
             'triggered_by' => \Auth::check() ? \Auth::id() : null,
         ];
         $result = ['email' => null, 'sms' => null];
+        $notes = ['email' => null, 'sms' => null];
+        $withNotes = !empty($options['with_notes']);
         // Values that must never reach the sent log (e.g. set-password links)
         $secrets = [];
         foreach (isset($options['secret']) ? (array) $options['secret'] : [] as $s) {
@@ -74,6 +78,10 @@ class SystemMessenger
             self::log($base + ['channel' => $channel, 'recipient' => $channel === 'sms' ? $to->mobile : $to->email,
                                'status' => MessageLog::SKIPPED_OFF, 'note' => $note], $secrets);
             $result[$channel] = MessageLog::SKIPPED_OFF;
+            if ($withNotes) {
+                $notes[$channel] = self::mask($note, $secrets);
+                $result['notes'] = $notes;
+            }
             return $result;
         }
 
@@ -103,6 +111,7 @@ class SystemMessenger
                 }
             }
             self::log($row + ['status' => $result['email']], $secrets);
+            $notes['email'] = self::mask($row['note'], $secrets);
         }
 
         if ($smsOn && $out['sms'] !== null) {
@@ -122,8 +131,20 @@ class SystemMessenger
                 }
             }
             self::log($row + ['status' => $result['sms']], $secrets);
+            $notes['sms'] = self::mask($row['note'], $secrets);
+        }
+        if ($withNotes) {
+            $result['notes'] = $notes;
         }
         return $result;
+    }
+
+    private static function mask($text, array $secrets)
+    {
+        if ($text === null || !$secrets) {
+            return $text;
+        }
+        return str_replace(array_unique($secrets), '[link hidden]', (string) $text);
     }
 
     private static function log(array $row, array $secrets = [])
@@ -132,7 +153,7 @@ class SystemMessenger
             // note holds exception messages, which can echo the secret (e.g. a URL)
             foreach (['subject', 'body', 'note'] as $field) {
                 if (isset($row[$field])) {
-                    $row[$field] = str_replace(array_unique($secrets), '[link hidden]', (string) $row[$field]);
+                    $row[$field] = self::mask($row[$field], $secrets);
                 }
             }
         }
