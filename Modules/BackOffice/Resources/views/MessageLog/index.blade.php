@@ -73,7 +73,7 @@
           @foreach($logs as $log)
             <tr>
               <td style="white-space:nowrap">{{ optional($log->created_at)->format('d/m/Y H:i') }}</td>
-              <td>{{ isset($templates[$log->template_key]) ? $templates[$log->template_key] : $log->template_key }}<span class="mt-key">{{ $log->template_key }}</span></td>
+              <td>{{ $log->template_label }}<span class="mt-key">{{ $log->template_key }}</span></td>
               <td style="white-space:nowrap">
                 @if($log->channel === 'sms')<i class="fa fa-mobile" aria-hidden="true"></i> SMS @else<i class="fa fa-envelope-o" aria-hidden="true"></i> Email @endif
               </td>

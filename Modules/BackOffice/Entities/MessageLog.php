@@ -20,4 +20,19 @@ class MessageLog extends Model
     public $timestamps = false;
     protected $guarded = [];
     protected $dates = ['created_at'];
+
+    /** Readable template name for the Sent log (bulk sends store bulk:<id> / bulk:one-off). */
+    public function getTemplateLabelAttribute()
+    {
+        $key = (string) $this->template_key;
+        if ($key === 'bulk:one-off') {
+            return 'Bulk: one-off message';
+        }
+        if (strpos($key, 'bulk:') === 0) {
+            $t = MessageTemplate::withTrashed()->find((int) substr($key, 5));
+            return 'Bulk: ' . ($t ? $t->name : 'template #' . substr($key, 5));
+        }
+        $t = MessageTemplate::where('key', $key)->first();
+        return $t ? $t->name : $key;
+    }
 }

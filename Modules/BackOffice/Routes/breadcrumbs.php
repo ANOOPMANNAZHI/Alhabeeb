@@ -959,3 +959,11 @@ Breadcrumbs::for('message-log.index', function ($trail) {
     $trail->parent('home');
     $trail->push('Sent log', route('message-log.index'));
 });
+Breadcrumbs::for('bulk-send.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Send', route('bulk-send.index'));
+});
+Breadcrumbs::for('bulk-send.show', function ($trail, $send) {
+    $trail->parent('bulk-send.index');
+    $trail->push('Send #' . $send->id, route('bulk-send.show', $send->id));
+});

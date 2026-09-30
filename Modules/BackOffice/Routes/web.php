@@ -642,6 +642,12 @@ Route::middleware('auth')->group(function () {
 
 	Route::get('message-log', 'MessageLogController@index')->name('message-log.index');
 	Route::get('message-log/{id}', 'MessageLogController@show')->name('message-log.show');
+	Route::get('bulk-send', 'BulkSendController@index')->name('bulk-send.index');
+	Route::get('bulk-send/{bulkSend}', 'BulkSendController@show')->name('bulk-send.show')->where('bulkSend', '[0-9]+');
+	Route::post('bulk-send/{bulkSend}/pause', 'BulkSendController@pause')->name('bulk-send.pause');
+	Route::post('bulk-send/{bulkSend}/resume', 'BulkSendController@resume')->name('bulk-send.resume');
+	Route::post('bulk-send/{bulkSend}/cancel', 'BulkSendController@cancel')->name('bulk-send.cancel');
+	Route::post('bulk-send/{bulkSend}/resend-failed', 'BulkSendController@resendFailed')->name('bulk-send.resend-failed');
 	Route::post('message-templates/preview', 'MessageTemplateController@preview')->name('message-templates.preview');
 	Route::post('message-templates/{messageTemplate}/reset', 'MessageTemplateController@reset')->name('message-templates.reset');
 	Route::resource('message-templates', 'MessageTemplateController')->except(['show'])->parameters(['message-templates' => 'messageTemplate']);
