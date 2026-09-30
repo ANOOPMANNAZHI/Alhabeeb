@@ -1,49 +1,78 @@
 @extends('layouts.plms-app')
 @section('css')
-@include('backoffice::MessageTemplate._styles')
+@include('backoffice::BulkSend._styles')
 @endsection
 @section('content')
+@php
+  $bsRunning = $sends->contains(function ($s) { return $s->status === 'running'; });
+  $bsAudiences = \Modules\BackOffice\Entities\BulkSend::AUDIENCE_LABELS;
+@endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Send</div></div>{{ Breadcrumbs::render('bulk-send.index') }}</div></div>
-<div class="mt"><div class="card card-box"><div class="card-body">
-  @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
-  @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
-  @if(Route::has('bulk-send.create'))
-  <p><a class="mt-btn mt-btn-primary" href="{{ route('bulk-send.create') }}"><i class="fa fa-paper-plane"></i> New send</a></p>
+<div class="mt bs"><div class="card card-box"><div class="card-body">
+  @if(session('success'))<div class="alert alert-success" role="status"><i class="fa fa-check-circle" aria-hidden="true"></i> {{ session('success') }}</div>@endif
+  @if(session('error'))<div class="alert alert-danger" role="alert"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> {{ session('error') }}</div>@endif
+
+  <div class="bs-head">
+    <div>
+      <h2>Bulk sends</h2>
+      @if($bsRunning)
+        <p class="bs-refresh" id="bs-refresh" data-auto-refresh="1"><i class="fa fa-refresh" aria-hidden="true"></i>
+          Updated <time id="bs-refresh-time">{{ now()->format('H:i:s') }}</time> · auto-refresh on</p>
+      @endif
+    </div>
+    @if(Route::has('bulk-send.create') && $sends->count())
+      <a class="mt-btn mt-btn-primary" href="{{ route('bulk-send.create') }}"><i class="fa fa-paper-plane" aria-hidden="true"></i> New send</a>
+    @endif
+  </div>
+
+  @if($sends->count())
+    <ul class="bs-list">
+      @foreach($sends as $s)
+        <li class="bs-send">
+          <div>
+            <h3 class="bs-send-title">
+              <a href="{{ route('bulk-send.show', $s->id) }}"><span class="bs-send-id">#{{ $s->id }}</span> {{ $s->template ? $s->template->name : 'One-off message' }}</a>
+              @include('backoffice::BulkSend._badge', ['st' => $s->status])
+            </h3>
+            @if($s->email_subject)<p class="bs-subject">{{ $s->email_subject }}</p>@endif
+            <div class="bs-chips">
+              <span class="bs-chip"><i class="fa fa-users" aria-hidden="true"></i> {{ isset($bsAudiences[$s->audience]) ? $bsAudiences[$s->audience] : $s->audience }}</span>
+              @if($s->send_email)<span class="bs-chip"><i class="fa fa-envelope-o" aria-hidden="true"></i> Email</span>@endif
+              @if($s->send_sms)<span class="bs-chip"><i class="fa fa-mobile" aria-hidden="true"></i> SMS</span>@endif
+            </div>
+            <div class="bs-meta">Started {{ $s->created_at ? $s->created_at->format('d/m/Y H:i') : '' }}@if($s->creator) by {{ $s->creator->username }}@endif</div>
+          </div>
+          <div>
+            @include('backoffice::BulkSend._progress', ['s' => $s])
+            @if($s->note)<p class="bs-warn"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> <span>{{ $s->note }}</span></p>@endif
+          </div>
+          @include('backoffice::BulkSend._actions', ['s' => $s])
+        </li>
+      @endforeach
+    </ul>
+    <div style="margin-top:16px">{{ $sends->links() }}</div>
+  @else
+    <div class="bs-empty">
+      <i class="fa fa-paper-plane-o" aria-hidden="true"></i>
+      <strong>No sends yet.</strong>
+      @if(Route::has('bulk-send.create'))
+        <a class="mt-btn mt-btn-primary" href="{{ route('bulk-send.create') }}"><i class="fa fa-paper-plane" aria-hidden="true"></i> New send</a>
+      @endif
+    </div>
   @endif
-  <table class="table table-striped">
-    <thead><tr><th>#</th><th>Started</th><th>By</th><th>Message</th><th>To</th><th>Channels</th><th>Status</th><th>Sent / Failed / Skipped / Pending</th><th></th></tr></thead>
-    <tbody>
-    @forelse($sends as $s)
-      @php $pending = $s->status === 'cancelled' ? 0 : $s->total - $s->sent - $s->failed - $s->skipped; @endphp
-      <tr>
-        <td><a href="{{ route('bulk-send.show', $s->id) }}">{{ $s->id }}</a></td>
-        <td>{{ $s->created_at ? $s->created_at->format('d/m/Y H:i') : '' }}</td>
-        <td>{{ $s->creator ? $s->creator->username : '' }}</td>
-        <td>{{ $s->template ? $s->template->name : 'One-off' }}<div class="mt-help">{{ $s->email_subject }}</div></td>
-        <td>{{ \Modules\BackOffice\Entities\BulkSend::AUDIENCE_LABELS[$s->audience] ?? $s->audience }}</td>
-        <td>{{ $s->send_email ? 'Email' : '' }}{{ $s->send_email && $s->send_sms ? ' + ' : '' }}{{ $s->send_sms ? 'SMS' : '' }}</td>
-        <td><span class="mt-badge {{ $s->status === 'running' ? 'mt-badge-on' : '' }}">{{ ucfirst($s->status) }}</span>@if($s->note)<div class="mt-help">{{ $s->note }}</div>@endif</td>
-        <td>{{ $s->sent }} / {{ $s->failed }} / {{ $s->skipped }} / {{ max(0, $pending) }}</td>
-        <td class="mt-actions">
-          @if($s->status === 'running')
-            <form method="post" action="{{ route('bulk-send.pause', $s->id) }}" style="display:inline">@csrf<button class="mt-btn mt-btn-sm">Pause</button></form>
-          @endif
-          @if($s->status === 'paused')
-            <form method="post" action="{{ route('bulk-send.resume', $s->id) }}" style="display:inline">@csrf<button class="mt-btn mt-btn-sm">Resume</button></form>
-          @endif
-          @if(in_array($s->status, ['running', 'paused']))
-            <form method="post" action="{{ route('bulk-send.cancel', $s->id) }}" style="display:inline" onsubmit="return confirm('Cancel send #{{ $s->id }}? Messages not sent yet will not be sent.')">@csrf<button class="mt-btn mt-btn-sm mt-btn-danger">Cancel</button></form>
-          @endif
-          @if(in_array($s->status, ['done', 'cancelled']) && $s->failed > 0 && !$s->resent_send_id)
-            <form method="post" action="{{ route('bulk-send.resend-failed', $s->id) }}" style="display:inline" onsubmit="if (!confirm('Resend the failed messages of send #{{ $s->id }}?')) { return false; } $(this).find('button').prop('disabled', true); return true;">@csrf<button class="mt-btn mt-btn-sm">Resend to failed</button></form>
-          @endif
-        </td>
-      </tr>
-    @empty
-      <tr><td colspan="9" class="mt-empty">No sends yet.</td></tr>
-    @endforelse
-    </tbody>
-  </table>
-  {{ $sends->links() }}
 </div></div></div>
+@endsection
+@section('scripts')
+@include('backoffice::BulkSend._dialog')
+@if($bsRunning)
+<script>
+(function () {
+  // Reload every 30 s while a send is running and this tab is visible (never while a dialog is open).
+  var EVERY = 30000, loaded = Date.now();
+  function due() { return Date.now() - loaded >= EVERY && document.visibilityState === 'visible' && $('#bs-dialog').prop('hidden'); }
+  setInterval(function () { if (due()) { window.location.reload(); } }, 5000);
+  document.addEventListener('visibilitychange', function () { if (due()) { window.location.reload(); } });
+})();
+</script>
+@endif
 @endsection

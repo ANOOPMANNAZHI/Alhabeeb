@@ -94,8 +94,46 @@ class BulkSendScreensTest extends TestCase
     {
         $send = $this->send(['status' => BulkSend::CANCELLED, 'total' => 10, 'sent' => 2, 'failed' => 1]);
         $html = $this->get(route('bulk-send.index'))->getContent();
-        $this->assertContains('2 / 1 / 0 / 0', $html);
-        $this->assertNotContains('2 / 1 / 0 / 7', $html);
+        $this->assertContains('2 sent', $html);
+        $this->assertContains('1 failed', $html);
+        $this->assertContains('0 pending', $html);
+        $this->assertNotContains('7 pending', $html);
+    }
+
+    public function test_list_shows_status_with_icon_and_text_and_accessible_progress()
+    {
+        $send = $this->send(['sent' => 1, 'failed' => 0, 'total' => 4]);
+        $html = $this->get(route('bulk-send.index'))->getContent();
+        $this->assertContains('1 of 4 processed', $html);
+        $this->assertRegExp('/role="progressbar"[^>]*aria-valuenow="1"[^>]*aria-valuemax="4"/', $html);
+        $this->assertRegExp('/bs-badge-running"><i class="fa [a-z-]+" aria-hidden="true"><\/i> Running</', $html);
+        $this->assertContains('data-auto-refresh="1"', $html);
+        $this->assertContains('auto-refresh on', $html);
+        $this->assertContains('role="dialog"', $html);
+        $this->assertContains('Cancel send #' . $send->id . '? Messages not sent yet will not be sent.', $html);
+    }
+
+    /** The list view with exactly these sends (no need to touch the other rows of the shared DB). */
+    private function listHtml(array $sends)
+    {
+        $this->get(route('bulk-send.index')); // boots the request (route, session) the layout needs
+        $page = new \Illuminate\Pagination\LengthAwarePaginator($sends, count($sends), 50, 1, ['path' => route('bulk-send.index')]);
+        return view('backoffice::BulkSend.index', ['sends' => $page])->render();
+    }
+
+    public function test_list_does_not_auto_refresh_without_a_running_send()
+    {
+        $html = $this->listHtml([$this->send(['status' => BulkSend::DONE])]);
+        $this->assertNotContains('data-auto-refresh="1"', $html);
+        $this->assertContains('Done', $html);
+    }
+
+    public function test_list_empty_state()
+    {
+        $html = $this->listHtml([]);
+        $this->assertContains('No sends yet', $html);
+        $this->assertContains('bs-empty', $html);
+        $this->assertContains(route('bulk-send.create'), $html);
     }
 
     public function test_resend_button_only_for_a_finished_send_not_yet_resent()
