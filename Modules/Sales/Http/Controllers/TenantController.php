@@ -26,7 +26,6 @@ use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Modules\BackOffice\Services\TenantMessages;
-use Modules\Sales\Emails\AreReminderEmail;
 use Dynamics;
 use Exception;
 
@@ -468,12 +467,14 @@ class TenantController extends Controller
     *
     */
     public function areReminderNotification()
-    { 
-      $current = Carbon::now(); 
-      $futureDate = $current->addMonths(1)->format('Y-m-d');
+    {
+      // Called from the every-minute notification command: run once a day at 09:00.
+      if (Carbon::now()->hour != 9 || Carbon::now()->minute != 0) {
+          return;
+      }
       $today = date('Y-m-d');
-     
-      $tenants = Tenant::active()->leftJoin('tenant_contracts', 'tenant.id', '=', 'tenant_contracts.tenant_id')
+
+      $rows = Tenant::active()->leftJoin('tenant_contracts', 'tenant.id', '=', 'tenant_contracts.tenant_id')
       ->leftJoin('buildings', 'tenant_contracts.building_id', '=', 'buildings.id')
       ->leftJoin('preferred_buildings', 'buildings.id', '=', 'preferred_buildings.building_id')
       ->leftJoin('are_buildings', 'preferred_buildings.are_building_id', '=', 'are_buildings.id')
@@ -481,15 +482,12 @@ class TenantController extends Controller
       ->leftJoin('employees', 'users.user_type_id', '=', 'employees.id')
       ->where('preferred_buildings.assign_to','=',null)
       ->where('tenant.tenant_type_id',1)->where('tenant_contracts.tenant_contract_status',1)->whereDate('tenant.tenant_resident_exp_date','<',$today)
-      ->get();  
+      ->whereNotNull('users.id')
+      ->get(['users.id as are_user_id', 'users.email as are_email', 'employees.employee_name', 'employees.employee_contact_no',
+             'tenant.id as tenant_id', 'tenant.tenant_name', 'tenant.tenant_resident_exp_date',
+             'tenant_contracts.tenant_contract_no', 'buildings.building_name']);
 
-      foreach ($tenants as $key => $tenant) {
-        $tenant->tenant_subject = "Reminder";
-        $tenant->tenant_content = "This is to inform you that the Residence ID Exp Date has been expired for the building ".$tenant->building_name."-".$tenant->tenant_contract_no.".";
-        $email = $tenant->email;
-        if(!empty($email)){
-         Mail::to($email)->send(new AreReminderEmail($tenant)); //Email Notification
-       }
-     }
+      // System template are_residence_reminder (switched off by default)
+      \Modules\BackOffice\Services\StaffMessages::areResidenceReminder($rows);
     }
   }

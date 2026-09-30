@@ -45,4 +45,34 @@ class StaffMessages
             SystemMessenger::send($key, $pair[1], $values + MessageValues::employee($pair[0]), ['related' => ['enquiry', $enquiry->id]]);
         }
     }
+
+    /**
+     * are_residence_reminder: one message per ARE per expired tenant/contract.
+     * The source query joins ARE assignments, which repeats rows; duplicates are sent once.
+     */
+    public static function areResidenceReminder($rows)
+    {
+        $done = [];
+        $sent = 0;
+        foreach ($rows as $r) {
+            if (empty($r->are_user_id)) {
+                continue;
+            }
+            $k = $r->are_user_id . '|' . $r->tenant_id . '|' . $r->tenant_contract_no;
+            if (isset($done[$k])) {
+                continue;
+            }
+            $done[$k] = true;
+            $to = new MessageRecipient($r->employee_name, $r->are_email, $r->employee_contact_no);
+            SystemMessenger::send('are_residence_reminder', $to, [
+                'employee_name'    => (string) $r->employee_name,
+                'tenant_name'      => (string) $r->tenant_name,
+                'contract_no'      => (string) $r->tenant_contract_no,
+                'building'         => (string) $r->building_name,
+                'residence_expiry' => $r->tenant_resident_exp_date ? date('d/m/Y', strtotime($r->tenant_resident_exp_date)) : '',
+            ], ['related' => ['tenant', $r->tenant_id]]);
+            $sent++;
+        }
+        return $sent;
+    }
 }

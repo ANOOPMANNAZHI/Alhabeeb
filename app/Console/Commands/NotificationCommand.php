@@ -83,8 +83,13 @@ class NotificationCommand extends Command
             $this->error('PDC Expiry SMS Reminder FAILED: ' . $e->getMessage());
         }
 
-        //$reminder =  new Tenant;
-        //$reminder->areReminderNotification();
-        //$this->info('Reminder');
+        try {
+            $reminder =  new Tenant;
+            $reminder->areReminderNotification(); // 09:00 only; template are_residence_reminder decides if anything is sent
+            $this->info('ARE Residence Reminder');
+        } catch (\Exception $e) {
+            Log::error('NotificationCommand: areReminderNotification failed - ' . $e->getMessage());
+            $this->error('ARE Residence Reminder FAILED: ' . $e->getMessage());
+        }
     }
 }
