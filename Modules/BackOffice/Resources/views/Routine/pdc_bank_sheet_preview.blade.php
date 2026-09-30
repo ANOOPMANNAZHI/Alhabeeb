@@ -122,6 +122,7 @@
 <div class="bsp">
 
 {{-- ── Action bar ─────────────────────────────────────────────── --}}
+<div class="alert alert-danger" id="bsp-post-error" role="alert" style="display:none"></div>
 <form method="post" action="{{ route('pdcBankSheetPost', $stored) }}" id="bsp-post-form" autocomplete="off">
   @csrf
   <div class="card card-box bsp-bar">
@@ -816,11 +817,54 @@ $(function () {
     applyFilters();
   });
 
-  $('#bsp-post-form').on('submit', function () {
-    if (count === 0) { return false; }
-    if (!confirm('Post ' + count + ' cheque(s) to ' + $('#bsp-bank option:selected').text() + ' on ' + $('#bsp-date').val() + '?\n\nThis generates receipts and cannot be undone.')) { return false; }
+  // Post over AJAX so a server error or a dropped connection is shown instead of an endless spinner.
+  var postBtnHtml = $('#bsp-post-btn').html();
+  function postError(html, allowRetry) {
+    $('#bsp-post-error').html(html).show();
+    $('html, body').animate({ scrollTop: $('#bsp-post-error').offset().top - 80 }, 200);
+    if (allowRetry) {
+      $('#bsp-post-btn').html(postBtnHtml).prop('disabled', count === 0);
+    } else {
+      $('#bsp-post-btn').html('<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Check history');
+    }
+  }
+  $('#bsp-post-form').on('submit', function (e) {
+    e.preventDefault();
+    if (count === 0) { return; }
+    if (!confirm('Post ' + count + ' cheque(s) to ' + $('#bsp-bank option:selected').text() + ' on ' + $('#bsp-date').val() + '?\n\nThis generates receipts and cannot be undone.')) { return; }
+    $('#bsp-post-error').hide().empty();
     $('#bsp-post-btn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Posting…');
-    return true;
+    var historyLink = ' <a href="{{ route('pdcBankSheetUploads') }}">Open Posting history</a> or <a href="' + window.location.href + '">reload this page</a> before posting again.';
+    $.ajax({ method: 'POST', url: this.action, data: $(this).serialize(), dataType: 'json', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .done(function (res) {
+        try {
+          if (res && res.ok && res.redirect) {
+            $('#bsp-post-btn').html('<i class="fa fa-check" aria-hidden="true"></i> Posted — opening result…');
+            window.location.href = res.redirect;
+          } else {
+            postError($('<div>').text((res && res.message) || 'Posting failed.').html(), true);
+          }
+        } catch (err) {
+          postError('Unexpected reply from the server (' + $('<div>').text(err.message).html() + ').' + historyLink, false);
+        }
+      })
+      .fail(function (xhr, status) {
+        var res = xhr.responseJSON, msg;
+        if (xhr.status === 422 && res) {
+          // our own error, or Laravel validation (errors: {field: [msg]})
+          msg = res.message || 'Posting failed.';
+          if (res.errors) { $.each(res.errors, function (k, v) { msg = v[0]; return false; }); }
+          postError($('<div>').text(msg).html(), true);
+        } else if (xhr.status === 419) {
+          postError('Your session expired. <a href="' + window.location.href + '">Reload the page</a> and post again.', false);
+        } else if (status === 'parsererror') {
+          postError('The server sent back a page instead of a result (you may have been logged out).' + historyLink, false);
+        } else if (status === 'timeout' || xhr.status === 0 || xhr.status === 504 || xhr.status === 502) {
+          postError('The server took too long to answer (' + (xhr.status || status) + '). The posting may still finish in the background.' + historyLink, false);
+        } else {
+          postError('Posting failed with a server error (' + xhr.status + ' ' + $('<div>').text(xhr.statusText || status).html() + '). Some cheques may already be posted.' + historyLink, false);
+        }
+      });
   });
 });
 </script>

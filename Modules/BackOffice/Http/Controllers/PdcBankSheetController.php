@@ -289,10 +289,14 @@ class PdcBankSheetController extends Controller
             'bank_id'          => 'required|exists:bank,id',
         ]);
 
+        // A big sheet can run for minutes: finish the run even if the browser stops waiting
+        @set_time_limit(0);
+        ignore_user_abort(true);
+
         try {
             $analysis = $this->analyse($stored);
         } catch (\RuntimeException $e) {
-            return redirect()->route('pdcPosting')->with('error', $e->getMessage());
+            return $this->postFailed($request, route('pdcPosting'), $e->getMessage());
         }
 
         $selection = $this->selection($request, $stored);
@@ -317,9 +321,24 @@ class PdcBankSheetController extends Controller
         }
 
         if (count($toPost) === 0) {
-            return redirect()->route('pdcBankSheetPreview', $stored)->with('error', 'Nothing selected to post');
+            return $this->postFailed($request, route('pdcBankSheetPreview', $stored), 'Nothing selected to post');
         }
 
+        try {
+            return $this->postRows($request, $stored, $analysis, $toPost, $vatByDiff, $sheetAccounts);
+        } catch (\Throwable $e) {
+            \Log::error('PDC bank sheet post failed: ' . $e->getMessage(), ['stored' => $stored, 'exception' => $e]);
+            return $this->postFailed($request, route('pdcBankSheetPreview', $stored),
+                'Posting stopped with an error: ' . $e->getMessage() . '. Cheques finished before the error stay posted - check Posting history before posting again.');
+        }
+    }
+
+    /**
+     * Post each chosen cheque in its own transaction; a cheque that fails is
+     * recorded and the rest carry on.
+     */
+    private function postRows(Request $request, $stored, array $analysis, array $toPost, array $vatByDiff, array $sheetAccounts)
+    {
         $routines = app(RoutinesController::class);
         $posted   = 0;
         $pdcsDone = 0;
@@ -434,7 +453,7 @@ class PdcBankSheetController extends Controller
                 $pdcsDone += count($ids);
                 $reused = count($vatReused) ? 'VAT receipt already exists: ' . implode(', ', $vatReused) : null;
                 $outcome[$rowNo] = ['posted', $reused, $ids, implode(',', $vatNos)];
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $vatMade = $vatBefore;
                 $vatReusedCount = $vatReusedBefore;
                 $failed[] = $pdcs[0]->pdc_check_no . ': ' . $e->getMessage();
@@ -450,11 +469,21 @@ class PdcBankSheetController extends Controller
         if (count($tillEnd) > 0) {
             $msg .= '. Receipts already run to contract end for: ' . implode(', ', array_unique($tillEnd));
         }
-        $redirect = redirect()->route('pdcBankSheetResult', $uploadId)->with('success', $msg);
+        $request->session()->flash('success', $msg);
         if (count($failed) > 0) {
-            $redirect->with('error', 'Failed: ' . implode(' | ', $failed));
+            $request->session()->flash('error', 'Failed: ' . implode(' | ', $failed));
         }
-        return $redirect;
+        $url = route('pdcBankSheetResult', $uploadId);
+        return $request->ajax() ? response()->json(['ok' => true, 'redirect' => $url]) : redirect($url);
+    }
+
+    /** Error answer for post(): JSON for the review page's AJAX call, else a redirect carrying the message. */
+    private function postFailed(Request $request, $url, $message)
+    {
+        if ($request->ajax()) {
+            return response()->json(['ok' => false, 'message' => $message], 422);
+        }
+        return redirect($url)->with('error', $message);
     }
 
     /**
