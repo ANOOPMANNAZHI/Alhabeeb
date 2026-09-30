@@ -16,14 +16,15 @@ class ChequeBounceAreEmail extends Mailable
      *
      * @return void
      */
-    public function __construct(Pdc $pdc)
+    public function __construct(Pdc $pdc, $greetName = null)
     {
         $this->tenantName 	= $pdc->tenantContractInfo->tenant->tenant_name;
         $this->pdcCheckNo 	= $pdc->pdc_check_no;
+        $are_name = '';
         if(count($pdc->tenantContractInfo->building->buildingAssignTo) > 0)
                 foreach($pdc->tenantContractInfo->building->buildingAssignTo as $assign)  
                   $are_name = $assign->buildingAssignToName->areUser->employee->employee_name??'';
-        $this->areName = $are_name;
+        $this->areName = $greetName !== null ? $greetName : $are_name; // copies (e.g. finance) greet by their own name
         $this->buildingName = $pdc->tenantContractInfo->building->building_name;
         $this->bounceReason = $pdc->pdc_cancel_reason_name;   // from pdc_bounce_reason
         $this->bounceRemark = $pdc->bounce_remark;            // e.g. the bank's rejection reason; may be null

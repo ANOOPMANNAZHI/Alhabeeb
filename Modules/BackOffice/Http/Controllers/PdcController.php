@@ -148,6 +148,7 @@ e     */
                         $pdcData = Pdc::where('id',$pdc_id)->first(); 
 
                         $this->notifyTenantBounce($pdcData);
+                        $this->notifyBounceCopies($pdcData);
 
                         /*-----------Are Email Starts--------------------*/
                         if(count($pdcData->tenantContractInfo->building->buildingAssignTo) > 0)
@@ -409,6 +410,7 @@ e     */
             \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
             $this->notifyTenantBounce($isPosted);
+            $this->notifyBounceCopies($isPosted);
             /*-----------Are Email Starts--------------------*/
             if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
                 foreach($isPosted->tenantContractInfo->building->buildingAssignTo as $assign)
@@ -436,6 +438,7 @@ e     */
             \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
             $this->notifyTenantBounce($isPosted);
+            $this->notifyBounceCopies($isPosted);
      
             /*-----------Are Email Starts--------------------*/
             if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
@@ -706,6 +709,27 @@ public function printPreview($contract_id){
               }
           } catch (\Throwable $e) {
               Log::error('Tenant bounce SMS failed for PDC #' . $pdc->id . ': ' . $e->getMessage());
+          }
+      }
+  }
+
+  /**
+   * Copy of the ARE bounce email to the addresses in Settings -> Cheque Bounce
+   * Copy Emails (comma separated), sent even when the building has no ARE.
+   * Failures are logged only.
+   */
+  private function notifyBounceCopies(Pdc $pdc)
+  {
+      $setting = prefixData('cheque_bounce_copy_emails');
+      $list = $setting ? preg_split('/[\s,;]+/', (string) $setting->configuration_value) : [];
+      foreach (array_unique(array_filter($list)) as $email) {
+          if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+              continue;
+          }
+          try {
+              Mail::to($email)->send(new ChequeBounceAreEmail($pdc, 'Team'));
+          } catch (\Throwable $e) {
+              Log::error('Bounce copy email failed for PDC #' . $pdc->id . ': ' . $e->getMessage(), ['email' => $email]);
           }
       }
   }
