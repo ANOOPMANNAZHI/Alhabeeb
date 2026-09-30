@@ -18,6 +18,7 @@ class Kernel extends ConsoleKernel
          \Modules\BackOffice\Console\TerminationDuesBackfill::class,
          \Modules\BackOffice\Console\TerminationDuesRefresh::class,
          \Modules\BackOffice\Console\RentOutstandingCorrectShortContracts::class,
+         \Modules\BackOffice\Console\BulkMessagesSend::class,
     ];
 
     /**
@@ -35,6 +36,8 @@ class Kernel extends ConsoleKernel
        $schedule->command('taskOverDuenotify:command')->everyMinute();
 
        $schedule->command('termination-dues:refresh --open-only')->dailyAt('01:30');
+
+       $schedule->command('bulk-messages:send')->everyMinute()->withoutOverlapping(10);
 
     }
 

@@ -187,4 +187,56 @@ class SystemMessengerTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         SystemMessenger::send('no_such_key', new MessageRecipient('x', 'x@example.com'), []);
     }
+
+    public function test_send_texts_uses_the_chosen_channels()
+    {
+        $texts = ['email_subject' => 'Notice for {tenant_name}', 'email_body' => '<p>Dear {tenant_name}</p>', 'sms_body' => 'Hi {tenant_name}'];
+        $to = new MessageRecipient('Ali', 'ali@example.com', '99111222');
+
+        $r = SystemMessenger::sendTexts('bulk:one-off', $texts, $to, ['tenant_name' => 'Ali'], ['related' => ['bulk_send', 7], 'channels' => ['email' => true, 'sms' => false]]);
+        $this->assertSame(['email' => 'sent', 'sms' => null], $r);
+        Mail::assertSent(TemplatedMail::class, function ($m) {
+            return $m->hasTo('ali@example.com') && $m->subject === 'Notice for Ali' && strpos($m->bodyHtml, 'Dear Ali') !== false;
+        });
+        $this->assertSame([], $this->sms);
+        $log = MessageLog::where('template_key', 'bulk:one-off')->latest('id')->first();
+        $this->assertSame(['email', 'sent', 'bulk_send', 7], [$log->channel, $log->status, $log->related_type, (int) $log->related_id]);
+
+        $r = SystemMessenger::sendTexts('bulk:one-off', $texts, $to, ['tenant_name' => 'Ali'], ['channels' => ['email' => false, 'sms' => true]]);
+        $this->assertSame(['email' => null, 'sms' => 'sent'], $r);
+        $this->assertSame([['99111222', 'Hi Ali']], $this->sms);
+    }
+
+    public function test_send_texts_without_sms_text_sends_no_sms_and_skips_missing_addresses()
+    {
+        $texts = ['email_subject' => 'S', 'email_body' => '<p>B</p>', 'sms_body' => null];
+        $r = SystemMessenger::sendTexts('bulk:5', $texts, new MessageRecipient('No Email', null, '99111222'), [], ['channels' => ['email' => true, 'sms' => true]]);
+        $this->assertSame(['email' => 'skipped_no_address', 'sms' => null], $r);
+        Mail::assertNothingSent();
+        $this->assertSame([], $this->sms);
+    }
+
+    public function test_send_texts_can_return_the_masked_failure_notes()
+    {
+        Mail::shouldReceive('to')->andThrow(new \Exception('SMTP 554 blocked for https://x.test/secret-link'));
+        SystemMessenger::$smsSender = function () { return false; };
+        $texts = ['email_subject' => 'S', 'email_body' => '<p>B</p>', 'sms_body' => 'Hi'];
+        $to = new MessageRecipient('A', 'a@example.com', '99111222');
+        $opts = ['channels' => ['email' => true, 'sms' => true], 'secret' => ['https://x.test/secret-link']];
+
+        $this->assertSame(['email' => 'failed', 'sms' => 'failed'], SystemMessenger::sendTexts('bulk:one-off', $texts, $to, [], $opts));
+        $r = SystemMessenger::sendTexts('bulk:one-off', $texts, $to, [], $opts + ['with_notes' => true]);
+        $this->assertSame('failed', $r['email']);
+        $this->assertSame('SMTP 554 blocked for [link hidden]', $r['notes']['email']);
+        $this->assertSame('SMS gateway refused or SMS is disabled in settings', $r['notes']['sms']);
+    }
+
+    public function test_send_texts_adds_today_and_company_name()
+    {
+        $texts = ['email_subject' => 'X', 'email_body' => '<p>{company_name} {today}</p>', 'sms_body' => null];
+        SystemMessenger::sendTexts('bulk:one-off', $texts, new MessageRecipient('A', 'a@example.com'), [], ['channels' => ['email' => true, 'sms' => false]]);
+        Mail::assertSent(TemplatedMail::class, function ($m) {
+            return strpos($m->bodyHtml, 'Al Habib &amp; Co. L.L.C ' . date('d/m/Y')) !== false;
+        });
+    }
 }
