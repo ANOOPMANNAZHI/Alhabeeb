@@ -84,4 +84,32 @@ class SystemTemplateDefaultsTest extends TestCase
             }
         }
     }
+
+    public function test_c4_keys_exist_with_expected_switches()
+    {
+        foreach (['employee_welcome', 'employee_password_reset', 'password_forgot', 'are_residence_reminder'] as $key) {
+            $d = D::get($key);
+            $this->assertNotNull($d, $key);
+            $this->assertSame('C4', $d['stage'], $key);
+            $this->assertSame('staff', $d['audience'], $key);
+            $this->assertFalse($d['sms_enabled'], "$key SMS off");
+        }
+        $this->assertTrue(D::get('employee_welcome')['is_active']);
+        $this->assertTrue(D::get('employee_password_reset')['is_active']);
+        $this->assertTrue(D::get('password_forgot')['is_active']);
+        $this->assertFalse(D::get('are_residence_reminder')['is_active']);
+        $this->assertContains('href="{set_password_link}"', D::get('employee_welcome')['email_body']);
+        $this->assertContains('{username}', D::get('employee_welcome')['email_body']);
+        $this->assertContains('href="{set_password_link}"', D::get('employee_password_reset')['email_body']);
+        $this->assertContains('href="{reset_link}"', D::get('password_forgot')['email_body']);
+        $this->assertContains('{residence_expiry}', D::get('are_residence_reminder')['email_body']);
+        $this->assertNull(D::get('employee_welcome')['sms_body'], 'no password link by SMS');
+        $this->assertNull(D::get('password_forgot')['sms_body']);
+    }
+
+    public function test_password_links_last_24_hours()
+    {
+        $config = require __DIR__ . '/../../config/auth.php';
+        $this->assertSame(1440, $config['passwords']['users']['expire']);
+    }
 }

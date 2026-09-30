@@ -53,6 +53,14 @@ class SystemTemplateDefaults
         return ['employee_name' => ['label' => 'Employee name', 'sample' => 'Rashid Al Harthy']];
     }
 
+    private static function accountPlaceholders($linkKey)
+    {
+        return [
+            'username' => ['label' => 'Login username', 'sample' => 'rashid.h'],
+            $linkKey   => ['label' => 'Password link (valid 24 hours)', 'sample' => 'https://plms.alhabib.om/password/reset/sample-token?email=rashid%40alhabib.om'],
+        ];
+    }
+
     public static function all()
     {
         return [
@@ -197,6 +205,51 @@ class SystemTemplateDefaults
                 'placeholders' => $legalBase + $l[4],
             ];
         }
+        // C4: accounts and the rest. Links go by email only (never SMS).
+        $out['employee_welcome'] = [
+            'name' => 'New employee account (set password)', 'audience' => 'staff', 'stage' => 'C4',
+            'email_subject' => 'Your PLMS account is ready',
+            'email_body' => '<p>Dear {employee_name},</p><p>An account has been created for you on PLMS.</p>'
+                . '<p>Username: <strong>{username}</strong></p>'
+                . '<p>Please set your password using this link: <a href="{set_password_link}">Set my password</a></p>'
+                . '<p>The link is valid for 24 hours. If it expires, use "Forgot Password?" on the login page or ask the administrator for a new link.</p>'
+                . self::regards(),
+            'sms_body' => null, 'is_active' => true, 'sms_enabled' => false,
+            'placeholders' => self::employeePlaceholders() + self::accountPlaceholders('set_password_link'),
+        ];
+        $out['employee_password_reset'] = [
+            'name' => 'Employee password reset (set new password)', 'audience' => 'staff', 'stage' => 'C4',
+            'email_subject' => 'Set a new PLMS password',
+            'email_body' => '<p>Dear {employee_name},</p><p>The administrator has sent you a link to set a new password for your PLMS account <strong>{username}</strong>.</p>'
+                . '<p><a href="{set_password_link}">Set a new password</a></p>'
+                . '<p>The link is valid for 24 hours. Your current password keeps working until you change it.</p>'
+                . self::regards(),
+            'sms_body' => null, 'is_active' => true, 'sms_enabled' => false,
+            'placeholders' => self::employeePlaceholders() + self::accountPlaceholders('set_password_link'),
+        ];
+        $out['password_forgot'] = [
+            'name' => 'Forgot password (login page)', 'audience' => 'staff', 'stage' => 'C4',
+            'email_subject' => 'Reset your PLMS password',
+            'email_body' => '<p>Dear {employee_name},</p><p>We received a request to reset the password of your PLMS account <strong>{username}</strong>.</p>'
+                . '<p><a href="{reset_link}">Reset my password</a></p>'
+                . '<p>The link is valid for 24 hours. If you did not ask for this, ignore this email; your password stays the same.</p>'
+                . self::regards(),
+            'sms_body' => null, 'is_active' => true, 'sms_enabled' => false,
+            'placeholders' => self::employeePlaceholders() + self::accountPlaceholders('reset_link'),
+        ];
+        $out['are_residence_reminder'] = [
+            'name' => 'Tenant Residence ID expired (ARE)', 'audience' => 'staff', 'stage' => 'C4',
+            'email_subject' => 'Residence ID expired - {tenant_name} ({contract_no})',
+            'email_body' => '<p>Dear {employee_name},</p><p>The Residence ID of tenant <strong>{tenant_name}</strong> '
+                . '(contract {contract_no}, {building}) expired on {residence_expiry}.</p><p>Please follow up with the tenant for the renewed ID.</p>'
+                . self::regards(),
+            'sms_body' => 'Residence ID of {tenant_name} ({contract_no}, {building}) expired on {residence_expiry}. - PLMS',
+            'is_active' => false, 'sms_enabled' => false,
+            'placeholders' => self::employeePlaceholders()
+                + ['tenant_name' => self::tenantPlaceholders()['tenant_name'], 'contract_no' => self::contractPlaceholders()['contract_no'],
+                   'building' => self::contractPlaceholders()['building'],
+                   'residence_expiry' => ['label' => 'Residence ID expiry', 'sample' => '15/09/2026']],
+        ];
         return $out;
     }
 
