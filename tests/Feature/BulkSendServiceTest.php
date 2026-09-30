@@ -70,6 +70,28 @@ class BulkSendServiceTest extends TestCase
         }
     }
 
+    public function test_added_people_load_the_audience_only_once()
+    {
+        $t = $this->template('staff');
+        $role = \DB::table('roles')->where('name', 'super_admin')->value('name');
+        $few = RecipientFinder::people('staff', ['roles' => [$role]]);
+        $outsiders = array_values(array_diff(array_keys(RecipientFinder::people('staff', [])), array_keys($few)));
+        if (count($outsiders) < 3) {
+            $this->markTestSkipped('needs 3 staff outside super_admin');
+        }
+        $queries = function (array $add) use ($t, $role) {
+            \DB::flushQueryLog();
+            \DB::enableQueryLog();
+            S::start($this->base(['template_id' => $t->id, 'filters' => ['roles' => [$role]], 'add' => $add]), 1);
+            $n = count(\DB::getQueryLog());
+            \DB::disableQueryLog();
+            return $n;
+        };
+        $one = $queries([$outsiders[0]]);
+        $three = $queries([$outsiders[0], $outsiders[1], $outsiders[2]]);
+        $this->assertSame($one, $three);
+    }
+
     public function test_audience_mismatch_is_rejected_any_fits_all()
     {
         $t = $this->template('tenant');

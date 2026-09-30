@@ -151,8 +151,21 @@ class RecipientFinder
                      't.tenant_contact_no', 't.tenant_residence_tel', 'c.id as contract_id', 'c.building_id', 'c.tenant_contract_no',
                      'c.tenant_contract_status', 'c.tenant_contract_rent', 'c.tenant_contract_start_date',
                      'c.tenant_contract_effective_date', 'c.tenant_contract_valid_to_date', 'b.building_name', 'l.locations_name', 'u.unit_no')
-            ->orderBy('c.tenant_contract_effective_date', 'desc')->orderBy('c.id', 'desc')
-            ->get();
+            ->orderBy('c.tenant_contract_effective_date', 'desc')->orderBy('c.id', 'desc');
+        // Narrow in SQL (memory): active tenants need only their active contracts; past tenants
+        // are those without any active contract but need all their contracts (12-month rule).
+        if ($active) {
+            $rows->where('c.tenant_contract_status', 1);
+            if ($buildingIds !== null) {
+                $rows->whereIn('c.building_id', $buildingIds);
+            }
+        } else {
+            $rows->whereNotIn('c.tenant_id', function ($q) {
+                // NOT NULL: one NULL in a NOT IN list would make it match nobody
+                $q->select('tenant_id')->from('tenant_contracts')->where('tenant_contract_status', 1)->whereNotNull('tenant_id');
+            });
+        }
+        $rows = $rows->get();
 
         $byTenant = [];
         foreach ($rows as $r) {

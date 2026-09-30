@@ -80,14 +80,18 @@ class BulkSendService
         foreach (isset($in['exclude']) ? (array) $in['exclude'] : [] as $key) {
             unset($people[$key]);
         }
+        $everyone = null; // the whole audience, loaded at most once for all added people
         foreach (isset($in['add']) ? (array) $in['add'] : [] as $key) {
             if (!isset($people[$key])) {
-                $p = RecipientFinder::person($audience, $key);
-                if ($p) {
-                    $people[$key] = $p;
+                if ($everyone === null) {
+                    $everyone = RecipientFinder::people($audience, []);
+                }
+                if (isset($everyone[$key])) {
+                    $people[$key] = $everyone[$key];
                 }
             }
         }
+        unset($everyone);
         if (!$people) {
             self::fail('recipients', 'Nobody to send to.');
         }
