@@ -182,6 +182,11 @@ added by a migration (same pattern as `2026_09_29_000001`).
 5. Create the first Bulk templates on Mail → Templates, then try a small send
    (e.g. staff, one role) before a large one.
 
+Implemented notes: migrations 2026_09_30_200000 (tables), 200001 (rate
+settings), 200002 (menu + permission — run AFTER the code upload). On the
+local DB the Send menu row is kept at status 0 until the branch is merged,
+because master has no bulk-send routes yet.
+
 ## Out of scope
 
 Attachments, scheduled sends, Excel upload of recipients, retiring Mail →
