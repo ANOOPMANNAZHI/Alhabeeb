@@ -185,7 +185,14 @@ added by a migration (same pattern as `2026_09_29_000001`).
 Implemented notes: migrations 2026_09_30_200000 (tables), 200001 (rate
 settings), 200002 (menu + permission — run AFTER the code upload). On the
 local DB the Send menu row is kept at status 0 until the branch is merged,
-because master has no bulk-send routes yet.
+because master has no bulk-send routes yet. Migration 200003 adds
+`bulk_sends.resent_send_id` (Resend to failed runs once per send, only for a
+done or cancelled send); run it with the code. Never run
+`artisan bulk-messages:send` by hand: it sends real email/SMS and the
+scheduler already runs it every minute (overlap lock expires after 10
+minutes; the rate setting is capped at 30/min). A row that throws is marked
+failed with `error: ...` in its note; failed rows carry the mail/SMS failure
+reason in their note.
 
 ## Out of scope
 
