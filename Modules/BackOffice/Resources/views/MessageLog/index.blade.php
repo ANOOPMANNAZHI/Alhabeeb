@@ -27,7 +27,13 @@
 <div class="mt">
 <div class="card card-box">
   <div class="card-body">
+    @if(!empty($filters['bulk_send']))
+      <p class="mt-help" style="margin:0 0 12px"><i class="fa fa-filter" aria-hidden="true"></i>
+        Showing only the messages of @can('bulk_message_send')<a href="{{ route('bulk-send.show', $filters['bulk_send']) }}">send #{{ $filters['bulk_send'] }}</a>@else send #{{ $filters['bulk_send'] }}@endcan.
+        <a href="{{ route('message-log.index') }}">Show all messages</a></p>
+    @endif
     <form method="GET" action="{{ route('message-log.index') }}" class="mt-filters" style="margin-bottom:16px" role="search">
+      @if(!empty($filters['bulk_send']))<input type="hidden" name="bulk_send" value="{{ $filters['bulk_send'] }}">@endif
       <div><label for="ml-from">From</label><input type="date" id="ml-from" name="from" class="mt-input" value="{{ $filters['from'] }}"></div>
       <div><label for="ml-to">To</label><input type="date" id="ml-to" name="to" class="mt-input" value="{{ $filters['to'] }}"></div>
       <div>

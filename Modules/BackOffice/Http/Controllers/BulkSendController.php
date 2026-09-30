@@ -4,6 +4,7 @@ namespace Modules\BackOffice\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -68,7 +69,15 @@ class BulkSendController extends Controller
         foreach (array_keys(MessagePlaceholders::AUDIENCES) as $a) {
             $placeholders[$a] = MessagePlaceholders::forTemplate($a);
         }
-        return view('backoffice::BulkSend.create', compact('templates', 'locations', 'buildings', 'roles', 'placeholders'));
+        $perMinute = $this->perMinute();
+        return view('backoffice::BulkSend.create', compact('templates', 'locations', 'buildings', 'roles', 'placeholders', 'perMinute'));
+    }
+
+    /** Messages per minute for the time estimate: the bulk_emails_per_minute setting, capped like BulkSender. */
+    private function perMinute()
+    {
+        $perMinute = (int) (prefixData('bulk_emails_per_minute') ? prefixData('bulk_emails_per_minute')->configuration_value : 25);
+        return $perMinute > 0 ? min(BulkSender::MAX_PER_MINUTE, $perMinute) : 25;
     }
 
     public function count(Request $request)
@@ -78,6 +87,72 @@ class BulkSendController extends Controller
             return response()->json(['total' => 0, 'email' => 0, 'mobile' => 0]);
         }
         return response()->json(RecipientFinder::count($in['audience'], $in['filters']));
+    }
+
+    /** Compose page: how many people each audience has (no filters). */
+    public function audienceCounts()
+    {
+        // Cached for 5 minutes: the tenant_past scan is heavy. The Summary counts stay exact.
+        $out = Cache::remember('bulk-send:audience-counts', 300, function () {
+            $out = [];
+            foreach (array_keys(BulkSend::AUDIENCE_LABELS) as $audience) {
+                $out[$audience] = RecipientFinder::count($audience, [])['total'];
+            }
+            return $out;
+        });
+        return response()->json($out);
+    }
+
+    /**
+     * Compose page: people of an audience per location / building (tenants, landlords) or per role (staff).
+     * A person counts once, for the building of the contract used for them.
+     */
+    public function placeCounts(Request $request)
+    {
+        $audience = (string) $request->input('audience');
+        if (!isset(BulkSend::AUDIENCE_LABELS[$audience])) {
+            return response()->json($this->computePlaceCounts($audience)); // nothing to scan, nothing to cache
+        }
+        $out = Cache::remember('bulk-send:place-counts:' . $audience, 300, function () use ($audience) {
+            return $this->computePlaceCounts($audience);
+        });
+        return response()->json($out);
+    }
+
+    private function computePlaceCounts($audience)
+    {
+        if ($audience === 'staff') {
+            $ids = [];
+            foreach (RecipientFinder::people('staff', []) as $p) {
+                $ids[$p['person_id']] = true;
+            }
+            $rows = DB::table('model_has_roles')->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                ->where('model_has_roles.model_type', 'App\User')->get(['roles.name', 'model_has_roles.model_id']);
+            $roles = [];
+            foreach ($rows as $r) {
+                if (isset($ids[(int) $r->model_id])) {
+                    $roles[$r->name] = (isset($roles[$r->name]) ? $roles[$r->name] : 0) + 1;
+                }
+            }
+            return ['roles' => (object) $roles];
+        }
+        $locations = [];
+        $buildings = [];
+        if (isset(BulkSend::AUDIENCE_LABELS[$audience])) {
+            $locationOf = DB::table('buildings')->pluck('location_id', 'id')->all();
+            foreach (RecipientFinder::people($audience, []) as $p) {
+                $b = $p['building_id'];
+                if (!$b) {
+                    continue;
+                }
+                $buildings[$b] = (isset($buildings[$b]) ? $buildings[$b] : 0) + 1;
+                $l = isset($locationOf[$b]) ? (int) $locationOf[$b] : 0;
+                if ($l) {
+                    $locations[$l] = (isset($locations[$l]) ? $locations[$l] : 0) + 1;
+                }
+            }
+        }
+        return ['locations' => (object) $locations, 'buildings' => (object) $buildings];
     }
 
     public function review(Request $request)
@@ -93,8 +168,7 @@ class BulkSendController extends Controller
         foreach ($people as $key => $p) {
             $list[] = ['key' => $key, 'name' => $p['name'], 'email' => $p['email'], 'mobile' => $p['mobile']];
         }
-        $perMinute = (int) (prefixData('bulk_emails_per_minute') ? prefixData('bulk_emails_per_minute')->configuration_value : 25);
-        $perMinute = $perMinute > 0 ? min(BulkSender::MAX_PER_MINUTE, $perMinute) : 25;
+        $perMinute = $this->perMinute();
         // One-time token: a double click or a resubmitted page cannot start the same send twice.
         $token = Str::random(40);
         $tokens = (array) $request->session()->get('bulk_send_tokens', []);
@@ -159,7 +233,17 @@ class BulkSendController extends Controller
             $q->where('status', $status);
         }
         $recipients = $q->paginate(self::PER_PAGE)->appends(['status' => $status]);
-        return view('backoffice::BulkSend.show', ['send' => $bulkSend, 'recipients' => $recipients, 'status' => $status]);
+        $statusCounts = ['pending' => 0, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'cancelled' => 0];
+        $grouped = DB::table('bulk_send_recipients')->where('bulk_send_id', $bulkSend->id)
+            ->groupBy('status')->select('status', DB::raw('count(*) as n'))->pluck('n', 'status');
+        foreach ($grouped as $st => $n) {
+            if (isset($statusCounts[$st])) {
+                $statusCounts[$st] = (int) $n;
+            }
+        }
+        return view('backoffice::BulkSend.show', [
+            'send' => $bulkSend, 'recipients' => $recipients, 'status' => $status, 'statusCounts' => $statusCounts,
+        ]);
     }
 
     public function pause(BulkSend $bulkSend)

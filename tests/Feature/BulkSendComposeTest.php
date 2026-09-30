@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\User;
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
@@ -23,12 +24,22 @@ class BulkSendComposeTest extends TestCase
         parent::setUp();
         Mail::fake();
         SystemMessenger::$smsSender = function () { return true; };
+        $this->forgetCounts();
         $this->actingAs(User::find(1));
+    }
+
+    private function forgetCounts()
+    {
+        Cache::forget('bulk-send:audience-counts');
+        foreach (['tenant_active', 'tenant_past', 'landlord', 'staff'] as $a) {
+            Cache::forget('bulk-send:place-counts:' . $a);
+        }
     }
 
     protected function tearDown()
     {
         SystemMessenger::$smsSender = 'sendSms';
+        $this->forgetCounts();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         parent::tearDown();
     }
@@ -60,6 +71,43 @@ class BulkSendComposeTest extends TestCase
         $this->assertRegExp('/id="bs-send-sms"\s+checked/', $html);
     }
 
+    public function test_create_page_has_steps_cards_toggles_and_a_summary()
+    {
+        $t = $this->template();
+        $location = DB::table('locations')->where('locations_status', 1)->orderBy('locations_name')->first();
+        $html = $this->withSession(['_old_input' => ['template_id' => (string) $t->id, 'audience' => 'landlord', 'locations' => [(string) $location->id], 'send_email' => '1']])
+            ->get(route('bulk-send.create'))->assertOk()->getContent();
+        $this->assertContains('class="bs-stepper"', $html);
+        $this->assertRegExp('/<input type="radio" name="template_id" value="' . $t->id . '"[^>]*checked/', $html);
+        $this->assertRegExp('/<input type="radio" name="template_id" value=""/', $html);
+        $this->assertContains('Write a one-off message', $html);
+        $this->assertContains('SMS (costs money)', $html);
+        $this->assertRegExp('/<input type="radio" name="audience" value="landlord"[^>]*checked/', $html);
+        $this->assertContains('data-count-for="staff"', $html);
+        $this->assertContains('Counts refresh every 5 minutes; the Summary is always exact.', $html);
+        $this->assertContains('by their latest contract', $html);
+        $this->assertRegExp('/<fieldset[^>]*id="bs-loc"[^>]*>\s*<legend/', $html);
+        $this->assertRegExp('/<fieldset[^>]*id="bs-bld"[^>]*>\s*<legend/', $html);
+        $this->assertRegExp('/<input type="checkbox" name="locations\[\]" value="' . $location->id . '"[^>]*checked/', $html);
+        $this->assertRegExp('/<input type="checkbox" name="roles\[\]" value="super_admin"/', $html);
+        $this->assertContains(json_encode(route('bulk-send.audience-counts'), 15), $html); // as @json writes it
+        $this->assertContains(json_encode(route('bulk-send.place-counts'), 15), $html);
+        $this->assertRegExp('/id="bs-summary-card"[^>]*data-per-minute="([1-9]|[12][0-9]|30)"/', $html);
+        $this->assertRegExp('/<button type="submit"[^>]*>[^<]*(<i[^>]*><\/i>)?\s*Review/', $html);
+    }
+
+    public function test_create_page_shows_errors_next_to_their_section()
+    {
+        $errors = (new \Illuminate\Support\ViewErrorBag())->put('default', new \Illuminate\Support\MessageBag([
+            'template_id' => ['Choose an active Bulk template.'], 'recipients' => ['Nobody to send to.'],
+        ]));
+        $html = $this->withSession(['errors' => $errors, '_old_input' => ['audience' => 'staff']])->get(route('bulk-send.create'))->assertOk()->getContent();
+        $this->assertRegExp('/id="bs-errors"[^>]*role="alert"/', $html);
+        $this->assertRegExp('/id="bs-err-message"[^>]*>.*Choose an active Bulk template\./s', $html);
+        $this->assertRegExp('/id="bs-err-recipients"[^>]*>.*Nobody to send to\./s', $html);
+        $this->assertContains('href="#bs-sec-message"', $html);
+    }
+
     public function test_count_matches_the_finder()
     {
         $this->post(route('bulk-send.count'), ['audience' => 'staff', 'roles' => ['super_admin']])
@@ -76,6 +124,34 @@ class BulkSendComposeTest extends TestCase
         $this->assertContains('Start sending', $html);
         $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'tenant_active', 'send_email' => 1])
             ->assertRedirect()->assertSessionHasErrors('template_id');
+    }
+
+    public function test_review_page_has_tiles_tabs_preview_and_an_in_page_confirm()
+    {
+        $t = $this->template();
+        $html = $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1, 'send_sms' => 1])->assertOk()->getContent();
+        $this->assertContains('class="bs-stepper"', $html);
+        $this->assertRegExp('/data-step="3"\s+aria-current="step"/', $html);
+        foreach (['People', 'Emails', 'SMS', 'No email', 'Time needed'] as $tile) {
+            $this->assertRegExp('/bs-tile-label">(<i[^>]*><\/i>)?\s*' . preg_quote($tile, '/') . '</', $html, $tile);
+        }
+        foreach (['all', 'excluded', 'noemail'] as $tab) {
+            $this->assertContains('data-tab="' . $tab . '"', $html);
+        }
+        $this->assertContains('Select all on this page', $html);
+        $this->assertContains('id="bs-pv-frame"', $html);
+        $this->assertContains('sandbox=""', $html);
+        $this->assertContains('id="bs-pv-sms"', $html);
+        $this->assertRegExp('/role="dialog"[^>]*aria-modal="true"/', $html);
+        $this->assertContains('SMS costs money', $html);
+        $this->assertContains('Start sending', $html);
+        $this->assertContains('class="bs-actionbar"', $html);
+        $this->assertNotContains('confirm(', $html);
+
+        // SMS off: no SMS tile or bubble
+        $html = $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1])->assertOk()->getContent();
+        $this->assertNotRegExp('/bs-tile-label">(<i[^>]*><\/i>)?\s*SMS</', $html);
+        $this->assertNotContains('id="bs-pv-sms"', $html);
     }
 
     public function test_search_and_preview()
@@ -152,6 +228,62 @@ class BulkSendComposeTest extends TestCase
         $this->assertSame($before, BulkSend::count());
     }
 
+    public function test_audience_counts_match_the_finder()
+    {
+        $json = $this->get(route('bulk-send.audience-counts'))->assertOk()->json();
+        $this->assertSame(['tenant_active', 'tenant_past', 'landlord', 'staff'], array_keys($json));
+        foreach ($json as $audience => $n) {
+            $this->assertSame(RecipientFinder::count($audience, [])['total'], $n, $audience);
+        }
+        $this->assertSame($json, $this->get(route('bulk-send.audience-counts'))->assertOk()->json());
+        $this->assertTrue(Cache::has('bulk-send:audience-counts'));
+    }
+
+    public function test_place_counts_per_building_location_and_role()
+    {
+        $locationOf = DB::table('buildings')->pluck('location_id', 'id')->all();
+        foreach (['tenant_active', 'landlord'] as $audience) {
+            $json = $this->get(route('bulk-send.place-counts', ['audience' => $audience]))->assertOk()->json();
+            $this->assertSame(['locations', 'buildings'], array_keys($json));
+            $byBuilding = [];
+            $byLocation = [];
+            foreach (RecipientFinder::people($audience, []) as $p) {
+                $b = $p['building_id'];
+                if (!$b) {
+                    continue;
+                }
+                $byBuilding[$b] = (isset($byBuilding[$b]) ? $byBuilding[$b] : 0) + 1;
+                $l = isset($locationOf[$b]) ? (int) $locationOf[$b] : 0;
+                if ($l) {
+                    $byLocation[$l] = (isset($byLocation[$l]) ? $byLocation[$l] : 0) + 1;
+                }
+            }
+            $gotB = $json['buildings'];
+            $gotL = $json['locations'];
+            ksort($byBuilding); ksort($gotB); ksort($byLocation); ksort($gotL);
+            $this->assertSame($byBuilding, $gotB, $audience);
+            $this->assertSame($byLocation, $gotL, $audience);
+            // Independent check: the building counts add up to the people that have a building.
+            $withBuilding = 0;
+            foreach (RecipientFinder::people($audience, []) as $p) {
+                if ($p['building_id']) {
+                    $withBuilding++;
+                }
+            }
+            $this->assertSame($withBuilding, array_sum($json['buildings']), $audience);
+            if ($json['buildings']) {
+                $b = array_keys($json['buildings'])[0];
+                $this->assertLessThanOrEqual(RecipientFinder::count($audience, ['buildings' => [$b]])['total'], $json['buildings'][$b], $audience);
+            }
+            // A second call (served from the cache) gives the same data.
+            $this->assertSame($json, $this->get(route('bulk-send.place-counts', ['audience' => $audience]))->assertOk()->json());
+        }
+        $json = $this->get(route('bulk-send.place-counts', ['audience' => 'staff']))->assertOk()->json();
+        $this->assertSame(['roles'], array_keys($json));
+        $this->assertSame(RecipientFinder::count('staff', ['roles' => ['super_admin']])['total'], $json['roles']['super_admin']);
+        $this->assertSame('{"locations":{},"buildings":{}}', $this->get(route('bulk-send.place-counts', ['audience' => 'nobody']))->assertOk()->getContent());
+    }
+
     public function test_compose_routes_need_the_permission()
     {
         $user = User::where('id', '<>', 1)->firstOrFail();
@@ -168,6 +300,8 @@ class BulkSendComposeTest extends TestCase
         $this->post(route('bulk-send.review'), ['audience' => 'staff'])->assertStatus(403);
         $this->get(route('bulk-send.search', ['audience' => 'staff', 'q' => 'a']))->assertStatus(403);
         $this->post(route('bulk-send.preview'), ['audience' => 'staff'])->assertStatus(403);
+        $this->get(route('bulk-send.audience-counts'))->assertStatus(403);
+        $this->get(route('bulk-send.place-counts', ['audience' => 'staff']))->assertStatus(403);
         $this->post(route('bulk-send.store'), ['audience' => 'staff', 'send_email' => 1, 'email_subject' => 'a', 'email_body' => '<p>b</p>'])->assertStatus(403);
         $this->assertSame($before, BulkSend::count());
     }

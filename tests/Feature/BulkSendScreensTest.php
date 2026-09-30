@@ -69,6 +69,31 @@ class BulkSendScreensTest extends TestCase
         $this->assertNotContains('Alpha', $html);
     }
 
+    public function test_detail_has_status_counts()
+    {
+        $send = $this->send();
+        $this->get(route('bulk-send.show', $send->id))->assertOk()
+            ->assertViewHas('statusCounts', ['pending' => 1, 'sent' => 0, 'failed' => 1, 'skipped' => 0, 'cancelled' => 0]);
+    }
+
+    public function test_detail_has_tabs_with_counts_tiles_and_sent_log_link()
+    {
+        $send = $this->send();
+        $html = $this->get(route('bulk-send.show', [$send->id, 'status' => 'failed']))->assertOk()->getContent();
+        $this->assertRegExp('/href="[^"]*status=failed"[^>]*aria-current="page"[^>]*>\s*Failed\s*<span class="bs-tab-n">1<\/span>/', $html);
+        $this->assertRegExp('/>\s*All\s*<span class="bs-tab-n">2<\/span>/', $html);
+        $this->assertRegExp('/>\s*Sent\s*<span class="bs-tab-n">0<\/span>/', $html);
+        $this->assertNotContains('<select name="status"', $html);
+        $this->assertContains('bs-show-progress', $html); // the progress + counts line replaced the stat tiles
+        $this->assertContains('0 of 2 processed', $html);
+        $this->assertContains('email: failed', $html);
+        $this->assertContains('bs-row-failed', $html);
+        $this->assertContains('bs-badge-failed', $html);
+        $this->assertContains(e(route('message-log.index', ['bulk_send' => $send->id])), $html);
+        $this->assertContains('Open in Sent log', $html);
+        $this->assertContains(route('bulk-send.pause', $send->id), $html);
+    }
+
     public function test_actions()
     {
         $send = $this->send();
@@ -87,8 +112,46 @@ class BulkSendScreensTest extends TestCase
     {
         $send = $this->send(['status' => BulkSend::CANCELLED, 'total' => 10, 'sent' => 2, 'failed' => 1]);
         $html = $this->get(route('bulk-send.index'))->getContent();
-        $this->assertContains('2 / 1 / 0 / 0', $html);
-        $this->assertNotContains('2 / 1 / 0 / 7', $html);
+        $this->assertContains('2 sent', $html);
+        $this->assertContains('1 failed', $html);
+        $this->assertContains('0 pending', $html);
+        $this->assertNotContains('7 pending', $html);
+    }
+
+    public function test_list_shows_status_with_icon_and_text_and_accessible_progress()
+    {
+        $send = $this->send(['sent' => 1, 'failed' => 0, 'total' => 4]);
+        $html = $this->get(route('bulk-send.index'))->getContent();
+        $this->assertContains('1 of 4 processed', $html);
+        $this->assertRegExp('/role="progressbar"[^>]*aria-valuenow="1"[^>]*aria-valuemax="4"/', $html);
+        $this->assertRegExp('/bs-badge-running"><i class="fa [a-z-]+" aria-hidden="true"><\/i> Running</', $html);
+        $this->assertContains('data-auto-refresh="1"', $html);
+        $this->assertContains('auto-refresh on', $html);
+        $this->assertContains('role="dialog"', $html);
+        $this->assertContains('Cancel send #' . $send->id . '? Messages not sent yet will not be sent.', $html);
+    }
+
+    /** The list view with exactly these sends (no need to touch the other rows of the shared DB). */
+    private function listHtml(array $sends)
+    {
+        $this->get(route('bulk-send.index')); // boots the request (route, session) the layout needs
+        $page = new \Illuminate\Pagination\LengthAwarePaginator($sends, count($sends), 50, 1, ['path' => route('bulk-send.index')]);
+        return view('backoffice::BulkSend.index', ['sends' => $page])->render();
+    }
+
+    public function test_list_does_not_auto_refresh_without_a_running_send()
+    {
+        $html = $this->listHtml([$this->send(['status' => BulkSend::DONE])]);
+        $this->assertNotContains('data-auto-refresh="1"', $html);
+        $this->assertContains('Done', $html);
+    }
+
+    public function test_list_empty_state()
+    {
+        $html = $this->listHtml([]);
+        $this->assertContains('No sends yet', $html);
+        $this->assertContains('bs-empty', $html);
+        $this->assertContains(route('bulk-send.create'), $html);
     }
 
     public function test_resend_button_only_for_a_finished_send_not_yet_resent()

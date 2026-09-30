@@ -128,6 +128,24 @@ class RecipientFinderTest extends TestCase
         $this->assertArrayHasKey('employee_name', $people['staff:' . $user->id]['values']);
     }
 
+    public function test_rows_carry_the_building_of_the_contract_used()
+    {
+        $c = TenantContract::where('tenant_contract_status', 1)->whereNotNull('building_id')
+            ->whereHas('tenant', function ($q) { $q->where('tenant_status', 1); })->latest('id')->first();
+        $newest = TenantContract::where('tenant_id', $c->tenant_id)->where('tenant_contract_status', 1)
+            ->orderBy('tenant_contract_effective_date', 'desc')->orderBy('id', 'desc')->first();
+        $this->assertSame($newest->building_id === null ? null : (int) $newest->building_id, F::people('tenant_active', [])['tenant:' . $c->tenant_id]['building_id']);
+        $this->assertSame((int) $c->building_id, F::people('tenant_active', ['buildings' => [$c->building_id]])['tenant:' . $c->tenant_id]['building_id']);
+        $lc = DB::table('landlord_contract as lc')->join('vendors as v', 'v.id', '=', 'lc.vendor_id')
+            ->where('lc.landlord_contract_status', 1)->where('v.vendor_type_id', 2)->where('v.vendor_status', 1)
+            ->select('lc.vendor_id', 'lc.building_id')->first();
+        if ($lc) {
+            $this->assertSame((int) $lc->building_id, F::people('landlord', ['buildings' => [$lc->building_id]])['landlord:' . $lc->vendor_id]['building_id']);
+        }
+        $staff = F::people('staff', []);
+        $this->assertNull(reset($staff)['building_id']);
+    }
+
     public function test_count_search_person_and_unknown_audience()
     {
         $c = F::count('staff', []);
