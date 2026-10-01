@@ -12,6 +12,7 @@
 <div class="rf-strip" data-summary="{{ $count }} {{ $count === 1 ? 'agreement' : 'agreements' }} with a balance, total {{ number_format($totals['balance'], 3) }}">
   <div class="rf-stats">
     <span>As on <strong>{{ $asOnText }}</strong></span>
+    <span>Paid till {{ $paidWindowLabel }}, or started then and not paid yet</span>
     <span><strong>{{ number_format($count) }}</strong> {{ $count === 1 ? 'agreement' : 'agreements' }}</span>
     <span>Balance <strong>{{ number_format($totals['balance'], 3) }}</strong></span>
   </div>
@@ -26,6 +27,7 @@
     {!! $th('building', 'Building', 'asc') !!}
     <th scope="col">Unit No</th>
     {!! $th('last_received', 'Last Received', 'desc') !!}
+    {!! $th('paid_till', 'Paid Till', 'asc') !!}
     {!! $th('due', 'Total Due', 'desc', true) !!}
     {!! $th('received', 'Amount Received', 'desc', true) !!}
     {!! $th('balance', 'Balance', 'desc', true) !!}
@@ -47,6 +49,7 @@
       <td>{{ $r->building }}</td>
       <td>{{ $r->unit }}</td>
       <td>{{ $fmtDate($r->last_received) }}</td>
+      <td>@if($r->paid_till){{ $fmtDate($r->paid_till) }}@else<span class="rf-flag">Not paid</span>@endif</td>
       <td class="num">{{ number_format($r->due, 3) }}</td>
       <td class="num">{{ number_format($r->received, 3) }}</td>
       <td class="num rf-bal">{{ number_format($r->balance, 3) }}</td>
@@ -59,12 +62,12 @@
       </td>
     </tr>
   @empty
-    <tr><td colspan="11" class="rf-empty"><strong>No agreements with a balance for these filters.</strong>Try another month, building or management type, or clear the search.</td></tr>
+    <tr><td colspan="12" class="rf-empty"><strong>No agreements with a balance for these filters.</strong>Try another month, building or management type, or clear the search.</td></tr>
   @endforelse
   </tbody>
   @if($count)
   <tfoot><tr class="rf-totals">
-    <td colspan="5">Total · {{ number_format($count) }} {{ $count === 1 ? 'agreement' : 'agreements' }}</td>
+    <td colspan="6">Total · {{ number_format($count) }} {{ $count === 1 ? 'agreement' : 'agreements' }}</td>
     <td class="num">{{ number_format($totals['due'], 3) }}</td>
     <td class="num">{{ number_format($totals['received'], 3) }}</td>
     <td class="num">{{ number_format($totals['balance'], 3) }}</td>

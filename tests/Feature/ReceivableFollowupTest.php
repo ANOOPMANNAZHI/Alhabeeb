@@ -43,11 +43,16 @@ class ReceivableFollowupTest extends TestCase
         $this->seed3([500.0, 1500.0, 900.0]);
     }
 
-    private function seed3(array $balances)
+    /** Paid Till inside the default month's window for the first two; the third never paid and started in the window. */
+    private function seed3(array $balances, array $paidTill = null, array $start = null)
     {
+        list($m, $y) = ReceivableFigures::lastMonth();
+        list($from) = ReceivableFigures::paidTillWindow($m, $y);
+        $paidTill = $paidTill ?: [$from, $from, null];
+        $start = $start ?: ['2020-01-01', '2020-01-01', $from];
         $rows = [];
         foreach ($this->contracts as $i => $c) {
-            $rows[$c->id] = ['due' => $balances[$i] + 100, 'received' => 100.0, 'balance' => $balances[$i], 'last_received' => '2026-08-15'];
+            $rows[$c->id] = ['due' => $balances[$i] + 100, 'received' => 100.0, 'balance' => $balances[$i], 'last_received' => '2026-08-15', 'paid_till' => $paidTill[$i], 'start' => $start[$i]];
         }
         Cache::put(ReceivableFigures::key($this->asOn), ['computed_at' => '2026-10-01 09:45:00', 'rows' => $rows], 60);
     }
@@ -308,6 +313,60 @@ class ReceivableFollowupTest extends TestCase
         $this->assertRegExp('/<input[^>]*id="rf-building-q"[^>]*role="combobox"[^>]*aria-controls="rf-building-list"[^>]*aria-expanded="false"/', $html);
         $this->assertRegExp('/<ul[^>]*id="rf-building-list"[^>]*role="listbox"[^>]*hidden/', $html);
         $this->assertRegExp('/<select id="rf-building"[^>]*hidden/', $html);
+    }
+
+    public function test_only_paid_till_two_months_back_or_never_paid_are_listed()
+    {
+        list($m, $y) = ReceivableFigures::lastMonth();
+        list($from, $to) = ReceivableFigures::paidTillWindow($m, $y);
+        $before = \Carbon\Carbon::parse($from)->subDay()->format('Y-m-d');   // 3+ months behind: belongs to an earlier month
+        $after = \Carbon\Carbon::parse($to)->addDay()->format('Y-m-d');      // only 1 month behind
+        $this->seed3([500.0, 1500.0, 900.0], [$to, $after, null]);
+        $html = $this->rows();
+        $this->assertContains($this->contracts[0]->tenant_contract_no, $html);     // last day of the window
+        $this->assertNotContains($this->contracts[1]->tenant_contract_no, $html);  // after the window
+        $this->assertContains($this->contracts[2]->tenant_contract_no, $html);     // never paid
+        $this->assertContains('1,400.000', $html);                                 // totals cover only the listed two
+
+        $this->seed3([500.0, 1500.0, 900.0], [$before, $from, $from]);
+        $html = $this->rows();
+        $this->assertNotContains($this->contracts[0]->tenant_contract_no, $html);
+        $this->assertContains($this->contracts[1]->tenant_contract_no, $html);
+    }
+
+    public function test_never_paid_only_in_the_month_matching_its_start()
+    {
+        list($m, $y) = ReceivableFigures::lastMonth();
+        list($from, $to) = ReceivableFigures::paidTillWindow($m, $y);
+        $old = Carbon::parse($from)->subYears(3)->format('Y-m-d');
+        $later = Carbon::parse($to)->addDay()->format('Y-m-d');
+        // all three never paid: started inside the window, long ago, and after the window
+        $this->seed3([500.0, 1500.0, 900.0], [null, null, null], [$to, $old, $later]);
+        $html = $this->rows();
+        $this->assertContains($this->contracts[0]->tenant_contract_no, $html);
+        $this->assertNotContains($this->contracts[1]->tenant_contract_no, $html);
+        $this->assertNotContains($this->contracts[2]->tenant_contract_no, $html);
+        $this->assertContains('Paid till ' . Carbon::parse($from)->format('F Y') . ', or started then and not paid yet', $html);
+    }
+
+    public function test_paid_till_column_and_window_explained()
+    {
+        list($m, $y) = ReceivableFigures::lastMonth();
+        list($from) = ReceivableFigures::paidTillWindow($m, $y);
+        $html = $this->rows();
+        $this->assertContains('Paid Till', $html);
+        $this->assertContains(\Carbon\Carbon::parse($from)->format('d/m/Y'), $html);
+        $this->assertContains('Not paid', $html);
+        $this->assertContains('Paid till ' . \Carbon\Carbon::parse($from)->format('F Y') . ', or started then and not paid yet', $html);
+    }
+
+    public function test_sort_by_paid_till()
+    {
+        list($m, $y) = ReceivableFigures::lastMonth();
+        list($from, $to) = ReceivableFigures::paidTillWindow($m, $y);
+        $this->seed3([500.0, 1500.0, 900.0], [$to, $from, $from]);
+        $html = $this->rows(['sort' => 'paid_till', 'direction' => 'desc']);
+        $this->assertTrue(strpos($html, $this->contracts[0]->tenant_contract_no) < strpos($html, $this->contracts[1]->tenant_contract_no));
     }
 
     public function test_timeline_empty_state()
