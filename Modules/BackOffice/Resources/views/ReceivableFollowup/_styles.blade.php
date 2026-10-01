@@ -31,6 +31,15 @@
   .rf .rf-card-foot { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
   .rf .rf-card-foot .rf-btn { min-height:36px; padding:6px 16px; }
   .rf .rf-card-foot .rf-btn + .rf-btn { margin-top:0; }
+  .rf .rf-combo { position:relative; }
+  .rf .rf-combo .form-control { padding-right:28px; }
+  .rf .rf-combo-clear { position:absolute; right:2px; bottom:4px; width:28px; height:28px; border:0; background:none; color:var(--rf-muted); font-size:20px; line-height:1; cursor:pointer; }
+  .rf .rf-combo-clear:hover { color:var(--rf-ink); }
+  .rf .rf-combo-list { position:absolute; z-index:20; left:0; right:0; top:100%; max-height:260px; overflow-y:auto; margin:4px 0 0; padding:4px 0; list-style:none;
+        background:#fff; border:1px solid var(--rf-line); border-radius:8px; box-shadow:0 8px 20px rgba(15, 23, 42, .12); }
+  .rf .rf-combo-opt { padding:8px 12px; font-size:14px; cursor:pointer; }
+  .rf .rf-combo-opt:hover, .rf .rf-combo-opt.is-active { background:#e8f2fb; color:var(--rf-primary-dark); }
+  .rf .rf-combo-none { padding:8px 12px; font-size:13px; color:var(--rf-muted); }
   .rf .rf-applied { margin:0 0 12px; font-size:13px; font-weight:600; color:var(--rf-muted); }
 
   /* summary strip */
