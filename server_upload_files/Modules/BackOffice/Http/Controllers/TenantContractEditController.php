@@ -1794,9 +1794,16 @@ public function tenantPopupAction(Request $request){
         TenantContract::where('id', $contract->id)->update($fields);
       });
     } catch (MunicipalityLedgerException $e) {
+      if ($request->expectsJson()) {
+        return response()->json(['message' => $e->getMessage()], 422);
+      }
       return redirect()->back()->withInput()->with('error', $e->getMessage());
     }
 
+      // Summary screen saves the modal by AJAX and stays on its search results.
+      if ($request->expectsJson()) {
+        return response()->json(['message' => 'Tenant Contract Municipality Changed Successfully']);
+      }
       session()->flash('success', 'Tenant Contract Municipality Changed Successfully');
       return redirect()->route('tenant-contract.index');
     }
