@@ -584,7 +584,7 @@
               <td>-</td>
               <td><span class="bsp-sub" style="display:inline">Not found in PLMS (no open or bounced PDC with this cheque no.)</span></td>
             @else
-              <td>{!! $plmsCell($group) !!}@if($x['status'] === 'choose')<span class="bsp-sub"><b>@if(!empty($x['amount_match']))Same cheque no. and amount on {{ count($x['groups']) }} contracts: tick and bounce only the right one.@else Same cheque no. on {{ count($x['groups']) }} contracts (within 6 months), none for the bank amount {{ number_format((float) $x['row']['amount'], 3) }}, so none is bounced here.@endif</b></span>@endif</td>
+              <td>{!! $plmsCell($group) !!}@if($x['status'] === 'choose')<span class="bsp-sub"><b>@if(!empty($x['amount_match']))Same cheque no. and amount on {{ count($x['groups']) }} contracts: tick and bounce only the right one.@else Same cheque no. on {{ count($x['groups']) }} contracts (PDCs dated up to 6 months before the deposit date), none for the bank amount {{ number_format((float) $x['row']['amount'], 3) }}, so none is bounced here.@endif</b></span>@endif</td>
               <td class="bsp-bounce-cell">
                 @php $bounced = true; foreach ($group as $p) { if ($p->pdc_cancel_reason !== \Modules\BackOffice\Services\BankSheetRejectedCheques::BOUNCED) { $bounced = false; } } @endphp
                 @if($bounced)
