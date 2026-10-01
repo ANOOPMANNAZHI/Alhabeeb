@@ -162,12 +162,14 @@ class BankSheetRejectedChequesTest extends TestCase
         $this->assertTrue($same[0]['amount_match']);
     }
 
-    public function test_choice_without_the_bank_amount_cannot_be_bounced_here()
+    public function test_choice_without_the_bank_amount_can_still_be_bounced()
     {
+        // user's choice: keep the bounce option and only warn that the amount differs
         $a = $this->pdc(['tenant_contract_id' => 91, 'pdc_amt' => 260.0]);
         $b = $this->pdc(['tenant_contract_id' => 92, 'pdc_amt' => 280.0]);
         $none = R::match([$this->row(['amount' => 4725.0])], [$a, $b], ['27' => 3]);
-        $this->assertFalse(R::canBounce($none[0], $none[0]['groups'][0]));
+        $this->assertFalse($none[0]['amount_match']);
+        $this->assertTrue(R::canBounce($none[0], $none[0]['groups'][0]));
 
         // same number and the bank amount on both: the user ticks the right one
         $c = $this->pdc(['tenant_contract_id' => 93]);
