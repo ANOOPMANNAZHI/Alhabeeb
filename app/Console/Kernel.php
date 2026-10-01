@@ -19,6 +19,7 @@ class Kernel extends ConsoleKernel
          \Modules\BackOffice\Console\TerminationDuesRefresh::class,
          \Modules\BackOffice\Console\RentOutstandingCorrectShortContracts::class,
          \Modules\BackOffice\Console\BulkMessagesSend::class,
+         \Modules\BackOffice\Console\RefreshReceivableFollowup::class,
     ];
 
     /**
@@ -38,6 +39,8 @@ class Kernel extends ConsoleKernel
        $schedule->command('termination-dues:refresh --open-only')->dailyAt('01:30');
 
        $schedule->command('bulk-messages:send')->everyMinute()->withoutOverlapping(10);
+
+       $schedule->command('receivables:refresh-followup')->everyFifteenMinutes()->withoutOverlapping(30);
 
     }
 
