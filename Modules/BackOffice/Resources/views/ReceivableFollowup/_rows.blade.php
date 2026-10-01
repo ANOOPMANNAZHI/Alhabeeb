@@ -11,8 +11,7 @@
 @endphp
 <div class="rf-strip" data-summary="{{ $count }} {{ $count === 1 ? 'agreement' : 'agreements' }} with a balance, total {{ number_format($totals['balance'], 3) }}">
   <div class="rf-stats">
-    <span>As on <strong>{{ $asOnText }}</strong></span>
-    <span>Paid till {{ $paidWindowLabel }} (2 months behind)</span>
+    <span>Dues up to <strong>{{ $asOnText }}</strong> ({{ $monthLabel }} − 2 months)</span>
     <span><strong>{{ number_format($count) }}</strong> {{ $count === 1 ? 'agreement' : 'agreements' }}</span>
     <span>Balance <strong>{{ number_format($totals['balance'], 3) }}</strong></span>
   </div>
@@ -20,14 +19,14 @@
 </div>
 <div class="table-responsive">
 <table class="rf-table">
-  <caption class="rf-sr">Agreements with a balance as on {{ $asOnText }}</caption>
+  <caption class="rf-sr">Agreements still owing on {{ $asOnText }}</caption>
   <thead><tr>
     {!! $th('tenant', 'Tenant', 'asc') !!}
     {!! $th('contract', 'Agreement', 'asc') !!}
     {!! $th('building', 'Building', 'asc') !!}
     <th scope="col">Unit No</th>
-    {!! $th('last_received', 'Last Received', 'desc') !!}
-    {!! $th('paid_till', 'Paid Till', 'asc') !!}
+    {!! $th('paid_till', 'Not Paid From', 'asc') !!}
+    {!! $th('last_received', 'Last Payment', 'desc') !!}
     {!! $th('due', 'Total Due', 'desc', true) !!}
     {!! $th('received', 'Amount Received', 'desc', true) !!}
     {!! $th('balance', 'Balance', 'desc', true) !!}
@@ -48,8 +47,8 @@
       <td>{{ $r->contract }}<span class="rf-sub">{{ $fmtDate($r->from) }} – {{ $fmtDate($r->to) }}</span></td>
       <td>{{ $r->building }}</td>
       <td>{{ $r->unit }}</td>
-      <td>{{ $fmtDate($r->last_received) }}</td>
-      <td>{{ $fmtDate($r->paid_till) }}</td>
+      <td>@if($r->paid_till)<span class="rf-unpaid"><span class="rf-sr">Not paid from </span>{{ \Carbon\Carbon::parse($r->paid_till)->addDay()->format('d/m/Y') }}</span><span class="rf-sub">paid till {{ $fmtDate($r->paid_till) }}</span>@else — @endif</td>
+      <td>@if($r->last_received){{ $fmtDate($r->last_received) }}@if($r->last_amount !== null)<span class="rf-sub">{{ number_format($r->last_amount, 3) }}</span>@endif @else — @endif</td>
       <td class="num">{{ number_format($r->due, 3) }}</td>
       <td class="num">{{ number_format($r->received, 3) }}</td>
       <td class="num rf-bal">{{ number_format($r->balance, 3) }}</td>

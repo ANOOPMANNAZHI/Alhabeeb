@@ -62,13 +62,8 @@ class ReceivableFollowupController extends Controller
         } catch (FiguresBusy $e) {
             return response()->json(['busy' => true], 202);
         }
-        // Only agreements paid till a date inside the month two months back (Oct -> August).
-        // Agreements with no rent receipt yet (no Paid Till) are not listed.
-        list($paidFrom, $paidTo) = ReceivableFigures::paidTillWindow($month, $year);
-        $fig = array_filter($data['rows'], function ($f) use ($paidFrom, $paidTo) {
-            $pt = isset($f['paid_till']) ? $f['paid_till'] : null;
-            return $pt !== null && $pt >= $paidFrom && $pt <= $paidTo;
-        });
+        // every agreement still owing at the cutoff (picked month - 2), see ReceivableFigures
+        $fig = $data['rows'];
 
         $q = TenantContract::query()->areFilter()
             ->join('buildings', 'buildings.id', '=', 'tenant_contracts.building_id')
@@ -104,6 +99,7 @@ class ReceivableFollowupController extends Controller
                 'building' => $c->building_name, 'unit' => $c->unit_no,
                 'due' => $f['due'], 'received' => $f['received'], 'balance' => $f['balance'], 'last_received' => $f['last_received'],
                 'paid_till' => isset($f['paid_till']) ? $f['paid_till'] : null,
+                'last_amount' => isset($f['last_amount']) ? $f['last_amount'] : null,
             ];
             $totals['due'] += $f['due'];
             $totals['received'] += $f['received'];
@@ -133,7 +129,7 @@ class ReceivableFollowupController extends Controller
         return view('backoffice::ReceivableFollowup._rows', [
             'rows' => $paginator, 'totals' => $totals, 'followups' => $followups, 'computedAt' => $data['computed_at'],
             'asOn' => $asOn, 'sort' => $sort, 'desc' => $desc, 'today' => Carbon::today()->format('Y-m-d'),
-            'paidWindowLabel' => Carbon::parse($paidFrom)->format('F Y'),
+            'monthLabel' => Carbon::create($year, $month, 1)->format('F Y'),
         ]);
     }
 
@@ -165,11 +161,17 @@ class ReceivableFollowupController extends Controller
         $fig = $cached && isset($cached['rows'][$contract->id]) ? $cached['rows'][$contract->id] : null;
         $lastPromise = ReceivableFollowup::where('tenant_contract_id', $contract->id)->whereNotNull('promised_date')
             ->orderBy('created_at', 'desc')->orderBy('id', 'desc')->first();
+        $paidTill = $fig && !empty($fig['paid_till']) ? Carbon::parse($fig['paid_till']) : null;
         return [
-            'contract'    => $contract,
-            'balance'     => $fig ? $fig['balance'] : null,
-            'lastPromise' => $lastPromise ? $lastPromise->promised_date->format('d/m/Y') : null,
-            'asOn'        => $asOn,
+            'contract'     => $contract,
+            'balance'      => $fig ? $fig['balance'] : null,
+            'notPaidFrom'  => $paidTill ? $paidTill->copy()->addDay()->format('d/m/Y') : null,
+            'paidTill'     => $paidTill ? $paidTill->format('d/m/Y') : null,
+            'lastPayment'  => $fig && !empty($fig['last_received'])
+                ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . number_format($fig['last_amount'], 3) : '')
+                : null,
+            'lastPromise'  => $lastPromise ? $lastPromise->promised_date->format('d/m/Y') : null,
+            'asOn'         => $asOn,
         ];
     }
 

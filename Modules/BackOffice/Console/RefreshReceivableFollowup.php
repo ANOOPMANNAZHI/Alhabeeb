@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Log;
 use Modules\BackOffice\Services\ReceivableFigures;
 
 /**
- * Keeps the Receivables Follow-up figures warm: last month's as-on date always,
- * and today's (the current month) when someone opened it today.
+ * Keeps the Receivables Follow-up figures warm for the cutoffs of last month and
+ * the current month (each = end of the month two months before).
  */
 class RefreshReceivableFollowup extends Command
 {
@@ -20,12 +20,10 @@ class RefreshReceivableFollowup extends Command
     public function handle()
     {
         $figures = app(ReceivableFigures::class);
+        // cutoffs of the default month (last month) and the current month, e.g. Oct -> 31/07 and 31/08
         list($m, $y) = ReceivableFigures::lastMonth();
-        $dates = [ReceivableFigures::asOnDate($m, $y)];
-        $today = Carbon::today()->format('Y-m-d');
-        if (Cache::has(ReceivableFigures::key($today))) {
-            $dates[] = $today;
-        }
+        $today = Carbon::today();
+        $dates = [ReceivableFigures::asOnDate($m, $y), ReceivableFigures::asOnDate((int) $today->month, (int) $today->year)];
         foreach (array_unique($dates) as $asOn) {
             try {
                 $data = $figures->refresh($asOn);
