@@ -109,6 +109,54 @@ class BankSheetRejectedChequesTest extends TestCase
         $this->assertSame('choose', $out[0]['status']);
     }
 
+    /** Sheet 01-10-2026 row 48: cheque 00000001 (a placeholder number) matched 74 contracts back to 2018. */
+    public function test_only_pdcs_within_six_months_of_the_cheque_date_count()
+    {
+        $row = $this->row(['cheque_no' => '00000001', 'bank_code' => '37', 'amount' => 4725.0, 'cheque_date' => '2026-09-30']);
+        $in      = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 51, 'pdc_check_date' => '2026-03-30']); // exactly 6 months before
+        $inAfter = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 52, 'pdc_check_date' => '2027-03-30']); // exactly 6 months after
+        $outOld  = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 53, 'pdc_check_date' => '2026-03-29']);
+        $outNew  = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 54, 'pdc_check_date' => '2027-03-31']);
+        $ancient = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 55, 'pdc_check_date' => '2018-01-05']);
+        $out = R::match([$row], [$in, $inAfter, $outOld, $outNew, $ancient], ['27' => 3]);
+        $ids = [];
+        foreach ($out[0]['groups'] as $g) {
+            $ids[] = $g[0]->id;
+        }
+        sort($ids);
+        $this->assertSame([$in->id, $inAfter->id], $ids);
+    }
+
+    public function test_no_fallback_to_old_cheques_when_none_is_near_the_date()
+    {
+        $old1 = $this->pdc(['tenant_contract_id' => 61, 'pdc_check_date' => '2018-01-05']);
+        $old2 = $this->pdc(['tenant_contract_id' => 62, 'pdc_check_date' => '2020-05-05']);
+        $out = R::match([$this->row(['cheque_date' => '2026-09-30'])], [$old1, $old2], ['27' => 3]);
+        $this->assertSame('not_found', $out[0]['status']);
+    }
+
+    public function test_choice_says_whether_any_contract_has_the_sheet_amount()
+    {
+        $a = $this->pdc(['tenant_contract_id' => 71, 'pdc_amt' => 260.0]);
+        $b = $this->pdc(['tenant_contract_id' => 72, 'pdc_amt' => 280.0]);
+        $none = R::match([$this->row(['amount' => 4725.0])], [$a, $b], ['27' => 3]);
+        $this->assertSame('choose', $none[0]['status']);
+        $this->assertFalse($none[0]['amount_match']);
+
+        $c = $this->pdc(['tenant_contract_id' => 73]);
+        $d = $this->pdc(['tenant_contract_id' => 74]);
+        $same = R::match([$this->row()], [$c, $d], ['27' => 3]);
+        $this->assertSame('choose', $same[0]['status']);
+        $this->assertTrue($same[0]['amount_match']);
+    }
+
+    public function test_without_a_cheque_date_there_is_no_date_limit()
+    {
+        $old = $this->pdc(['tenant_contract_id' => 81, 'pdc_check_date' => '2018-01-05']);
+        $out = R::match([$this->row(['cheque_date' => null])], [$old], ['27' => 3]);
+        $this->assertSame('found', $out[0]['status']);
+    }
+
     public function test_already_bounced_group()
     {
         $out = R::match([$this->row()], [$this->pdc(['pdc_cancel_reason' => 1])], ['27' => 3]);
