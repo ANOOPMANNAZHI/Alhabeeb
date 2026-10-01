@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\DB;
  * Due follows Receivable Report v2's rules, but only up to the cutoff: rent x whole
  * months from the effective month to the cutoff (or the contract end), capped at the
  * contract value; a contract terminated by the cutoff uses v2's termination rule.
- * Received = rent receipts dated on or before the cutoff. Only agreements that have
- * paid at least once and still owe at the cutoff are kept; legal cases are left out.
+ * Received = rent receipts dated on or before the cutoff. Only agreements that
+ * owe at least 30 at the cutoff are kept (never-paid included); legal cases are left out.
  * Cached per cutoff date (Laravel 5.7: TTL in minutes). PHP < 7.4: no arrow functions.
  */
 class ReceivableFigures
@@ -23,6 +23,7 @@ class ReceivableFigures
     const TTL_MINUTES = 1440;
     const BUSY_MINUTES = 2;
     const MONTHS_BACK = 2;
+    const MIN_BALANCE = 30; // same as Receivable Report v2 with a filter: tiny leftovers are not chased
 
     public static function lastMonth($today = null)
     {
@@ -38,10 +39,10 @@ class ReceivableFigures
         return ($end->gt($today) ? $today : $end)->format('Y-m-d');
     }
 
-    /** v4: figures counted up to the cutoff (entries cached before that are ignored and rebuilt). */
+    /** v5: figures up to the cutoff, never-paid kept with their start (older cache entries are rebuilt). */
     public static function key($asOn)
     {
-        return 'receivable_followup:v4:' . $asOn;
+        return 'receivable_followup:v5:' . $asOn;
     }
 
     /**
@@ -59,7 +60,8 @@ class ReceivableFigures
             }
             $start = Carbon::parse($c->start ?: $c->eff);
             $days = Carbon::parse($termDate)->diffInDays($start, true) - 1;
-            return (float) round($days * ($rent / 30));
+            // PostgreSQL (v2) rounds an exact .5 to even: 4,828.5 -> 4,828
+            return (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN);
         }
 
         $eff = Carbon::parse($c->eff);
@@ -92,7 +94,7 @@ class ReceivableFigures
             $due = self::dueAsOf($r, $cutoff);
             $received = round((float) $r->received, 3);
             $balance = round($due - $received, 3);
-            if ($balance <= 0) {
+            if ($balance < self::MIN_BALANCE) {
                 continue;
             }
             $out[(int) $r->id] = [
@@ -102,12 +104,13 @@ class ReceivableFigures
                 'last_received' => $r->last_received ? Carbon::parse($r->last_received)->format('Y-m-d') : null,
                 'last_amount'   => $r->last_amount !== null ? round((float) $r->last_amount, 3) : null,
                 'paid_till'     => $r->paid_till ? Carbon::parse($r->paid_till)->format('Y-m-d') : null,
+                'start'         => Carbon::parse($r->eff)->format('Y-m-d'),
             ];
         }
         return $out;
     }
 
-    /** Approved contracts in active buildings, not legal, started by the cutoff, with rent receipts up to it. */
+    /** Approved contracts in active buildings, not legal, started by the cutoff; rent receipts up to it (none = never paid). */
     public function compute($asOn)
     {
         $rows = DB::select("
@@ -124,7 +127,7 @@ class ReceivableFigures
                        AND rl.receipts_generation_receipt_date::date = r.last_received::date) AS last_amount
               FROM tenant_contracts tc
               JOIN buildings b ON b.id = tc.building_id AND b.building_status = '1'
-              JOIN (SELECT tenant_contract_id,
+              LEFT JOIN (SELECT tenant_contract_id,
                            sum(receipts_generation_amt)          AS received,
                            max(receipts_generation_eff_to)        AS paid_till,
                            max(receipts_generation_receipt_date)  AS last_received

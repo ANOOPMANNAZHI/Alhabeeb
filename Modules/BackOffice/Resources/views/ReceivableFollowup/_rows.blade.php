@@ -47,7 +47,7 @@
       <td>{{ $r->contract }}<span class="rf-sub">{{ $fmtDate($r->from) }} – {{ $fmtDate($r->to) }}</span></td>
       <td>{{ $r->building }}</td>
       <td>{{ $r->unit }}</td>
-      <td>@if($r->paid_till)<span class="rf-unpaid"><span class="rf-sr">Not paid from </span>{{ \Carbon\Carbon::parse($r->paid_till)->addDay()->format('d/m/Y') }}</span><span class="rf-sub">paid till {{ $fmtDate($r->paid_till) }}</span>@else — @endif</td>
+      <td>@if($r->paid_till)<span class="rf-unpaid"><span class="rf-sr">Not paid from </span>{{ \Carbon\Carbon::parse($r->paid_till)->addDay()->format('d/m/Y') }}</span><span class="rf-sub">paid till {{ $fmtDate($r->paid_till) }}</span>@elseif($r->start)<span class="rf-unpaid">Never paid</span><span class="rf-sub">started {{ $fmtDate($r->start) }}</span>@else — @endif</td>
       <td>@if($r->last_received){{ $fmtDate($r->last_received) }}@if($r->last_amount !== null)<span class="rf-sub">{{ number_format($r->last_amount, 3) }}</span>@endif @else — @endif</td>
       <td class="num">{{ number_format($r->due, 3) }}</td>
       <td class="num">{{ number_format($r->received, 3) }}</td>

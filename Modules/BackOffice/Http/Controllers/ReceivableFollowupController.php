@@ -100,6 +100,7 @@ class ReceivableFollowupController extends Controller
                 'due' => $f['due'], 'received' => $f['received'], 'balance' => $f['balance'], 'last_received' => $f['last_received'],
                 'paid_till' => isset($f['paid_till']) ? $f['paid_till'] : null,
                 'last_amount' => isset($f['last_amount']) ? $f['last_amount'] : null,
+                'start' => isset($f['start']) ? $f['start'] : null,
             ];
             $totals['due'] += $f['due'];
             $totals['received'] += $f['received'];
@@ -165,7 +166,8 @@ class ReceivableFollowupController extends Controller
         return [
             'contract'     => $contract,
             'balance'      => $fig ? $fig['balance'] : null,
-            'notPaidFrom'  => $paidTill ? $paidTill->copy()->addDay()->format('d/m/Y') : null,
+            'notPaidFrom'  => $paidTill ? $paidTill->copy()->addDay()->format('d/m/Y')
+                : ($fig && !empty($fig['start']) ? 'Never paid (started ' . Carbon::parse($fig['start'])->format('d/m/Y') . ')' : null),
             'paidTill'     => $paidTill ? $paidTill->format('d/m/Y') : null,
             'lastPayment'  => $fig && !empty($fig['last_received'])
                 ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . number_format($fig['last_amount'], 3) : '')
