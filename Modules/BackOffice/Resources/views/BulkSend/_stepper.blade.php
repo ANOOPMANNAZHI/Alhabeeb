@@ -1,6 +1,6 @@
-{{-- ① Message ② Recipients ③ Review. $step = current step (1-3). Steps 1-2 link to their section on the compose page. --}}
+{{-- ① Message ② Recipients ③ Review. $step = current step (1-3). Steps 1-2 link to their section on the compose page. $sticky = stays on screen while scrolling. --}}
 @php $bsSteps = [1 => ['Message', '#bs-sec-message'], 2 => ['Recipients', '#bs-sec-recipients'], 3 => ['Review', null]]; @endphp
-<ol class="bs-stepper" aria-label="Steps" id="bs-stepper">
+<ol class="bs-stepper{{ !empty($sticky) ? ' is-sticky' : '' }}" aria-label="Steps" id="bs-stepper">
   @foreach($bsSteps as $n => $st)
     @php $done = $n < $step; @endphp
     <li class="{{ $done ? 'is-done' : '' }}" data-step="{{ $n }}" @if($n === $step) aria-current="step" @endif>

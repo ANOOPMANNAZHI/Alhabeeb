@@ -77,7 +77,7 @@ class BulkSendComposeTest extends TestCase
         $location = DB::table('locations')->where('locations_status', 1)->orderBy('locations_name')->first();
         $html = $this->withSession(['_old_input' => ['template_id' => (string) $t->id, 'audience' => 'landlord', 'locations' => [(string) $location->id], 'send_email' => '1']])
             ->get(route('bulk-send.create'))->assertOk()->getContent();
-        $this->assertContains('class="bs-stepper"', $html);
+        $this->assertContains('class="bs-stepper is-sticky"', $html);
         $this->assertRegExp('/<input type="radio" name="template_id" value="' . $t->id . '"[^>]*checked/', $html);
         $this->assertRegExp('/<input type="radio" name="template_id" value=""/', $html);
         $this->assertContains('Write a one-off message', $html);
