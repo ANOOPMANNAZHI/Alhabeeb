@@ -40,16 +40,15 @@ class ReceivableFollowupRefreshTest extends TestCase
     public function test_refreshes_last_month()
     {
         $this->artisan('receivables:refresh-followup')->assertExitCode(0);
-        $this->assertSame([$this->lastMonthAsOn()], FakeFigures::$computed);
+        $this->assertContains($this->lastMonthAsOn(), FakeFigures::$computed);
         $this->assertSame(10.0, Cache::get(ReceivableFigures::key($this->lastMonthAsOn()))['rows'][5]['balance']);
     }
 
-    public function test_also_refreshes_today_when_opened_today()
+    public function test_also_refreshes_the_current_month_cutoff()
     {
-        $today = Carbon::today()->format('Y-m-d');
-        Cache::put(ReceivableFigures::key($today), ['computed_at' => 'x', 'rows' => []], 10);
+        $current = ReceivableFigures::asOnDate((int) date('n'), (int) date('Y'));   // e.g. October -> 31 August
         $this->artisan('receivables:refresh-followup')->assertExitCode(0);
-        $this->assertContains($today, FakeFigures::$computed);
+        $this->assertContains($current, FakeFigures::$computed);
     }
 
     public function test_failure_keeps_previous_figures()
