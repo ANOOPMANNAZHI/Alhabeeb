@@ -41,7 +41,7 @@
       $promise = $fus->first(function ($f) { return $f->promised_date !== null; });
       $overdue = $promise && $promise->promised_date->format('Y-m-d') < $today;
     @endphp
-    <tr id="rf-row-{{ $r->id }}">
+    <tr id="rf-row-{{ $r->id }}" class="rf-row" data-timeline="{{ route('receivable-followup.timeline', $r->id) }}?as_on={{ $asOn }}" tabindex="0" aria-label="{{ $r->tenant }}, {{ $r->contract }}: open follow-up history">
       <td>{{ $r->tenant }}<span class="rf-sub">{{ $r->contact_person }}@if($r->contact_person && $r->phone) · @endif{{ $r->phone }}</span></td>
       <td>{{ $r->contract }}<span class="rf-sub">{{ $fmtDate($r->from) }} – {{ $fmtDate($r->to) }}</span></td>
       <td>{{ $r->building }}</td>
@@ -56,7 +56,6 @@
         @can('add_receivable_followup')
         <button type="button" class="rf-btn rf-btn-primary rf-followup" data-url="{{ route('receivable-followup.form', $r->id) }}?as_on={{ $asOn }}" aria-label="Follow-up {{ $r->contract }}">Follow-up</button>
         @endcan
-        <button type="button" class="rf-btn rf-view" data-url="{{ route('receivable-followup.timeline', $r->id) }}?as_on={{ $asOn }}" aria-label="View history of {{ $r->contract }}">View</button>
       </td>
     </tr>
   @empty

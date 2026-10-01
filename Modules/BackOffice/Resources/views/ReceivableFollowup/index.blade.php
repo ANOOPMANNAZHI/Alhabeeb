@@ -5,7 +5,15 @@
 @section('content')
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Receivables Follow-up</div></div>{{ Breadcrumbs::render('receivable-followup.index') }}</div></div>
 <div class="rf"><div class="card card-box"><div class="card-body">
-  <form id="rf-filters" class="rf-filters" onsubmit="return false" aria-label="Filters">
+  <div class="rf-toolbar">
+    <div class="rf-search"><label for="rf-q" class="rf-sr">Search</label>
+      <i class="fa fa-search" aria-hidden="true"></i>
+      <input type="search" id="rf-q" name="q" class="form-control" placeholder="Search tenant, contract no or unit" autocomplete="off"></div>
+    <button type="button" class="rf-btn rf-filter-btn" id="rf-filter-toggle" aria-controls="rf-filter-card" aria-expanded="false">
+      <i class="fa fa-sliders" aria-hidden="true"></i> Filters <span class="rf-filter-count" id="rf-filter-count" hidden></span></button>
+  </div>
+  <form id="rf-filter-card" class="rf-filter-card" hidden aria-label="Filters">
+    <div class="rf-filters">
     <div><label for="rf-month">Month</label>
       <select id="rf-month" name="month" class="form-control">
         @foreach(range(1, 12) as $m)<option value="{{ $m }}" {{ $m === $month ? 'selected' : '' }}>{{ date('F', mktime(0, 0, 0, $m, 1)) }}</option>@endforeach
@@ -24,9 +32,13 @@
         <option value="">All</option>
         @foreach($management as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
       </select></div>
-    <div class="rf-grow"><label for="rf-q">Search</label>
-      <input type="search" id="rf-q" name="q" class="form-control" placeholder="Tenant, contract no or unit" autocomplete="off"></div>
+    </div>
+    <div class="rf-card-foot">
+      <button type="button" class="rf-btn" id="rf-reset">Reset</button>
+      <button type="submit" class="rf-btn rf-btn-primary" id="rf-apply">Apply filters</button>
+    </div>
   </form>
+  <p class="rf-applied" id="rf-applied"></p>
   <p class="rf-sr" id="rf-live" aria-live="polite"></p>
   <div id="rf-rows" aria-busy="true">
     <table class="rf-table" aria-hidden="true"><tbody>
@@ -46,9 +58,50 @@
   var token = $('meta[name="csrf-token"]').attr('content');
   var state = {page: 1, sort: '', direction: ''};
   var slowTimer, retryTimer, req;
+  // filter card values take effect on Apply only; these are the applied ones
+  var defaults = {month: @json((string) $month), year: @json((string) $year), building_id: '', management_id: ''};
+  var applied = $.extend({}, defaults);
+  var fields = {month: '#rf-month', year: '#rf-year', building_id: '#rf-building', management_id: '#rf-mgmt'};
+
+  function filterParams() {
+    var p = [];
+    $.each(applied, function (k, v) { p.push({name: k, value: v}); });
+    p.push({name: 'q', value: $('#rf-q').val()});
+    return p;
+  }
+  function showApplied() {
+    var parts = [$('#rf-month option[value="' + applied.month + '"]').text() + ' ' + applied.year], n = 0;
+    if (applied.month !== defaults.month || applied.year !== defaults.year) { n++; }
+    if (applied.building_id) { n++; parts.push($('#rf-building option[value="' + applied.building_id + '"]').text()); }
+    if (applied.management_id) { n++; parts.push($('#rf-mgmt option[value="' + applied.management_id + '"]').text()); }
+    $('#rf-applied').text(parts.join(' · '));
+    $('#rf-filter-count').text(n).prop('hidden', !n);
+    $('#rf-filter-toggle').attr('aria-label', n ? 'Filters, ' + n + ' active' : 'Filters');
+  }
+  function setCard(open) {
+    if (open) { $.each(fields, function (k, sel) { $(sel).val(applied[k]); }); }
+    $('#rf-filter-card').prop('hidden', !open);
+    $('#rf-filter-toggle').attr('aria-expanded', open ? 'true' : 'false').toggleClass('is-open', open);
+    if (open) { $('#rf-month').trigger('focus'); }
+  }
+  $('#rf-filter-toggle').on('click', function () { setCard($('#rf-filter-card').prop('hidden')); });
+  $('#rf-filter-card').on('submit', function (e) {
+    e.preventDefault();
+    $.each(fields, function (k, sel) { applied[k] = String($(sel).val() || ''); });
+    setCard(false); showApplied(); state.page = 1; load();
+    $('#rf-filter-toggle').trigger('focus');
+  });
+  $('#rf-reset').on('click', function () {
+    applied = $.extend({}, defaults);
+    setCard(false); showApplied(); state.page = 1; load();
+    $('#rf-filter-toggle').trigger('focus');
+  });
+  $(document).on('keydown', function (e) {
+    if (e.key === 'Escape' && !$('#rf-filter-card').prop('hidden')) { setCard(false); $('#rf-filter-toggle').trigger('focus'); }
+  });
 
   function params() {
-    var p = $('#rf-filters').serializeArray();
+    var p = filterParams();
     p.push({name: 'page', value: state.page});
     if (state.sort) { p.push({name: 'sort', value: state.sort}, {name: 'direction', value: state.direction}); }
     return $.param(p);
@@ -88,14 +141,13 @@
     });
   }
   var typing;
-  $('#rf-filters select').on('change', function () { state.page = 1; load(); });
   $('#rf-q').on('input', function () { clearTimeout(typing); typing = setTimeout(function () { state.page = 1; load(); }, 400); });
   $(document).on('click', '#rf-retry', load);
   $(document).on('click', '#rf-rows .pagination a', function (e) {
     e.preventDefault();
     var m = /[?&]page=(\d+)/.exec($(this).attr('href'));
     state.page = m ? Number(m[1]) : 1; load();
-    $('html, body').scrollTop($('#rf-filters').offset().top - 80);
+    $('html, body').scrollTop($('.rf-toolbar').offset().top - 80);
   });
   $(document).on('click', '#rf-rows .rf-sort', function (e) {
     e.preventDefault();
@@ -105,7 +157,7 @@
   });
   $(document).on('click', '#rf-refresh', function () {
     var $b = $(this).prop('disabled', true).text('Refreshing…');
-    $.post(refreshUrl, $('#rf-filters').serialize() + '&_token=' + encodeURIComponent(token))
+    $.post(refreshUrl, $.param(filterParams()) + '&_token=' + encodeURIComponent(token))
       .done(function () { load(); })
       .fail(function (x) {
         $b.prop('disabled', false).text('Refresh');
@@ -128,7 +180,15 @@
     });
   }
   $('#rf-modal').on('hide.bs.modal', function () { modalSeq++; });
-  $(document).on('click', '.rf-followup, .rf-view', function () { openModal($(this).attr('data-url'), this); });
+  $(document).on('click', '.rf-followup', function (e) { e.stopPropagation(); openModal($(this).attr('data-url'), this); });
+  // the whole row opens the history (click, or Enter / Space when the row has focus); not while selecting text
+  $(document).on('click', '#rf-rows .rf-row', function (e) {
+    if ($(e.target).closest('a, button, input, select, textarea').length || String(window.getSelection())) { return; }
+    openModal($(this).attr('data-timeline'), this);
+  });
+  $(document).on('keydown', '#rf-rows .rf-row', function (e) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target === this) { e.preventDefault(); openModal($(this).attr('data-timeline'), this); }
+  });
   // back to the button that opened the popup
   $('#rf-modal').on('hidden.bs.modal', function () { if (opener && document.body.contains(opener)) { opener.focus(); } });
   $(document).on('input', '#rf-comment', function () { $('#rf-comment-count').text(this.value.length + ' / 1000'); });
@@ -170,6 +230,7 @@
   });
 
   window.rfReload = load;
+  showApplied();
   load();
 })();
 </script>
