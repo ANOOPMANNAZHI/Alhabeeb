@@ -13,7 +13,7 @@ use Carbon\Carbon;
 class BankSheetRejectedCheques
 {
     const BOUNCED = 1; // pdc_cancel_reason
-    const DATE_WINDOW_MONTHS = 6; // PDCs dated this far either side of the sheet's cheque date
+    const DATE_WINDOW_MONTHS = 6; // PDCs dated up to this many months before the deposit date
 
     /** Active bounce reasons (Masters -> Bounce Reasons), code => name. */
     public static function reasons()
@@ -58,11 +58,13 @@ class BankSheetRejectedCheques
                 $same = array_values(array_filter($same, function ($p) use ($banks) { return in_array((int) $p->bank_id, $banks, true); }));
             }
 
-            // Only cheques dated within 6 months of the sheet's cheque date: numbers like 1 or 100
-            // repeat across years of PDCs and must not pull in contracts from long ago.
-            if (!empty($row['cheque_date'])) {
-                $from = Carbon::parse($row['cheque_date'])->subMonthsNoOverflow(self::DATE_WINDOW_MONTHS)->format('Y-m-d');
-                $to = Carbon::parse($row['cheque_date'])->addMonthsNoOverflow(self::DATE_WINDOW_MONTHS)->format('Y-m-d');
+            // Only PDCs dated from 6 months before the deposit date up to the deposit date (a cheque is
+            // never dated after it was deposited): numbers like 1 or 100 repeat across years of PDCs.
+            // Deposit date = the row's "Created on" (the day the bank scanned it), else its cheque date.
+            $deposit = !empty($row['created_on']) ? $row['created_on'] : (!empty($row['cheque_date']) ? $row['cheque_date'] : null);
+            if ($deposit !== null) {
+                $from = Carbon::parse($deposit)->subMonthsNoOverflow(self::DATE_WINDOW_MONTHS)->format('Y-m-d');
+                $to = Carbon::parse($deposit)->format('Y-m-d');
                 $same = array_values(array_filter($same, function ($p) use ($from, $to) {
                     $d = substr((string) $p->pdc_check_date, 0, 10);
                     return $d === '' || ($d >= $from && $d <= $to);
@@ -131,15 +133,11 @@ class BankSheetRejectedCheques
     }
 
     /**
-     * Can this contract's PDCs be marked bounced from the review page? Not when they are all
-     * bounced already, and not when several contracts share the cheque number but none holds
-     * the bank's amount (none of them is likely the rejected cheque).
+     * Can this contract's PDCs be marked bounced from the review page? Yes unless they are all
+     * bounced already. When no contract holds the bank's amount the page only warns (user's choice).
      */
     public static function canBounce(array $match, array $group)
     {
-        if ($match['status'] === 'choose' && empty($match['amount_match'])) {
-            return false;
-        }
         foreach ($group as $p) {
             if ((int) $p->pdc_cancel_reason !== self::BOUNCED) {
                 return true;

@@ -110,21 +110,33 @@ class BankSheetRejectedChequesTest extends TestCase
     }
 
     /** Sheet 01-10-2026 row 48: cheque 00000001 (a placeholder number) matched 74 contracts back to 2018. */
-    public function test_only_pdcs_within_six_months_of_the_cheque_date_count()
+    /**
+     * Sheet 01-10-2026 row 48: cheque 00000001 (a placeholder number) matched 74 contracts back to 2018.
+     * Only PDCs dated from 6 months before the deposit ("Created on") date up to that date count.
+     */
+    public function test_only_pdcs_from_six_months_before_up_to_the_deposit_date_count()
     {
-        $row = $this->row(['cheque_no' => '00000001', 'bank_code' => '37', 'amount' => 4725.0, 'cheque_date' => '2026-09-30']);
-        $in      = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 51, 'pdc_check_date' => '2026-03-30']); // exactly 6 months before
-        $inAfter = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 52, 'pdc_check_date' => '2027-03-30']); // exactly 6 months after
-        $outOld  = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 53, 'pdc_check_date' => '2026-03-29']);
-        $outNew  = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 54, 'pdc_check_date' => '2027-03-31']);
+        // cheque month (July) holds none of them, so only the date window decides
+        $row = $this->row(['cheque_no' => '00000001', 'bank_code' => '37', 'amount' => 4725.0, 'cheque_date' => '2026-07-15', 'created_on' => '2026-09-30']);
+        $first   = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 51, 'pdc_check_date' => '2026-03-30']); // exactly 6 months before
+        $deposit = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 52, 'pdc_check_date' => '2026-09-30']); // the deposit day
+        $tooOld  = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 53, 'pdc_check_date' => '2026-03-29']);
+        $future  = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 54, 'pdc_check_date' => '2026-10-01']); // after the deposit
         $ancient = $this->pdc(['pdc_check_no' => '1', 'tenant_contract_id' => 55, 'pdc_check_date' => '2018-01-05']);
-        $out = R::match([$row], [$in, $inAfter, $outOld, $outNew, $ancient], ['27' => 3]);
+        $out = R::match([$row], [$first, $deposit, $tooOld, $future, $ancient], ['27' => 3]);
         $ids = [];
         foreach ($out[0]['groups'] as $g) {
             $ids[] = $g[0]->id;
         }
         sort($ids);
-        $this->assertSame([$in->id, $inAfter->id], $ids);
+        $this->assertSame([$first->id, $deposit->id], $ids);
+    }
+
+    public function test_without_created_on_the_cheque_date_is_the_deposit_date()
+    {
+        $row = $this->row(['cheque_date' => '2026-09-30']);
+        $future = $this->pdc(['tenant_contract_id' => 56, 'pdc_check_date' => '2026-10-05']);
+        $this->assertSame('not_found', R::match([$row], [$future], ['27' => 3])[0]['status']);
     }
 
     public function test_no_fallback_to_old_cheques_when_none_is_near_the_date()
@@ -150,12 +162,14 @@ class BankSheetRejectedChequesTest extends TestCase
         $this->assertTrue($same[0]['amount_match']);
     }
 
-    public function test_choice_without_the_bank_amount_cannot_be_bounced_here()
+    public function test_choice_without_the_bank_amount_can_still_be_bounced()
     {
+        // user's choice: keep the bounce option and only warn that the amount differs
         $a = $this->pdc(['tenant_contract_id' => 91, 'pdc_amt' => 260.0]);
         $b = $this->pdc(['tenant_contract_id' => 92, 'pdc_amt' => 280.0]);
         $none = R::match([$this->row(['amount' => 4725.0])], [$a, $b], ['27' => 3]);
-        $this->assertFalse(R::canBounce($none[0], $none[0]['groups'][0]));
+        $this->assertFalse($none[0]['amount_match']);
+        $this->assertTrue(R::canBounce($none[0], $none[0]['groups'][0]));
 
         // same number and the bank amount on both: the user ticks the right one
         $c = $this->pdc(['tenant_contract_id' => 93]);
