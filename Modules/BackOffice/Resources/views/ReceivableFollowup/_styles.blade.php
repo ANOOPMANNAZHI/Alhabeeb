@@ -11,10 +11,10 @@
   .rf-dialog button:focus-visible, .rf-dialog input:focus-visible, .rf-dialog textarea:focus-visible { outline:2px solid var(--rf-primary); outline-offset:2px; }
 
   /* filter bar */
-  .rf .rf-filters { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px 16px; align-items:end; margin:0 0 20px; }
+  .rf .rf-filters { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px 16px; align-items:start; margin:0 0 20px; }
   .rf .rf-filters .rf-grow { grid-column:span 2; }
   .rf .rf-filters label { display:block; font-size:13px; font-weight:600; margin:0 0 6px; color:var(--rf-ink); }
-  .rf .rf-filters .form-control { height:40px; font-size:14px; border-color:#cbd5e1; }
+  .rf .rf-filters .form-control { font-size:14px; }
 
   /* summary strip */
   .rf .rf-strip { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 24px; padding:12px 16px; margin:0 0 12px;
@@ -28,8 +28,8 @@
   /* table */
   .rf .rf-table { width:100%; border-collapse:collapse; font-size:13px; }
   .rf .rf-table th { position:sticky; top:0; background:#fff; z-index:1; font-weight:600; color:var(--rf-muted); text-align:left; white-space:nowrap;
-        padding:10px 12px; border-bottom:2px solid var(--rf-line); }
-  .rf .rf-table td { padding:10px 12px; border-bottom:1px solid var(--rf-line); vertical-align:top; line-height:1.45; }
+        padding:10px 8px; border-bottom:2px solid var(--rf-line); }
+  .rf .rf-table td { padding:10px 8px; border-bottom:1px solid var(--rf-line); vertical-align:top; line-height:1.45; }
   .rf .rf-table tbody tr:hover td { background:var(--rf-fill); }
   .rf .rf-table .num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .rf .rf-table .rf-bal { font-weight:700; }
@@ -41,8 +41,9 @@
   .rf .rf-flag { display:inline-block; margin-left:4px; padding:0 6px; border-radius:10px; background:var(--rf-bad-bg); color:var(--rf-bad); font-size:11px; font-weight:700; }
   .rf .rf-totals td { font-weight:700; border-top:2px solid var(--rf-line); border-bottom:0; background:var(--rf-fill); }
   .rf .rf-actions { white-space:nowrap; }
+  .rf .rf-actions .rf-btn { display:block; width:100%; }
   .rf .rf-btn { min-height:32px; padding:4px 12px; border-radius:6px; font-size:13px; font-weight:600; border:1px solid #cbd5e1; background:#fff; color:var(--rf-ink); cursor:pointer; }
-  .rf .rf-btn + .rf-btn { margin-left:8px; }
+  .rf .rf-btn + .rf-btn { margin-top:6px; }
   .rf .rf-btn:hover { border-color:var(--rf-primary); color:var(--rf-primary); }
   .rf .rf-btn-primary, .rf-dialog .rf-btn-primary { background:var(--rf-primary); border-color:var(--rf-primary); color:#fff; }
   .rf .rf-btn-primary:hover, .rf-dialog .rf-btn-primary:hover { background:var(--rf-primary-dark); border-color:var(--rf-primary-dark); color:#fff; }
@@ -67,7 +68,7 @@
   .rf-dialog .rf-head dt { font-weight:600; color:var(--rf-muted); font-size:12px; margin:0; }
   .rf-dialog .rf-head dd { margin:2px 0 0; color:var(--rf-ink); font-variant-numeric:tabular-nums; }
   .rf-dialog .rf-head .rf-bal { font-size:16px; font-weight:700; }
-  .rf-dialog label { font-size:13px; font-weight:600; margin:0 0 6px; }
+  .rf-dialog label { display:block; font-size:13px; font-weight:600; margin:0 0 6px; }
   .rf-dialog .rf-req { color:var(--rf-bad); }
   .rf-dialog .rf-help { display:block; font-size:12px; color:var(--rf-muted); margin-top:4px; }
   .rf-dialog .rf-field-error { display:block; font-size:12px; color:var(--rf-bad); font-weight:600; margin-top:4px; }
@@ -76,6 +77,8 @@
   .rf-dialog .rf-foot { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
   .rf-dialog .rf-btn { min-height:40px; padding:8px 16px; border-radius:6px; font-size:14px; font-weight:600; border:1px solid #cbd5e1; background:#fff; color:var(--rf-ink); cursor:pointer; }
   .rf-dialog .rf-btn[disabled] { opacity:.6; cursor:progress; }
+  .rf-dialog .rf-btn.rf-btn-primary { background:var(--rf-primary); border-color:var(--rf-primary); color:#fff; }
+  .rf-dialog .rf-btn.rf-btn-primary:hover { background:var(--rf-primary-dark); border-color:var(--rf-primary-dark); color:#fff; }
 
   /* timeline */
   .rf-dialog .rf-tl { list-style:none; margin:0; padding:0 0 0 24px; position:relative; }

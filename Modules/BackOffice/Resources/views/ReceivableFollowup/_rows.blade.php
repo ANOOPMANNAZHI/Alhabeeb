@@ -9,10 +9,10 @@
   $count = $rows->total();
   $asOnText = \Carbon\Carbon::parse($asOn)->format('d/m/Y');
 @endphp
-<div class="rf-strip" data-summary="{{ $count }} agreements with a balance, total {{ number_format($totals['balance'], 3) }}">
+<div class="rf-strip" data-summary="{{ $count }} {{ $count === 1 ? 'agreement' : 'agreements' }} with a balance, total {{ number_format($totals['balance'], 3) }}">
   <div class="rf-stats">
     <span>As on <strong>{{ $asOnText }}</strong></span>
-    <span><strong>{{ number_format($count) }}</strong> agreements</span>
+    <span><strong>{{ number_format($count) }}</strong> {{ $count === 1 ? 'agreement' : 'agreements' }}</span>
     <span>Balance <strong>{{ number_format($totals['balance'], 3) }}</strong></span>
   </div>
   <span>Figures as of {{ \Carbon\Carbon::parse($computedAt)->format('d/m/Y H:i') }} · <button type="button" class="rf-link" id="rf-refresh">Refresh</button></span>
@@ -65,7 +65,7 @@
   </tbody>
   @if($count)
   <tfoot><tr class="rf-totals">
-    <td colspan="5">Total · {{ number_format($count) }} agreements</td>
+    <td colspan="5">Total · {{ number_format($count) }} {{ $count === 1 ? 'agreement' : 'agreements' }}</td>
     <td class="num">{{ number_format($totals['due'], 3) }}</td>
     <td class="num">{{ number_format($totals['received'], 3) }}</td>
     <td class="num">{{ number_format($totals['balance'], 3) }}</td>
