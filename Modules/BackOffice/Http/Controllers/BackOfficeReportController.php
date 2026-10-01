@@ -3222,7 +3222,14 @@ print_r($a); */
 
 public function showExpenseDetailsReportV2(){
   $buildings = Building::active()->orderBy('building_name','asc')->get();
-  return view('backoffice::reports.expense_details_report_v2', compact('buildings'));
+  // expense heads (4xxx) used on General Ledger debit lines, for the Account Head filter
+  $glHeads = DB::select("SELECT DISTINCT ac.acc_code_val, ac.acc_code_desc
+      FROM general_ledgers gl
+      JOIN general_ledger_dim gld ON gld.general_ledger_id = gl.id
+      JOIN acc_codes ac ON ac.id = gld.account_id
+      WHERE gld.debit_amt <> '0' AND gl.deleted_at IS NULL AND ac.acc_code_val::text LIKE '4%'
+      ORDER BY ac.acc_code_val");
+  return view('backoffice::reports.expense_details_report_v2', compact('buildings', 'glHeads'));
 }
 
 /**
@@ -3232,7 +3239,7 @@ public function showExpenseDetailsReportV2(){
  * while the building-filtered query uses mid.debit_amt directly (matches the
  * _Compo.jrxml variants) - this is how the original reports already behave.
  */
-private function expenseDetailsV2Query($date1, $date2, $buildingName, $expenseType = '')
+private function expenseDetailsV2Query($date1, $date2, $buildingName, $expenseType = '', $glHead = '')
 {
   // "All": maintenance invoices + General Ledger. In-house / Subcontractor: maintenance-invoice
   // rows of that type only. General Ledger ('gl'): GL rows only.
@@ -3243,6 +3250,11 @@ private function expenseDetailsV2Query($date1, $date2, $buildingName, $expenseTy
     $params[] = $expenseType === 'inhouse' ? 'In-house' : 'Subcontractor';
   } elseif ($expenseType === 'gl') {
     $expenseTypeFilter = " AND a.source = 'GL'";
+    // General Ledger only: optionally one account head (e.g. 41102 Municipal Tax)
+    if ((string) $glHead !== '') {
+      $expenseTypeFilter .= " AND a.acc_code_val::text = ?";
+      $params[] = (string) $glHead;
+    }
   }
 
   if ($buildingName === '') {
@@ -3323,6 +3335,7 @@ public function expenseDetailsReportPdfV2(Request $request){
   $reportType   = $request['report_type'];
   $downloadType = $request['download_type'];
   $expenseType  = $request['expense_type'] ?? '';
+  $glHead       = $expenseType === 'gl' ? (string) ($request['gl_head'] ?? '') : '';
 
   $buildingName = '';
   if (!empty($buildingId)) {
@@ -3330,7 +3343,7 @@ public function expenseDetailsReportPdfV2(Request $request){
     $buildingName = $building ? $building->building_name : '';
   }
 
-  $rows = $this->expenseDetailsV2Query($date1, $date2, $buildingName, $expenseType);
+  $rows = $this->expenseDetailsV2Query($date1, $date2, $buildingName, $expenseType, $glHead);
 
   // Group by accounting code, same as the Jasper templates' Group1 (groupExpression: acc_code_val)
   $grouped = [];
