@@ -22,8 +22,12 @@
       <select id="rf-year" name="year" class="form-control">
         @foreach($years as $y)<option value="{{ $y }}" {{ $y === $year ? 'selected' : '' }}>{{ $y }}</option>@endforeach
       </select></div>
-    <div><label for="rf-building">Building</label>
-      <select id="rf-building" name="building_id" class="form-control">
+    <div class="rf-combo"><label for="rf-building-q">Building</label>
+      <input type="text" id="rf-building-q" class="form-control" role="combobox" aria-controls="rf-building-list" aria-expanded="false"
+             aria-autocomplete="list" autocomplete="off" placeholder="All buildings · type to search">
+      <button type="button" class="rf-combo-clear" id="rf-building-clear" aria-label="Clear building" hidden>&times;</button>
+      <ul id="rf-building-list" class="rf-combo-list" role="listbox" aria-label="Buildings" hidden></ul>
+      <select id="rf-building" name="building_id" hidden aria-hidden="true" tabindex="-1">
         <option value="">All buildings</option>
         @foreach($buildings as $b)<option value="{{ $b->id }}">{{ $b->building_name }}</option>@endforeach
       </select></div>
@@ -78,8 +82,55 @@
     $('#rf-filter-count').text(n).prop('hidden', !n);
     $('#rf-filter-toggle').attr('aria-label', n ? 'Filters, ' + n + ' active' : 'Filters');
   }
+  // ---- Building: type to search; the hidden #rf-building select keeps the chosen id ----------
+  var bldAll = $('#rf-building option').filter(function () { return this.value !== ''; })
+    .map(function () { return {id: this.value, name: $(this).text()}; }).get();
+  var $bq = $('#rf-building-q'), $blist = $('#rf-building-list'), bActive = -1;
+  function bldShowSelected() {
+    var id = $('#rf-building').val();
+    $bq.val(id ? $('#rf-building option[value="' + id + '"]').text() : '');
+    $('#rf-building-clear').prop('hidden', !id);
+  }
+  function bldClose() { $blist.prop('hidden', true).empty(); $bq.attr('aria-expanded', 'false').removeAttr('aria-activedescendant'); bActive = -1; }
+  function bldOpen() {
+    var q = $.trim($bq.val()).toLowerCase(), n = 0;
+    $blist.empty();
+    $.each(bldAll, function (i, b) {
+      if (q && b.name.toLowerCase().indexOf(q) === -1) { return; }
+      if (n++ >= 50) { return false; } // keep the list short; typing narrows it
+      $('<li role="option" class="rf-combo-opt">').attr('id', 'rf-bld-' + b.id).attr('data-id', b.id).text(b.name).appendTo($blist);
+    });
+    if (!n) { $('<li class="rf-combo-none" role="presentation">').text('No building matches "' + $bq.val() + '"').appendTo($blist); }
+    $blist.prop('hidden', false); $bq.attr('aria-expanded', 'true'); bActive = -1;
+  }
+  function bldPick(id) { $('#rf-building').val(id || ''); bldShowSelected(); bldClose(); }
+  function bldMove(step) {
+    var $o = $blist.find('.rf-combo-opt');
+    if (!$o.length) { return; }
+    bActive = (bActive + step + $o.length) % $o.length;
+    $o.removeClass('is-active').attr('aria-selected', 'false');
+    var $a = $o.eq(bActive).addClass('is-active').attr('aria-selected', 'true');
+    $bq.attr('aria-activedescendant', $a.attr('id'));
+    $a[0].scrollIntoView({block: 'nearest'});
+  }
+  $bq.on('focus', function () { this.select(); bldOpen(); })
+    .on('input', function () { $('#rf-building').val(''); $('#rf-building-clear').prop('hidden', true); bldOpen(); })
+    .on('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); if ($blist.prop('hidden')) { bldOpen(); } bldMove(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); bldMove(-1); }
+      else if (e.key === 'Enter' && !$blist.prop('hidden')) {
+        e.preventDefault();
+        var $a = $blist.find('.rf-combo-opt.is-active');
+        if (!$a.length && $blist.find('.rf-combo-opt').length === 1) { $a = $blist.find('.rf-combo-opt'); }
+        if ($a.length) { bldPick($a.attr('data-id')); }
+      } else if (e.key === 'Escape' && !$blist.prop('hidden')) { e.stopPropagation(); bldClose(); bldShowSelected(); }
+    })
+    .on('blur', function () { setTimeout(function () { if (!$blist.is(':hover')) { bldClose(); bldShowSelected(); } }, 150); });
+  $blist.on('mousedown', '.rf-combo-opt', function (e) { e.preventDefault(); bldPick($(this).attr('data-id')); });
+  $('#rf-building-clear').on('click', function () { bldPick(''); $bq.trigger('focus'); });
+
   function setCard(open) {
-    if (open) { $.each(fields, function (k, sel) { $(sel).val(applied[k]); }); }
+    if (open) { $.each(fields, function (k, sel) { $(sel).val(applied[k]); }); bldShowSelected(); }
     $('#rf-filter-card').prop('hidden', !open);
     $('#rf-filter-toggle').attr('aria-expanded', open ? 'true' : 'false').toggleClass('is-open', open);
     if (open) { $('#rf-month').trigger('focus'); }

@@ -301,6 +301,15 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains('id="rf-applied"', $html);
     }
 
+    public function test_building_filter_is_searchable()
+    {
+        $html = $this->get(route('receivable-followup.index'))->assertOk()->getContent();
+        // a type-to-search box drives the (hidden) building select
+        $this->assertRegExp('/<input[^>]*id="rf-building-q"[^>]*role="combobox"[^>]*aria-controls="rf-building-list"[^>]*aria-expanded="false"/', $html);
+        $this->assertRegExp('/<ul[^>]*id="rf-building-list"[^>]*role="listbox"[^>]*hidden/', $html);
+        $this->assertRegExp('/<select id="rf-building"[^>]*hidden/', $html);
+    }
+
     public function test_timeline_empty_state()
     {
         $html = $this->get(route('receivable-followup.timeline', $this->contracts[2]->id))->assertOk()->getContent();
