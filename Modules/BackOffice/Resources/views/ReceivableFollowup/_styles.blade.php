@@ -67,6 +67,7 @@
   .rf .rf-sort:hover { color:var(--rf-ink); text-decoration:underline; }
   .rf .rf-table th[aria-sort="ascending"] .rf-sort, .rf .rf-table th[aria-sort="descending"] .rf-sort { color:var(--rf-ink); }
   .rf .rf-overdue { color:var(--rf-bad); font-weight:600; }
+  .rf .rf-unpaid, .rf-dialog .rf-unpaid { color:var(--rf-bad); font-weight:700; font-variant-numeric:tabular-nums; }
   .rf .rf-flag { display:inline-block; margin-left:4px; padding:0 6px; border-radius:10px; background:var(--rf-bad-bg); color:var(--rf-bad); font-size:11px; font-weight:700; }
   .rf .rf-totals td { font-weight:700; border-top:2px solid var(--rf-line); border-bottom:0; background:var(--rf-fill); }
   .rf .rf-actions { white-space:nowrap; }
