@@ -264,6 +264,43 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
     }
 
+    public function test_form_shows_last_three_comments_newest_first()
+    {
+        $c = $this->contracts[0];
+        foreach (['call one', 'call two', 'call three', 'call four'] as $i => $text) {
+            ReceivableFollowup::create(['tenant_contract_id' => $c->id, 'comment' => $text, 'created_by' => 1,
+                'created_at' => Carbon::now()->subDays(10 - $i)->format('Y-m-d H:i:s')]);
+        }
+        $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
+        $this->assertContains('Recent follow-ups', $html);
+        $this->assertTrue(strpos($html, 'call four') < strpos($html, 'call three') && strpos($html, 'call three') < strpos($html, 'call two'));
+        $this->assertNotContains('call one', $html);
+    }
+
+    public function test_form_without_followups_has_no_recent_list()
+    {
+        $html = $this->get(route('receivable-followup.form', $this->contracts[2]->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
+        $this->assertNotContains('Recent follow-ups', $html);
+    }
+
+    public function test_row_opens_history_and_has_no_view_button()
+    {
+        $c = $this->contracts[0];
+        $html = $this->rows();
+        $this->assertNotContains('rf-view', $html);
+        $this->assertRegExp('/<tr id="rf-row-' . $c->id . '"[^>]*class="rf-row"[^>]*data-timeline="[^"]*receivable-followup\/' . $c->id . '\/timeline\?as_on=' . $this->asOn . '"[^>]*tabindex="0"/', $html);
+    }
+
+    public function test_filters_sit_behind_a_button_with_apply_and_reset()
+    {
+        $html = $this->get(route('receivable-followup.index'))->assertOk()->getContent();
+        $this->assertRegExp('/<button[^>]*id="rf-filter-toggle"[^>]*aria-controls="rf-filter-card"[^>]*aria-expanded="false"/', $html);
+        $this->assertRegExp('/id="rf-filter-card"[^>]*hidden/', $html);
+        $this->assertContains('id="rf-apply"', $html);
+        $this->assertContains('id="rf-reset"', $html);
+        $this->assertContains('id="rf-applied"', $html);
+    }
+
     public function test_timeline_empty_state()
     {
         $html = $this->get(route('receivable-followup.timeline', $this->contracts[2]->id))->assertOk()->getContent();

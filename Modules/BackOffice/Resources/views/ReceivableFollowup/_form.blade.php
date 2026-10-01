@@ -5,6 +5,19 @@
   </div>
   <div class="modal-body">
     @include('backoffice::ReceivableFollowup._header')
+    @if($recent->isNotEmpty())
+      <section class="rf-recent" aria-labelledby="rf-recent-title">
+        <h5 id="rf-recent-title">Recent follow-ups</h5>
+        <ol>
+          @foreach($recent as $f)
+            <li>
+              <div class="rf-when"><strong>{{ $f->created_at->format('d/m/Y H:i') }}</strong> · {{ $f->creatorName() }}@if($f->promised_date) · promised {{ $f->promised_date->format('d/m/Y') }}@endif</div>
+              <div class="rf-comment">{{ $f->comment }}</div>
+            </li>
+          @endforeach
+        </ol>
+      </section>
+    @endif
     <form id="rf-form" action="{{ route('receivable-followup.store', $contract->id) }}" method="post" novalidate>
       @csrf
       <input type="hidden" name="as_on" value="{{ $asOn }}">

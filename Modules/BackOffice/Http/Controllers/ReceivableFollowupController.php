@@ -174,7 +174,10 @@ class ReceivableFollowupController extends Controller
     public function form(Request $request, $contract)
     {
         $c = $this->contractInScope($contract);
-        return view('backoffice::ReceivableFollowup._form', $this->header($c, $this->asOnParam($request)));
+        // the last few calls, so the ARE sees what was said before phoning again
+        $recent = ReceivableFollowup::with('creator.employee')->where('tenant_contract_id', $c->id)
+            ->orderBy('created_at', 'desc')->orderBy('id', 'desc')->limit(3)->get();
+        return view('backoffice::ReceivableFollowup._form', $this->header($c, $this->asOnParam($request)) + compact('recent'));
     }
 
     public function store(Request $request, $contract)
