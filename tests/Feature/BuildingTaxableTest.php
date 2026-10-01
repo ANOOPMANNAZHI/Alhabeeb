@@ -91,7 +91,7 @@ class BuildingTaxableTest extends TestCase
             'building_ownership_type' => $b->building_ownership_type, 'building_address' => substr($b->building_address, 0, 250),
             'building_pc' => $b->building_pc, 'location_id' => $b->location_id, 'google_location' => $b->google_location,
             'building_note' => $b->building_note, 'building_geo_long' => $b->building_geo_long, 'building_geo_lat' => $b->building_geo_lat,
-            'building_no_floor' => $b->building_no_floor,
+            'building_no_floor' => $b->building_no_floor, 'backurl' => route('building.index'),
         ];
 
         // unticked: only the hidden 0 is sent

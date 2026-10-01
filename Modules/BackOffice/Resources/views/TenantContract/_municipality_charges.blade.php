@@ -6,7 +6,16 @@
   $taxVal = old('tenant_contract_municipality_tax_amt', number_format($m['tax'], 3, '.', ''));
   $penVal = old('tenant_contract_municipality_penalty_amt', number_format($m['penalty'], 3, '.', ''));
 @endphp
-@if ($m['legacy'])
+@if (isset($m['taxable']) && !$m['taxable'])
+<div class="col-sm-12">
+  <div class="form-group text-muted">This building is not taxable (Building master) &mdash; no municipality tax, processing charge or penalty, and no General Ledger voucher.</div>
+  @foreach (['Tax voucher' => $m['tax_voucher'], 'Penalty voucher' => $m['penalty_voucher']] as $label => $v)
+    @if ($v)
+      <div class="form-group"><strong>{{ $label }} made before:</strong> {{ $v['voucher_no'] }} &mdash; {{ $v['status'] }} <span class="text-muted">(left as it is; Finance can handle it in General Ledger)</span></div>
+    @endif
+  @endforeach
+</div>
+@elseif ($m['legacy'])
 <div class="col-sm-12">
   <div class="form-group text-muted">Registered with the municipality before municipal tax vouchers were introduced &mdash; no tax voucher is created for this contract.</div>
 </div>
