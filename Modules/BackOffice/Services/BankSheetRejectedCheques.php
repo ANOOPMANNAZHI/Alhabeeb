@@ -2,6 +2,8 @@
 
 namespace Modules\BackOffice\Services;
 
+use Carbon\Carbon;
+
 /**
  * Cheques the bank rejected on a clearing sheet, matched to their PDC rows so
  * they can be marked bounced from the review page. A rent + VAT cheque is two
@@ -11,6 +13,7 @@ namespace Modules\BackOffice\Services;
 class BankSheetRejectedCheques
 {
     const BOUNCED = 1; // pdc_cancel_reason
+    const DATE_WINDOW_MONTHS = 6; // PDCs dated this far either side of the sheet's cheque date
 
     /** Active bounce reasons (Masters -> Bounce Reasons), code => name. */
     public static function reasons()
@@ -53,6 +56,17 @@ class BankSheetRejectedCheques
             if (isset($bankMap[$code])) {
                 $banks = array_map('intval', (array) $bankMap[$code]);
                 $same = array_values(array_filter($same, function ($p) use ($banks) { return in_array((int) $p->bank_id, $banks, true); }));
+            }
+
+            // Only cheques dated within 6 months of the sheet's cheque date: numbers like 1 or 100
+            // repeat across years of PDCs and must not pull in contracts from long ago.
+            if (!empty($row['cheque_date'])) {
+                $from = Carbon::parse($row['cheque_date'])->subMonthsNoOverflow(self::DATE_WINDOW_MONTHS)->format('Y-m-d');
+                $to = Carbon::parse($row['cheque_date'])->addMonthsNoOverflow(self::DATE_WINDOW_MONTHS)->format('Y-m-d');
+                $same = array_values(array_filter($same, function ($p) use ($from, $to) {
+                    $d = substr((string) $p->pdc_check_date, 0, 10);
+                    return $d === '' || ($d >= $from && $d <= $to);
+                }));
             }
 
             $groups = self::groupByContract($same);
@@ -100,9 +114,38 @@ class BankSheetRejectedCheques
                 }
                 $status = $allBounced ? 'already_bounced' : 'found';
             }
-            $out[] = ['row' => $row, 'status' => $status, 'groups' => $groups];
+            // does any remaining contract hold exactly the bank's amount (all its PDCs of this cheque)?
+            $amountMatch = false;
+            foreach ($groups as $g) {
+                $sum = 0.0;
+                foreach ($g as $p) {
+                    $sum += (float) $p->pdc_amt;
+                }
+                if (isset($row['amount']) && abs($sum - (float) $row['amount']) < 0.005) {
+                    $amountMatch = true;
+                }
+            }
+            $out[] = ['row' => $row, 'status' => $status, 'groups' => $groups, 'amount_match' => $amountMatch];
         }
         return $out;
+    }
+
+    /**
+     * Can this contract's PDCs be marked bounced from the review page? Not when they are all
+     * bounced already, and not when several contracts share the cheque number but none holds
+     * the bank's amount (none of them is likely the rejected cheque).
+     */
+    public static function canBounce(array $match, array $group)
+    {
+        if ($match['status'] === 'choose' && empty($match['amount_match'])) {
+            return false;
+        }
+        foreach ($group as $p) {
+            if ((int) $p->pdc_cancel_reason !== self::BOUNCED) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function groupByContract(array $pdcs)
