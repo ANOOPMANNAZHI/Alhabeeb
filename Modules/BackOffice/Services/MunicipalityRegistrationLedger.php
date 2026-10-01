@@ -51,6 +51,16 @@ class MunicipalityRegistrationLedger
             && !$contract->tenant_contract_municipality_penalty_gl_id;
     }
 
+    /**
+     * Building master "Taxable". A non-taxable building has no municipal tax, processing
+     * charge or penalty, and no vouchers are created for it. No building found: taxable.
+     */
+    public function isTaxable($contract)
+    {
+        $building = $contract->building;
+        return !$building || (bool) $building->building_is_taxable;
+    }
+
     public function modalData($contract)
     {
         $s = $this->settings();
@@ -59,6 +69,7 @@ class MunicipalityRegistrationLedger
         $taxPosted = $taxGl && $this->isLocked($taxGl);
 
         return [
+            'taxable'         => $this->isTaxable($contract),
             'legacy'          => $this->isLegacy($contract),
             'contract_value'  => Charges::money($contract->tenant_contract_value),
             'rate'            => $s['rate'],
@@ -77,6 +88,12 @@ class MunicipalityRegistrationLedger
 
     public function sync($contract, $taxInput, $penaltyInput, $docDate, $userId, $canApprove)
     {
+        // Non-taxable building: no charges and no vouchers. Anything stored before the
+        // building was marked non-taxable is left as it is (Finance handles it in General Ledger).
+        if (!$this->isTaxable($contract)) {
+            return ['legacy' => false, 'not_taxable' => true];
+        }
+
         if ($this->isLegacy($contract)) {
             return [
                 'legacy'         => true,
