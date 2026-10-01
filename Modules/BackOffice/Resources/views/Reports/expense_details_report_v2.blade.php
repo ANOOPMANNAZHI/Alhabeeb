@@ -80,6 +80,21 @@
               </div>
             </div>
           </div>
+          {{-- shown only for Expense Type = General Ledger --}}
+          <div class="col-sm-6" id="gl_head_box" hidden>
+              <div class="form-group">
+                <label for="gl_head">Account Head</label>
+                <div class="p-relative">
+                 <i class="fa fa-list icn-add" aria-hidden="true"></i>
+                 <select class="form-control" id="gl_head" name="gl_head" disabled>
+                  <option value="">All heads</option>
+                  @foreach($glHeads as $head)
+                  <option value="{{ $head->acc_code_val }}">{{ $head->acc_code_val }} - {{ $head->acc_code_desc }}</option>
+                  @endforeach
+                </select>
+              </div>
+            </div>
+          </div>
           <div class="col-sm-6">
               <div class="form-group">
                 <label for="download_type">Download Type<small class="textRed">*</small>  </label>
@@ -115,6 +130,16 @@
 $(function(){
   var pdfExcelAction = "{{ route('expenseDetailsReportPdfV2') }}";
   var serviceZipAction = "{{ route('expenseDetailsServiceReportsZip') }}";
+
+  // Account Head only applies to General Ledger rows: show it (and send it) only then
+  function syncGlHead() {
+    var gl = $('#expense_type').val() === 'gl';
+    $('#gl_head_box').prop('hidden', !gl);
+    $('#gl_head').prop('disabled', !gl);
+    if (!gl) { $('#gl_head').val(''); }
+  }
+  $('#expense_type').on('change', syncGlHead);
+  syncGlHead();
 
   $('#form_sample_2').on('submit', function(e){
     var downloadType = $('#download_type').val();
