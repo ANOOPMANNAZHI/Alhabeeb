@@ -149,6 +149,127 @@ class ReceivableFollowupTest extends TestCase
         $this->actingAs($user)->get(route('receivable-followup.index'))->assertStatus(403);
     }
 
+    private function save($c, array $data)
+    {
+        return $this->postJson(route('receivable-followup.store', $c->id), $data + ['as_on' => $this->asOn]);
+    }
+
+    public function test_save_captures_user_time_and_balance()
+    {
+        $c = $this->contracts[1];
+        $this->save($c, ['comment' => 'Called, will pay Sunday', 'promised_date' => Carbon::today()->addDays(3)->format('Y-m-d')])
+            ->assertOk()->assertJson(['promised' => Carbon::today()->addDays(3)->format('d/m/Y'), 'overdue' => false]);
+        $f = ReceivableFollowup::where('tenant_contract_id', $c->id)->latest('id')->first();
+        $this->assertSame(1, (int) $f->created_by);
+        $this->assertEquals(1500.0, (float) $f->balance_at_followup);
+        $this->assertTrue($f->created_at->gt(Carbon::now()->subMinute()));
+    }
+
+    public function test_save_without_promised_date()
+    {
+        $c = $this->contracts[0];
+        $this->save($c, ['comment' => 'No answer'])->assertOk()->assertJson(['promised' => null]);
+        $this->assertNull(ReceivableFollowup::where('tenant_contract_id', $c->id)->latest('id')->first()->promised_date);
+    }
+
+    public function test_comment_required_and_max_1000()
+    {
+        $c = $this->contracts[0];
+        $this->save($c, ['comment' => ''])->assertStatus(422)->assertJsonValidationErrors('comment');
+        $this->save($c, ['comment' => str_repeat('x', 1001)])->assertStatus(422)->assertJsonValidationErrors('comment');
+    }
+
+    public function test_promised_date_today_ok_yesterday_rejected()
+    {
+        $c = $this->contracts[0];
+        $this->save($c, ['comment' => 'today', 'promised_date' => Carbon::today()->format('Y-m-d')])->assertOk();
+        $this->save($c, ['comment' => 'past', 'promised_date' => Carbon::yesterday()->format('Y-m-d')])
+            ->assertStatus(422)->assertJsonValidationErrors('promised_date');
+    }
+
+    public function test_save_without_cached_figures_keeps_balance_null()
+    {
+        Cache::forget(ReceivableFigures::key($this->asOn));
+        $c = $this->contracts[0];
+        $this->save($c, ['comment' => 'cache expired'])->assertOk();
+        $this->assertNull(ReceivableFollowup::where('tenant_contract_id', $c->id)->latest('id')->first()->balance_at_followup);
+    }
+
+    public function test_save_needs_add_permission()
+    {
+        // an ARE whose role keeps view but loses add (rolled back with the transaction)
+        $add = DB::table('permissions')->where('name', 'add_receivable_followup')->value('id');
+        $areRole = DB::table('roles')->where('name', 'are')->value('id');
+        DB::table('role_has_permissions')->where('permission_id', $add)->where('role_id', $areRole)->delete();
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        // a single-role ARE and a contract in one of their own buildings, so only the permission can refuse
+        $own = DB::table('preferred_buildings')->join('are_buildings', 'are_buildings.id', '=', 'preferred_buildings.are_building_id')
+            ->join('tenant_contracts', 'tenant_contracts.building_id', '=', 'preferred_buildings.building_id')
+            ->whereNull('preferred_buildings.assign_to')->orderBy('tenant_contracts.id', 'desc')
+            ->get(['are_buildings.user_id', 'tenant_contracts.id as contract_id'])
+            ->first(function ($r) { $u = User::find($r->user_id); return $u && $u->roles->count() === 1 && $u->hasRole('are'); });
+        if (!$own) {
+            $this->markTestSkipped('No local single-role ARE with a contract in their buildings.');
+        }
+        $user = User::find($own->user_id);
+        $this->assertTrue($user->can('view_receivable_followup'));
+        $this->assertFalse($user->can('add_receivable_followup'));
+        $this->actingAs($user);
+        $this->postJson(route('receivable-followup.store', $own->contract_id), ['comment' => 'x'])->assertStatus(403);
+        $this->assertSame(0, ReceivableFollowup::where('tenant_contract_id', $own->contract_id)->where('comment', 'x')->count());
+        $this->assertNotContains('rf-followup', $this->rows());
+    }
+
+    public function test_are_cannot_save_or_view_outside_own_buildings()
+    {
+        $are = User::role('are')->get()->first(function ($u) {
+            return $u->roles->count() === 1 && !DB::table('are_buildings')->where('user_id', $u->id)->exists();
+        });
+        if (!$are) {
+            $this->markTestSkipped('No local ARE user without buildings.');
+        }
+        $this->actingAs($are);
+        $c = $this->contracts[0];
+        $this->save($c, ['comment' => 'x'])->assertStatus(403);
+        $this->get(route('receivable-followup.timeline', $c->id))->assertStatus(403);
+    }
+
+    public function test_form_shows_header()
+    {
+        $c = $this->contracts[1];
+        $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
+        $this->assertContains($c->tenant_contract_no, $html);
+        $this->assertContains('1,500.000', $html);
+        $this->assertContains('name="comment"', $html);
+        $this->assertContains('name="promised_date"', $html);
+    }
+
+    public function test_timeline_newest_first_with_status()
+    {
+        $c = $this->contracts[0];
+        ReceivableFollowup::create(['tenant_contract_id' => $c->id, 'comment' => 'first call', 'promised_date' => '2020-01-10', 'created_by' => 1, 'created_at' => '2020-01-01 10:00:00']);
+        ReceivableFollowup::create(['tenant_contract_id' => $c->id, 'comment' => 'second call', 'promised_date' => Carbon::today()->addDays(5)->format('Y-m-d'), 'created_by' => 1]);
+        $html = $this->get(route('receivable-followup.timeline', $c->id))->assertOk()->getContent();
+        $this->assertTrue(strpos($html, 'second call') < strpos($html, 'first call'));
+        $this->assertContains('rf-badge upcoming', $html);
+        $this->assertRegExp('/rf-badge (kept|broken)/', $html);
+    }
+
+    public function test_timeline_escapes_comment()
+    {
+        $c = $this->contracts[0];
+        ReceivableFollowup::create(['tenant_contract_id' => $c->id, 'comment' => '<script>alert(1)</script>', 'created_by' => 1]);
+        $html = $this->get(route('receivable-followup.timeline', $c->id))->assertOk()->getContent();
+        $this->assertNotContains('<script>alert(1)</script>', $html);
+        $this->assertContains('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
+    }
+
+    public function test_timeline_empty_state()
+    {
+        $html = $this->get(route('receivable-followup.timeline', $this->contracts[2]->id))->assertOk()->getContent();
+        $this->assertContains('No follow-ups yet.', $html);
+    }
+
     public function test_refresh_recomputes_the_month()
     {
         $this->app->bind(ReceivableFigures::class, function () {

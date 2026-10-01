@@ -95,6 +95,59 @@
       .done(function () { load(); })
       .fail(function () { $b.prop('disabled', false).text('Refresh'); $('#rf-live').text('Could not refresh the figures. Please try again.'); });
   });
+  // ---- Follow-up / View popups ---------------------------------------------
+  var opener = null;
+  function openModal(url, from) {
+    opener = from;
+    $('#rf-modal').html('<div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-body" role="status">Loading…</div></div></div>').modal('show');
+    $.get(url).done(function (html) {
+      $('#rf-modal').html(html);
+      $('#rf-comment').trigger('focus');
+    }).fail(function (x) {
+      $('#rf-modal .modal-body').text(x.status === 403 ? 'You cannot open this agreement.' : 'Could not load. Please close and try again.');
+    });
+  }
+  $(document).on('click', '.rf-followup, .rf-view', function () { openModal($(this).attr('data-url'), this); });
+  // back to the button that opened the popup
+  $('#rf-modal').on('hidden.bs.modal', function () { if (opener && document.body.contains(opener)) { opener.focus(); } });
+  $(document).on('input', '#rf-comment', function () { $('#rf-comment-count').text(this.value.length + ' / 1000'); });
+
+  function fieldError(name, msg) {
+    var $f = $('#rf-form [name="' + name + '"]').addClass('is-invalid').attr('aria-invalid', 'true');
+    $('#rf-' + name + '-error').text(msg).prop('hidden', false);
+    return $f;
+  }
+  $(document).on('submit', '#rf-form', function (e) {
+    e.preventDefault();
+    var form = this, id = form.action.split('/').pop();
+    var $btn = $(form).find('button[type=submit]');
+    $(form).find('.is-invalid').removeClass('is-invalid').removeAttr('aria-invalid');
+    $(form).find('.rf-field-error').prop('hidden', true).empty();
+    $(form).find('.rf-error').prop('hidden', true).empty();
+    if (!$.trim($('#rf-comment').val())) { fieldError('comment', 'Enter a comment about the call.').trigger('focus'); return; }
+    $btn.prop('disabled', true).text('Saving…');
+    $.ajax({method: 'POST', url: form.action, data: $(form).serialize(), headers: {'Accept': 'application/json'}})
+      .done(function (r) {
+        $('#rf-last-' + id).empty().append(document.createTextNode(r.last)).append($('<span class="rf-sub">').text(r.by));
+        var $p = $('#rf-promise-' + id).empty().toggleClass('rf-overdue', !!r.overdue).text(r.promised || '—');
+        if (r.overdue) { $p.append('<span class="rf-flag">Overdue</span>'); }
+        var $row = $('#rf-row-' + id).removeClass('rf-row-saved');
+        setTimeout(function () { $row.addClass('rf-row-saved'); }, 0);
+        $('#rf-live').text('Follow-up saved.');
+        $('#rf-modal').modal('hide');
+      })
+      .fail(function (x) {
+        var r = x.responseJSON || {}, $first = null;
+        if (x.status === 422 && r.errors) {
+          $.each(r.errors, function (k, v) { var $f = fieldError(k, v[0]); $first = $first || $f; });
+          if ($first) { $first.trigger('focus'); }
+        } else {
+          $(form).find('.rf-error').text(x.status === 403 ? 'You cannot add a follow-up for this agreement.' : (r.message || 'Could not save. Please try again.')).prop('hidden', false);
+        }
+      })
+      .always(function () { $btn.prop('disabled', false).text('Save follow-up'); });
+  });
+
   window.rfReload = load;
   load();
 })();

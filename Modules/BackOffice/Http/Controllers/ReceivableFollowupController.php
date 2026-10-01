@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Entities\ReceivableFollowup;
 use Modules\BackOffice\Services\ReceivableFigures;
 use Modules\Masters\Entities\Building;
@@ -128,5 +129,85 @@ class ReceivableFollowupController extends Controller
         list($month, $year, $asOn) = $this->period($request);
         $data = app(ReceivableFigures::class)->refresh($asOn);
         return response()->json(['computed_at' => $data['computed_at']]);
+    }
+
+    /** The contract, if it exists and is inside the user's ARE scope; 404 / 403 otherwise. */
+    private function contractInScope($id)
+    {
+        $contract = TenantContract::with(['tenant', 'building', 'Unit'])->findOrFail($id);
+        if (!TenantContract::areFilter()->where('tenant_contracts.id', $contract->id)->exists()) {
+            abort(403);
+        }
+        return $contract;
+    }
+
+    /** Header shared by the form and the timeline. */
+    private function header(TenantContract $contract, $asOn)
+    {
+        $cached = $asOn ? app(ReceivableFigures::class)->cached($asOn) : null;
+        $fig = $cached && isset($cached['rows'][$contract->id]) ? $cached['rows'][$contract->id] : null;
+        $lastPromise = ReceivableFollowup::where('tenant_contract_id', $contract->id)->whereNotNull('promised_date')
+            ->orderBy('created_at', 'desc')->orderBy('id', 'desc')->first();
+        return [
+            'contract'    => $contract,
+            'balance'     => $fig ? $fig['balance'] : null,
+            'lastPromise' => $lastPromise ? $lastPromise->promised_date->format('d/m/Y') : null,
+            'asOn'        => $asOn,
+        ];
+    }
+
+    private function asOnParam(Request $request)
+    {
+        $v = (string) $request->input('as_on', '');
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
+    }
+
+    public function form(Request $request, $contract)
+    {
+        $c = $this->contractInScope($contract);
+        return view('backoffice::ReceivableFollowup._form', $this->header($c, $this->asOnParam($request)));
+    }
+
+    public function store(Request $request, $contract)
+    {
+        $c = $this->contractInScope($contract);
+        $this->validate($request, [
+            'comment'       => 'required|string|max:1000',
+            'promised_date' => 'nullable|date|after_or_equal:today',
+        ]);
+        $h = $this->header($c, $this->asOnParam($request));
+        $f = ReceivableFollowup::create([
+            'tenant_contract_id'  => $c->id,
+            'comment'             => trim($request->comment),
+            'promised_date'       => $request->filled('promised_date') ? $request->promised_date : null,
+            'balance_at_followup' => $h['balance'],
+            'created_by'          => \Auth::user()->id,
+        ]);
+        $f->load('creator.employee');
+
+        $promise = ReceivableFollowup::where('tenant_contract_id', $c->id)->whereNotNull('promised_date')
+            ->orderBy('created_at', 'desc')->orderBy('id', 'desc')->first();
+        return response()->json([
+            'last'     => $f->created_at->format('d/m/Y H:i'),
+            'by'       => $f->creatorName(),
+            'promised' => $promise ? $promise->promised_date->format('d/m/Y') : null,
+            'overdue'  => $promise ? $promise->promised_date->format('Y-m-d') < Carbon::today()->format('Y-m-d') : false,
+        ]);
+    }
+
+    public function timeline(Request $request, $contract)
+    {
+        $c = $this->contractInScope($contract);
+        $followups = ReceivableFollowup::with('creator.employee')->where('tenant_contract_id', $c->id)
+            ->orderBy('created_at', 'desc')->orderBy('id', 'desc')->get();
+        $receiptDates = ReceiptsGeneration::where('tenant_contract_id', $c->id)->where('receipts_generation_type', 0)
+            ->where(function ($q) { $q->whereNull('receipts_generation_status')->orWhere('receipts_generation_status', '!=', 2); })
+            ->whereNotNull('receipts_generation_receipt_date')->pluck('receipts_generation_receipt_date')
+            ->map(function ($d) { return Carbon::parse($d)->format('Y-m-d'); })->all();
+        $today = Carbon::today()->format('Y-m-d');
+        $statusFor = function ($f) use ($receiptDates, $today) {
+            return ReceivableFollowup::promiseStatus($f->promised_date, $f->created_at, $receiptDates, $today);
+        };
+        return view('backoffice::ReceivableFollowup._timeline', $this->header($c, $this->asOnParam($request)) + compact('followups', 'statusFor'));
     }
 }
