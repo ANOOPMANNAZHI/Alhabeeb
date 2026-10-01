@@ -43,15 +43,16 @@ class ReceivableFollowupTest extends TestCase
         $this->seed3([500.0, 1500.0, 900.0]);
     }
 
-    /** Paid Till inside the default month's window for the first two, never paid for the third. */
-    private function seed3(array $balances, array $paidTill = null)
+    /** Paid Till inside the default month's window for the first two; the third never paid and started in the window. */
+    private function seed3(array $balances, array $paidTill = null, array $start = null)
     {
         list($m, $y) = ReceivableFigures::lastMonth();
         list($from) = ReceivableFigures::paidTillWindow($m, $y);
         $paidTill = $paidTill ?: [$from, $from, null];
+        $start = $start ?: ['2020-01-01', '2020-01-01', $from];
         $rows = [];
         foreach ($this->contracts as $i => $c) {
-            $rows[$c->id] = ['due' => $balances[$i] + 100, 'received' => 100.0, 'balance' => $balances[$i], 'last_received' => '2026-08-15', 'paid_till' => $paidTill[$i]];
+            $rows[$c->id] = ['due' => $balances[$i] + 100, 'received' => 100.0, 'balance' => $balances[$i], 'last_received' => '2026-08-15', 'paid_till' => $paidTill[$i], 'start' => $start[$i]];
         }
         Cache::put(ReceivableFigures::key($this->asOn), ['computed_at' => '2026-10-01 09:45:00', 'rows' => $rows], 60);
     }
@@ -333,6 +334,21 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains($this->contracts[1]->tenant_contract_no, $html);
     }
 
+    public function test_never_paid_only_in_the_month_matching_its_start()
+    {
+        list($m, $y) = ReceivableFigures::lastMonth();
+        list($from, $to) = ReceivableFigures::paidTillWindow($m, $y);
+        $old = Carbon::parse($from)->subYears(3)->format('Y-m-d');
+        $later = Carbon::parse($to)->addDay()->format('Y-m-d');
+        // all three never paid: started inside the window, long ago, and after the window
+        $this->seed3([500.0, 1500.0, 900.0], [null, null, null], [$to, $old, $later]);
+        $html = $this->rows();
+        $this->assertContains($this->contracts[0]->tenant_contract_no, $html);
+        $this->assertNotContains($this->contracts[1]->tenant_contract_no, $html);
+        $this->assertNotContains($this->contracts[2]->tenant_contract_no, $html);
+        $this->assertContains('Paid till ' . Carbon::parse($from)->format('F Y') . ', or started then and not paid yet', $html);
+    }
+
     public function test_paid_till_column_and_window_explained()
     {
         list($m, $y) = ReceivableFigures::lastMonth();
@@ -341,7 +357,7 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains('Paid Till', $html);
         $this->assertContains(\Carbon\Carbon::parse($from)->format('d/m/Y'), $html);
         $this->assertContains('Not paid', $html);
-        $this->assertContains('Paid till ' . \Carbon\Carbon::parse($from)->format('F Y') . ' (2 months behind) or not yet paid', $html);
+        $this->assertContains('Paid till ' . \Carbon\Carbon::parse($from)->format('F Y') . ', or started then and not paid yet', $html);
     }
 
     public function test_sort_by_paid_till()

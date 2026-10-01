@@ -33,10 +33,10 @@ class ReceivableFigures
         return ($end->gt($today) ? $today : $end)->format('Y-m-d');
     }
 
-    /** v2: rows carry paid_till (entries cached before that are ignored and rebuilt). */
+    /** v3: rows carry paid_till and start (entries cached before that are ignored and rebuilt). */
     public static function key($asOn)
     {
-        return 'receivable_followup:v2:' . $asOn;
+        return 'receivable_followup:v3:' . $asOn;
     }
 
     /**
@@ -76,6 +76,7 @@ class ReceivableFigures
                 'balance'       => $balance,
                 'last_received' => $r->receipt_date ? Carbon::parse($r->receipt_date)->format('Y-m-d') : null,
                 'paid_till'     => !empty($r->lastpaid_till) ? Carbon::parse($r->lastpaid_till)->format('Y-m-d') : null,
+                'start'         => !empty($r->start_date) ? Carbon::parse($r->start_date)->format('Y-m-d') : null,
             ];
         }
         return $out;
@@ -83,7 +84,7 @@ class ReceivableFigures
 
     public function compute($asOn)
     {
-        $rows = DB::select('SELECT contract_no, totaldue, amount_received, netamtdue, receipt_date, lastpaid_till FROM tenantrentreceivable(?::date)', [$asOn]);
+        $rows = DB::select('SELECT contract_no, totaldue, amount_received, netamtdue, receipt_date, lastpaid_till, start_date FROM tenantrentreceivable(?::date)', [$asOn]);
 
         $legalNos = DB::table('legal')
             ->join('tenant_contracts', 'tenant_contracts.id', '=', 'legal.tenant_contract_id')
