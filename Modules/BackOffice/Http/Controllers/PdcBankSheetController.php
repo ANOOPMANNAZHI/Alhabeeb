@@ -826,8 +826,14 @@ class PdcBankSheetController extends Controller
      */
     private function candidatePdcs(array $rows, $forRejected = false)
     {
+        // the cheque number as printed on the sheet (e.g. 00205886) and, failing that, without its
+        // leading zeros (205886): PDCs are stored either way. The matchers compare both sides normalised.
         $numbers = [];
         foreach ($rows as $r) {
+            $printed = trim((string) $r['cheque_no']);
+            if ($printed !== '') {
+                $numbers[$printed] = true;
+            }
             $numbers[BankSheetPdcMatcher::normaliseChequeNo($r['cheque_no'])] = true;
         }
 
