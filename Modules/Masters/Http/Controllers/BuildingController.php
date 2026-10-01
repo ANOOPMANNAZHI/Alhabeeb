@@ -37,7 +37,7 @@ class BuildingController extends Controller
   {
     $this->middleware('auth');  
     $this->middleware('permission:add_building', ['only' => ['create','store']]);  
-    $this->middleware('permission:edit_building', ['only' => ['edit','update']]);  
+    $this->middleware('permission:edit_building', ['only' => ['edit','update','changeTaxable']]);
     $this->middleware('permission:delete_building', ['only' => ['destroy']]);   
     $this->middleware('permission:change_status_building', ['only' => ['changeStatus']]);         
     $this->middleware('permission:view_building', ['only' => ['index','show']]);                  
@@ -142,7 +142,8 @@ class BuildingController extends Controller
         'location_id' => 'required',           
         'google_location' => 'required', 
         'building_note' => 'required',
-        'building_ownership_type' => 'nullable|in:1,2,3,4'
+        'building_ownership_type' => 'nullable|in:1,2,3,4',
+        'building_is_taxable' => 'nullable|in:0,1'
       /*'building_img_name.*'    => 'mimes:jpeg,jpg,pdf,docs,doc,docx|max:'.$size ,
        // 'building_doc_path_name.*'    => 'mimes:jpeg,jpg,pdf,docs,doc,docx|max:'.$size , */
         ]);
@@ -159,6 +160,7 @@ class BuildingController extends Controller
         'building_type_id' => $request->building_type_id,
         'management_id' => $request->management_id,
         'building_ownership_type' => $request->filled('building_ownership_type') ? (int) $request->building_ownership_type : null,
+        'building_is_taxable' => (string) $request->input('building_is_taxable', '1') === '1',
         'building_address' => $request->building_address,
         'building_pc' => $request->building_pc,
         'location_id' => $request->location_id,
@@ -349,6 +351,7 @@ class BuildingController extends Controller
       'google_location' => 'required', 
       'building_note' => 'required',
       'building_ownership_type' => 'nullable|in:1,2,3,4',
+      'building_is_taxable' => 'nullable|in:0,1',
       'building_img_name.*'    => 'mimes:jpeg,jpg,pdf,docs,doc,docx|max:'.$size ,
       'building_doc_path_name.*'    => 'mimes:jpeg,jpg,pdf,docs,doc,docx|max:'.$size ,
       ]);
@@ -361,6 +364,7 @@ class BuildingController extends Controller
       'building_type_id' => $request->building_type_id,
       'management_id' => $request->management_id,
       'building_ownership_type' => $request->filled('building_ownership_type') ? (int) $request->building_ownership_type : null,
+      'building_is_taxable' => (string) $request->input('building_is_taxable', '1') === '1',
       'building_address' => $request->building_address,
       'building_pc' => $request->building_pc,
       'location_id' => $request->location_id,
@@ -539,7 +543,22 @@ class BuildingController extends Controller
       ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
       
       session()->flash('success', 'Status Changed Successfully');
-      return redirect()->route('building.index');   
+      return redirect()->route('building.index');
+    }
+
+    /** List page switch: set Taxable yes/no (AJAX, JSON). */
+    public function changeTaxable(Request $request, Building $building)
+    {
+      $this->validate($request, ['taxable' => 'required|in:0,1']);
+      $building->building_is_taxable = (string) $request->taxable === '1';
+      $building->save();
+
+      activity('Change Building Taxable')
+      ->causedBy(\Auth::user()->id)
+      ->withProperties(['building_id' => $building->id, 'building_is_taxable' => $building->building_is_taxable])
+      ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
+
+      return response()->json(['ok' => true, 'taxable' => $building->building_is_taxable]);
     }
     
     public function updateUnitTypeCount(Request $request){

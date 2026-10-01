@@ -18,6 +18,16 @@
           {{$building->management->management_types_name}}
         </td>
         <td>{{ $building->ownership_type_name }}</td>
+        <td>
+          @can('edit_building')
+          <label style="display:inline-flex;align-items:center;gap:6px;margin:0;font-weight:normal;cursor:pointer" title="Taxable">
+            <input type="checkbox" class="building-taxable" data-url="{{ route('building.changeTaxable', $building->id) }}" {{ $building->building_is_taxable ? 'checked' : '' }} aria-label="Taxable: {{ $building->building_name }}" style="width:16px;height:16px;margin:0">
+            <span class="building-taxable-text">{{ $building->building_is_taxable ? 'Yes' : 'No' }}</span>
+          </label>
+          @else
+          {{ $building->building_is_taxable ? 'Yes' : 'No' }}
+          @endcan
+        </td>
         @can('change_status_building')   
         <td> 
 
@@ -54,7 +64,7 @@
                         @php $count++; @endphp
                         @empty
                         <tr>
-                          <td colspan="5" align="center">
+                          <td colspan="8" align="center">
                             <p>No Record</p>
                           </td>
                         </tr>
@@ -65,7 +75,7 @@
                                 <tr>                                   
                                             
                                                       
-                                  <td colspan="7" id="pagination_ajax"> 
+                                  <td colspan="8" id="pagination_ajax"> 
                                         @php 
                                         $buildings->withPath(\Request::input('curr_url'));
                              

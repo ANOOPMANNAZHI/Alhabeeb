@@ -120,6 +120,7 @@ Route::resource('vendors', 'VendorController');
 
 //Building
 Route::post('/buildingStatus/{building}', 'BuildingController@changeStatus')->name('building.changeStatus');
+Route::post('/buildingTaxable/{building}', 'BuildingController@changeTaxable')->name('building.changeTaxable');
 Route::resource('building', 'BuildingController');
 Route::post('/updateUnitTypeCount', 'BuildingController@updateUnitTypeCount')->name('building.updateUnitTypeCount'); 
 //Unit

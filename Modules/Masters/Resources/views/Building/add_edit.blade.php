@@ -221,7 +221,9 @@
                 <div class="p-relative">
                    <i class="fa fa-user icn-add" aria-hidden="true"></i>
                 @php
-                  $ownershipSelected = old('building_ownership_type', isset($building) ? $building->building_ownership_type : \Modules\Masters\Entities\Building::OWNERSHIP_INDIVIDUAL);
+                  // old() only after a failed save: the list filter also flashes building_ownership_type / building_is_taxable.
+                  $ownershipSaved = isset($building) ? $building->building_ownership_type : \Modules\Masters\Entities\Building::OWNERSHIP_INDIVIDUAL;
+                  $ownershipSelected = $errors->any() ? old('building_ownership_type', $ownershipSaved) : $ownershipSaved;
                 @endphp
                 <select class="form-control" id="building_ownership_type" name="building_ownership_type">
                   <option value="">Select Ownership Type</option>
@@ -230,6 +232,20 @@
                   @endforeach
                 </select>
                 </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="form-group">
+                <label>Taxable</label>
+                @php
+                  $taxableSaved = isset($building) ? ($building->building_is_taxable ? '1' : '0') : '1';
+                  $taxableChecked = (string) ($errors->any() ? old('building_is_taxable', $taxableSaved) : $taxableSaved) === '1';
+                @endphp
+                <input type="hidden" name="building_is_taxable" value="0">
+                <label for="building_is_taxable" style="display:flex;align-items:center;gap:8px;font-weight:normal;min-height:34px;margin:0;cursor:pointer">
+                  <input type="checkbox" id="building_is_taxable" name="building_is_taxable" value="1" {{ $taxableChecked ? 'checked' : '' }} style="width:18px;height:18px;margin:0">
+                  This building is taxable
+                </label>
             </div>
           </div>
           <div class="col-sm-6">

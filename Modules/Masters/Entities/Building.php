@@ -11,9 +11,9 @@ class Building extends Model
 	
     protected $guarded = [];
     protected $date = ['management_date'];
-    protected $casts = ['building_handed_over' => 'boolean'];
+    protected $casts = ['building_handed_over' => 'boolean', 'building_is_taxable' => 'boolean'];
     
-    public $sortable = ['id','building_name','building_code','building_status','building_ownership_type'];
+    public $sortable = ['id','building_name','building_code','building_status','building_ownership_type','building_is_taxable'];
 
     /** building_ownership_type values; Individual is the default. */
     const OWNERSHIP_MERA       = 1;
@@ -343,6 +343,8 @@ class Building extends Model
                      $query->where('building_status', 0)->where('building_handed_over', true);
                    elseif($key == 'building_status' && (string) $val === '0')
                      $query->where('building_status', 0)->where('building_handed_over', false);
+                   elseif($key == 'building_is_taxable')
+                     $query->where($key, (string) $val === '1');
                    elseif(strpos($key, 'status') !== false || $key == 'building_ownership_type')
                      $query->where($key,$val);
                    else

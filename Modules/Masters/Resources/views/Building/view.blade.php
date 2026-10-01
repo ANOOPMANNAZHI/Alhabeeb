@@ -203,6 +203,11 @@
               <h5 class="details"><b>Ownership Type  :  </b><span>{{ $building->ownership_type_name ?: '-' }}</span></h5>
             </div>
           </div>
+          <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+              <h5 class="details"><b>Taxable  :  </b><span>{{ $building->building_is_taxable ? 'Yes' : 'No' }}</span></h5>
+            </div>
+          </div>
           @if($building->building_handed_over)
           <div class="col-lg-6 p-t-20">
             <div class = "txt-full-width">
