@@ -43,12 +43,12 @@ class ReceivableFollowupTest extends TestCase
         $this->seed3([500.0, 1500.0, 900.0]);
     }
 
-    /** Paid Till inside the default month's window for the first two; the third never paid and started in the window. */
+    /** Paid Till inside the default month's window for all three unless given. */
     private function seed3(array $balances, array $paidTill = null, array $start = null)
     {
         list($m, $y) = ReceivableFigures::lastMonth();
         list($from) = ReceivableFigures::paidTillWindow($m, $y);
-        $paidTill = $paidTill ?: [$from, $from, null];
+        $paidTill = $paidTill ?: [$from, $from, $from];
         $start = $start ?: ['2020-01-01', '2020-01-01', $from];
         $rows = [];
         foreach ($this->contracts as $i => $c) {
@@ -315,7 +315,7 @@ class ReceivableFollowupTest extends TestCase
         $this->assertRegExp('/<select id="rf-building"[^>]*hidden/', $html);
     }
 
-    public function test_only_paid_till_two_months_back_or_never_paid_are_listed()
+    public function test_only_paid_till_two_months_back_are_listed()
     {
         list($m, $y) = ReceivableFigures::lastMonth();
         list($from, $to) = ReceivableFigures::paidTillWindow($m, $y);
@@ -325,8 +325,8 @@ class ReceivableFollowupTest extends TestCase
         $html = $this->rows();
         $this->assertContains($this->contracts[0]->tenant_contract_no, $html);     // last day of the window
         $this->assertNotContains($this->contracts[1]->tenant_contract_no, $html);  // after the window
-        $this->assertContains($this->contracts[2]->tenant_contract_no, $html);     // never paid
-        $this->assertContains('1,400.000', $html);                                 // totals cover only the listed two
+        $this->assertNotContains($this->contracts[2]->tenant_contract_no, $html);  // never paid: not listed
+        $this->assertRegExp('/<strong>1<\/strong> agreement</', $html);             // count covers only the listed one
 
         $this->seed3([500.0, 1500.0, 900.0], [$before, $from, $from]);
         $html = $this->rows();
@@ -334,7 +334,7 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains($this->contracts[1]->tenant_contract_no, $html);
     }
 
-    public function test_never_paid_only_in_the_month_matching_its_start()
+    public function test_never_paid_agreements_are_not_listed()
     {
         list($m, $y) = ReceivableFigures::lastMonth();
         list($from, $to) = ReceivableFigures::paidTillWindow($m, $y);
@@ -343,10 +343,10 @@ class ReceivableFollowupTest extends TestCase
         // all three never paid: started inside the window, long ago, and after the window
         $this->seed3([500.0, 1500.0, 900.0], [null, null, null], [$to, $old, $later]);
         $html = $this->rows();
-        $this->assertContains($this->contracts[0]->tenant_contract_no, $html);
-        $this->assertNotContains($this->contracts[1]->tenant_contract_no, $html);
-        $this->assertNotContains($this->contracts[2]->tenant_contract_no, $html);
-        $this->assertContains('Paid till ' . Carbon::parse($from)->format('F Y') . ', or started then and not paid yet', $html);
+        foreach ($this->contracts as $c) {
+            $this->assertNotContains($c->tenant_contract_no, $html);
+        }
+        $this->assertContains('No agreements with a balance', $html);
     }
 
     public function test_paid_till_column_and_window_explained()
@@ -356,8 +356,9 @@ class ReceivableFollowupTest extends TestCase
         $html = $this->rows();
         $this->assertContains('Paid Till', $html);
         $this->assertContains(\Carbon\Carbon::parse($from)->format('d/m/Y'), $html);
-        $this->assertContains('Not paid', $html);
-        $this->assertContains('Paid till ' . \Carbon\Carbon::parse($from)->format('F Y') . ', or started then and not paid yet', $html);
+        $this->assertNotContains('Not paid', $html);
+        $this->assertContains('Paid till ' . \Carbon\Carbon::parse($from)->format('F Y') . ' (2 months behind)', $html);
+        $this->assertNotContains('not paid yet', $html);
     }
 
     public function test_sort_by_paid_till()
