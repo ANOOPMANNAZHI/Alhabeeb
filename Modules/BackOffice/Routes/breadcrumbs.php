@@ -971,3 +971,8 @@ Breadcrumbs::for('bulk-send.show', function ($trail, $send) {
     $trail->parent('bulk-send.index');
     $trail->push('Send #' . $send->id, route('bulk-send.show', $send->id));
 });
+
+Breadcrumbs::for('receivable-followup.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Receivables Follow-up', route('receivable-followup.index'));
+});
