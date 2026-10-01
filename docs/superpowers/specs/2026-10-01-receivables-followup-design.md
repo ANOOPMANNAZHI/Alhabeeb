@@ -103,7 +103,7 @@ aggregated from `receivable_followups`.
 ### List
 
 - Filters (AND): **Month** (month + year, default last month), **Building**
-  (autocomplete limited to the user's buildings), **Management type**
+  (dropdown limited to the user's buildings), **Management type**
   (All / Comprehensive / Normal), **Search** (tenant name, contract no or unit no).
 - Scoping: contracts whose building passes `Building::areFilter()`.
 - Columns: Tenant (name; contact person + phone below) · Agreement (contract no;
