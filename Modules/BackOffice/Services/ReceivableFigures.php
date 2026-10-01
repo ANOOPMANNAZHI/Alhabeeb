@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 class ReceivableFigures
 {
     const TTL_MINUTES = 1440;
+    const BUSY_MINUTES = 2;
 
     public static function lastMonth($today = null)
     {
@@ -90,12 +91,24 @@ class ReceivableFigures
         return self::build($rows, $legalNos, $idsByNo);
     }
 
-    /** Recompute and cache. On failure the exception propagates and the old cache entry stays. */
+    /**
+     * Recompute and cache. On failure the exception propagates and the old cache entry stays.
+     * One calculation per as-on date at a time (the file cache has no locks in 5.7, so a
+     * short-lived ":busy" marker set with add() stands in); others get FiguresBusy.
+     */
     public function refresh($asOn)
     {
-        $data = ['computed_at' => Carbon::now()->format('Y-m-d H:i:s'), 'rows' => $this->compute($asOn)];
-        Cache::put(self::key($asOn), $data, self::TTL_MINUTES);
-        return $data;
+        $busy = self::key($asOn) . ':busy';
+        if (!Cache::add($busy, 1, self::BUSY_MINUTES)) {
+            throw new FiguresBusy('Figures for ' . $asOn . ' are being calculated.');
+        }
+        try {
+            $data = ['computed_at' => Carbon::now()->format('Y-m-d H:i:s'), 'rows' => $this->compute($asOn)];
+            Cache::put(self::key($asOn), $data, self::TTL_MINUTES);
+            return $data;
+        } finally {
+            Cache::forget($busy);
+        }
     }
 
     public function cached($asOn)

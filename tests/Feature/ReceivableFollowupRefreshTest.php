@@ -61,6 +61,31 @@ class ReceivableFollowupRefreshTest extends TestCase
         $this->assertSame('old', Cache::get($key)['computed_at']);
     }
 
+    public function test_only_one_calculation_per_month_at_a_time()
+    {
+        $asOn = $this->lastMonthAsOn();
+        Cache::put(ReceivableFigures::key($asOn) . ':busy', 1, 2);
+        try {
+            app(ReceivableFigures::class)->get($asOn);
+            $this->fail('expected FiguresBusy');
+        } catch (\Modules\BackOffice\Services\FiguresBusy $e) {
+            $this->assertSame([], FakeFigures::$computed);
+        }
+    }
+
+    public function test_busy_marker_released_after_success_and_failure()
+    {
+        $asOn = $this->lastMonthAsOn();
+        app(ReceivableFigures::class)->refresh($asOn);
+        $this->assertFalse(Cache::has(ReceivableFigures::key($asOn) . ':busy'));
+        FakeFigures::$fail = true;
+        try {
+            app(ReceivableFigures::class)->refresh($asOn);
+        } catch (\RuntimeException $e) {
+        }
+        $this->assertFalse(Cache::has(ReceivableFigures::key($asOn) . ':busy'));
+    }
+
     public function test_scheduled_every_fifteen_minutes()
     {
         $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())->filter(function ($e) {

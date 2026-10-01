@@ -45,7 +45,7 @@
   var refreshUrl = @json(route('receivable-followup.refresh'));
   var token = $('meta[name="csrf-token"]').attr('content');
   var state = {page: 1, sort: '', direction: ''};
-  var slowTimer, req;
+  var slowTimer, retryTimer, req;
 
   function params() {
     var p = $('#rf-filters').serializeArray();
@@ -56,6 +56,7 @@
   function load() {
     if (req) { req.abort(); }
     clearTimeout(slowTimer);
+    clearTimeout(retryTimer);
     var $rows = $('#rf-rows').attr('aria-busy', 'true');
     $rows.children('table, .table-responsive').addClass('rf-busy');
     // first open of a month runs the full calculation (about 15 seconds): say so instead of a frozen screen
@@ -64,14 +65,27 @@
         $rows.prepend('<p class="rf-calc" role="status"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Calculating figures for this month. This can take about 15 seconds.</p>');
       }
     }, 1200);
-    req = $.get(rowsUrl + '?' + params()).done(function (html) {
+    req = $.get(rowsUrl + '?' + params()).done(function (html, status, x) {
+      if (x.status === 202) {
+        // another request is calculating this month: show it and look again shortly
+        if (!$rows.find('.rf-calc').length) {
+          $rows.prepend('<p class="rf-calc" role="status"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Calculating figures for this month. This can take about 15 seconds.</p>');
+        }
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(load, 3000);
+        return;
+      }
       $rows.html(html);
       $('#rf-live').text($rows.find('.rf-strip').attr('data-summary') || '');
     }).fail(function (x) {
       if (x.statusText !== 'abort') {
         $rows.html('<div class="rf-empty"><strong>Could not load the list.</strong>Check your connection and <button type="button" class="rf-link" id="rf-retry">try again</button>.</div>');
       }
-    }).always(function () { clearTimeout(slowTimer); $rows.attr('aria-busy', 'false').find('.rf-calc').remove(); });
+    }).always(function (a, b, c) {
+      clearTimeout(slowTimer);
+      var x = c && c.status !== undefined ? c : a;
+      if (!x || x.status !== 202) { $rows.attr('aria-busy', 'false').find('.rf-calc').remove(); }
+    });
   }
   var typing;
   $('#rf-filters select').on('change', function () { state.page = 1; load(); });
@@ -93,20 +107,27 @@
     var $b = $(this).prop('disabled', true).text('Refreshing…');
     $.post(refreshUrl, $('#rf-filters').serialize() + '&_token=' + encodeURIComponent(token))
       .done(function () { load(); })
-      .fail(function () { $b.prop('disabled', false).text('Refresh'); $('#rf-live').text('Could not refresh the figures. Please try again.'); });
+      .fail(function (x) {
+        $b.prop('disabled', false).text('Refresh');
+        $('#rf-live').text(x.status === 429 ? 'Too many refreshes. Please wait a minute and try again.' : 'Could not refresh the figures. Please try again.');
+      });
   });
   // ---- Follow-up / View popups ---------------------------------------------
-  var opener = null;
+  var opener = null, modalSeq = 0;
   function openModal(url, from) {
     opener = from;
+    var seq = ++modalSeq; // only the latest click may fill the popup
     $('#rf-modal').html('<div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-body" role="status">Loading…</div></div></div>').modal('show');
     $.get(url).done(function (html) {
+      if (seq !== modalSeq) { return; }
       $('#rf-modal').html(html);
       $('#rf-comment').trigger('focus');
     }).fail(function (x) {
+      if (seq !== modalSeq) { return; }
       $('#rf-modal .modal-body').text(x.status === 403 ? 'You cannot open this agreement.' : 'Could not load. Please close and try again.');
     });
   }
+  $('#rf-modal').on('hide.bs.modal', function () { modalSeq++; });
   $(document).on('click', '.rf-followup, .rf-view', function () { openModal($(this).attr('data-url'), this); });
   // back to the button that opened the popup
   $('#rf-modal').on('hidden.bs.modal', function () { if (opener && document.body.contains(opener)) { opener.focus(); } });

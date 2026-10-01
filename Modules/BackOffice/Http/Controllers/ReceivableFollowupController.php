@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Entities\ReceivableFollowup;
+use Modules\BackOffice\Services\FiguresBusy;
 use Modules\BackOffice\Services\ReceivableFigures;
 use Modules\Masters\Entities\Building;
 use Modules\Sales\Entities\TenantContract;
@@ -56,7 +57,11 @@ class ReceivableFollowupController extends Controller
     public function rows(Request $request)
     {
         list($month, $year, $asOn) = $this->period($request);
-        $data = app(ReceivableFigures::class)->get($asOn);
+        try {
+            $data = app(ReceivableFigures::class)->get($asOn);
+        } catch (FiguresBusy $e) {
+            return response()->json(['busy' => true], 202);
+        }
         $fig = $data['rows'];
 
         $q = TenantContract::query()->areFilter()
@@ -127,7 +132,11 @@ class ReceivableFollowupController extends Controller
     public function refresh(Request $request)
     {
         list($month, $year, $asOn) = $this->period($request);
-        $data = app(ReceivableFigures::class)->refresh($asOn);
+        try {
+            $data = app(ReceivableFigures::class)->refresh($asOn);
+        } catch (FiguresBusy $e) {
+            return response()->json(['busy' => true], 202);
+        }
         return response()->json(['computed_at' => $data['computed_at']]);
     }
 

@@ -270,6 +270,27 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains('No follow-ups yet.', $html);
     }
 
+    public function test_rows_answer_busy_while_the_month_is_being_calculated()
+    {
+        Cache::forget(ReceivableFigures::key($this->asOn));
+        Cache::put(ReceivableFigures::key($this->asOn) . ':busy', 1, 2);
+        $this->get(route('receivable-followup.rows'))->assertStatus(202)->assertJson(['busy' => true]);
+        $this->postJson(route('receivable-followup.refresh'), [])->assertStatus(202)->assertJson(['busy' => true]);
+    }
+
+    public function test_refresh_is_rate_limited()
+    {
+        $this->app->bind(ReceivableFigures::class, function () {
+            return new class extends ReceivableFigures {
+                public function compute($asOn) { return []; }
+            };
+        });
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson(route('receivable-followup.refresh'), [])->assertOk();
+        }
+        $this->postJson(route('receivable-followup.refresh'), [])->assertStatus(429);
+    }
+
     public function test_refresh_recomputes_the_month()
     {
         $this->app->bind(ReceivableFigures::class, function () {
