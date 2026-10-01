@@ -80,6 +80,7 @@
         <th>@sortablelink('vendor.vendor_name','Landlord Name',[], ['class' => 'sort_class'])</th>
         <th>@sortablelink('management.management_types_name','Management Type',[], ['class' => 'sort_class'])</th>
         <th>@sortablelink('building_ownership_type','Ownership Type',[], ['class' => 'sort_class'])</th>
+        <th>@sortablelink('building_is_taxable','Taxable',[], ['class' => 'sort_class'])</th>
         @can('change_status_building')
         <th>@sortablelink('building_status','Status',[], ['class' => 'sort_class'])</th>
         @endcan
@@ -97,6 +98,13 @@
             @foreach(\Modules\Masters\Entities\Building::ownershipTypes() as $ownershipId => $ownershipName)
             <option {{ ((string) old('building_ownership_type') === (string) $ownershipId) ? 'selected' : '' }} value="{{$ownershipId}}">{{$ownershipName}}</option>
             @endforeach
+          </select>
+        </td>
+        <td>
+          <select name="building_is_taxable" class="searchFields search_fields mob" id="building_is_taxable" style="width:90px;">
+            <option value="">Show All</option>
+            <option {{ (string) old('building_is_taxable') === '1' ? 'selected' : '' }} value="1">Yes</option>
+            <option {{ (string) old('building_is_taxable') === '0' ? 'selected' : '' }} value="0">No</option>
           </select>
         </td>
         @can('change_status_building')
@@ -294,6 +302,20 @@
     }
   })
 
+  // Taxable switch: saves straight away; on failure the switch goes back.
+  $(document).on('change', '.building-taxable', function () {
+    var $box = $(this), on = $box.prop('checked');
+    if (!confirm(on ? 'Mark this building as taxable?' : 'Mark this building as not taxable?')) {
+      $box.prop('checked', !on);
+      return;
+    }
+    $box.prop('disabled', true);
+    $.post($box.attr('data-url'), { taxable: on ? 1 : 0, _token: $('meta[name="csrf-token"]').attr('content') })
+      .done(function (r) { $box.prop('checked', !!r.taxable).next('.building-taxable-text').text(r.taxable ? 'Yes' : 'No'); })
+      .fail(function () { $box.prop('checked', !on); alert('Could not save Taxable. Please try again.'); })
+      .always(function () { $box.prop('disabled', false); });
+  });
+
 
   $(document).on('change keyup paste','.search_fields',function(){ 
 
@@ -302,6 +324,7 @@
    var management__management_types_name = $("#management__management_types_name").val();  
    var building_status = $("#building_status").val();
    var building_ownership_type = $("#building_ownership_type").val();
+   var building_is_taxable = $("#building_is_taxable").val();
 
    var curr_url = $("#curr_url").val();
 
@@ -314,6 +337,7 @@
     'management__management_types_name' : management__management_types_name,
     'building_status' : building_status,
     'building_ownership_type' : building_ownership_type,
+    'building_is_taxable' : building_is_taxable,
 
     'curr_url' : curr_url,"_token" : $('meta[name="csrf-token"]').attr('content')},
 
@@ -341,7 +365,7 @@
             }  
 
             var txt = 'building_name='+building_name+'&vendor__vendor_name='+vendor__vendor_name+'&management__management_types_name='+
-            management__management_types_name+'&building_statu='+building_status+'&building_ownership_type='+building_ownership_type+'&curr_url='+curr_url ;
+            management__management_types_name+'&building_statu='+building_status+'&building_ownership_type='+building_ownership_type+'&building_is_taxable='+building_is_taxable+'&curr_url='+curr_url ;
 
             var txt_hashes = txt.split('&');
             var href_txt = '';
