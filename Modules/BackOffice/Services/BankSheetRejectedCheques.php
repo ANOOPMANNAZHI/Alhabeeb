@@ -130,6 +130,24 @@ class BankSheetRejectedCheques
         return $out;
     }
 
+    /**
+     * Can this contract's PDCs be marked bounced from the review page? Not when they are all
+     * bounced already, and not when several contracts share the cheque number but none holds
+     * the bank's amount (none of them is likely the rejected cheque).
+     */
+    public static function canBounce(array $match, array $group)
+    {
+        if ($match['status'] === 'choose' && empty($match['amount_match'])) {
+            return false;
+        }
+        foreach ($group as $p) {
+            if ((int) $p->pdc_cancel_reason !== self::BOUNCED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static function groupByContract(array $pdcs)
     {
         $groups = [];

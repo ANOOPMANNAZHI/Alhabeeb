@@ -150,6 +150,26 @@ class BankSheetRejectedChequesTest extends TestCase
         $this->assertTrue($same[0]['amount_match']);
     }
 
+    public function test_choice_without_the_bank_amount_cannot_be_bounced_here()
+    {
+        $a = $this->pdc(['tenant_contract_id' => 91, 'pdc_amt' => 260.0]);
+        $b = $this->pdc(['tenant_contract_id' => 92, 'pdc_amt' => 280.0]);
+        $none = R::match([$this->row(['amount' => 4725.0])], [$a, $b], ['27' => 3]);
+        $this->assertFalse(R::canBounce($none[0], $none[0]['groups'][0]));
+
+        // same number and the bank amount on both: the user ticks the right one
+        $c = $this->pdc(['tenant_contract_id' => 93]);
+        $d = $this->pdc(['tenant_contract_id' => 94]);
+        $same = R::match([$this->row()], [$c, $d], ['27' => 3]);
+        $this->assertTrue(R::canBounce($same[0], $same[0]['groups'][0]));
+
+        // a single match stays bounceable as before; an already bounced one does not
+        $one = R::match([$this->row()], [$this->pdc(['tenant_contract_id' => 95])], ['27' => 3]);
+        $this->assertTrue(R::canBounce($one[0], $one[0]['groups'][0]));
+        $done = R::match([$this->row()], [$this->pdc(['tenant_contract_id' => 96, 'pdc_cancel_reason' => 1])], ['27' => 3]);
+        $this->assertFalse(R::canBounce($done[0], $done[0]['groups'][0]));
+    }
+
     public function test_without_a_cheque_date_there_is_no_date_limit()
     {
         $old = $this->pdc(['tenant_contract_id' => 81, 'pdc_check_date' => '2018-01-05']);
