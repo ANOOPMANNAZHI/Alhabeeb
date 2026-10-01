@@ -470,11 +470,60 @@
 					success: function(data)
 					{
                        alert(data);
-					} 
+					}
 				});
-		  
 
-		} 
+
+		}
     }
+
+    /* ---- Add Municipality (renewed contracts), same modal as the tenant contract list ---- */
+    // Remember the last search so the results can be reloaded after a save.
+    var lastDetailsData = null;
+    $(document).ajaxSend(function (e, xhr, settings) {
+      if (settings.url === "{{route('contractDetails')}}") { lastDetailsData = settings.data; }
+    });
+
+    $(document).on('click', '.addMunicipality', function () {
+      $('#myModal').empty();
+      $.ajax({
+        method: 'POST',
+        url: "{{route('tenantContractAddMunicipality')}}",
+        data: {'tenant_contract_id': $(this).attr('data-id'), '_token': "{{ csrf_token() }}"},
+        success: function (response) { $('#myModal').html(response); }
+      });
+    });
+
+    // Save by AJAX so the Summary search stays on screen; errors show inside the modal.
+    $(document).on('submit', '#myModal form', function (e) {
+      e.preventDefault();
+      var form = this, $btn = $(form).find('button[type=submit]');
+      $(form).find('.summary-mun-error').remove();
+      $btn.prop('disabled', true);
+      $.ajax({
+        method: 'POST',
+        url: form.action,
+        data: new FormData(form),
+        processData: false,
+        contentType: false,
+        headers: {'Accept': 'application/json'}
+      }).done(function (r) {
+        $('#myModal').modal('hide');
+        if (lastDetailsData !== null) {
+          $.ajax({type: 'POST', url: "{{route('contractDetails')}}", data: lastDetailsData, cache: false,
+            success: function (data) { $('#agreementDetail').html(data); }});
+        }
+        alert(r && r.message ? r.message : 'Saved');
+      }).fail(function (xhr) {
+        var msg = 'Could not save. Please try again.';
+        var r = xhr.responseJSON;
+        if (r && r.errors) {
+          msg = $.map(r.errors, function (m) { return $('<div>').text(m[0]).html(); }).join('<br>');
+        } else if (r && r.message) {
+          msg = $('<div>').text(r.message).html();
+        }
+        $('<div class="alert alert-danger summary-mun-error">').html(msg).prependTo($(form).find('.dataSearchBox').first());
+      }).always(function () { $btn.prop('disabled', false); });
+    });
 
 </script>

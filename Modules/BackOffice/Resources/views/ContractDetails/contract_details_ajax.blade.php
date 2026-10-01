@@ -191,7 +191,12 @@
     $i = 1;
     @endphp
     @forelse ($tenantContracts as $tenantContract)
-    <tr>  
+    @php
+      // Same rule as the "renewed" status below: approved renewal that starts in the future.
+      $isRenewedContract = $tenantContract->tenant_contract_status == 0 && $tenantContract->work_flow_processes_code == 108
+        && $tenantContract->tenant_renewal_termination_status == 5 && $tenantContract->tenant_contract_effective_date > Carbon\Carbon::today();
+    @endphp
+    <tr>
         <td>{{$i}}</td>                      
         <td>{{$tenantContract->tenant_contract_no}}</td>                         
         <td>{{$tenantContract->tenant_contract_start_date->format('d/m/Y')}}</td>                         
@@ -265,6 +270,12 @@
                 <i class="fa fa fa-undo" aria-hidden="true"></i>
             </a>  
             @endif 
+
+            @if($isRenewedContract)
+            @can('tenant_municipality_details')
+            <button type="button" class="btn btn-tbl-violet btn-xs addMunicipality" data-id="{{$tenantContract->id}}" data-toggle="modal" data-target="#myModal" title="Add Municipality" data-backdrop="static" data-keyboard="false"><i class="fa fa-life-ring"></i></button>
+            @endcan
+            @endif
 
              <a  href="#movetoleagal" onclick="open_prompt({{$tenantContract->id}})" class="btn btn-tbl-view btn-xs" style="background-color: black;" title="Move to Leagal">
                <i class="fa fa-user"></i>
