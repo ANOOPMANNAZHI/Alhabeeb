@@ -22,7 +22,7 @@ use Modules\Sales\Entities\TenantContract;
 class ReceivableFollowupController extends Controller
 {
     const PER_PAGE = 25;
-    const SORTS = ['balance', 'due', 'received', 'last_received', 'tenant', 'building', 'contract'];
+    const SORTS = ['balance', 'due', 'received', 'last_received', 'paid_till', 'tenant', 'building', 'contract'];
     const MANAGEMENT = [1 => 'Comprehensive', 2 => 'Normal'];
 
     public function __construct()
@@ -62,7 +62,12 @@ class ReceivableFollowupController extends Controller
         } catch (FiguresBusy $e) {
             return response()->json(['busy' => true], 202);
         }
-        $fig = $data['rows'];
+        // Only agreements paid till a date inside the month two months back (Oct -> August), or never paid.
+        list($paidFrom, $paidTo) = ReceivableFigures::paidTillWindow($month, $year);
+        $fig = array_filter($data['rows'], function ($f) use ($paidFrom, $paidTo) {
+            $pt = isset($f['paid_till']) ? $f['paid_till'] : null;
+            return $pt === null || ($pt >= $paidFrom && $pt <= $paidTo);
+        });
 
         $q = TenantContract::query()->areFilter()
             ->join('buildings', 'buildings.id', '=', 'tenant_contracts.building_id')
@@ -97,6 +102,7 @@ class ReceivableFollowupController extends Controller
                 'from' => $c->tenant_contract_effective_date, 'to' => $c->tenant_contract_valid_to_date,
                 'building' => $c->building_name, 'unit' => $c->unit_no,
                 'due' => $f['due'], 'received' => $f['received'], 'balance' => $f['balance'], 'last_received' => $f['last_received'],
+                'paid_till' => isset($f['paid_till']) ? $f['paid_till'] : null,
             ];
             $totals['due'] += $f['due'];
             $totals['received'] += $f['received'];
@@ -126,6 +132,7 @@ class ReceivableFollowupController extends Controller
         return view('backoffice::ReceivableFollowup._rows', [
             'rows' => $paginator, 'totals' => $totals, 'followups' => $followups, 'computedAt' => $data['computed_at'],
             'asOn' => $asOn, 'sort' => $sort, 'desc' => $desc, 'today' => Carbon::today()->format('Y-m-d'),
+            'paidWindowLabel' => Carbon::parse($paidFrom)->format('F Y'),
         ]);
     }
 

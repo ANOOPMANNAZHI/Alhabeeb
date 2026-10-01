@@ -33,9 +33,20 @@ class ReceivableFigures
         return ($end->gt($today) ? $today : $end)->format('Y-m-d');
     }
 
+    /** v2: rows carry paid_till (entries cached before that are ignored and rebuilt). */
     public static function key($asOn)
     {
-        return 'receivable_followup:' . $asOn;
+        return 'receivable_followup:v2:' . $asOn;
+    }
+
+    /**
+     * The list for a month shows agreements whose rent is paid till a date inside the
+     * month two months earlier (October -> 1-31 August). Returns ['Y-m-d', 'Y-m-d'].
+     */
+    public static function paidTillWindow($month, $year)
+    {
+        $m = Carbon::create((int) $year, (int) $month, 1, 0, 0, 0)->subMonthsNoOverflow(2);
+        return [$m->format('Y-m-d'), $m->copy()->endOfMonth()->format('Y-m-d')];
     }
 
     /**
@@ -64,6 +75,7 @@ class ReceivableFigures
                 'received'      => round((float) $r->amount_received, 3),
                 'balance'       => $balance,
                 'last_received' => $r->receipt_date ? Carbon::parse($r->receipt_date)->format('Y-m-d') : null,
+                'paid_till'     => !empty($r->lastpaid_till) ? Carbon::parse($r->lastpaid_till)->format('Y-m-d') : null,
             ];
         }
         return $out;
@@ -71,7 +83,7 @@ class ReceivableFigures
 
     public function compute($asOn)
     {
-        $rows = DB::select('SELECT contract_no, totaldue, amount_received, netamtdue, receipt_date FROM tenantrentreceivable(?::date)', [$asOn]);
+        $rows = DB::select('SELECT contract_no, totaldue, amount_received, netamtdue, receipt_date, lastpaid_till FROM tenantrentreceivable(?::date)', [$asOn]);
 
         $legalNos = DB::table('legal')
             ->join('tenant_contracts', 'tenant_contracts.id', '=', 'legal.tenant_contract_id')
