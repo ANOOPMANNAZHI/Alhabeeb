@@ -21,7 +21,7 @@
 @endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">New send</div></div>{{ Breadcrumbs::render('bulk-send.create') }}</div></div>
 <div class="mt bs"><div class="card card-box"><div class="card-body">
-@include('backoffice::BulkSend._stepper', ['step' => 1])
+@include('backoffice::BulkSend._stepper', ['step' => 1, 'sticky' => true])
 
 @if($errors->any())
   <div class="bs-errors" id="bs-errors" role="alert" tabindex="-1">
@@ -225,13 +225,32 @@
       if (Number($(this).attr('data-step')) === n) { $(this).attr('aria-current', 'step'); } else { $(this).removeAttr('aria-current'); }
     });
   }
+  // Step 2 once the Recipients section reaches the top third of the screen (or the page can't scroll further).
+  function stepFromScroll() {
+    var top = document.getElementById('bs-sec-recipients').getBoundingClientRect().top;
+    var atEnd = window.innerHeight + window.pageYOffset >= document.documentElement.scrollHeight - 2;
+    setStep(top <= window.innerHeight / 3 || atEnd ? 2 : 1);
+  }
+  var stepTick = false;
+  $(window).on('scroll resize', function () {
+    if (stepTick) { return; }
+    stepTick = true;
+    window.requestAnimationFrame(function () { stepTick = false; stepFromScroll(); });
+  });
   $('#bs-sec-message').on('focusin', function () { setStep(1); });
   $('#bs-sec-recipients').on('focusin', function () { setStep(2); });
-  $('#bs-next').on('click', function () {
-    setStep(2);
-    var el = document.getElementById('bs-sec-recipients');
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    document.getElementById('bs-h-recipients').focus({ preventScroll: true });
+  function goTo(id, headingId) {
+    var smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById(id).scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    document.getElementById(headingId).focus({ preventScroll: true });
+  }
+  $('#bs-next').on('click', function () { setStep(2); goTo('bs-sec-recipients', 'bs-h-recipients'); });
+  $('#bs-stepper a').on('click', function (e) {
+    var id = $(this).attr('href').slice(1);
+    e.preventDefault();
+    if (history.replaceState) { history.replaceState(null, '', '#' + id); }
+    setStep(id === 'bs-sec-recipients' ? 2 : 1);
+    goTo(id, id === 'bs-sec-recipients' ? 'bs-h-recipients' : 'bs-h-message');
   });
 
   // ---- searchable checkbox lists ------------------------------------------
@@ -411,6 +430,9 @@
 
   pickStatus($('#bs-loc-list')); rolesStatus(); renderBuildings(); syncTemplate(); syncAudience();
   if ($('#bs-errors').length) { $('#bs-errors').focus(); }
+  // Opened as .../create#bs-sec-recipients: the browser jumps there on load, the stepper follows.
+  stepFromScroll();
+  $(window).on('load', stepFromScroll);
 })();
 </script>
 @endsection
