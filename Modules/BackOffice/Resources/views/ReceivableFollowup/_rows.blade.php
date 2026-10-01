@@ -12,7 +12,7 @@
 <div class="rf-strip" data-summary="{{ $count }} {{ $count === 1 ? 'agreement' : 'agreements' }} with a balance, total {{ number_format($totals['balance'], 3) }}">
   <div class="rf-stats">
     <span>As on <strong>{{ $asOnText }}</strong></span>
-    <span>Paid till {{ $paidWindowLabel }}, or started then and not paid yet</span>
+    <span>Paid till {{ $paidWindowLabel }} (2 months behind)</span>
     <span><strong>{{ number_format($count) }}</strong> {{ $count === 1 ? 'agreement' : 'agreements' }}</span>
     <span>Balance <strong>{{ number_format($totals['balance'], 3) }}</strong></span>
   </div>
@@ -49,7 +49,7 @@
       <td>{{ $r->building }}</td>
       <td>{{ $r->unit }}</td>
       <td>{{ $fmtDate($r->last_received) }}</td>
-      <td>@if($r->paid_till){{ $fmtDate($r->paid_till) }}@else<span class="rf-flag">Not paid</span>@endif</td>
+      <td>{{ $fmtDate($r->paid_till) }}</td>
       <td class="num">{{ number_format($r->due, 3) }}</td>
       <td class="num">{{ number_format($r->received, 3) }}</td>
       <td class="num rf-bal">{{ number_format($r->balance, 3) }}</td>

@@ -62,12 +62,12 @@ class ReceivableFollowupController extends Controller
         } catch (FiguresBusy $e) {
             return response()->json(['busy' => true], 202);
         }
-        // Only agreements paid till a date inside the month two months back (Oct -> August);
-        // never-paid agreements by their start date in that same month.
+        // Only agreements paid till a date inside the month two months back (Oct -> August).
+        // Agreements with no rent receipt yet (no Paid Till) are not listed.
         list($paidFrom, $paidTo) = ReceivableFigures::paidTillWindow($month, $year);
         $fig = array_filter($data['rows'], function ($f) use ($paidFrom, $paidTo) {
-            $date = isset($f['paid_till']) ? $f['paid_till'] : (isset($f['start']) ? $f['start'] : null);
-            return $date !== null && $date >= $paidFrom && $date <= $paidTo;
+            $pt = isset($f['paid_till']) ? $f['paid_till'] : null;
+            return $pt !== null && $pt >= $paidFrom && $pt <= $paidTo;
         });
 
         $q = TenantContract::query()->areFilter()
