@@ -130,6 +130,10 @@
   .bs .bs-stepper li.is-done .bs-dot { border-color:var(--mt-primary); background:var(--bs-primary-bg); color:var(--mt-primary); }
   .bs .bs-stepper a { color:inherit; text-decoration:none; display:inline-flex; align-items:center; gap:8px; min-height:32px; }
   .bs .bs-stepper a:hover span:last-child { text-decoration:underline; }
+  /* compose page: the stepper stays under the fixed top bar (60px); sections land below both */
+  .bs .bs-stepper.is-sticky { position:sticky; top:60px; z-index:6; background:#fff; margin:0 0 12px; padding:8px 0; border-bottom:1px solid var(--mt-line); }
+  .bs .bs-stepper.is-sticky ~ .bs-compose .bs-sec { scroll-margin-top:120px; }
+  .bs .bs-stepper.is-sticky ~ .bs-compose .bs-side { top:120px; }
 
   /* compose layout */
   .bs .bs-compose { display:grid; grid-template-columns:minmax(0, 1fr) 280px; gap:32px; align-items:start; }
