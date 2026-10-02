@@ -4,43 +4,43 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Migrations\Migration;
 
 /**
- * Keeps unapproved renewal drafts out of public.tenantrentreceivable() and
- * public.tenantrentreceivablecompo() (wrapped by the *_v2 functions behind the
- * Rent Receivable V2 and Tenant Aging reports).
+ * Keeps contracts that are not approved out of public.tenantrentreceivable()
+ * and public.tenantrentreceivablecompo() (wrapped by the *_v2 functions behind
+ * the Rent Receivable V2 and Tenant Aging reports).
  *
  * Bug: a renewal saved but never sent for approval is stored with
  * tenant_contract_status 0 and no work_flow_processes_code. The "inactive, not
  * terminated" branch (status 0, no 505 termination) took it for an expired
  * contract and showed its full contract value as due: Merbat-1 Tower S 14
  * TAG2601339 (6,500) and TAG2601340 (7,800) next to the real renewal
- * TAG2601341.
+ * TAG2601341. Contracts stuck mid-approval (104, 106) showed the same way.
  *
- * Fix: that branch also requires work_flow_processes_code IS NOT NULL. The
- * Receivables Follow-up already counts only approved (108) contracts.
+ * Fix: every row must belong to an approved contract
+ * (work_flow_processes_code = 108), the rule the Receivables Follow-up
+ * already uses.
  *
- * Only that one WHERE line is changed, on the definition currently in the
+ * Only the final WHERE line is changed, on the definition currently in the
  * database; the migration stops if the line is not found exactly once.
  */
 class SkipDraftRenewalsInTenantReceivable extends Migration
 {
-    private $lines = [
-        'tenantrentreceivable'      => "where tc.tenant_contract_status = '0' and b.building_status = '1' and ter.termination_date is null",
-        'tenantrentreceivablecompo' => "where tc.tenant_contract_status = '0' and ter.termination_date is null",
-    ];
+    private $line = 'where (A.startdate::date <= Date2)';
 
-    private $extra = ' and tc.work_flow_processes_code is not null';
+    private $extra = "\nand A.id in (select id from tenant_contracts where work_flow_processes_code = 108)";
+
+    private $functions = ['tenantrentreceivable', 'tenantrentreceivablecompo'];
 
     public function up()
     {
-        foreach ($this->lines as $function => $line) {
-            $this->rewrite($function, $line, $line . $this->extra);
+        foreach ($this->functions as $function) {
+            $this->rewrite($function, $this->line, $this->line . $this->extra);
         }
     }
 
     public function down()
     {
-        foreach ($this->lines as $function => $line) {
-            $this->rewrite($function, $line . $this->extra, $line);
+        foreach ($this->functions as $function) {
+            $this->rewrite($function, $this->line . $this->extra, $this->line);
         }
     }
 
