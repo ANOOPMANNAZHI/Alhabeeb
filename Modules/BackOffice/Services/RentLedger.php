@@ -13,10 +13,11 @@ use Carbon\Carbon;
  * terminated (505) on or before the as-on date.
  * Total due:
  *  - terminated by the as-on date: the contract value when terminated on the end
- *    date, else days x rent / 30, half to even. Days = termination - start for
- *    terminations dated from DAY_COUNT_FROM on (01/08..31/08 = 30 days = one
- *    month); earlier ones keep the old v2 count (one day less) so settlements
- *    made with it stay settled. A termination on or before the start owes nothing;
+ *    date, else days x rent / 30, half to even. For terminations dated from
+ *    DAY_COUNT_FROM on, every month counts 30 days (see thirtyDayCount: 01/08..31/08
+ *    and 01/02..28/02 are both one month); earlier ones keep the old v2 count
+ *    (termination - start - 1) so settlements made with it stay settled.
+ *    A termination on or before the start owes nothing;
  *  - ended by the as-on date, not terminated: the contract value (rent stops at
  *    the end; a tenant who stays on is taken over manually);
  *  - still running: lines x rent, never above the contract value.
@@ -27,7 +28,7 @@ use Carbon\Carbon;
 class RentLedger
 {
     const MAX_LINES = 600;
-    /** Terminations dated on or after this day count termination - start days (user, 02/10/2026). */
+    /** Terminations dated on or after this day count every month as 30 days (user, 02/10/2026). */
     const DAY_COUNT_FROM = '2026-08-01';
 
     public static function build($c, $asOn, $received)
@@ -63,8 +64,10 @@ class RentLedger
                 $total = $value > 0 ? $value : $sum;
             } else {
                 $start = Carbon::parse(!empty($c->start) ? $c->start : $eff)->startOfDay();
-                $days = $start->diffInDays(Carbon::parse($term)->startOfDay(), false)
-                    - ($term >= self::DAY_COUNT_FROM ? 0 : 1);
+                $termDay = Carbon::parse($term)->startOfDay();
+                $days = $term >= self::DAY_COUNT_FROM
+                    ? self::thirtyDayCount($start, $termDay)
+                    : $start->diffInDays($termDay, false) - 1;
                 $total = $days > 0 ? (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0;
             }
         } elseif ($vto !== null && $vto <= $asOn) {
@@ -75,6 +78,26 @@ class RentLedger
         $total = round($total, 3);
 
         return self::allocate(self::fit($lines, $total, $eff), $total, $received);
+    }
+
+    /**
+     * Days used from $start to $term with every month counting 30 (31-day months and
+     * February alike): whole months x 30 + the days after them, termination day
+     * included, at most 30. A termination on or before the start counts 0.
+     */
+    private static function thirtyDayCount(Carbon $start, Carbon $term)
+    {
+        if ($term->lte($start)) {
+            return 0;
+        }
+        $dayAfter = $term->copy()->addDay();
+        $months = 0;
+        while ($months < self::MAX_LINES && $start->copy()->addMonthsNoOverflow($months + 1)->lte($dayAfter)) {
+            $months++;
+        }
+        $from = $start->copy()->addMonthsNoOverflow($months);
+        $extra = $from->lte($term) ? min(30, $from->diffInDays($term) + 1) : 0;
+        return $months * 30 + $extra;
     }
 
     /** Trim from the latest line, or top up the last one, so the lines add up to $total. */

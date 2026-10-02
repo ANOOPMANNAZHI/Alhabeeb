@@ -47,10 +47,14 @@ date.
 **Total due:**
 - Terminated by the as-on date: the contract value if terminated on the end
   date; otherwise days × rent / 30, rounded half to even. For terminations
-  dated on or after 01/08/2026, days = termination − start (01/08–31/08 =
-  30 days = one month). Earlier terminations keep the old v2 count, which is
-  one day less, so that settlements made with it stay settled. The user chose
-  this cut-over on 2026-10-02. A termination on or before the start date gives 0.
+  dated on or after 01/08/2026, **every month counts 30 days**: whole months
+  × 30 + the days used after them, termination day included, at most 30. So
+  01/08–31/08, 01/02–28/02 and 16/08–15/09 are each one month, and 01/08–15/08
+  is 15 days. Earlier terminations keep the old v2 count (termination − start
+  − 1), so that settlements made with it stay settled. The user chose this
+  cut-over on 2026-10-02. A termination on or before the start date gives 0.
+  Rent is counted up to the termination date, not the takeover (handover)
+  date — the user's choice, matching Termination Dues.
 - Ended by the as-on date and not terminated: the contract value.
 - Still running: lines × rent, never more than the contract value.
 

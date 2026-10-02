@@ -90,16 +90,30 @@ class RentLedgerTest extends TestCase
         $this->assertSame(4828.0, L::build($c, '2026-08-31', 0)['due']);
     }
 
-    /** TAG2601341: terminated from 01/08/2026 on: 01/08 - 31/08 = 30 days x 650 / 30 = one month. */
-    public function test_terminated_from_the_cut_over_counts_end_minus_start()
+    /** Due for an early termination from 01/08/2026 on, rent 650. */
+    private function due650($eff, $term)
     {
-        $c = $this->c(['eff' => '2026-08-01', 'start' => '2026-08-01', 'vto' => '2027-05-31', 'rent' => '650', 'value' => '6500', 'term_date' => '2026-08-31']);
-        $this->assertSame(650.0, L::build($c, '2026-10-02', 0)['due']);
+        $c = $this->c(['eff' => $eff, 'start' => $eff, 'vto' => '2028-12-31', 'rent' => '650', 'value' => '20000', 'term_date' => $term]);
+        return L::build($c, '2028-12-31', 0)['due'];
+    }
+
+    /** Every month counts 30 days: whole months x 30 + days used after them (termination day included, max 30). */
+    public function test_every_month_counts_30_days()
+    {
+        $this->assertSame(650.0, $this->due650('2026-08-01', '2026-08-31'));   // TAG2601341: August (31 days) = 1 month
+        $this->assertSame(650.0, $this->due650('2027-02-01', '2027-02-28'));   // February (28 days) = 1 month
+        $this->assertSame(650.0, $this->due650('2028-02-01', '2028-02-29'));   // February (29 days) = 1 month
+        $this->assertSame(650.0, $this->due650('2026-09-01', '2026-09-30'));   // September (30 days) = 1 month
+        $this->assertSame(650.0, $this->due650('2026-08-16', '2026-09-15'));   // mid-month to mid-month = 1 month
+        $this->assertSame(325.0, $this->due650('2026-08-01', '2026-08-15'));   // 15 days
+        $this->assertSame(1517.0, $this->due650('2026-08-01', '2026-10-10'));  // 2 months + 10 days = 70 days: 1,516.67 -> 1,517
+        $this->assertSame(585.0, $this->due650('2027-02-01', '2027-02-27'));   // February not finished: 27 days
+        $this->assertSame(650.0, $this->due650('2026-08-01', '2026-08-30'));   // 30 days used: never more than one month
     }
 
     public function test_new_day_count_trims_the_last_month()
     {
-        // 20/10 - 01/08 = 80 days x 100 / 30 = 266.67 -> 267
+        // 01/08 - 30/09 = 2 months (60 days) + 01/10..20/10 = 20 days -> 80 x 100 / 30 = 266.67 -> 267
         $c = $this->c(['eff' => '2026-08-01', 'start' => '2026-08-01', 'vto' => '2027-07-31', 'term_date' => '2026-10-20']);
         $l = L::build($c, '2026-12-31', 0);
         $this->assertSame(267.0, $l['due']);
@@ -111,7 +125,7 @@ class RentLedgerTest extends TestCase
         $c = $this->c(['eff' => '2026-07-01', 'start' => '2026-07-01', 'vto' => '2027-06-30', 'rent' => '300', 'value' => '3600']);
         // 31/07: old rule, 30 - 1 = 29 days -> 290
         $this->assertSame(290.0, L::build($this->with($c, '2026-07-31'), '2026-10-02', 0)['due']);
-        // 01/08: new rule, 31 days -> 310
+        // 01/08: new rule, July (30 days) + 01/08 (1 day) = 31 days -> 310
         $this->assertSame(310.0, L::build($this->with($c, '2026-08-01'), '2026-10-02', 0)['due']);
     }
 
