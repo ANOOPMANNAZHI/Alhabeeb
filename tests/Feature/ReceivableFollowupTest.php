@@ -334,6 +334,20 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains('Last Payment', $html);
     }
 
+    public function test_never_paid_row_says_never_paid_since_its_start()
+    {
+        $c = $this->contracts[2];
+        $rows = Cache::get(ReceivableFigures::key($this->asOn));
+        $rows['rows'][$c->id] = ['due' => 2800.0, 'received' => 0.0, 'balance' => 2800.0, 'last_received' => null, 'last_amount' => null, 'paid_till' => null, 'start' => '2026-01-01'];
+        Cache::put(ReceivableFigures::key($this->asOn), $rows, 60);
+        $row = $this->rowHtml($this->rows(), $c->id);
+        $this->assertContains('Never paid', $row);
+        $this->assertContains('started 01/01/2026', $row);
+
+        $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
+        $this->assertContains('Never paid (started 01/01/2026)', $html);
+    }
+
     public function test_summary_explains_the_cutoff()
     {
         list($m, $y) = ReceivableFigures::lastMonth();

@@ -62,6 +62,31 @@ class ReceivableFiguresTest extends TestCase
         $this->assertSame(800.0, RF::dueAsOf($this->row(['term_date' => '2026-09-15']), '2026-08-31'));
     }
 
+    /** TAG2000072: 333 days x 435 / 30 = 4,828.5 -> v2 (PostgreSQL) shows 4,828 (half to even). */
+    public function test_terminated_pro_rata_rounds_half_to_even_like_v2()
+    {
+        $c = $this->row(['eff' => '2020-02-01', 'start' => '2020-02-01', 'vto' => '2021-01-31', 'rent' => '435', 'value' => '5220', 'term_date' => '2020-12-31']);
+        $this->assertSame(4828.0, RF::dueAsOf($c, '2026-08-31'));
+    }
+
+    public function test_never_paid_agreements_are_kept_with_their_start()
+    {
+        $out = RF::build([$this->row(['id' => 21, 'received' => null, 'eff' => '2026-01-01'])], '2026-08-31');
+        $this->assertSame(800.0, $out[21]['balance']);
+        $this->assertNull($out[21]['paid_till']);
+        $this->assertNull($out[21]['last_received']);
+        $this->assertSame('2026-01-01', $out[21]['start']);
+    }
+
+    public function test_balances_under_30_are_left_out()
+    {
+        $rows = [
+            $this->row(['id' => 31, 'received' => '771']),   // owes 29
+            $this->row(['id' => 32, 'received' => '770']),   // owes 30
+        ];
+        $this->assertSame([32], array_keys(RF::build($rows, '2026-08-31')));
+    }
+
     public function test_build_keeps_only_agreements_owing_at_the_cutoff()
     {
         $rows = [
@@ -71,11 +96,11 @@ class ReceivableFiguresTest extends TestCase
         ];
         $out = RF::build($rows, '2026-08-31');
         $this->assertSame([11], array_keys($out));
-        $this->assertSame(['due' => 800.0, 'received' => 500.0, 'balance' => 300.0, 'last_received' => '2026-05-02', 'last_amount' => 200.0, 'paid_till' => '2026-05-31'], $out[11]);
+        $this->assertSame(['due' => 800.0, 'received' => 500.0, 'balance' => 300.0, 'last_received' => '2026-05-02', 'last_amount' => 200.0, 'paid_till' => '2026-05-31', 'start' => '2026-01-01'], $out[11]);
     }
 
     public function test_cache_key_is_versioned()
     {
-        $this->assertSame('receivable_followup:v4:2026-08-31', RF::key('2026-08-31'));
+        $this->assertSame('receivable_followup:v5:2026-08-31', RF::key('2026-08-31'));
     }
 }
