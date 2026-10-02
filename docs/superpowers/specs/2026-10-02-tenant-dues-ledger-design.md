@@ -46,9 +46,11 @@ date.
 
 **Total due:**
 - Terminated by the as-on date: the contract value if terminated on the end
-  date; otherwise days × rent / 30, where days = termination − start − 1,
-  rounded half to even (the existing v2 rule). A termination date before the
-  start date gives 0.
+  date; otherwise days × rent / 30, rounded half to even. For terminations
+  dated on or after 01/08/2026, days = termination − start (01/08–31/08 =
+  30 days = one month). Earlier terminations keep the old v2 count, which is
+  one day less, so that settlements made with it stay settled. The user chose
+  this cut-over on 2026-10-02. A termination on or before the start date gives 0.
 - Ended by the as-on date and not terminated: the contract value.
 - Still running: lines × rent, never more than the contract value.
 

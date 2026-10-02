@@ -13,8 +13,10 @@ use Carbon\Carbon;
  * terminated (505) on or before the as-on date.
  * Total due:
  *  - terminated by the as-on date: the contract value when terminated on the end
- *    date, else days x rent / 30 (days = termination - start - 1, half to even,
- *    as Receivable Report v2); a termination before the start owes nothing;
+ *    date, else days x rent / 30, half to even. Days = termination - start for
+ *    terminations dated from DAY_COUNT_FROM on (01/08..31/08 = 30 days = one
+ *    month); earlier ones keep the old v2 count (one day less) so settlements
+ *    made with it stay settled. A termination on or before the start owes nothing;
  *  - ended by the as-on date, not terminated: the contract value (rent stops at
  *    the end; a tenant who stays on is taken over manually);
  *  - still running: lines x rent, never above the contract value.
@@ -25,6 +27,8 @@ use Carbon\Carbon;
 class RentLedger
 {
     const MAX_LINES = 600;
+    /** Terminations dated on or after this day count termination - start days (user, 02/10/2026). */
+    const DAY_COUNT_FROM = '2026-08-01';
 
     public static function build($c, $asOn, $received)
     {
@@ -59,7 +63,8 @@ class RentLedger
                 $total = $value > 0 ? $value : $sum;
             } else {
                 $start = Carbon::parse(!empty($c->start) ? $c->start : $eff)->startOfDay();
-                $days = $start->diffInDays(Carbon::parse($term)->startOfDay(), false) - 1;
+                $days = $start->diffInDays(Carbon::parse($term)->startOfDay(), false)
+                    - ($term >= self::DAY_COUNT_FROM ? 0 : 1);
                 $total = $days > 0 ? (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0;
             }
         } elseif ($vto !== null && $vto <= $asOn) {

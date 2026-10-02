@@ -90,6 +90,45 @@ class RentLedgerTest extends TestCase
         $this->assertSame(4828.0, L::build($c, '2026-08-31', 0)['due']);
     }
 
+    /** TAG2601341: terminated from 01/08/2026 on: 01/08 - 31/08 = 30 days x 650 / 30 = one month. */
+    public function test_terminated_from_the_cut_over_counts_end_minus_start()
+    {
+        $c = $this->c(['eff' => '2026-08-01', 'start' => '2026-08-01', 'vto' => '2027-05-31', 'rent' => '650', 'value' => '6500', 'term_date' => '2026-08-31']);
+        $this->assertSame(650.0, L::build($c, '2026-10-02', 0)['due']);
+    }
+
+    public function test_new_day_count_trims_the_last_month()
+    {
+        // 20/10 - 01/08 = 80 days x 100 / 30 = 266.67 -> 267
+        $c = $this->c(['eff' => '2026-08-01', 'start' => '2026-08-01', 'vto' => '2027-07-31', 'term_date' => '2026-10-20']);
+        $l = L::build($c, '2026-12-31', 0);
+        $this->assertSame(267.0, $l['due']);
+        $this->assertSame([100.0, 100.0, 67.0], $this->amounts($l));
+    }
+
+    public function test_cut_over_is_the_termination_date_01_08_2026()
+    {
+        $c = $this->c(['eff' => '2026-07-01', 'start' => '2026-07-01', 'vto' => '2027-06-30', 'rent' => '300', 'value' => '3600']);
+        // 31/07: old rule, 30 - 1 = 29 days -> 290
+        $this->assertSame(290.0, L::build($this->with($c, '2026-07-31'), '2026-10-02', 0)['due']);
+        // 01/08: new rule, 31 days -> 310
+        $this->assertSame(310.0, L::build($this->with($c, '2026-08-01'), '2026-10-02', 0)['due']);
+    }
+
+    public function test_terminated_on_the_start_date_owes_nothing_under_either_rule()
+    {
+        $this->assertSame(0.0, L::build($this->c(['term_date' => '2026-01-01']), '2026-08-31', 0)['due']);
+        $c = $this->c(['eff' => '2026-09-01', 'start' => '2026-09-01', 'vto' => '2027-08-31', 'term_date' => '2026-09-01']);
+        $this->assertSame(0.0, L::build($c, '2026-10-02', 0)['due']);
+    }
+
+    private function with($c, $termDate)
+    {
+        $x = clone $c;
+        $x->term_date = $termDate;
+        return $x;
+    }
+
     public function test_termination_after_the_as_on_date_is_not_counted_yet()
     {
         $this->assertSame(800.0, L::build($this->c(['term_date' => '2026-09-15']), '2026-08-31', 0)['due']);
