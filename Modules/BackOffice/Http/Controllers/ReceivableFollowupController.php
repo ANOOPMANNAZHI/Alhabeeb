@@ -22,7 +22,7 @@ use Modules\Sales\Entities\TenantContract;
 class ReceivableFollowupController extends Controller
 {
     const PER_PAGE = 25;
-    const SORTS = ['balance', 'due', 'received', 'last_received', 'paid_till', 'tenant', 'building', 'contract'];
+    const SORTS = ['balance', 'due', 'received', 'last_received', 'not_paid_from', 'tenant', 'building', 'contract'];
     const MANAGEMENT = [1 => 'Comprehensive', 2 => 'Normal'];
 
     public function __construct()
@@ -99,6 +99,7 @@ class ReceivableFollowupController extends Controller
                 'building' => $c->building_name, 'unit' => $c->unit_no,
                 'due' => $f['due'], 'received' => $f['received'], 'balance' => $f['balance'], 'last_received' => $f['last_received'],
                 'paid_till' => isset($f['paid_till']) ? $f['paid_till'] : null,
+                'not_paid_from' => isset($f['not_paid_from']) ? $f['not_paid_from'] : null,
                 'last_amount' => isset($f['last_amount']) ? $f['last_amount'] : null,
                 'start' => isset($f['start']) ? $f['start'] : null,
             ];
@@ -166,8 +167,9 @@ class ReceivableFollowupController extends Controller
         return [
             'contract'     => $contract,
             'balance'      => $fig ? $fig['balance'] : null,
-            'notPaidFrom'  => $paidTill ? $paidTill->copy()->addDay()->format('d/m/Y')
-                : ($fig && !empty($fig['start']) ? 'Never paid (started ' . Carbon::parse($fig['start'])->format('d/m/Y') . ')' : null),
+            'notPaidFrom'  => $fig && !empty($fig['not_paid_from'])
+                ? Carbon::parse($fig['not_paid_from'])->format('d/m/Y') . ($paidTill ? '' : ' (never paid)')
+                : null,
             'paidTill'     => $paidTill ? $paidTill->format('d/m/Y') : null,
             'lastPayment'  => $fig && !empty($fig['last_received'])
                 ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . number_format($fig['last_amount'], 3) : '')

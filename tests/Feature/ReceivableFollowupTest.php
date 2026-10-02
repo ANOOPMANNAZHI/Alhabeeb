@@ -50,7 +50,8 @@ class ReceivableFollowupTest extends TestCase
         $rows = [];
         foreach ($this->contracts as $i => $c) {
             $rows[$c->id] = ['due' => $balances[$i] + 100, 'received' => 100.0, 'balance' => $balances[$i],
-                'last_received' => '2026-05-02', 'last_amount' => 350.0, 'paid_till' => $paidTill[$i]];
+                'last_received' => '2026-05-02', 'last_amount' => 350.0, 'paid_till' => $paidTill[$i],
+                'not_paid_from' => date('Y-m-d', strtotime($paidTill[$i] . ' +1 day')), 'start' => '2025-01-01'];
         }
         Cache::put(ReceivableFigures::key($this->asOn), ['computed_at' => '2026-10-01 09:45:00', 'rows' => $rows], 60);
     }
@@ -334,18 +335,18 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains('Last Payment', $html);
     }
 
-    public function test_never_paid_row_says_never_paid_since_its_start()
+    public function test_never_paid_row_says_not_paid_from_its_first_month()
     {
         $c = $this->contracts[2];
         $rows = Cache::get(ReceivableFigures::key($this->asOn));
-        $rows['rows'][$c->id] = ['due' => 2800.0, 'received' => 0.0, 'balance' => 2800.0, 'last_received' => null, 'last_amount' => null, 'paid_till' => null, 'start' => '2026-01-01'];
+        $rows['rows'][$c->id] = ['due' => 2800.0, 'received' => 0.0, 'balance' => 2800.0, 'not_paid_from' => '2026-01-01',
+            'last_received' => null, 'last_amount' => null, 'paid_till' => null, 'start' => '2026-01-01'];
         Cache::put(ReceivableFigures::key($this->asOn), $rows, 60);
         $row = $this->rowHtml($this->rows(), $c->id);
-        $this->assertContains('Never paid', $row);
-        $this->assertContains('started 01/01/2026', $row);
+        $this->assertRegExp('/Not paid from.*?01\/01\/2026.*?never paid/s', $row);
 
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('Never paid (started 01/01/2026)', $html);
+        $this->assertContains('01/01/2026 (never paid)', $html);
     }
 
     public function test_summary_explains_the_cutoff()
@@ -354,6 +355,7 @@ class ReceivableFollowupTest extends TestCase
         $html = $this->rows();
         $this->assertContains('Dues up to <strong>' . Carbon::parse($this->asOn)->format('d/m/Y') . '</strong>', $html);
         $this->assertContains('(' . Carbon::create($y, $m, 1)->format('F Y') . ' − 2 months)', $html);
+        $this->assertContains('Payments up to <strong>' . Carbon::today()->format('d/m/Y') . '</strong>', $html);
     }
 
     public function test_popup_header_says_not_paid_from_and_last_payment()
@@ -368,7 +370,7 @@ class ReceivableFollowupTest extends TestCase
     public function test_sort_by_not_paid_from()
     {
         $this->seed3([500.0, 1500.0, 900.0], ['2026-06-30', '2025-01-31', '2026-01-31']);
-        $html = $this->rows(['sort' => 'paid_till', 'direction' => 'asc']);   // longest unpaid first
+        $html = $this->rows(['sort' => 'not_paid_from', 'direction' => 'asc']);   // longest unpaid first
         $no = $this->contracts->pluck('tenant_contract_no')->all();
         $this->assertTrue(strpos($html, $no[1]) < strpos($html, $no[2]) && strpos($html, $no[2]) < strpos($html, $no[0]));
     }
