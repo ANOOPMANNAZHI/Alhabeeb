@@ -83,4 +83,18 @@ class RentDuesTest extends TestCase
             $this->assertSame($name, $d->building_name);
         }
     }
+
+    public function test_ledgers_keep_unpaid_lines_that_add_up_to_the_balance()
+    {
+        $dues = (new RentDues)->forDate(date('Y-m-d'), date('Y-m-d'));
+        $this->assertNotEmpty($dues);
+        foreach ($dues as $d) {
+            $sum = 0.0;
+            foreach ($d->ledger['lines'] as $l) {
+                $this->assertGreaterThan(0, $l['unpaid']);
+                $sum += $l['unpaid'];
+            }
+            $this->assertEquals($d->ledger['balance'], $sum, 'contract ' . $d->id, 0.002);
+        }
+    }
 }

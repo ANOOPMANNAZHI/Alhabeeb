@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
  * Contracts: approved (108), in active buildings, not legal cases, effective by the as-on date.
  * Receipts: rent receipts (type 0), not deleted, dated on or before $receiptsUpTo.
  * Terminations: 505 done, termination date on or before the as-on date.
+ * Ledgers carry unpaid lines only (consumers age unpaid lines; totals are unaffected).
  * See docs/superpowers/specs/2026-10-02-tenant-dues-ledger-design.md.
  */
 class RentDues
@@ -88,6 +89,10 @@ class RentDues
         $out = [];
         foreach ($rows as $r) {
             $r->ledger = RentLedger::build($r, $asOn, $r->received);
+            // keep unpaid lines only: consumers age unpaid lines, totals are unaffected
+            $r->ledger['lines'] = array_values(array_filter($r->ledger['lines'], function ($l) {
+                return $l['unpaid'] > 0;
+            }));
             $out[(int) $r->id] = $r;
         }
         return $out;
