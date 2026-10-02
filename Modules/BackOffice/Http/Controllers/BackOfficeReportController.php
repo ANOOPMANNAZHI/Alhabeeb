@@ -27,6 +27,7 @@ use Modules\BackOffice\Exports\TenantReceivableV2Export;
 use Modules\BackOffice\Exports\LegalReceivableV2Export;
 use Modules\BackOffice\Exports\TenantAgingExport;
 use Modules\BackOffice\Services\TenantAgingCalculator;
+use Modules\BackOffice\Services\RentDues;
 use Modules\BackOffice\Exports\NormalManagementV2Export;
 use Modules\BackOffice\Exports\NormalManagementMonthSheet;
 use Modules\BackOffice\Exports\NormalManagementConsolidateSheet;
@@ -2271,16 +2272,16 @@ public function tenantAgingReportPdf(Request $request){
   $date2        = $request['end_date'];
   $downloadType = $request['download_type'];
 
-  $dateOnly = !empty($date2) && empty($buildingname) && empty($buildingno) && empty($tenantname) && empty($managetype) && empty($are);
-
-  if ($dateOnly) {
-    $rows = DB::select("SELECT * FROM tenantrentreceivable_v2(?::date) ORDER BY buildingname, unit_code", [$date2]);
-  } else {
-    $rows = DB::select(
-      "SELECT * FROM tenantrentreceivablecompo_v2(?::date,?,?,?,?,?) ORDER BY buildingname, unit_code",
-      [$date2, $tenantname, $buildingname, $buildingno, $managetype, $are]
-    );
-  }
+  ini_set('memory_limit', '256M');
+  set_time_limit(300);
+  // one calculation for the tenant reports (RentDues / RentLedger): dues and receipts up to the date
+  $rows = TenantAgingCalculator::rows(app(RentDues::class)->forDate($date2, $date2, [
+    'building_name'   => $buildingname,
+    'building_no'     => $buildingno,
+    'tenant_name'     => $tenantname,
+    'management_type' => $managetype,
+    'are'             => $are,
+  ]), $date2);
 
   // pdc column is '' / 'Full' / 'Partial'; Full and Partial both count as having a PDC
   if ($pdcFilter === 'have') {
@@ -2290,12 +2291,9 @@ public function tenantAgingReportPdf(Request $request){
   }
   $pdcLabel = ['have' => 'Have PDC', 'no' => 'No PDC'][$pdcFilter] ?? '';
 
-  // Derive the aging split for every row; buckets always sum to netamtdue
+  // aging split by days overdue; buckets always sum to netamtdue
   $buckets = TenantAgingCalculator::buckets($date2);
   $keys    = array_keys($buckets);
-  foreach ($rows as $row) {
-    $row->aging = TenantAgingCalculator::age($row, $date2);
-  }
 
   $data = [
     'rows'    => $rows,
