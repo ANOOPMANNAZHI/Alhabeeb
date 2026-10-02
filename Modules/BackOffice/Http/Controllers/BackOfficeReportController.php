@@ -2261,7 +2261,27 @@ public function showTenantAgingReport(){
   return view('backoffice::reports.tenant_aging_report', compact('managementTypes'));
 }
 
+/** Raise memory_limit to $want only when the current limit is lower ('-1' = unlimited stays). */
+private function raiseMemoryLimit($want)
+{
+  $toBytes = function ($v) {
+    $v = trim((string) $v);
+    $n = (float) $v;
+    switch (strtolower(substr($v, -1))) {
+      case 'g': $n *= 1024;
+      case 'm': $n *= 1024;
+      case 'k': $n *= 1024;
+    }
+    return $n;
+  };
+  $cur = ini_get('memory_limit');
+  if ($cur !== '-1' && $toBytes($cur) < $toBytes($want)) {
+    ini_set('memory_limit', $want);
+  }
+}
+
 public function tenantAgingReportPdf(Request $request){
+  \Validator::make($request->all(), ['end_date' => 'required|date', 'download_type' => 'required|in:pdf,excel'])->validate();
   $user         = Auth::user()->username;
   $buildingname = $request['building_name'] ?? '';
   $buildingno   = $request['building_no'] ?? '';
@@ -2272,7 +2292,7 @@ public function tenantAgingReportPdf(Request $request){
   $date2        = $request['end_date'];
   $downloadType = $request['download_type'];
 
-  ini_set('memory_limit', '256M');
+  $this->raiseMemoryLimit('256M');
   set_time_limit(300);
   // one calculation for the tenant reports (RentDues / RentLedger): dues and receipts up to the date
   $rows = TenantAgingCalculator::rows(app(RentDues::class)->forDate($date2, $date2, [
@@ -2311,8 +2331,6 @@ public function tenantAgingReportPdf(Request $request){
   ];
 
   if ($downloadType == 'pdf') {
-    ini_set('memory_limit', '256M');
-    set_time_limit(300);
     try {
       $fmtDate = function($d) { return $d ? date('d/m/Y', strtotime($d)) : ''; };
 

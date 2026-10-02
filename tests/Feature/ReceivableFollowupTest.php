@@ -367,6 +367,22 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains('02/05/2026 · 350.000', $html);
     }
 
+    public function test_paid_till_after_not_paid_from_reads_short_paid()
+    {
+        $c = $this->contracts[0];
+        $cache = Cache::get(ReceivableFigures::key($this->asOn));
+        $cache['rows'][$c->id]['not_paid_from'] = '2026-03-01';
+        $cache['rows'][$c->id]['paid_till'] = '2026-06-30';
+        Cache::put(ReceivableFigures::key($this->asOn), $cache, 60);
+        $row = $this->rowHtml($this->rows(), $c->id);
+        $this->assertContains('short paid', $row);
+        $this->assertContains('receipts to 30/06/2026', $row);
+        $this->assertNotContains('paid till', $row);
+
+        $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
+        $this->assertContains('short paid · receipts to 30/06/2026', $html);
+    }
+
     public function test_sort_by_not_paid_from()
     {
         $this->seed3([500.0, 1500.0, 900.0], ['2026-06-30', '2025-01-31', '2026-01-31']);

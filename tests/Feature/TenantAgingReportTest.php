@@ -52,6 +52,14 @@ class TenantAgingReportTest extends TestCase
         }
     }
 
+    public function test_missing_end_date_goes_back_with_an_error()
+    {
+        $this->actingAs(User::find(1));
+        $res = $this->from(route('showTenantAgingReport'))->post(route('tenantAgingReportPdf'), ['download_type' => 'pdf']);
+        $res->assertSessionHasErrors('end_date');
+        $res->assertRedirect(route('showTenantAgingReport'));
+    }
+
     public function test_report_no_longer_calls_the_old_functions()
     {
         $src = file_get_contents(base_path('Modules/BackOffice/Http/Controllers/BackOfficeReportController.php'));

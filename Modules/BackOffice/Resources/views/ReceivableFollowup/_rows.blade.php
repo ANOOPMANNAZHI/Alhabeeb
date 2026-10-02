@@ -48,7 +48,7 @@
       <td>{{ $r->contract }}<span class="rf-sub">{{ $fmtDate($r->from) }} – {{ $fmtDate($r->to) }}</span></td>
       <td>{{ $r->building }}</td>
       <td>{{ $r->unit }}</td>
-      <td>@if($r->not_paid_from)<span class="rf-unpaid"><span class="rf-sr">Not paid from </span>{{ $fmtDate($r->not_paid_from) }}</span>@if($r->paid_till)<span class="rf-sub">paid till {{ $fmtDate($r->paid_till) }}</span>@else<span class="rf-sub">never paid</span>@endif @else — @endif</td>
+      <td>@if($r->not_paid_from)<span class="rf-unpaid"><span class="rf-sr">Not paid from </span>{{ $fmtDate($r->not_paid_from) }}</span>@if($r->paid_till)<span class="rf-sub">{{ $r->paid_till >= $r->not_paid_from ? 'short paid · receipts to' : 'paid till' }} {{ $fmtDate($r->paid_till) }}</span>@else<span class="rf-sub">never paid</span>@endif @else — @endif</td>
       <td>@if($r->last_received){{ $fmtDate($r->last_received) }}@if($r->last_amount !== null)<span class="rf-sub">{{ number_format($r->last_amount, 3) }}</span>@endif @else — @endif</td>
       <td class="num">{{ number_format($r->due, 3) }}</td>
       <td class="num">{{ number_format($r->received, 3) }}</td>

@@ -93,4 +93,24 @@ class ReceivableFollowupRefreshTest extends TestCase
         $this->assertCount(1, $events);
         $this->assertSame('*/15 * * * *', $events->first()->expression);
     }
+
+    public function test_compute_asks_for_receipts_up_to_today()
+    {
+        $fake = new class extends \Modules\BackOffice\Services\RentDues {
+            public $args;
+            public function forDate($asOn, $receiptsUpTo = null, array $filters = [])
+            {
+                $this->args = [$asOn, $receiptsUpTo];
+                return [];
+            }
+        };
+        $this->app->instance(\Modules\BackOffice\Services\RentDues::class, $fake);
+        Carbon::setTestNow('2026-10-02');
+        try {
+            (new ReceivableFigures)->compute('2026-07-31');
+        } finally {
+            Carbon::setTestNow();
+        }
+        $this->assertSame(['2026-07-31', '2026-10-02'], $fake->args);
+    }
 }

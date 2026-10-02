@@ -141,4 +141,21 @@ class RentLedgerTest extends TestCase
         $this->assertSame(2096.667, $l['due']);
         $this->assertEquals(2096.667, array_sum($this->amounts($l)), '', 0.0005);
     }
+
+    public function test_thousands_commas_in_value_and_rent_are_ignored()
+    {
+        $c = $this->c(['value' => '1,200', 'rent' => '1,000', 'vto' => '2026-12-31']);
+        $a = L::build($c, '2026-12-31', 0);
+        $b = L::build($this->c(['value' => '1200', 'rent' => '1000']), '2026-12-31', 0);
+        $this->assertSame(1200.0, $a['due']);
+        $this->assertSame($b, $a);
+    }
+
+    public function test_negative_received_counts_as_zero_everywhere()
+    {
+        $l = L::build($this->c(), '2026-08-31', -50);
+        $this->assertSame(0.0, $l['received']);
+        $this->assertSame($l['due'], $l['balance']);
+        $this->assertEquals($l['balance'], array_sum(array_column($l['lines'], 'unpaid')), '', 0.0005);
+    }
 }

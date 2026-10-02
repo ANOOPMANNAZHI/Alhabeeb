@@ -171,6 +171,8 @@ class ReceivableFollowupController extends Controller
                 ? Carbon::parse($fig['not_paid_from'])->format('d/m/Y') . ($paidTill ? '' : ' (never paid)')
                 : null,
             'paidTill'     => $paidTill ? $paidTill->format('d/m/Y') : null,
+            'paidLabel'    => $paidTill && $fig && !empty($fig['not_paid_from']) && $paidTill->format('Y-m-d') >= $fig['not_paid_from']
+                ? 'short paid · receipts to' : 'paid till',
             'lastPayment'  => $fig && !empty($fig['last_received'])
                 ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . number_format($fig['last_amount'], 3) : '')
                 : null,

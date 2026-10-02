@@ -30,12 +30,12 @@ class RentLedger
     {
         $asOn = substr((string) $asOn, 0, 10);
         $eff = substr((string) $c->eff, 0, 10);
-        $received = round((float) $received, 3);
+        $received = max(0.0, round((float) $received, 3));
         if ($eff === '' || $eff > $asOn) {
             return self::allocate([], 0.0, $received);
         }
-        $rent = (float) $c->rent;
-        $value = (float) $c->value;
+        $rent = (float) str_replace(',', '', (string) $c->rent);
+        $value = (float) str_replace(',', '', (string) $c->value);
         $vto = !empty($c->vto) ? substr((string) $c->vto, 0, 10) : null;
         $term = !empty($c->term_date) ? substr((string) $c->term_date, 0, 10) : null;
         if ($term !== null && $term > $asOn) {
