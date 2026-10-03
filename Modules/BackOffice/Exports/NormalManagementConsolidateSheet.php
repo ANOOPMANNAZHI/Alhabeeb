@@ -20,13 +20,14 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
      * Expense rows of the consolidated sheet, in report order, with the expense
      * heads each one adds up. A/C, fire alarm and lift bills from a sub-contractor
      * are the AMC row; the same heads done in-house (from a technician's service
-     * report) are Repair Charges (a). Management Fees, VAT and Legal Expenses have
-     * no expense head and stay blank for now. Other heads (cleaning, lease rent,
-     * municipal tax penalty, ...) are not on the sheet.
+     * report) are Repair Charges (a). Management Fees and Cleaning Charges come
+     * from the landlord contract (CONTRACT); VAT and Legal Expenses stay blank for
+     * now. Other heads (cleaning bills, lease rent, municipal tax penalty, ...) are
+     * not on the sheet.
      */
     private static $expenseHeads = [
         'Municipal Tax'                                 => ['MUNICIPAL TAX'],
-        'Management Fees'                               => [],
+        'Management Fees'                               => self::CONTRACT,
         'Value Added Tax (VAT)'                         => [],
         'Annual Maint. Cont. - A C, FAS, Lift & Others' => ['subcontractor' => self::AC_FAS_LIFT],
         'Sewage Removal'                                => ['DEWATERING'],
@@ -34,7 +35,10 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         'Legal Expenses'                                => [],
         'A C, FAS, Lift, etc. Repair Charges - (a)'     => ['inhouse' => self::AC_FAS_LIFT],
         'Electric, Plumbing, Repair & Maint - (b)'      => ['ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES'],
+        'Cleaning Charges'                              => self::CONTRACT,
     ];
+
+    const CONTRACT = ['contract'];
 
     const AC_FAS_LIFT = [
         'A C MAINTENANCE', 'CIT - AC MAINTENANCE',
@@ -46,6 +50,8 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
     public static function expenseLines(array $month): array
     {
         $out = array_fill_keys(array_keys(self::$expenseHeads), 0.0);
+        $out['Management Fees']  = self::managementFee($month);
+        $out['Cleaning Charges'] = (float) ($month['cleaning_charge'] ?? 0);
         foreach ($month['expenses'] ?? [] as $exp) {
             $inhouse = !empty($exp->inhouse) && $exp->inhouse !== 'f';
             foreach (self::$expenseHeads as $label => $heads) {
@@ -62,6 +68,36 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
             }
         }
         return $out;
+    }
+
+    /**
+     * One month's management fee from the landlord contract covering it: a fixed
+     * amount (management_method 2), or a percentage of the month's income
+     * (landlord_contract_percentage 1) or collection (2). Same formula as the
+     * Landlord Tax Invoice.
+     */
+    public static function managementFee(array $month): float
+    {
+        $lc = $month['landlord_contract'] ?? null;
+        if ($lc === null) {
+            return 0.0;
+        }
+        if ((int) $lc->management_method === 2) {
+            return (float) $lc->landlord_contract_management_fee;
+        }
+        $income = $collection = 0.0;
+        foreach ($month['units'] ?? [] as $u) {
+            $income     += (float) ($u->income_amount ?? 0);
+            $collection += (float) ($u->collection_amount ?? 0);
+        }
+        foreach ($month['old_outstanding'] ?? [] as $u) {
+            $collection += (float) ($u->collection_amount ?? 0);
+        }
+        $basis = (int) $lc->landlord_contract_percentage;
+        if ($basis !== 1 && $basis !== 2) {
+            return 0.0; // unknown basis on the contract: no fee rather than a guess
+        }
+        return round(($basis === 2 ? $collection : $income) * ((float) $lc->landlord_contract_management_fee / 100), 3);
     }
 
     protected $monthData;

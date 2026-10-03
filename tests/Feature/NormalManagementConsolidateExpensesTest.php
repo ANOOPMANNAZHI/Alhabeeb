@@ -20,6 +20,7 @@ class NormalManagementConsolidateExpensesTest extends TestCase
         'Legal Expenses',
         'A C, FAS, Lift, etc. Repair Charges - (a)',
         'Electric, Plumbing, Repair & Maint - (b)',
+        'Cleaning Charges',
     ];
 
     private function exp($name, $amount, $inhouse = false)
@@ -43,7 +44,7 @@ class NormalManagementConsolidateExpensesTest extends TestCase
             $this->exp('CLEANING', 500),                        // not on the sheet
             $this->exp('MUNICIPAL TAX PENALTY', 500),           // not on the sheet
             $this->exp('LEASE RENT', 500),                      // not on the sheet
-        ], 'cleaning_charge' => 999, 'facility_management_fee' => 999]);
+        ], 'cleaning_charge' => 40, 'facility_management_fee' => 999]);   // no landlord contract: no fee
 
         $this->assertSame(self::ORDER, array_keys($lines));
         $this->assertEquals(100, $lines['Municipal Tax']);
@@ -55,7 +56,29 @@ class NormalManagementConsolidateExpensesTest extends TestCase
         $this->assertEquals(0, $lines['Legal Expenses']);
         $this->assertEquals(11, $lines['A C, FAS, Lift, etc. Repair Charges - (a)']);
         $this->assertEquals(21, $lines['Electric, Plumbing, Repair & Maint - (b)']);
-        $this->assertEquals(247, array_sum($lines));
+        $this->assertEquals(40, $lines['Cleaning Charges']);
+        $this->assertEquals(287, array_sum($lines));
+    }
+
+    private function contract($method, $basis, $fee)
+    {
+        return (object) ['management_method' => $method, 'landlord_contract_percentage' => $basis, 'landlord_contract_management_fee' => $fee];
+    }
+
+    public function test_management_fee_follows_the_landlord_contract()
+    {
+        $month = [
+            'units'           => [(object) ['income_amount' => 1000, 'collection_amount' => 800]],
+            'old_outstanding' => [(object) ['collection_amount' => 200]],
+        ];
+        $fee = function ($lc) use ($month) {
+            return NormalManagementConsolidateSheet::expenseLines($month + ['landlord_contract' => $lc])['Management Fees'];
+        };
+        $this->assertEquals(150, $fee($this->contract(2, 0, 150)));    // fixed amount
+        $this->assertEquals(50, $fee($this->contract(1, 1, 5)));       // 5% of income 1,000
+        $this->assertEquals(100, $fee($this->contract(1, 2, 10)));     // 10% of collection 800 + 200
+        $this->assertEquals(0, $fee($this->contract(1, 9, 10)));       // unknown basis
+        $this->assertEquals(0, $fee(null));
     }
 
     public function test_excel_lists_the_rows_in_order_and_totals_them()

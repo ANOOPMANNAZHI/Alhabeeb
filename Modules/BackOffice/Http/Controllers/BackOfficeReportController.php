@@ -4574,6 +4574,8 @@ public function normalManagementReportV2Generate(Request $request)
         }
 
         // ── Per-month loop ────────────────────────────────────────────────────
+        $landlordContractRows = $this->nmrLandlordContracts($building->id);
+
         foreach (range(1, 12) as $m) {
             $startDate = date('Y-m-d', mktime(0, 0, 0, $m, 1, $year));
             $endDate   = date('Y-m-t', mktime(0, 0, 0, $m, 1, $year));
@@ -5016,11 +5018,14 @@ public function normalManagementReportV2Generate(Request $request)
                 ];
             }
 
+            $matched = $this->nmrMatchLandlordContract($landlordContractRows, $startDate, $endDate);
             $monthData[$m] = [
-                'units'           => $units,
-                'old_outstanding' => $oldOutstanding ?? [],
-                'expenses'        => $expenses,
-                'occupancy'       => $occupancy,
+                'units'             => $units,
+                'old_outstanding'   => $oldOutstanding ?? [],
+                'expenses'          => $expenses,
+                'occupancy'         => $occupancy,
+                'cleaning_charge'   => $matched !== null ? (float) $matched->cleaning_charge : 0,
+                'landlord_contract' => $matched,
             ];
         }
 
@@ -5380,27 +5385,8 @@ public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building
             $totalRenewal    += (float) ($data['renewal_fee'] ?? 0);
             $totalNewLeasing += (float) ($data['new_leasing_fee'] ?? 0);
 
-            if ((int) $lc->management_method === 2) {
-                $managementFee += (float) $lc->landlord_contract_management_fee;
-                continue;
-            }
-
-            // Percentage type: apply to this month's income or collection only.
-            $monthIncome     = 0.0;
-            $monthCollection = 0.0;
-            foreach ($data['units'] ?? [] as $u) {
-                $monthIncome     += (float) ($u->income_amount ?? 0);
-                $monthCollection += (float) ($u->collection_amount ?? 0);
-            }
-            foreach ($data['old_outstanding'] ?? [] as $u) {
-                $monthCollection += (float) ($u->collection_amount ?? 0);
-            }
-            $percentageBasis = (int) $lc->landlord_contract_percentage;
-            if ($percentageBasis !== 1 && $percentageBasis !== 2) {
-                continue; // out-of-domain percentage basis on this contract; skip this month's fee rather than guess
-            }
-            $basis = ($percentageBasis === 2) ? $monthCollection : $monthIncome;
-            $managementFee += round($basis * ((float) $lc->landlord_contract_management_fee / 100), 3);
+            // Fixed, or a percentage of the month's income / collection (shared with the consolidated sheet)
+            $managementFee += NormalManagementConsolidateSheet::managementFee($data);
         }
     }
 
@@ -5709,6 +5695,47 @@ public function landlordTaxInvoiceAmountInWords(float $total): string
  *
  */
 
+/** Landlord contracts of a building, oldest first (Normal Management Report V2). */
+private function nmrLandlordContracts($buildingId)
+{
+    return DB::select("
+        SELECT landlord_contract_status AS status,
+               landlord_contract_valid_from_date AS valid_from,
+               landlord_contract_valid_to_date AS valid_to,
+               landlord_contract_cleaning_charge AS cleaning_charge,
+               management_method,
+               landlord_contract_percentage,
+               landlord_contract_management_fee,
+               vendor_id,
+               landlord_contract_facility_management_fee AS facility_management_fee,
+               landlord_contract_renewal_fee AS renewal_fee,
+               landlord_contract_new_leasing_fee_type AS new_leasing_fee_type,
+               landlord_contract_new_leasing_fee AS new_leasing_fee
+        FROM landlord_contract
+        WHERE building_id = ?
+        ORDER BY landlord_contract_valid_from_date
+    ", [$buildingId]);
+}
+
+/**
+ * The landlord contract that covers a month: prefer an active (status=1) one
+ * when several overlap, otherwise the most recent overlapping row.
+ */
+private function nmrMatchLandlordContract(array $rows, $startDate, $endDate)
+{
+    $matched = null;
+    foreach ($rows as $lc) {
+        if ($lc->valid_from !== null && $lc->valid_from > $endDate) continue;
+        if ($lc->valid_to !== null && $lc->valid_to < $startDate) continue;
+        if ($matched === null
+            || ((int)$lc->status === 1 && (int)$matched->status !== 1)
+            || (int)$lc->status === (int)$matched->status) {
+            $matched = $lc;
+        }
+    }
+    return $matched;
+}
+
 /**
  * Normal Management Report V2: rent received in this month from an incoming
  * tenant whose contract starts after the month (paid before moving in). It is
@@ -5843,24 +5870,8 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
         $expensesByMonth[$em][] = $eRow;
     }
 
-    // ── Batch landlord contract cleaning charges + management fee for the year ─
-    $landlordContractRows = DB::select("
-        SELECT landlord_contract_status AS status,
-               landlord_contract_valid_from_date AS valid_from,
-               landlord_contract_valid_to_date AS valid_to,
-               landlord_contract_cleaning_charge AS cleaning_charge,
-               management_method,
-               landlord_contract_percentage,
-               landlord_contract_management_fee,
-               vendor_id,
-               landlord_contract_facility_management_fee AS facility_management_fee,
-               landlord_contract_renewal_fee AS renewal_fee,
-               landlord_contract_new_leasing_fee_type AS new_leasing_fee_type,
-               landlord_contract_new_leasing_fee AS new_leasing_fee
-        FROM landlord_contract
-        WHERE building_id = ?
-        ORDER BY landlord_contract_valid_from_date
-    ", [$building->id]);
+    // ── Landlord contracts of the building (cleaning charge, management fee, ...) ─
+    $landlordContractRows = $this->nmrLandlordContracts($building->id);
 
     // ── Batch occupancy for all months ────────────────────────────────
     $yearStart = $year . '-01-01';
@@ -6267,24 +6278,8 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             ];
             // Cleaning charge: the landlord contract valid for this month (prefer status=1 if
             // more than one overlaps; otherwise the latest matching valid_from).
-            $cleaningCharge = 0;
-            $matched = null;
-            foreach ($landlordContractRows as $lc) {
-                $validFrom = $lc->valid_from;
-                $validTo   = $lc->valid_to;
-                if ($validFrom !== null && $validFrom > $endDate) continue;
-                if ($validTo !== null && $validTo < $startDate) continue;
-                // Rows are ordered by valid_from ascending; prefer an active (status=1)
-                // match, otherwise keep the most recent overlapping row.
-                if ($matched === null
-                    || ((int)$lc->status === 1 && (int)$matched->status !== 1)
-                    || (int)$lc->status === (int)$matched->status) {
-                    $matched = $lc;
-                }
-            }
-            if ($matched !== null) {
-                $cleaningCharge = (float) $matched->cleaning_charge;
-            }
+            $matched = $this->nmrMatchLandlordContract($landlordContractRows, $startDate, $endDate);
+            $cleaningCharge = $matched !== null ? (float) $matched->cleaning_charge : 0;
 
             // Facility Management Fee, Renewal Fee, New Leasing Fee — all
             // derived from the matched landlord contract, same date-range
