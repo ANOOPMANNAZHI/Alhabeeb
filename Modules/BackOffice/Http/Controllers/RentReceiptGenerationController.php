@@ -95,15 +95,13 @@ class RentReceiptGenerationController extends Controller
 
          ]);
 
-        // Terminated contracts: only the open rent dues may be collected, and never for a period after termination.
-        $duesError = (new TerminationDuesService)->rentReceiptError(
+        // Terminated contracts: the receipt is always saved (user, 03/10/2026); a mismatch with the
+        // termination dues is only shown as a note after saving.
+        $duesNote = (new TerminationDuesService)->rentReceiptNote(
             $request->tenant_contract_no,
             replaceCommaWithDot($request->receipts_generation_amt),
             $request->receipts_generation_eff_to
         );
-        if ($duesError) {
-            return redirect()->back()->withInput()->with('error', $duesError);
-        }
          // 1 - cheque, 2 - cash - receipt No sequence
         // 1 - cheque, 2 - cash - receipt No sequence
         if($request->receipts_generation_payment_method == 1){	
@@ -174,7 +172,7 @@ class RentReceiptGenerationController extends Controller
 		$this->incrementSequenceNo($configIncKey);
         TerminationDuesService::touchContract($request->tenant_contract_no);
 
-        session()->flash('success', 'Saved Successfully');
+        session()->flash('success', 'Saved Successfully' . ($duesNote ? '. Please check: ' . $duesNote : ''));
         return redirect()->route('receiptsTabViewListtab','rent');
     }
 
@@ -242,15 +240,13 @@ class RentReceiptGenerationController extends Controller
 
          ]);
 
-        $duesError = (new TerminationDuesService)->rentReceiptError(
+        // always saved; a mismatch with the termination dues is only shown as a note
+        $duesNote = (new TerminationDuesService)->rentReceiptNote(
             $request->tenant_contract_no,
             replaceCommaWithDot($request->receipts_generation_amt),
             $request->receipts_generation_eff_to,
             $id
         );
-        if ($duesError) {
-            return redirect()->back()->withInput()->with('error', $duesError);
-        }
 
 		 $rentReceiptInfo = ReceiptsGeneration::where('id', $id)->first();
 		 
@@ -291,7 +287,7 @@ class RentReceiptGenerationController extends Controller
 
         TerminationDuesService::touchReceipt($id);
 
-        session()->flash('success', 'Saved Successfully');
+        session()->flash('success', 'Saved Successfully' . ($duesNote ? '. Please check: ' . $duesNote : ''));
         return redirect()->route('receiptsTabViewListtab','rent');
     }
 

@@ -375,10 +375,12 @@ class TerminationDuesService
     }
 
     /**
-     * Guard for rent receipts on terminated contracts.
-     * @return string|null error message, or null when the receipt may be saved
+     * Note for rent receipts on terminated contracts. The receipt is always saved
+     * (user, 03/10/2026: old legal cases and inspection figures made the old refusal
+     * block genuine receipts); this only says what does not match the termination dues.
+     * @return string|null note to show after saving, or null when nothing to point out
      */
-    public function rentReceiptError($contractId, $amount, $effTo = null, $ignoreReceiptId = null)
+    public function rentReceiptNote($contractId, $amount, $effTo = null, $ignoreReceiptId = null)
     {
         $contract = TenantContract::where('id', $contractId)->first(['id', 'tenant_renewal_termination_status', 'tenant_contract_no']);
         if (!$contract || (int) $contract->tenant_renewal_termination_status !== 8) {
@@ -387,22 +389,14 @@ class TerminationDuesService
         $amount = (float) $amount;
         $dues = TerminationDues::where('tenant_contract_id', $contractId)->first();
         if (!$dues) {
-            if (!$ignoreReceiptId) {
-                return 'Contract ' . $contract->tenant_contract_no . ' is terminated and has no termination dues on record. Rent receipts cannot be created on it; if rent is genuinely outstanding ask an administrator to run the termination dues backfill.';
-            }
-            // Legacy receipt on a terminated contract without dues: allow corrections that
-            // do not increase the amount and do not push the period past the termination date.
-            $existing = DB::table('receipts_generation')->where('id', $ignoreReceiptId)->first(['receipts_generation_amt', 'receipts_generation_eff_to']);
             $finalRow = Termination::where('contract_id', $contractId)->where('work_flow_processes_code', self::FINAL_STAGE)->orderBy('id', 'desc')->first();
             $terminationDate = $finalRow && $finalRow->termination_date ? $finalRow->termination_date : null;
-            $amountOk = $existing && $amount <= (float) $existing->receipts_generation_amt + TerminationDuesSettlement::EPS;
-            $dateOk = !$effTo || !$terminationDate || strtotime($effTo) <= $terminationDate->getTimestamp();
-            if ($amountOk && $dateOk) {
-                return null;
+            $note = 'contract ' . $contract->tenant_contract_no . ' is terminated' . ($terminationDate ? ' (' . $terminationDate->format('d/m/Y') . ')' : '')
+                . ' and has no termination dues on record, so this receipt could not be checked against what is owed.';
+            if ($effTo && $terminationDate && strtotime($effTo) > $terminationDate->getTimestamp()) {
+                $note .= ' The effective-to date ' . date('d/m/Y', strtotime($effTo)) . ' is after the termination date.';
             }
-            return 'Contract ' . $contract->tenant_contract_no . ' is terminated and has no termination dues on record. Only non-increasing edits are allowed on its existing rent receipts: keep the amount at or below '
-                . numberFormat($existing ? $existing->receipts_generation_amt : 0)
-                . ($terminationDate ? ' and the effective-to date on or before the termination date ' . $terminationDate->format('d/m/Y') : '') . '.';
+            return $note;
         }
         $r = $this->refresh($dues);
         $rentBalance = 0.0;
@@ -433,15 +427,15 @@ class TerminationDuesService
         $rentBalance = round($rentBalance - $pending, 3);
         $pendingNote = $pending > TerminationDuesSettlement::EPS ? ' (' . numberFormat($grossBalance) . ' open less ' . numberFormat($pending) . ' pending approval)' : '';
 
+        $notes = [];
         if ($rentBalance <= TerminationDuesSettlement::EPS) {
-            return 'Contract ' . $contract->tenant_contract_no . ' is terminated and its rent dues are fully settled' . ($pendingNote ? ' or covered by receipts awaiting approval' . $pendingNote : '') . ' (see Termination Dues). No further rent receipt can be created.';
-        }
-        if ($amount > $rentBalance + TerminationDuesSettlement::EPS) {
-            return 'Receipt amount ' . numberFormat($amount) . ' exceeds the open rent dues of ' . numberFormat($rentBalance) . $pendingNote . ' on terminated contract ' . $contract->tenant_contract_no . '. Enter at most ' . numberFormat($rentBalance) . '.';
+            $notes[] = 'contract ' . $contract->tenant_contract_no . ' is terminated and its rent dues were already settled' . ($pendingNote ? ' or covered by receipts awaiting approval' . $pendingNote : '') . ', so this receipt is more than the rent owed (see Termination Dues).';
+        } elseif ($amount > $rentBalance + TerminationDuesSettlement::EPS) {
+            $notes[] = 'receipt amount ' . numberFormat($amount) . ' is more than the open rent dues of ' . numberFormat($rentBalance) . $pendingNote . ' on terminated contract ' . $contract->tenant_contract_no . ' (see Termination Dues).';
         }
         if ($effTo && $dues->termination_date && strtotime($effTo) > $dues->termination_date->getTimestamp()) {
-            return 'Effective-to date ' . date('d/m/Y', strtotime($effTo)) . ' is after the termination date ' . $dues->termination_date->format('d/m/Y') . '. Rent cannot be collected for a period after termination.';
+            $notes[] = 'the effective-to date ' . date('d/m/Y', strtotime($effTo)) . ' is after the termination date ' . $dues->termination_date->format('d/m/Y') . '.';
         }
-        return null;
+        return $notes ? implode(' Also, ', $notes) : null;
     }
 }
