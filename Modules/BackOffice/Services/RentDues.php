@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\DB;
  * What every tenant contract owes on a date: the one calculation behind the
  * Tenant Aging Report and the Receivables Follow-up (a RentLedger per contract).
  * Contracts: approved (108), in active buildings, not legal cases, effective by the as-on date.
- * Receipts: rent receipts (type 0), not deleted, dated on or before $receiptsUpTo.
+ * Receipts: rent receipts (type 0), not deleted, approved or posted (3, 6), not
+ * cancelled (status 2) - the same rule as RentOutstanding / the termination screens -
+ * dated on or before $receiptsUpTo.
  * Terminations: 505 done, termination date on or before the as-on date.
  * Ledgers carry unpaid lines only (consumers age unpaid lines; totals are unaffected).
  * See docs/superpowers/specs/2026-10-02-tenant-dues-ledger-design.md.
@@ -62,6 +64,7 @@ class RentDues
                    r.received, r.paid_till, r.last_received,
                    (SELECT sum(rl.receipts_generation_amt) FROM receipts_generation rl
                      WHERE rl.tenant_contract_id = tc.id AND rl.receipts_generation_type = '0' AND rl.deleted_at IS NULL
+                       AND rl.receipts_generation_approval_status IN (3, 6) AND rl.receipts_generation_status <> 2
                        AND rl.receipts_generation_receipt_date::date = r.last_received::date) AS last_amount
               FROM tenant_contracts tc
               JOIN buildings b ON b.id = tc.building_id AND b.building_status = '1'
@@ -74,6 +77,7 @@ class RentDues
                            max(receipts_generation_receipt_date)  AS last_received
                       FROM receipts_generation
                      WHERE receipts_generation_type = '0' AND deleted_at IS NULL
+                       AND receipts_generation_approval_status IN (3, 6) AND receipts_generation_status <> 2
                        AND receipts_generation_receipt_date::date <= ?::date
                      GROUP BY tenant_contract_id) r ON r.tenant_contract_id = tc.id
               LEFT JOIN (SELECT contract_id, max(termination_date)::date AS term_date

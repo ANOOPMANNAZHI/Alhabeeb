@@ -84,6 +84,25 @@ class RentDuesTest extends TestCase
         }
     }
 
+    /** Same receipts as the termination screens (RentOutstanding): approved or posted, not cancelled. */
+    public function test_cancelled_and_unapproved_receipts_are_not_counted()
+    {
+        $c = DB::selectOne("
+            SELECT rg.tenant_contract_id AS id, b.building_name
+              FROM receipts_generation rg
+              JOIN tenant_contracts tc ON tc.id = rg.tenant_contract_id AND tc.work_flow_processes_code = 108
+              JOIN buildings b ON b.id = tc.building_id AND b.building_status = '1'
+             WHERE rg.receipts_generation_type = '0' AND rg.deleted_at IS NULL AND rg.receipts_generation_status = 2
+               AND NOT EXISTS (SELECT 1 FROM legal l WHERE l.tenant_contract_id = tc.id)
+             ORDER BY rg.id DESC LIMIT 1");
+        if (!$c) {
+            $this->markTestSkipped('no cancelled rent receipt in this database');
+        }
+        $expected = \Modules\BackOffice\Services\RentOutstanding::paidForContract($c->id);
+        $row = (new RentDues)->forDate(date('Y-m-d'), date('Y-m-d'), ['building_name' => $c->building_name])[$c->id];
+        $this->assertEquals($expected, (float) $row->received, 'contract ' . $c->id, 0.0005);
+    }
+
     public function test_ledgers_keep_unpaid_lines_that_add_up_to_the_balance()
     {
         $dues = (new RentDues)->forDate(date('Y-m-d'), date('Y-m-d'));
