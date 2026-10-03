@@ -12,7 +12,10 @@ use Illuminate\Support\Facades\DB;
  *   rent due    = whole months from the contract's effective date up to and
  *                 including the as-of date, x monthly rent. A started month
  *                 counts as a whole month (same rule as UnpaidRentPeriod, and
- *                 receipts are issued per calendar month).
+ *                 receipts are issued per calendar month). Exception: an early
+ *                 termination (before the contract end) dated from 01/08/2026
+ *                 is charged by the day with 30-day months, the same function
+ *                 as the receivable reports (RentLedger::earlyTerminationDue).
  *   paid        = rent receipts (type 0) that are approved (3) or posted to
  *                 AX (6), not cancelled (status 2), not soft-deleted.
  *   outstanding = max(rent due - paid, 0); anything above is 'overpaid'.
@@ -118,9 +121,11 @@ class RentOutstanding
      *        trusted contract value (see contractValueCap)
      * @return array months, rent_due, paid, outstanding, overpaid
      */
-    public static function compute($from, $to, $rentPerMonth, $paid, $contractValue = null, $contractEnd = null)
+    public static function compute($from, $to, $rentPerMonth, $paid, $contractValue = null, $contractEnd = null, $terminated = false)
     {
-        $due  = self::rentDue($from, $to, $rentPerMonth);
+        $due  = self::isEarlyTermination($from, $to, $contractEnd, $terminated)
+            ? RentLedger::earlyTerminationDue($from, $to, $rentPerMonth)
+            : self::rentDue($from, $to, $rentPerMonth);
         $cap  = self::contractValueCap($from, $contractEnd, $rentPerMonth, $contractValue);
         if ($cap !== null && $due > $cap) {
             $due = $cap;
@@ -134,6 +139,23 @@ class RentOutstanding
             'outstanding' => $net > 0 ? $net : 0.0,
             'overpaid'    => $net < 0 ? round(-$net, self::DECIMALS) : 0.0,
         ];
+    }
+
+    /**
+     * $to is a termination date before the contract end, on or after
+     * RentLedger::DAY_COUNT_FROM: rent is then counted by the day with 30-day
+     * months, the same as the receivable reports (user, 03/10/2026). Earlier
+     * terminations, terminations on the contract end and non-termination dates keep
+     * the whole-month rule so settlements already made stay as they are.
+     */
+    private static function isEarlyTermination($from, $to, $contractEnd, $terminated)
+    {
+        $start = self::day($from);
+        $term  = self::day($to);
+        $end   = self::day($contractEnd);
+        return $terminated && $start && $term && $end
+            && $term->format('Y-m-d') >= RentLedger::DAY_COUNT_FROM
+            && $term < $end;
     }
 
     /** Sum of counted rent receipts on the contract. */
@@ -162,12 +184,17 @@ class RentOutstanding
         if (!$contract) {
             return array_merge(self::compute(null, null, 0, 0), ['as_of' => null]);
         }
+        // an explicit as-of date is a termination date (Termination Dues passes it); otherwise
+        // the latest termination date, else today (not a termination)
+        $terminated = (bool) $asOf;
         if (!$asOf) {
-            $asOf = DB::table('termination')->where('contract_id', $contractId)->orderBy('id', 'desc')->value('termination_date') ?: date('Y-m-d');
+            $asOf = DB::table('termination')->where('contract_id', $contractId)->orderBy('id', 'desc')->value('termination_date');
+            $terminated = (bool) $asOf;
+            $asOf = $asOf ?: date('Y-m-d');
         }
         $from = $contract->tenant_contract_effective_date ?: $contract->tenant_contract_start_date;
         $r = self::compute($from, $asOf, $contract->tenant_contract_rent, self::paidForContract($contractId),
-            $contract->tenant_contract_value, $contract->tenant_contract_valid_to_date);
+            $contract->tenant_contract_value, $contract->tenant_contract_valid_to_date, $terminated);
         $r['as_of'] = $asOf ? date('Y-m-d', strtotime($asOf)) : null;
         return $r;
     }

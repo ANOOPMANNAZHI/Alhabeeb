@@ -111,6 +111,23 @@ class RentLedgerTest extends TestCase
         $this->assertSame(650.0, $this->due650('2026-08-01', '2026-08-30'));   // 30 days used: never more than one month
     }
 
+    /** Shared with RentOutstanding (termination screens / Termination Dues). */
+    public function test_early_termination_due_is_shared()
+    {
+        $this->assertSame(650.0, L::earlyTerminationDue('2026-08-01', '2026-08-31', 650));
+        $this->assertSame(120.0, L::earlyTerminationDue('2026-09-01', '2026-09-15', 240));   // TAG2602074: 15 days
+        $this->assertSame(0.0, L::earlyTerminationDue('2026-10-01', '2026-10-01', 650));     // on the start date
+        $this->assertSame(290.0, L::earlyTerminationDue('2026-07-01', '2026-07-31', 300));   // before 01/08/2026: old count
+        $this->assertSame(1837.0, L::earlyTerminationDue('2026-06-16', '2026-08-31', '725')); // 2 months + 16 days
+    }
+
+    /** TAG2601302: 16/06 -> 31/08 by the day = 1,837, but the whole contract (to 15/09) is worth 1,812.5. */
+    public function test_early_termination_never_owes_more_than_the_contract_value()
+    {
+        $c = $this->c(['eff' => '2026-06-16', 'start' => '2026-06-16', 'vto' => '2026-09-15', 'rent' => '725', 'value' => '1812.5', 'term_date' => '2026-08-31']);
+        $this->assertSame(1812.5, L::build($c, '2026-10-03', 0)['due']);
+    }
+
     public function test_new_day_count_trims_the_last_month()
     {
         // 01/08 - 30/09 = 2 months (60 days) + 01/10..20/10 = 20 days -> 80 x 100 / 30 = 266.67 -> 267

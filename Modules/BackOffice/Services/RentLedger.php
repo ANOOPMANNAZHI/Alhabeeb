@@ -63,12 +63,10 @@ class RentLedger
             if ($term === $vto) {
                 $total = $value > 0 ? $value : $sum;
             } else {
-                $start = Carbon::parse(!empty($c->start) ? $c->start : $eff)->startOfDay();
-                $termDay = Carbon::parse($term)->startOfDay();
-                $days = $term >= self::DAY_COUNT_FROM
-                    ? self::thirtyDayCount($start, $termDay)
-                    : $start->diffInDays($termDay, false) - 1;
-                $total = $days > 0 ? (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0;
+                $total = self::earlyTerminationDue(!empty($c->start) ? $c->start : $eff, $term, $rent);
+                if ($value > 0 && $total > $value) {
+                    $total = $value; // leaving early never costs more than the whole contract
+                }
             }
         } elseif ($vto !== null && $vto <= $asOn) {
             $total = $value > 0 ? $value : $sum;
@@ -78,6 +76,24 @@ class RentLedger
         $total = round($total, 3);
 
         return self::allocate(self::fit($lines, $total, $eff), $total, $received);
+    }
+
+    /**
+     * Rent owed for a contract terminated early (before its end date) on $term:
+     * days x rent / 30, rounded half to even. From DAY_COUNT_FROM every month counts
+     * 30 days (thirtyDayCount); earlier terminations keep the old v2 count
+     * (termination - start - 1). Shared by the reports and RentOutstanding (the
+     * termination screens and Termination Dues) so both give the same amount.
+     */
+    public static function earlyTerminationDue($start, $term, $rent)
+    {
+        $rent = (float) str_replace(',', '', (string) $rent);
+        $start = Carbon::parse(substr((string) $start, 0, 10))->startOfDay();
+        $termDay = Carbon::parse(substr((string) $term, 0, 10))->startOfDay();
+        $days = $termDay->format('Y-m-d') >= self::DAY_COUNT_FROM
+            ? self::thirtyDayCount($start, $termDay)
+            : $start->diffInDays($termDay, false) - 1;
+        return $days > 0 ? (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0;
     }
 
     /**

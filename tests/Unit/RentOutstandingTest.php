@@ -148,4 +148,37 @@ class RentOutstandingTest extends TestCase
         // rent is a 3-dp money value: 111.3889 -> 111.389 before multiplying
         $this->assertSame(1336.668, RentOutstanding::rentDue('2025-09-01', '2026-08-31', 111.3889));
     }
+
+    /** Option A (03/10/2026): early terminations from 01/08/2026 use the reports' 30-day rule. */
+    public function test_early_termination_from_the_cut_over_is_charged_by_the_day()
+    {
+        // TAG2602074: 01/09 -> 15/09, rent 240: 15 days = 120, not a full month
+        $r = RentOutstanding::compute('2026-09-01', '2026-09-15', 240, 0, '2880', '2027-08-31', true);
+        $this->assertSame(120.0, $r['rent_due']);
+        $this->assertSame(120.0, $r['outstanding']);
+        // a full calendar month is still one month's rent
+        $this->assertSame(650.0, RentOutstanding::compute('2026-08-01', '2026-08-31', 650, 0, '6500', '2027-05-31', true)['rent_due']);
+        // TAG2601302 16/06 -> 31/08: 2 months + 16 days at 725 = 1,837, more than the whole
+        // contract (16/06 -> 15/09, value 1,812.5): never more than the contract value
+        $this->assertSame(1812.5, RentOutstanding::compute('2026-06-16', '2026-08-31', 725, 0, '1812.5', '2026-09-15', true)['rent_due']);
+    }
+
+    public function test_termination_on_the_start_date_owes_nothing_and_payments_show_as_overpaid()
+    {
+        // TAG2601464: terminated on its start date 01/10/2026, 605.714 paid
+        $r = RentOutstanding::compute('2026-10-01', '2026-10-01', 650, 605.714, '7800', '2027-09-30', true);
+        $this->assertSame(0.0, $r['rent_due']);
+        $this->assertSame(0.0, $r['outstanding']);
+        $this->assertSame(605.714, $r['overpaid']);
+    }
+
+    public function test_unchanged_before_the_cut_over_at_the_contract_end_and_when_not_terminated()
+    {
+        // terminated before 01/08/2026: a started month still counts as a whole month
+        $this->assertSame(300.0, RentOutstanding::compute('2026-07-01', '2026-07-15', 300, 0, '3600', '2027-06-30', true)['rent_due']);
+        // terminated on the contract end date: unchanged
+        $this->assertSame(650.0, RentOutstanding::compute('2026-08-01', '2026-08-31', 650, 0, '650', '2026-08-31', true)['rent_due']);
+        // not a termination (as of today): unchanged
+        $this->assertSame(240.0, RentOutstanding::compute('2026-09-01', '2026-09-15', 240, 0, '2880', '2027-08-31')['rent_due']);
+    }
 }
