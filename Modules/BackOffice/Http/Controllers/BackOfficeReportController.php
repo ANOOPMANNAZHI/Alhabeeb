@@ -27,6 +27,8 @@ use Modules\BackOffice\Exports\TenantReceivableV2Export;
 use Modules\BackOffice\Exports\LegalReceivableV2Export;
 use Modules\BackOffice\Exports\TenantAgingExport;
 use Modules\BackOffice\Services\TenantAgingCalculator;
+use Modules\BackOffice\Services\RentDues;
+use Modules\BackOffice\Services\ReceivableReportRows;
 use Modules\BackOffice\Exports\NormalManagementV2Export;
 use Modules\BackOffice\Exports\NormalManagementMonthSheet;
 use Modules\BackOffice\Exports\NormalManagementConsolidateSheet;
@@ -2014,6 +2016,7 @@ public function showtenantReceivablesReportV2(){
 }
 
 public function tenantReceivablesReportPdfV2(Request $request){
+  \Validator::make($request->all(), ['end_date' => 'required|date', 'download_type' => 'required|in:pdf,excel'])->validate();
   $user         = Auth::user()->username;
   $buildingname = $request['building_name'] ?? '';
   $buildingno   = $request['building_no'] ?? '';
@@ -2027,16 +2030,20 @@ public function tenantReceivablesReportPdfV2(Request $request){
   $logoPath   = public_path('img/logo_pdf.jpg');
   $logo       = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath));
 
-  $dateOnly = !empty($date2) && empty($buildingname) && empty($buildingno) && empty($tenantname) && empty($managetype) && empty($are);
-
-  if ($dateOnly) {
-    $rows = DB::select("SELECT * FROM tenantrentreceivable_v2(?::date)", [$date2]);
-  } else {
-    $rows = DB::select(
-      "SELECT * FROM tenantrentreceivablecompo_v2(?::date,?,?,?,?,?) ORDER BY buildingname, unit_code",
-      [$date2, $tenantname, $buildingname, $buildingno, $managetype, $are]
-    );
-  }
+  $this->raiseMemoryLimit('256M');
+  set_time_limit(300);
+  // same calculation as the Tenant Aging Report (RentDues / RentLedger): dues and receipts up to the date
+  $rentDues = app(RentDues::class);
+  $dues = $rentDues->forDate($date2, $date2, [
+    'building_name'   => $buildingname,
+    'building_no'     => $buildingno,
+    'tenant_name'     => $tenantname,
+    'management_type' => $managetype,
+    'are'             => $are,
+  ]);
+  $owing = array_keys(array_filter($dues, function ($d) { return $d->ledger['balance'] > 0; }));
+  $rows = ReceivableReportRows::build($dues, $rentDues->details($owing));
+  unset($dues);
 
   // pdc column is '' / 'Full' / 'Partial'; Full and Partial both count as having a PDC
   if ($pdcFilter === 'have') {
@@ -2062,8 +2069,6 @@ public function tenantReceivablesReportPdfV2(Request $request){
   ];
 
   if ($downloadType == 'pdf') {
-    ini_set('memory_limit', '256M');
-    set_time_limit(300);
     try {
       $fmtDate = function($d) { return $d ? date('d/m/Y', strtotime($d)) : ''; };
 
@@ -2260,7 +2265,27 @@ public function showTenantAgingReport(){
   return view('backoffice::reports.tenant_aging_report', compact('managementTypes'));
 }
 
+/** Raise memory_limit to $want only when the current limit is lower ('-1' = unlimited stays). */
+private function raiseMemoryLimit($want)
+{
+  $toBytes = function ($v) {
+    $v = trim((string) $v);
+    $n = (float) $v;
+    switch (strtolower(substr($v, -1))) {
+      case 'g': $n *= 1024;
+      case 'm': $n *= 1024;
+      case 'k': $n *= 1024;
+    }
+    return $n;
+  };
+  $cur = ini_get('memory_limit');
+  if ($cur !== '-1' && $toBytes($cur) < $toBytes($want)) {
+    ini_set('memory_limit', $want);
+  }
+}
+
 public function tenantAgingReportPdf(Request $request){
+  \Validator::make($request->all(), ['end_date' => 'required|date', 'download_type' => 'required|in:pdf,excel'])->validate();
   $user         = Auth::user()->username;
   $buildingname = $request['building_name'] ?? '';
   $buildingno   = $request['building_no'] ?? '';
@@ -2271,16 +2296,16 @@ public function tenantAgingReportPdf(Request $request){
   $date2        = $request['end_date'];
   $downloadType = $request['download_type'];
 
-  $dateOnly = !empty($date2) && empty($buildingname) && empty($buildingno) && empty($tenantname) && empty($managetype) && empty($are);
-
-  if ($dateOnly) {
-    $rows = DB::select("SELECT * FROM tenantrentreceivable_v2(?::date) ORDER BY buildingname, unit_code", [$date2]);
-  } else {
-    $rows = DB::select(
-      "SELECT * FROM tenantrentreceivablecompo_v2(?::date,?,?,?,?,?) ORDER BY buildingname, unit_code",
-      [$date2, $tenantname, $buildingname, $buildingno, $managetype, $are]
-    );
-  }
+  $this->raiseMemoryLimit('256M');
+  set_time_limit(300);
+  // one calculation for the tenant reports (RentDues / RentLedger): dues and receipts up to the date
+  $rows = TenantAgingCalculator::rows(app(RentDues::class)->forDate($date2, $date2, [
+    'building_name'   => $buildingname,
+    'building_no'     => $buildingno,
+    'tenant_name'     => $tenantname,
+    'management_type' => $managetype,
+    'are'             => $are,
+  ]), $date2);
 
   // pdc column is '' / 'Full' / 'Partial'; Full and Partial both count as having a PDC
   if ($pdcFilter === 'have') {
@@ -2290,12 +2315,9 @@ public function tenantAgingReportPdf(Request $request){
   }
   $pdcLabel = ['have' => 'Have PDC', 'no' => 'No PDC'][$pdcFilter] ?? '';
 
-  // Derive the aging split for every row; buckets always sum to netamtdue
+  // aging split by days overdue; buckets always sum to netamtdue
   $buckets = TenantAgingCalculator::buckets($date2);
   $keys    = array_keys($buckets);
-  foreach ($rows as $row) {
-    $row->aging = TenantAgingCalculator::age($row, $date2);
-  }
 
   $data = [
     'rows'    => $rows,
@@ -2313,8 +2335,6 @@ public function tenantAgingReportPdf(Request $request){
   ];
 
   if ($downloadType == 'pdf') {
-    ini_set('memory_limit', '256M');
-    set_time_limit(300);
     try {
       $fmtDate = function($d) { return $d ? date('d/m/Y', strtotime($d)) : ''; };
 
