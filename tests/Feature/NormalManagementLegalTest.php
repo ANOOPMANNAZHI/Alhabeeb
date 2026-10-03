@@ -63,7 +63,8 @@ class NormalManagementLegalTest extends TestCase
         $this->actingAs(User::find(1));
         foreach ($ids as $id) {
             $data = app(BackOfficeReportController::class)->buildNormalManagementMonthData(Building::find($id), 2026, [9]);
-            $nos = array_map(function ($u) { return (string) $u->unit_no; }, $data[9]['units']);
+            $own = array_filter($data[9]['units'], function ($u) { return empty($u->is_incoming); }); // incoming tenants have their own row
+            $nos = array_map(function ($u) { return (string) $u->unit_no; }, $own);
             $this->assertSame(count($nos), count(array_unique($nos)), 'building ' . $id . ' lists a unit twice');
             foreach ($data[9]['old_outstanding'] as $u) {
                 $legal = DB::table('legal as l')->join('tenant_contracts as tc', 'tc.tenant_id', '=', 'l.tenant_id')
