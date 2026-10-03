@@ -158,8 +158,9 @@ class RentOutstandingTest extends TestCase
         $this->assertSame(120.0, $r['outstanding']);
         // a full calendar month is still one month's rent
         $this->assertSame(650.0, RentOutstanding::compute('2026-08-01', '2026-08-31', 650, 0, '6500', '2027-05-31', true)['rent_due']);
-        // TAG2601302 16/06 -> 31/08: 2 months + 16 days at 725 = 1,837, more than the whole
-        // contract (16/06 -> 15/09, value 1,812.5): never more than the contract value
+        // TAG2601302 16/06 -> 31/08 (contract to 15/09, value 2,175): 2 months + 16 days at 725 = 1,837
+        $this->assertSame(1837.0, RentOutstanding::compute('2026-06-16', '2026-08-31', 725, 0, '2175', '2026-09-15', true)['rent_due']);
+        // same days but a contract worth only 1,812.5: never more than the contract value
         $this->assertSame(1812.5, RentOutstanding::compute('2026-06-16', '2026-08-31', 725, 0, '1812.5', '2026-09-15', true)['rent_due']);
     }
 

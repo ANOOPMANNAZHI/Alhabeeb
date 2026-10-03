@@ -121,7 +121,7 @@ class RentLedgerTest extends TestCase
         $this->assertSame(1837.0, L::earlyTerminationDue('2026-06-16', '2026-08-31', '725')); // 2 months + 16 days
     }
 
-    /** TAG2601302: 16/06 -> 31/08 by the day = 1,837, but the whole contract (to 15/09) is worth 1,812.5. */
+    /** 16/06 -> 31/08 by the day = 1,837, but this contract (to 15/09) is worth only 1,812.5. */
     public function test_early_termination_never_owes_more_than_the_contract_value()
     {
         $c = $this->c(['eff' => '2026-06-16', 'start' => '2026-06-16', 'vto' => '2026-09-15', 'rent' => '725', 'value' => '1812.5', 'term_date' => '2026-08-31']);
