@@ -42,7 +42,9 @@ period starts (the effective date, then the same day each month, with no month
 overflow). A line counts if it starts on or before the as-on date and on or
 before the contract end date. For a contract terminated (505, termination date
 on or before the as-on date), the termination date takes the place of the end
-date.
+date. The user confirmed this on 2026-10-03: rent is due on the contract's day of
+the month, not from the 1st. For example, a contract starting 12/09 owes
+October's rent from 12/10.
 
 **Total due:**
 - Terminated by the as-on date: the contract value if terminated on the end
