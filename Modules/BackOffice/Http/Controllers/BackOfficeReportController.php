@@ -4646,12 +4646,18 @@ public function normalManagementReportV2Generate(Request $request)
                         GROUP BY unit_id, tenant_id
                     ),
                     occ_at_start AS (
-                        SELECT DISTINCT tc_oas.unit_id
+                        -- tenant already in the unit on the 1st: a contract of the same tenant running
+                        -- that day, even if it has ended since (a renewal is not a new occupancy, user 03/10/2026)
+                        SELECT DISTINCT tc_oas.unit_id, tc_oas.tenant_id
                         FROM tenant_contracts tc_oas
                         JOIN building_units bu ON bu.id = tc_oas.unit_id
-                        WHERE tc_oas.tenant_contract_status = 1
+                        LEFT JOIN (SELECT contract_id, MAX(termination_date) AS termination_date
+                                     FROM termination WHERE termination_date IS NOT NULL
+                                    GROUP BY contract_id) td_oas ON td_oas.contract_id = tc_oas.id
+                        WHERE (tc_oas.tenant_contract_status = 1 OR tc_oas.work_flow_processes_code = 108)
                           AND tc_oas.tenant_contract_start_date <= ?::date
-                          AND (tc_oas.tenant_contract_valid_to_date >= ?::date OR tc_oas.tenant_contract_valid_to_date IS NULL)
+                          AND (COALESCE(td_oas.termination_date, tc_oas.tenant_contract_valid_to_date) >= ?::date
+                               OR (td_oas.termination_date IS NULL AND tc_oas.tenant_contract_valid_to_date IS NULL))
                     )
                     SELECT
                         bu.id AS unit_id,
@@ -4675,7 +4681,7 @@ public function normalManagementReportV2Generate(Request $request)
                     LEFT JOIN rent_recd rr ON rr.unit_id = bu.id AND rr.tenant_id = ac.tenant_id
                     LEFT JOIN paid_thru pt ON pt.unit_id = bu.id AND pt.tenant_id = ac.tenant_id
                     LEFT JOIN monthly_col mc ON mc.unit_id = bu.id AND mc.tenant_id = ac.tenant_id
-                    LEFT JOIN occ_at_start os ON os.unit_id = bu.id
+                    LEFT JOIN occ_at_start os ON os.unit_id = bu.id AND os.tenant_id = ac.tenant_id
                     ORDER BY bu.unit_no
                 ", [
                     $building->id,  // building_units: building_id
@@ -5961,11 +5967,17 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                     GROUP BY unit_id, tenant_id
                 ),
                 occ_at_start AS (
-                    SELECT DISTINCT tc_oas.unit_id
+                    -- tenant already in the unit on the 1st: a contract of the same tenant running
+                    -- that day, even if it has ended since (a renewal is not a new occupancy, user 03/10/2026)
+                    SELECT DISTINCT tc_oas.unit_id, tc_oas.tenant_id
                     FROM tenant_contracts tc_oas JOIN building_units bu ON bu.id = tc_oas.unit_id
-                    WHERE tc_oas.tenant_contract_status = 1
+                    LEFT JOIN (SELECT contract_id, MAX(termination_date) AS termination_date
+                                 FROM termination WHERE termination_date IS NOT NULL
+                                GROUP BY contract_id) td_oas ON td_oas.contract_id = tc_oas.id
+                    WHERE (tc_oas.tenant_contract_status = 1 OR tc_oas.work_flow_processes_code = 108)
                       AND tc_oas.tenant_contract_start_date <= ?::date
-                      AND (tc_oas.tenant_contract_valid_to_date >= ?::date OR tc_oas.tenant_contract_valid_to_date IS NULL)
+                      AND (COALESCE(td_oas.termination_date, tc_oas.tenant_contract_valid_to_date) >= ?::date
+                           OR (td_oas.termination_date IS NULL AND tc_oas.tenant_contract_valid_to_date IS NULL))
                 )
                 SELECT bu.id AS unit_id, ac.id AS contract_id, bu.unit_no, bu.unit_type,
                     COALESCE(t.tenant_name, 'VACANT') AS tenant_name,
@@ -5984,7 +5996,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                 LEFT JOIN rent_recd rr ON rr.unit_id = bu.id AND rr.tenant_id = ac.tenant_id
                 LEFT JOIN paid_thru pt ON pt.unit_id = bu.id AND pt.tenant_id = ac.tenant_id
                 LEFT JOIN monthly_col mc ON mc.unit_id = bu.id AND mc.tenant_id = ac.tenant_id
-                LEFT JOIN occ_at_start os ON os.unit_id = bu.id
+                LEFT JOIN occ_at_start os ON os.unit_id = bu.id AND os.tenant_id = ac.tenant_id
                 ORDER BY bu.unit_no
             ", [$building->id, $endDate, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $startDate, $startDate]);
 
