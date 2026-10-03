@@ -101,4 +101,49 @@ class RentDues
         }
         return $out;
     }
+
+    /**
+     * Report-only columns for the Rent Receivable V2 report, kept out of forDate()
+     * so the Aging report and Follow-up stay lean: payment mode, tenant contact,
+     * management type, the building's ARE(s) and the closed-cheque count (same
+     * count as the old receivable functions).
+     *
+     * @param  int[] $ids contract ids
+     * @return object[] keyed by contract id
+     */
+    public function details(array $ids)
+    {
+        $out = [];
+        foreach (array_chunk(array_values(array_unique(array_map('intval', $ids))), 1000) as $chunk) {
+            $in = implode(',', array_fill(0, count($chunk), '?'));
+            $rows = DB::select("
+                SELECT tc.id,
+                       CASE tc.tenant_contract_payment_type::text
+                            WHEN '1' THEN 'Monthly' WHEN '2' THEN 'Bi-Monthly' WHEN '3' THEN 'Quaterly'
+                            WHEN '4' THEN 'Half Yearly' WHEN '5' THEN 'Yearly' ELSE '' END AS paymentmode,
+                       t.tenant_contact_person AS contact_person,
+                       t.tenant_contact_no     AS contact_no,
+                       mt.management_types_name AS management_type,
+                       (SELECT NULLIF(count(rg.id), 0) FROM receipts_generation rg
+                          JOIN pdc p ON p.tenant_contract_id = rg.tenant_contract_id
+                         WHERE rg.tenant_contract_id = tc.id AND p.pdc_cancel_reason = '1'
+                           AND rg.receipts_generation_payment_method = '1') AS pdc_closed,
+                       (SELECT string_agg(DISTINCT emp.employee_name, ', ') FROM employees emp
+                          JOIN users us ON emp.id = us.user_type_id
+                          JOIN are_buildings ab ON us.id = ab.user_id
+                          JOIN preferred_buildings pb ON ab.id = pb.are_building_id
+                         WHERE pb.assign_to IS NULL AND pb.building_id = tc.building_id) AS employee_name
+                  FROM tenant_contracts tc
+                  LEFT JOIN tenant t ON t.id = tc.tenant_id
+                  LEFT JOIN buildings b ON b.id = tc.building_id
+                  LEFT JOIN management_types mt ON mt.id = b.management_id
+                 WHERE tc.id IN ($in)
+            ", $chunk);
+            foreach ($rows as $r) {
+                $r->pdc_closed = $r->pdc_closed === null ? null : (int) $r->pdc_closed;
+                $out[(int) $r->id] = $r;
+            }
+        }
+        return $out;
+    }
 }

@@ -28,6 +28,7 @@ use Modules\BackOffice\Exports\LegalReceivableV2Export;
 use Modules\BackOffice\Exports\TenantAgingExport;
 use Modules\BackOffice\Services\TenantAgingCalculator;
 use Modules\BackOffice\Services\RentDues;
+use Modules\BackOffice\Services\ReceivableReportRows;
 use Modules\BackOffice\Exports\NormalManagementV2Export;
 use Modules\BackOffice\Exports\NormalManagementMonthSheet;
 use Modules\BackOffice\Exports\NormalManagementConsolidateSheet;
@@ -2015,6 +2016,7 @@ public function showtenantReceivablesReportV2(){
 }
 
 public function tenantReceivablesReportPdfV2(Request $request){
+  \Validator::make($request->all(), ['end_date' => 'required|date', 'download_type' => 'required|in:pdf,excel'])->validate();
   $user         = Auth::user()->username;
   $buildingname = $request['building_name'] ?? '';
   $buildingno   = $request['building_no'] ?? '';
@@ -2028,16 +2030,20 @@ public function tenantReceivablesReportPdfV2(Request $request){
   $logoPath   = public_path('img/logo_pdf.jpg');
   $logo       = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($logoPath));
 
-  $dateOnly = !empty($date2) && empty($buildingname) && empty($buildingno) && empty($tenantname) && empty($managetype) && empty($are);
-
-  if ($dateOnly) {
-    $rows = DB::select("SELECT * FROM tenantrentreceivable_v2(?::date)", [$date2]);
-  } else {
-    $rows = DB::select(
-      "SELECT * FROM tenantrentreceivablecompo_v2(?::date,?,?,?,?,?) ORDER BY buildingname, unit_code",
-      [$date2, $tenantname, $buildingname, $buildingno, $managetype, $are]
-    );
-  }
+  $this->raiseMemoryLimit('256M');
+  set_time_limit(300);
+  // same calculation as the Tenant Aging Report (RentDues / RentLedger): dues and receipts up to the date
+  $rentDues = app(RentDues::class);
+  $dues = $rentDues->forDate($date2, $date2, [
+    'building_name'   => $buildingname,
+    'building_no'     => $buildingno,
+    'tenant_name'     => $tenantname,
+    'management_type' => $managetype,
+    'are'             => $are,
+  ]);
+  $owing = array_keys(array_filter($dues, function ($d) { return $d->ledger['balance'] > 0; }));
+  $rows = ReceivableReportRows::build($dues, $rentDues->details($owing));
+  unset($dues);
 
   // pdc column is '' / 'Full' / 'Partial'; Full and Partial both count as having a PDC
   if ($pdcFilter === 'have') {
@@ -2063,8 +2069,6 @@ public function tenantReceivablesReportPdfV2(Request $request){
   ];
 
   if ($downloadType == 'pdf') {
-    ini_set('memory_limit', '256M');
-    set_time_limit(300);
     try {
       $fmtDate = function($d) { return $d ? date('d/m/Y', strtotime($d)) : ''; };
 
