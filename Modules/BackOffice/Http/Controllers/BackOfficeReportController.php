@@ -5026,6 +5026,7 @@ public function normalManagementReportV2Generate(Request $request)
                 'occupancy'         => $occupancy,
                 'cleaning_charge'   => $matched !== null ? (float) $matched->cleaning_charge : 0,
                 'landlord_contract' => $matched,
+                'building_management_id' => (int) $building->management_id,
             ];
         }
 
@@ -6315,6 +6316,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             'occupancy'               => $occupancy,
             'cleaning_charge'         => $cleaningCharge,
             'landlord_contract'       => $matched,
+            'building_management_id'  => (int) $building->management_id,
             'facility_management_fee' => $facilityManagementFee,
             'renewal_fee'             => $renewalFee,
             'new_leasing_fee'         => $newLeasingFee,

@@ -72,13 +72,16 @@ class NormalManagementConsolidateExpensesTest extends TestCase
             'old_outstanding' => [(object) ['collection_amount' => 200]],
         ];
         $fee = function ($lc) use ($month) {
-            return NormalManagementConsolidateSheet::expenseLines($month + ['landlord_contract' => $lc])['Management Fees'];
+            return NormalManagementConsolidateSheet::expenseLines($month + ['landlord_contract' => $lc, 'building_management_id' => 2])['Management Fees'];
         };
         $this->assertEquals(150, $fee($this->contract(2, 0, 150)));    // fixed amount
         $this->assertEquals(50, $fee($this->contract(1, 1, 5)));       // 5% of income 1,000
         $this->assertEquals(100, $fee($this->contract(1, 2, 10)));     // 10% of collection 800 + 200
         $this->assertEquals(0, $fee($this->contract(1, 9, 10)));       // unknown basis
         $this->assertEquals(0, $fee(null));
+        // only buildings of Management Type Normal (building master) have a fee
+        $comprehensive = $month + ['landlord_contract' => $this->contract(2, 0, 150), 'building_management_id' => 1];
+        $this->assertEquals(0, NormalManagementConsolidateSheet::expenseLines($comprehensive)['Management Fees']);
     }
 
     public function test_excel_lists_the_rows_in_order_and_totals_them()

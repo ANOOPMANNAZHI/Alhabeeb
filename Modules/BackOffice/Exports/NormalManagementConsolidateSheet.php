@@ -50,7 +50,8 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
     public static function expenseLines(array $month): array
     {
         $out = array_fill_keys(array_keys(self::$expenseHeads), 0.0);
-        $out['Management Fees']  = self::managementFee($month);
+        // Management fee only for buildings of Management Type Normal in the building master (user, 03/10/2026)
+        $out['Management Fees']  = (int) ($month['building_management_id'] ?? 0) === 2 ? self::managementFee($month) : 0.0;
         $out['Cleaning Charges'] = (float) ($month['cleaning_charge'] ?? 0);
         foreach ($month['expenses'] ?? [] as $exp) {
             $inhouse = !empty($exp->inhouse) && $exp->inhouse !== 'f';
