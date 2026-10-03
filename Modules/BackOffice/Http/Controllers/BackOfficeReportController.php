@@ -4433,11 +4433,12 @@ public function normalManagementReportV2Generate(Request $request)
 
         // ── Batch expense data for the entire year (one query per building) ────
         $expenseRows = DB::select("
-            SELECT month, expense_name, SUM(expense_amount) AS expense_amount
+            SELECT month, expense_name, inhouse, SUM(expense_amount) AS expense_amount
             FROM (
                 SELECT
                     EXTRACT(MONTH FROM mi.maintenance_invoice_date)::int AS month,
                     eh.expense_name,
+                    (mid.service_report_id IS NOT NULL) AS inhouse,
                     CAST(mid.debit_amt AS NUMERIC) AS expense_amount
                 FROM maintenance_invoice_details mid
                 JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
@@ -4451,6 +4452,7 @@ public function normalManagementReportV2Generate(Request $request)
                 SELECT
                     EXTRACT(MONTH FROM gl.doc_date)::int AS month,
                     eh.expense_name,
+                    FALSE AS inhouse,
                     CAST(gld.debit_amt AS NUMERIC) AS expense_amount
                 FROM general_ledger_dim gld
                 JOIN general_ledgers gl ON gl.id = gld.general_ledger_id
@@ -4461,7 +4463,7 @@ public function normalManagementReportV2Generate(Request $request)
                   AND gl.general_ledger_status != 2
                   AND gl.deleted_at IS NULL
             ) src
-            GROUP BY month, expense_name
+            GROUP BY month, expense_name, inhouse
             ORDER BY month, expense_name
         ", [$building->id, $year, $building->id, $year]);
 
@@ -5811,10 +5813,10 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
 
     // ── Batch expense data for the entire year ────────────────────────
     $expenseRows = DB::select("
-        SELECT month, expense_name, SUM(expense_amount) AS expense_amount
+        SELECT month, expense_name, inhouse, SUM(expense_amount) AS expense_amount
         FROM (
             SELECT EXTRACT(MONTH FROM mi.maintenance_invoice_date)::int AS month,
-                   eh.expense_name, CAST(mid.debit_amt AS NUMERIC) AS expense_amount
+                   eh.expense_name, (mid.service_report_id IS NOT NULL) AS inhouse, CAST(mid.debit_amt AS NUMERIC) AS expense_amount
             FROM maintenance_invoice_details mid
             JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
             JOIN acc_codes ac ON ac.id = mid.ac_codes_id
@@ -5823,7 +5825,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
               AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
             UNION ALL
             SELECT EXTRACT(MONTH FROM gl.doc_date)::int AS month,
-                   eh.expense_name, CAST(gld.debit_amt AS NUMERIC) AS expense_amount
+                   eh.expense_name, FALSE AS inhouse, CAST(gld.debit_amt AS NUMERIC) AS expense_amount
             FROM general_ledger_dim gld
             JOIN general_ledgers gl ON gl.id = gld.general_ledger_id
             JOIN acc_codes ac ON ac.id = gld.account_id
@@ -5831,7 +5833,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             WHERE gld.building_id = ? AND EXTRACT(YEAR FROM gl.doc_date) = ?
               AND gl.general_ledger_status != 2 AND gl.deleted_at IS NULL
         ) src
-        GROUP BY month, expense_name ORDER BY month, expense_name
+        GROUP BY month, expense_name, inhouse ORDER BY month, expense_name
     ", [$building->id, $year, $building->id, $year]);
 
     $expensesByMonth = [];

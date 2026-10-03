@@ -16,6 +16,54 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         9 => 'SEPT', 10 => 'OCT', 11 => 'NOV', 12 => 'DEC',
     ];
 
+    /**
+     * Expense rows of the consolidated sheet, in report order, with the expense
+     * heads each one adds up. A/C, fire alarm and lift bills from a sub-contractor
+     * are the AMC row; the same heads done in-house (from a technician's service
+     * report) are Repair Charges (a). Management Fees, VAT and Legal Expenses have
+     * no expense head and stay blank for now. Other heads (cleaning, lease rent,
+     * municipal tax penalty, ...) are not on the sheet.
+     */
+    private static $expenseHeads = [
+        'Municipal Tax'                                 => ['MUNICIPAL TAX'],
+        'Management Fees'                               => [],
+        'Value Added Tax (VAT)'                         => [],
+        'Annual Maint. Cont. - A C, FAS, Lift & Others' => ['subcontractor' => self::AC_FAS_LIFT],
+        'Sewage Removal'                                => ['DEWATERING'],
+        'Common Area E/Water Charges'                   => ['ELECTRICITY & WATER'],
+        'Legal Expenses'                                => [],
+        'A C, FAS, Lift, etc. Repair Charges - (a)'     => ['inhouse' => self::AC_FAS_LIFT],
+        'Electric, Plumbing, Repair & Maint - (b)'      => ['ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES'],
+    ];
+
+    const AC_FAS_LIFT = [
+        'A C MAINTENANCE', 'CIT - AC MAINTENANCE',
+        'FIRE ALARM SYSTEM MAINT.', 'CIT - FIRE ALARAM SYSTEM MAINT.',
+        'LIFT & ESCALATORS MAINT.', 'CIT - LIFT & ESCALATORS MAINT.',
+    ];
+
+    /** One month's expense rows: [label => amount], in report order. */
+    public static function expenseLines(array $month): array
+    {
+        $out = array_fill_keys(array_keys(self::$expenseHeads), 0.0);
+        foreach ($month['expenses'] ?? [] as $exp) {
+            $inhouse = !empty($exp->inhouse) && $exp->inhouse !== 'f';
+            foreach (self::$expenseHeads as $label => $heads) {
+                $names = $heads;
+                if (isset($heads['subcontractor'])) {
+                    $names = $inhouse ? [] : $heads['subcontractor'];
+                } elseif (isset($heads['inhouse'])) {
+                    $names = $inhouse ? $heads['inhouse'] : [];
+                }
+                if (in_array($exp->expense_name, $names, true)) {
+                    $out[$label] += (float) $exp->expense_amount;
+                    break;
+                }
+            }
+        }
+        return $out;
+    }
+
     protected $monthData;
     protected $year;
     protected $buildingName;
@@ -104,29 +152,18 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         // Row 9: EXPENSES OVERVIEW — value in col C (merged C9:O9 in AfterSheet)
         $rows[] = ['', '', 'EXPENSES OVERVIEW', '', '', '', '', '', '', '', '', '', '', '', ''];
 
-        // Expense rows (name in col B, values in C–N, YTD in O)
-        $allExpenseNames = [];
-        foreach (range(1, 12) as $m) {
-            foreach ($this->monthData[$m]['expenses'] ?? [] as $exp) {
-                if (!in_array($exp->expense_name, $allExpenseNames)) {
-                    $allExpenseNames[] = $exp->expense_name;
-                }
-            }
-        }
-        sort($allExpenseNames);
-
+        // Expense rows in the fixed order of the report (user, 03/10/2026):
+        // name in col B, values in C-N, YTD in O. Only these rows make up Total Expenses.
         $expenseTotalsByMonth = array_fill(1, 12, 0);
-        foreach ($allExpenseNames as $expName) {
-            $expenseRow = ['', $expName];
+        $linesByMonth = [];
+        foreach (range(1, 12) as $m) {
+            $linesByMonth[$m] = self::expenseLines($this->monthData[$m] ?? []);
+        }
+        foreach (array_keys(self::$expenseHeads) as $label) {
+            $expenseRow = ['', $label];
             $yearTotal  = 0;
             foreach (range(1, 12) as $m) {
-                $amount = 0;
-                foreach ($this->monthData[$m]['expenses'] ?? [] as $exp) {
-                    if ($exp->expense_name === $expName) {
-                        $amount = (float)$exp->expense_amount;
-                        break;
-                    }
-                }
+                $amount = (float) $linesByMonth[$m][$label];
                 $expenseRow[] = $amount > 0 ? $amount : '-';
                 $yearTotal    += $amount;
                 $expenseTotalsByMonth[$m] += $amount;
@@ -134,58 +171,6 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
             $expenseRow[] = $yearTotal ?: '-';
             $rows[] = $expenseRow;
         }
-
-        // Cleaning Charges (from the landlord contract, not a transactional expense —
-        // included in the Expenses section since it's deducted like one)
-        $cleaningRow  = ['', 'Cleaning Charges'];
-        $cleaningYTD  = 0;
-        foreach (range(1, 12) as $m) {
-            $amount = (float)($this->monthData[$m]['cleaning_charge'] ?? 0);
-            $cleaningRow[] = $amount > 0 ? $amount : '-';
-            $cleaningYTD  += $amount;
-            $expenseTotalsByMonth[$m] += $amount;
-        }
-        $cleaningRow[] = $cleaningYTD ?: '-';
-        $rows[] = $cleaningRow;
-
-        // Facility Management Fee — same treatment as Cleaning Charges: from the
-        // landlord contract, not a transactional expense, folded into Total Expenses.
-        $facilityRow = ['', 'Facility Management Fee'];
-        $facilityYTD = 0;
-        foreach (range(1, 12) as $m) {
-            $amount = (float)($this->monthData[$m]['facility_management_fee'] ?? 0);
-            $facilityRow[] = $amount > 0 ? $amount : '-';
-            $facilityYTD += $amount;
-            $expenseTotalsByMonth[$m] += $amount;
-        }
-        $facilityRow[] = $facilityYTD ?: '-';
-        $rows[] = $facilityRow;
-
-        // Renewal Fee — count of tenant contract renewals that month times the
-        // landlord contract's flat renewal fee (computed in buildNormalManagementMonthData()).
-        $renewalRow = ['', 'Renewal Fee'];
-        $renewalYTD = 0;
-        foreach (range(1, 12) as $m) {
-            $amount = (float)($this->monthData[$m]['renewal_fee'] ?? 0);
-            $renewalRow[] = $amount > 0 ? $amount : '-';
-            $renewalYTD += $amount;
-            $expenseTotalsByMonth[$m] += $amount;
-        }
-        $renewalRow[] = $renewalYTD ?: '-';
-        $rows[] = $renewalRow;
-
-        // New Leasing Fee — count/contract-value sum of genuinely new tenant leases that
-        // month times the landlord contract's flat fee or percentage.
-        $newLeasingRow = ['', 'New Leasing Fee'];
-        $newLeasingYTD = 0;
-        foreach (range(1, 12) as $m) {
-            $amount = (float)($this->monthData[$m]['new_leasing_fee'] ?? 0);
-            $newLeasingRow[] = $amount > 0 ? $amount : '-';
-            $newLeasingYTD += $amount;
-            $expenseTotalsByMonth[$m] += $amount;
-        }
-        $newLeasingRow[] = $newLeasingYTD ?: '-';
-        $rows[] = $newLeasingRow;
 
         // Total Expenses
         $totalExpRow = ['', 'Total Expenses'];

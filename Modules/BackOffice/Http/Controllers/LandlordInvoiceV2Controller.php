@@ -11,6 +11,7 @@ use Modules\Masters\Entities\Vendor;
 use Modules\Sales\Entities\LandlordContract;
 use Modules\BackOffice\Entities\LandlordInvoiceV2;
 use Modules\BackOffice\Exceptions\AxPostingException;
+use Modules\BackOffice\Exports\NormalManagementConsolidateSheet;
 use Modules\BackOffice\Services\LandlordInvoiceV2AxPoster;
 use Modules\BackOffice\Services\LandlordInvoiceV2LineNormalizer;
 
@@ -472,16 +473,8 @@ class LandlordInvoiceV2Controller extends Controller
                 $collection += (float) ($u->collection_amount ?? 0);
             }
 
-            foreach ($data['expenses'] ?? [] as $exp) {
-                $totalExpenses += (float) $exp->expense_amount;
-            }
-            // Cleaning Charges, Facility Management Fee, Renewal Fee, and New
-            // Leasing Fee are not transactional expenses but are folded into
-            // Total Expenses here, matching NormalManagementConsolidateSheet.php.
-            $totalExpenses += (float) ($data['cleaning_charge'] ?? 0);
-            $totalExpenses += (float) ($data['facility_management_fee'] ?? 0);
-            $totalExpenses += (float) ($data['renewal_fee'] ?? 0);
-            $totalExpenses += (float) ($data['new_leasing_fee'] ?? 0);
+            // Same expense rows as the consolidated sheet's Total Expenses
+            $totalExpenses += array_sum(NormalManagementConsolidateSheet::expenseLines($data));
 
             $occupancy = array_merge($occupancy, $data['occupancy'] ?? []);
         }
