@@ -4874,19 +4874,12 @@ public function normalManagementReportV2Generate(Request $request)
                           AND tc2.tenant_contract_start_date <= ?::date
                           AND (tc2.tenant_contract_valid_to_date >= ?::date OR tc2.tenant_contract_valid_to_date IS NULL)
                     )
+                    -- legal cases are not part of this report at any stage, settlements included (user, 03/10/2026)
                     AND NOT EXISTS (
                         SELECT 1 FROM legal l
-                        WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id AND l.legal_is_closed != 2
+                        WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id
                     )
-                    AND NOT (
-                        (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                        AND NOT EXISTS (
-                            SELECT 1 FROM legal l3
-                            WHERE l3.unit_id = bu.id
-                              AND l3.tenant_id = ec.tenant_id
-                              AND l3.legal_is_closed = 2
-                        )
-                    )
+                    AND t.tenant_name NOT ILIKE '%-legal%' AND t.tenant_name NOT ILIKE '%-U.legal%'
                     ORDER BY bu.unit_no
                 ", [
                     $building->id,  // building_units: building_id
@@ -4976,128 +4969,8 @@ public function normalManagementReportV2Generate(Request $request)
                 }
                 unset($unit);
 
-                // Legal tenants with expired contracts — add as a second row (red) even if an active contract also exists
-                $legalExpiredUnits = DB::select("
-                    WITH building_units AS (
-                        SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
-                        FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
-                        WHERE u.building_id = ? AND u.unit_status = 1
-                    ),
-                    legal_ids AS (
-                        SELECT DISTINCT l.unit_id, l.tenant_id FROM legal l
-                        JOIN building_units bu ON bu.id = l.unit_id WHERE l.legal_is_closed != 2
-                        UNION
-                        SELECT DISTINCT tc.unit_id, tc.tenant_id FROM tenant_contracts tc
-                        JOIN tenant t ON t.id = tc.tenant_id
-                        JOIN building_units bu ON bu.id = tc.unit_id
-                        WHERE (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                          AND NOT EXISTS (
-                              SELECT 1 FROM legal l2
-                              JOIN units u2 ON u2.id = l2.unit_id
-                              WHERE u2.building_id = ? AND l2.legal_is_closed != 2
-                                AND l2.tenant_contract_id IS NOT NULL
-                          )
-                          AND NOT EXISTS (
-                              SELECT 1 FROM legal l3
-                              WHERE l3.unit_id = tc.unit_id
-                                AND l3.tenant_id = tc.tenant_id
-                                AND l3.legal_is_closed = 2
-                          )
-                    ),
-                    latest_expired AS (
-                        -- Only truly expired contracts (end date before report month start)
-                        -- so active-contract units still get the second legal-outstanding row
-                        -- without duplicating what the active-contract row already covers
-                        SELECT DISTINCT ON (tc.unit_id)
-                            tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
-                        FROM tenant_contracts tc
-                        JOIN legal_ids li ON li.unit_id = tc.unit_id AND li.tenant_id = tc.tenant_id
-                        WHERE tc.tenant_contract_valid_to_date IS NOT NULL
-                          AND tc.tenant_contract_valid_to_date < ?::date
-                        ORDER BY tc.unit_id, tc.tenant_contract_valid_to_date DESC NULLS LAST
-                    ),
-                    all_legal_receipts AS (
-                        SELECT tc_r.unit_id, tc_r.tenant_id,
-                               rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                               rg.receipts_generation_receipt_date, rg.receipts_generation_amt
-                        FROM receipts_generation rg
-                        JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
-                        JOIN building_units bu ON bu.id = tc_r.unit_id
-                        JOIN legal_ids li ON li.unit_id = tc_r.unit_id AND li.tenant_id = tc_r.tenant_id
-                        WHERE rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
-                    ),
-                    rent_recd_l AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_to::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_to DESC NULLS LAST
-                    ),
-                    paid_thru_l AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS paid_through
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_from::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
-                    ),
-                    monthly_col_l AS (
-                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_from IS NOT NULL
-                          AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
-                        GROUP BY unit_id, tenant_id
-                    )
-                    SELECT
-                        bu.id AS unit_id,
-                        bu.unit_no, bu.unit_type, t.tenant_name,
-                        le.tenant_contract_start_date AS contract_start,
-                        le.tenant_contract_valid_to_date AS contract_end,
-                        rr.rent_recd_upto, pt.paid_through,
-                        COALESCE(le.tenant_contract_rent, 0) AS rent_per_month,
-                        COALESCE(mc.collection_amount, 0) AS collection_amount,
-                        0 AS income_amount, 0 AS outstanding_amount, 0 AS occupied_at_month_start
-                    FROM building_units bu
-                    JOIN latest_expired le ON le.unit_id = bu.id
-                    JOIN tenant t ON t.id = le.tenant_id
-                    LEFT JOIN rent_recd_l rr ON rr.unit_id = bu.id AND rr.tenant_id = le.tenant_id
-                    LEFT JOIN paid_thru_l pt ON pt.unit_id = bu.id AND pt.tenant_id = le.tenant_id
-                    LEFT JOIN monthly_col_l mc ON mc.unit_id = bu.id AND mc.tenant_id = le.tenant_id
-                    ORDER BY bu.unit_no
-                ", [$building->id, $building->id, $startDate, $endDate, $endDate, $startDate]);
-
-                foreach ($legalExpiredUnits as &$unit) {
-                    $unit->is_legal = true;
-                    $rent = (float)($unit->rent_per_month ?? 0);
-                    $effTo = $unit->paid_through ?? null;
-                    $contractStart = $unit->contract_start ?? null;
-                    if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
-                    if (empty($effTo) && !empty($contractStart)) {
-                        $effTo = date('Y-m-d', strtotime($contractStart) - 86400);
-                    }
-                    if (empty($effTo)) { $unit->outstanding_amount = 0; continue; }
-                    $effToTs = strtotime($effTo);
-                    $endDateTs = strtotime($endDate);
-                    if ($effToTs >= $endDateTs) { $unit->outstanding_amount = 0; continue; }
-                    $eY=(int)date('Y',$effToTs); $eM=(int)date('n',$effToTs); $eD=(int)date('j',$effToTs);
-                    $eD30 = ($eD >= (int)date('t',$effToTs)) ? 30 : min($eD, 30);
-                    $cY=(int)date('Y',$endDateTs); $cM=(int)date('n',$endDateTs); $cD=(int)date('j',$endDateTs);
-                    $cD30 = ($cD >= (int)date('t',$endDateTs)) ? 30 : min($cD, 30);
-                    $days = ($cY-$eY)*360 + ($cM-$eM)*30 + ($cD30-$eD30);
-                    $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
-                }
-                unset($unit);
-
-                // Filter expired-legal units: only keep those with outstanding > 0 or collection this month
-                $legalExpiredUnits = array_values(array_filter($legalExpiredUnits, function ($u) {
-                    return $u->outstanding_amount > 0 || (float)($u->collection_amount ?? 0) > 0;
-                }));
-
-                // Merge legal expired units into main units and sort by unit_no
-                if (!empty($legalExpiredUnits)) {
-                    $units = array_merge($units, $legalExpiredUnits);
-                    usort($units, function($a, $b) { return strnatcmp($a->unit_no ?? '', $b->unit_no ?? ''); });
-                }
+                // Legal tenants are not shown in this report (user, 03/10/2026): the separate
+                // "legal tenant with an expired contract" rows were removed.
 
                 // Expenses — use pre-fetched batch (no per-month DB hit)
                 $expenses = $expensesByMonth[$m] ?? [];
@@ -6240,19 +6113,12 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                       AND tc2.tenant_contract_start_date <= ?::date
                       AND (tc2.tenant_contract_valid_to_date >= ?::date OR tc2.tenant_contract_valid_to_date IS NULL)
                 )
+                -- legal cases are not part of this report at any stage, settlements included (user, 03/10/2026)
                 AND NOT EXISTS (
                     SELECT 1 FROM legal l
-                    WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id AND l.legal_is_closed != 2
+                    WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id
                 )
-                AND NOT (
-                    (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                    AND NOT EXISTS (
-                        SELECT 1 FROM legal l3
-                        WHERE l3.unit_id = bu.id
-                          AND l3.tenant_id = ec.tenant_id
-                          AND l3.legal_is_closed = 2
-                    )
-                )
+                AND t.tenant_name NOT ILIKE '%-legal%' AND t.tenant_name NOT ILIKE '%-U.legal%'
                 ORDER BY bu.unit_no
             ", [$building->id, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $endDate, $startDate]);
 
@@ -6288,128 +6154,8 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             }
             unset($unit);
 
-            // Legal tenants with expired contracts — add as a second row (red) even if an active contract also exists
-            $legalExpiredUnits = DB::select("
-                WITH building_units AS (
-                    SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
-                    FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
-                    WHERE u.building_id = ? AND u.unit_status = 1
-                ),
-                legal_ids AS (
-                    SELECT DISTINCT l.unit_id, l.tenant_id FROM legal l
-                    JOIN building_units bu ON bu.id = l.unit_id WHERE l.legal_is_closed != 2
-                    UNION
-                    SELECT DISTINCT tc.unit_id, tc.tenant_id FROM tenant_contracts tc
-                    JOIN tenant t ON t.id = tc.tenant_id
-                    JOIN building_units bu ON bu.id = tc.unit_id
-                    WHERE (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                      AND NOT EXISTS (
-                          SELECT 1 FROM legal l2
-                          JOIN units u2 ON u2.id = l2.unit_id
-                          WHERE u2.building_id = ? AND l2.legal_is_closed != 2
-                            AND l2.tenant_contract_id IS NOT NULL
-                      )
-                      AND NOT EXISTS (
-                          SELECT 1 FROM legal l3
-                          WHERE l3.unit_id = tc.unit_id
-                            AND l3.tenant_id = tc.tenant_id
-                            AND l3.legal_is_closed = 2
-                      )
-                ),
-                latest_expired AS (
-                    -- Only truly expired contracts (end date before report month start)
-                    -- so active-contract units still get the second legal-outstanding row
-                    -- without duplicating what the active-contract row already covers
-                    SELECT DISTINCT ON (tc.unit_id)
-                        tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                        tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
-                    FROM tenant_contracts tc
-                    JOIN legal_ids li ON li.unit_id = tc.unit_id AND li.tenant_id = tc.tenant_id
-                    WHERE tc.tenant_contract_valid_to_date IS NOT NULL
-                      AND tc.tenant_contract_valid_to_date < ?::date
-                    ORDER BY tc.unit_id, tc.tenant_contract_valid_to_date DESC NULLS LAST
-                ),
-                all_legal_receipts AS (
-                    SELECT tc_r.unit_id, tc_r.tenant_id,
-                           rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt
-                    FROM receipts_generation rg
-                    JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
-                    JOIN building_units bu ON bu.id = tc_r.unit_id
-                    JOIN legal_ids li ON li.unit_id = tc_r.unit_id AND li.tenant_id = tc_r.tenant_id
-                    WHERE rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
-                ),
-                rent_recd_l AS (
-                    SELECT DISTINCT ON (unit_id, tenant_id)
-                        unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
-                    FROM all_legal_receipts
-                    WHERE receipts_generation_eff_to::date <= ?::date
-                    ORDER BY unit_id, tenant_id, receipts_generation_eff_to DESC NULLS LAST
-                ),
-                paid_thru_l AS (
-                    SELECT DISTINCT ON (unit_id, tenant_id)
-                        unit_id, tenant_id, receipts_generation_eff_to AS paid_through
-                    FROM all_legal_receipts
-                    WHERE receipts_generation_eff_from::date <= ?::date
-                    ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
-                ),
-                monthly_col_l AS (
-                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
-                    FROM all_legal_receipts
-                    WHERE receipts_generation_eff_from IS NOT NULL
-                      AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
-                    GROUP BY unit_id, tenant_id
-                )
-                SELECT
-                    bu.id AS unit_id,
-                    bu.unit_no, bu.unit_type, t.tenant_name,
-                    le.tenant_contract_start_date AS contract_start,
-                    le.tenant_contract_valid_to_date AS contract_end,
-                    rr.rent_recd_upto, pt.paid_through,
-                    COALESCE(le.tenant_contract_rent, 0) AS rent_per_month,
-                    COALESCE(mc.collection_amount, 0) AS collection_amount,
-                    0 AS income_amount, 0 AS outstanding_amount, 0 AS occupied_at_month_start
-                FROM building_units bu
-                JOIN latest_expired le ON le.unit_id = bu.id
-                JOIN tenant t ON t.id = le.tenant_id
-                LEFT JOIN rent_recd_l rr ON rr.unit_id = bu.id AND rr.tenant_id = le.tenant_id
-                LEFT JOIN paid_thru_l pt ON pt.unit_id = bu.id AND pt.tenant_id = le.tenant_id
-                LEFT JOIN monthly_col_l mc ON mc.unit_id = bu.id AND mc.tenant_id = le.tenant_id
-                ORDER BY bu.unit_no
-            ", [$building->id, $building->id, $startDate, $endDate, $endDate, $startDate]);
-
-            foreach ($legalExpiredUnits as &$unit) {
-                $unit->is_legal = true;
-                $rent = (float)($unit->rent_per_month ?? 0);
-                $effTo = $unit->paid_through ?? null;
-                $contractStart = $unit->contract_start ?? null;
-                if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
-                if (empty($effTo) && !empty($contractStart)) {
-                    $effTo = date('Y-m-d', strtotime($contractStart) - 86400);
-                }
-                if (empty($effTo)) { $unit->outstanding_amount = 0; continue; }
-                $effToTs = strtotime($effTo);
-                $endDateTs = strtotime($endDate);
-                if ($effToTs >= $endDateTs) { $unit->outstanding_amount = 0; continue; }
-                $eY=(int)date('Y',$effToTs); $eM=(int)date('n',$effToTs); $eD=(int)date('j',$effToTs);
-                $eD30 = ($eD >= (int)date('t',$effToTs)) ? 30 : min($eD, 30);
-                $cY=(int)date('Y',$endDateTs); $cM=(int)date('n',$endDateTs); $cD=(int)date('j',$endDateTs);
-                $cD30 = ($cD >= (int)date('t',$endDateTs)) ? 30 : min($cD, 30);
-                $days = ($cY-$eY)*360 + ($cM-$eM)*30 + ($cD30-$eD30);
-                $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
-            }
-            unset($unit);
-
-            // Filter expired-legal units: only keep those with outstanding > 0 or collection this month
-            $legalExpiredUnits = array_values(array_filter($legalExpiredUnits, function ($u) {
-                return $u->outstanding_amount > 0 || (float)($u->collection_amount ?? 0) > 0;
-            }));
-
-            // Merge legal expired units into main units and sort by unit_no
-            if (!empty($legalExpiredUnits)) {
-                $units = array_merge($units, $legalExpiredUnits);
-                usort($units, function($a, $b) { return strnatcmp($a->unit_no ?? '', $b->unit_no ?? ''); });
-            }
+            // Legal tenants are not shown in this report (user, 03/10/2026): the separate
+            // "legal tenant with an expired contract" rows were removed.
 
             $expenses  = $expensesByMonth[$m] ?? [];
             $occ       = $occupiedByMonth[$m]  ?? ['occupied_residential' => 0, 'occupied_commercial' => 0];
