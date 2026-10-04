@@ -145,6 +145,181 @@ class ReceivableFollowupTest extends TestCase
         }
     }
 
+    /** ARE user id => one contract in one of their buildings (excluded buildings left out). */
+    private function oneContractPerAre()
+    {
+        $rows = DB::table('preferred_buildings as pb')->join('are_buildings as ab', 'ab.id', '=', 'pb.are_building_id')
+            ->join('buildings as b', 'b.id', '=', 'pb.building_id')->where('b.building_status', 1)
+            ->whereNotIn('b.id', ReceivableFigures::EXCLUDED_BUILDINGS)->whereNull('pb.assign_to')
+            ->orderBy('ab.user_id')->orderBy('pb.building_id')->get(['ab.user_id', 'pb.building_id']);
+        $out = [];
+        foreach ($rows as $r) {
+            if (isset($out[$r->user_id])) {
+                continue;
+            }
+            $c = TenantContract::where('building_id', $r->building_id)->whereHas('tenant')->orderBy('id', 'desc')->first();
+            if ($c) {
+                $out[$r->user_id] = $c;
+            }
+        }
+        return $out;
+    }
+
+    /** Cache figures for exactly these contracts, balance 1000 + i. */
+    private function seedContracts(array $contracts)
+    {
+        $rows = [];
+        $i = 0;
+        foreach ($contracts as $c) {
+            $rows[$c->id] = ['due' => 2000.0, 'received' => 1000.0 - $i, 'balance' => 1000.0 + $i, 'last_received' => '2026-05-02',
+                'last_amount' => 100.0, 'paid_till' => '2026-05-31', 'not_paid_from' => '2026-06-01', 'start' => '2025-01-01', 'rent' => 100.0];
+            $i++;
+        }
+        Cache::put(ReceivableFigures::key($this->asOn), ['computed_at' => '2026-10-01 09:45:00', 'rows' => $rows], 60);
+    }
+
+    public function test_are_with_a_second_role_sees_only_own_buildings_and_no_are_column()
+    {
+        $per = $this->oneContractPerAre();
+        $are = null;
+        foreach (array_keys($per) as $uid) {
+            $u = User::find($uid);
+            if ($u && $u->hasRole('are') && $u->roles->count() > 1 && !$u->hasAnyRole(['are_team_lead', 'super_admin', 'backoffice_manager'])) {
+                $are = $u;
+                break;
+            }
+        }
+        if (!$are || count($per) < 2) {
+            $this->markTestSkipped('No local ARE with a second role and buildings.');
+        }
+        $this->seedContracts($per);
+        $this->actingAs($are);
+        $html = $this->rows();
+        foreach ($per as $uid => $c) {
+            $this->assertSame((int) $uid === (int) $are->id, strpos($html, $c->tenant_contract_no) !== false, 'ARE ' . $uid);
+        }
+        $this->assertNotContains('data-sort="are"', $html);
+        $page = $this->get(route('receivable-followup.index'))->getContent();
+        $this->assertNotContains('id="rf-are"', $page);
+        // nor can they open another ARE's agreement
+        $other = collect($per)->first(function ($c, $uid) use ($are) { return (int) $uid !== (int) $are->id; });
+        $this->get(route('receivable-followup.timeline', $other->id))->assertStatus(403);
+    }
+
+    public function test_team_lead_sees_team_and_own_buildings_with_are_names()
+    {
+        $per = $this->oneContractPerAre();
+        $lead = User::role('are_team_lead')->get()->first(function ($u) {
+            return !$u->hasAnyRole(['super_admin', 'backoffice_manager', 'ceo', 'md', 'finance_manager']);
+        });
+        if (!$lead || count($per) < 2) {
+            $this->markTestSkipped('No local ARE team lead.');
+        }
+        $team = DB::table('users')->join('employees', 'employees.id', '=', 'users.user_type_id')
+            ->where('employees.head_user', $lead->id)->pluck('users.id')->push($lead->id)->map(function ($v) { return (int) $v; })->all();
+        $this->seedContracts($per);
+        $this->actingAs($lead);
+        $html = $this->rows();
+        foreach ($per as $uid => $c) {
+            $this->assertSame(in_array((int) $uid, $team, true), strpos($html, $c->tenant_contract_no) !== false, 'ARE ' . $uid);
+        }
+        $this->assertContains('data-sort="are"', $html);
+    }
+
+    public function test_admin_sees_are_names_and_can_filter_by_are()
+    {
+        $per = $this->oneContractPerAre();
+        if (count($per) < 2) {
+            $this->markTestSkipped('Needs two AREs with buildings.');
+        }
+        $this->seedContracts($per);
+        $html = $this->rows();
+        $uid = array_keys($per)[0];
+        $name = DB::table('users')->leftJoin('employees', 'employees.id', '=', 'users.user_type_id')->where('users.id', $uid)
+            ->value(DB::raw('coalesce(employees.employee_name, users.username)'));
+        $this->assertContains('data-sort="are"', $html);
+        $this->assertContains(e($name), $this->rowHtml($html, $per[$uid]->id));
+        $page = $this->get(route('receivable-followup.index'))->getContent();
+        $this->assertRegExp('/<select id="rf-are"[^>]*>.*?<option value="' . $uid . '">/s', $page);
+
+        $html = $this->rows(['are_id' => $uid]);
+        foreach ($per as $u => $c) {
+            $this->assertSame((int) $u === (int) $uid, strpos($html, $c->tenant_contract_no) !== false, 'ARE ' . $u);
+        }
+    }
+
+    public function test_filter_by_tenant_agreement_and_unit()
+    {
+        $c = $this->contracts[1];
+        $html = $this->rows(['contract' => substr($c->tenant_contract_no, -5)]);
+        $this->assertContains($c->tenant_contract_no, $html);
+        $this->assertNotContains($this->contracts[0]->tenant_contract_no, $html);
+
+        $tenant = $c->tenant->tenant_name;
+        $html = $this->rows(['tenant' => mb_substr($tenant, 0, 6)]);
+        $this->assertContains($c->tenant_contract_no, $html);
+
+        $unit = optional($c->Unit)->unit_no;
+        $html = $this->rows(['unit' => $unit, 'contract' => $c->tenant_contract_no]);
+        $this->assertContains($c->tenant_contract_no, $html);
+        $this->assertNotContains($c->tenant_contract_no, $this->rows(['unit' => 'zz-no-such-unit']));
+    }
+
+    public function test_filter_by_followup_status_balance_and_paid_till()
+    {
+        list($a, $b, $c) = [$this->contracts[0], $this->contracts[1], $this->contracts[2]];
+        ReceivableFollowup::create(['tenant_contract_id' => $a->id, 'comment' => 'late', 'promised_date' => Carbon::yesterday(), 'created_by' => 1]);
+        ReceivableFollowup::create(['tenant_contract_id' => $b->id, 'comment' => 'no date', 'created_by' => 1]);
+
+        $html = $this->rows(['followup' => 'overdue']);
+        $this->assertContains($a->tenant_contract_no, $html);
+        $this->assertNotContains($b->tenant_contract_no, $html);
+        $html = $this->rows(['followup' => 'none']);
+        $this->assertContains($c->tenant_contract_no, $html);
+        $this->assertNotContains($a->tenant_contract_no, $html);
+        $html = $this->rows(['followup' => 'no_date']);
+        $this->assertContains($b->tenant_contract_no, $html);
+        $this->assertNotContains($a->tenant_contract_no, $html);
+
+        // balances 500 / 1500 / 900
+        $html = $this->rows(['balance_min' => 800, 'balance_max' => 1000]);
+        $this->assertContains($c->tenant_contract_no, $html);
+        $this->assertNotContains($a->tenant_contract_no, $html);
+        $this->assertNotContains($b->tenant_contract_no, $html);
+
+        // paid till 31/05, 30/06, 30/04
+        $html = $this->rows(['paid_till_to' => '2026-05-31']);
+        $this->assertContains($a->tenant_contract_no, $html);
+        $this->assertContains($c->tenant_contract_no, $html);
+        $this->assertNotContains($b->tenant_contract_no, $html);
+    }
+
+    public function test_sort_by_unit_and_next_followup()
+    {
+        list($a, $b, $c) = [$this->contracts[0], $this->contracts[1], $this->contracts[2]];
+        ReceivableFollowup::create(['tenant_contract_id' => $a->id, 'comment' => 'x', 'promised_date' => Carbon::today()->addDays(9), 'created_by' => 1]);
+        ReceivableFollowup::create(['tenant_contract_id' => $b->id, 'comment' => 'x', 'promised_date' => Carbon::today()->addDays(2), 'created_by' => 1]);
+        $html = $this->rows(['sort' => 'next_followup', 'direction' => 'desc']);   // 9 days, 2 days, none
+        $this->assertTrue(strpos($html, $a->tenant_contract_no) < strpos($html, $b->tenant_contract_no)
+            && strpos($html, $b->tenant_contract_no) < strpos($html, $c->tenant_contract_no));
+
+        $units = [];
+        foreach ($this->contracts as $k) {
+            $units[$k->tenant_contract_no] = (string) optional($k->Unit)->unit_no;
+        }
+        uksort($units, function ($x, $y) use ($units) { return strcasecmp($units[$x], $units[$y]) ?: strcmp($x, $y); });
+        $html = $this->rows(['sort' => 'unit', 'direction' => 'asc']);
+        $pos = array_map(function ($no) use ($html) { return strpos($html, $no); }, array_keys($units));
+        $sorted = $pos;
+        sort($sorted);
+        if (count(array_unique($units)) === count($units)) {
+            $this->assertSame($sorted, $pos);
+        }
+        foreach (['unit', 'are', 'last_followup', 'next_followup'] as $key) {
+            $this->assertContains('data-sort="' . $key . '"', $html);
+        }
+    }
+
     public function test_needs_view_permission()
     {
         $user = User::all()->first(function ($u) { return !$u->can('view_receivable_followup'); });

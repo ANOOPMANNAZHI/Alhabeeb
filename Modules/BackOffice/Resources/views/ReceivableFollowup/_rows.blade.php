@@ -25,15 +25,16 @@
     {!! $th('tenant', 'Tenant', 'asc') !!}
     {!! $th('contract', 'Agreement', 'asc') !!}
     {!! $th('building', 'Building', 'asc') !!}
-    <th scope="col">Unit No</th>
+    @if($showAre){!! $th('are', 'ARE', 'asc') !!}@endif
+    {!! $th('unit', 'Unit No', 'asc') !!}
     {!! $th('rent', 'Rent', 'desc', true) !!}
     {!! $th('paid_till', 'Paid Till', 'asc') !!}
     {!! $th('last_received', 'Last Payment', 'desc') !!}
     {!! $th('due', 'Total Due', 'desc', true) !!}
     {!! $th('received', 'Amount Received', 'desc', true) !!}
     {!! $th('balance', 'Balance', 'desc', true) !!}
-    <th scope="col">Last Follow-up</th>
-    <th scope="col">Next Follow-up Date</th>
+    {!! $th('last_followup', 'Last Follow-up', 'desc') !!}
+    {!! $th('next_followup', 'Next Follow-up Date', 'asc') !!}
     <th scope="col"><span class="rf-sr">Actions</span></th>
   </tr></thead>
   <tbody>
@@ -48,6 +49,7 @@
       <td>{{ $r->tenant }}<span class="rf-sub">{{ $r->contact_person }}@if($r->contact_person && $r->phone) · @endif{{ $r->phone }}</span></td>
       <td>{{ $r->contract }}<span class="rf-sub">{{ $fmtDate($r->from) }} – {{ $fmtDate($r->to) }}</span></td>
       <td>{{ $r->building }}</td>
+      @if($showAre)<td>{{ $r->are ?: '—' }}</td>@endif
       <td>{{ $r->unit }}</td>
       <td class="num">{{ $r->rent !== null ? \Modules\BackOffice\Entities\ReceivableFollowup::amount($r->rent) : '—' }}</td>
       <td>@if($r->paid_till){{ $fmtDate($r->paid_till) }}@if($r->not_paid_from && $r->paid_till >= $r->not_paid_from)<span class="rf-sub">short paid</span>@endif @else<span class="rf-unpaid">Never paid</span>@if($r->start)<span class="rf-sub">started {{ $fmtDate($r->start) }}</span>@endif @endif</td>
@@ -64,12 +66,12 @@
       </td>
     </tr>
   @empty
-    <tr><td colspan="13" class="rf-empty"><strong>No agreements with a balance for these filters.</strong>Try another month, building or management type, or clear the search.</td></tr>
+    <tr><td colspan="{{ $showAre ? 14 : 13 }}" class="rf-empty"><strong>No agreements with a balance for these filters.</strong>Try another month, building or management type, or clear the search.</td></tr>
   @endforelse
   </tbody>
   @if($count)
   <tfoot><tr class="rf-totals">
-    <td colspan="7">Total · {{ number_format($count) }} {{ $count === 1 ? 'agreement' : 'agreements' }}</td>
+    <td colspan="{{ $showAre ? 8 : 7 }}">Total · {{ number_format($count) }} {{ $count === 1 ? 'agreement' : 'agreements' }}</td>
     <td class="num">{{ \Modules\BackOffice\Entities\ReceivableFollowup::amount($totals['due']) }}</td>
     <td class="num">{{ \Modules\BackOffice\Entities\ReceivableFollowup::amount($totals['received']) }}</td>
     <td class="num">{{ \Modules\BackOffice\Entities\ReceivableFollowup::amount($totals['balance']) }}</td>

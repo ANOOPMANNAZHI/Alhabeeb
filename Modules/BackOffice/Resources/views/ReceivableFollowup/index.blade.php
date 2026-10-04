@@ -36,6 +36,30 @@
         <option value="">All</option>
         @foreach($management as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
       </select></div>
+    @if($showAre)
+    <div><label for="rf-are">ARE</label>
+      <select id="rf-are" name="are_id" class="form-control">
+        <option value="">All AREs</option>
+        @foreach($ares as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+      </select></div>
+    @endif
+    <div><label for="rf-tenant">Tenant</label>
+      <input type="text" id="rf-tenant" name="tenant" class="form-control" autocomplete="off" placeholder="Any tenant"></div>
+    <div><label for="rf-contract">Agreement</label>
+      <input type="text" id="rf-contract" name="contract" class="form-control" autocomplete="off" placeholder="Any agreement no"></div>
+    <div><label for="rf-unit">Unit No</label>
+      <input type="text" id="rf-unit" name="unit" class="form-control" autocomplete="off" placeholder="Any unit"></div>
+    <div><label for="rf-followup">Follow-up</label>
+      <select id="rf-followup" name="followup" class="form-control">
+        <option value="">All</option>
+        @foreach($followupStatus as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+      </select></div>
+    <div><label for="rf-bal-min">Balance from</label>
+      <input type="number" id="rf-bal-min" name="balance_min" class="form-control" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+    <div><label for="rf-bal-max">Balance to</label>
+      <input type="number" id="rf-bal-max" name="balance_max" class="form-control" min="0" step="1" inputmode="numeric" placeholder="Any"></div>
+    <div><label for="rf-paid-to">Paid till up to</label>
+      <input type="date" id="rf-paid-to" name="paid_till_to" class="form-control"></div>
     </div>
     <div class="rf-card-foot">
       <button type="button" class="rf-btn" id="rf-reset">Reset</button>
@@ -63,9 +87,12 @@
   var state = {page: 1, sort: '', direction: ''};
   var slowTimer, retryTimer, req;
   // filter card values take effect on Apply only; these are the applied ones
-  var defaults = {month: @json((string) $month), year: @json((string) $year), building_id: '', management_id: ''};
+  var defaults = {month: @json((string) $month), year: @json((string) $year), building_id: '', management_id: '', are_id: '',
+    tenant: '', contract: '', unit: '', followup: '', balance_min: '', balance_max: '', paid_till_to: ''};
   var applied = $.extend({}, defaults);
-  var fields = {month: '#rf-month', year: '#rf-year', building_id: '#rf-building', management_id: '#rf-mgmt'};
+  var fields = {month: '#rf-month', year: '#rf-year', building_id: '#rf-building', management_id: '#rf-mgmt', are_id: '#rf-are',
+    tenant: '#rf-tenant', contract: '#rf-contract', unit: '#rf-unit', followup: '#rf-followup',
+    balance_min: '#rf-bal-min', balance_max: '#rf-bal-max', paid_till_to: '#rf-paid-to'};
 
   function filterParams() {
     var p = [];
@@ -78,6 +105,13 @@
     if (applied.month !== defaults.month || applied.year !== defaults.year) { n++; }
     if (applied.building_id) { n++; parts.push($('#rf-building option[value="' + applied.building_id + '"]').text()); }
     if (applied.management_id) { n++; parts.push($('#rf-mgmt option[value="' + applied.management_id + '"]').text()); }
+    if (applied.are_id) { n++; parts.push('ARE ' + $('#rf-are option[value="' + applied.are_id + '"]').text()); }
+    if (applied.tenant) { n++; parts.push('Tenant "' + applied.tenant + '"'); }
+    if (applied.contract) { n++; parts.push('Agreement "' + applied.contract + '"'); }
+    if (applied.unit) { n++; parts.push('Unit "' + applied.unit + '"'); }
+    if (applied.followup) { n++; parts.push($('#rf-followup option[value="' + applied.followup + '"]').text()); }
+    if (applied.balance_min || applied.balance_max) { n++; parts.push('Balance ' + (applied.balance_min || '0') + ' – ' + (applied.balance_max || 'any')); }
+    if (applied.paid_till_to) { n++; parts.push('Paid till up to ' + applied.paid_till_to.split('-').reverse().join('/')); }
     $('#rf-applied').text(parts.join(' · '));
     $('#rf-filter-count').text(n).prop('hidden', !n);
     $('#rf-filter-toggle').attr('aria-label', n ? 'Filters, ' + n + ' active' : 'Filters');
