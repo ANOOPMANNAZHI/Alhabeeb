@@ -24,7 +24,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
     const LABELS = [
         'Municipal Tax',
         'Management Fees',          // landlord contract, Normal buildings only
-        'Value Added Tax (VAT)',    // blank for now
+        'Value Added Tax (VAT)',    // VAT_RATE of Repair (b) + Management Fees + Cleaning Charges
         self::AMC,
         'Sewage Removal',
         'Common Area E/Water Charges',
@@ -33,6 +33,8 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         self::REPAIR_B,
         'Cleaning Charges',         // landlord contract
     ];
+
+    const VAT_RATE = 0.05;
 
     /** Expense heads that go to one row whatever the bill. */
     const BY_NAME = [
@@ -120,6 +122,8 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
                 $out[$row] += (float) $exp->expense_amount;
             }
         }
+        // VAT = 5% of Repair (b) + Management Fees + Cleaning Charges (user, 04/10/2026)
+        $out['Value Added Tax (VAT)'] = round(($out[self::REPAIR_B] + $out['Management Fees'] + $out['Cleaning Charges']) * self::VAT_RATE, 3);
         return $out;
     }
 

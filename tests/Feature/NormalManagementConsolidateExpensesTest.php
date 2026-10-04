@@ -59,7 +59,7 @@ class NormalManagementConsolidateExpensesTest extends TestCase
         $this->assertSame(self::ORDER, array_keys($lines));
         $this->assertEquals(100, $lines['Municipal Tax']);
         $this->assertEquals(0, $lines['Management Fees']);
-        $this->assertEquals(0, $lines['Value Added Tax (VAT)']);
+        $this->assertEquals(3.05, $lines['Value Added Tax (VAT)']);   // 5% of (b) 21 + fee 0 + cleaning 40
         $this->assertEquals(84, $lines['Annual Maint. Cont. - A C, FAS, Lift & Others']);
         $this->assertEquals(20, $lines['Sewage Removal']);
         $this->assertEquals(15, $lines['Common Area E/Water Charges']);
@@ -67,7 +67,7 @@ class NormalManagementConsolidateExpensesTest extends TestCase
         $this->assertEquals(10, $lines['A C, FAS, Lift, etc. Repair Charges - (a)']);
         $this->assertEquals(21, $lines['Electric, Plumbing, Repair & Maint - (b)']);
         $this->assertEquals(40, $lines['Cleaning Charges']);
-        $this->assertEquals(290, array_sum($lines));
+        $this->assertEqualsWithDelta(293.05, array_sum($lines), 0.0001);
     }
 
     public function test_before_october_2026_old_bills_are_split_by_who_did_the_work()
@@ -105,6 +105,13 @@ class NormalManagementConsolidateExpensesTest extends TestCase
         $this->assertEquals(100, $fee($this->contract(1, 2, 10)));     // 10% of collection 800 + 200
         $this->assertEquals(0, $fee($this->contract(1, 9, 10)));       // unknown basis
         $this->assertEquals(0, $fee(null));
+
+        // VAT = 5% of (b) + management fee + cleaning: (100 + 150 + 30) * 5% = 14
+        $vat = NormalManagementConsolidateSheet::expenseLines($month + [
+            'landlord_contract' => $this->contract(2, 0, 150), 'building_management_id' => 2, 'cleaning_charge' => 30,
+            'expenses' => [$this->exp('ROUTINE & MAINTENANCE EXPENSES', 100, 41110), $this->exp('MUNICIPAL TAX', 500, 41105)],
+        ]);
+        $this->assertEquals(14, $vat['Value Added Tax (VAT)']);
         // only buildings of Management Type Normal (building master) have a fee
         $comprehensive = $month + ['landlord_contract' => $this->contract(2, 0, 150), 'building_management_id' => 1];
         $this->assertEquals(0, NormalManagementConsolidateSheet::expenseLines($comprehensive)['Management Fees']);
