@@ -416,6 +416,9 @@ class TenantRenewalController extends Controller
       $occupant_id = '';
       $contract =  new Contract;
       $data = $contract->getContractData();
+      if ($request->filled('unit_usage')) {
+          $data['unit_usage'] = $request['unit_usage'];
+      }
       $data['tenant_contract_penalty'] = $request['tenant_contract_penalty'];
       $data['tenant_marketing_executive'] =$request['tenant_marketing_executive'];
       $data['tenant_contract_duration_countdown'] = $request['yeartxt'].'-'.$request['monthtxt'].'-'.$request['daytxt'];

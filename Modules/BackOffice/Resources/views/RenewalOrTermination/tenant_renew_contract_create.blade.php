@@ -119,7 +119,8 @@
                 <div class="p-relative">
                 <i class="icon icon-unit" aria-hidden="true"></i>
                
-                <select class="form-control reads" name="unit_usage" id="unit_usage" required>
+                <select class="form-control" name="unit_usage" id="unit_usage" required>
+                    @if(!in_array(old('unit_usage',$tenantContract->unit_usage), ['Residential','Commercial']))<option value="" selected>-- Select --</option>@endif
                     <option {{ isset($tenantContract)? ((old('unit_usage',$tenantContract->unit_usage) == 'Residential')? 'selected' : '') : 'selected'}} value="Residential" >Residential</option>
                     <option  {{ isset($tenantContract)? ((old('unit_usage',$tenantContract->unit_usage) == 'Commercial')? 'selected' : '') : ''}} value="Commercial" >Commercial</option>
                     
