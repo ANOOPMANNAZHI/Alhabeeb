@@ -51,7 +51,8 @@ class ReceivableFollowupTest extends TestCase
         foreach ($this->contracts as $i => $c) {
             $rows[$c->id] = ['due' => $balances[$i] + 100, 'received' => 100.0, 'balance' => $balances[$i],
                 'last_received' => '2026-05-02', 'last_amount' => 350.0, 'paid_till' => $paidTill[$i],
-                'not_paid_from' => date('Y-m-d', strtotime($paidTill[$i] . ' +1 day')), 'start' => '2025-01-01'];
+                'not_paid_from' => date('Y-m-d', strtotime($paidTill[$i] . ' +1 day')), 'start' => '2025-01-01',
+                'rent' => 350.0 + $i];
         }
         Cache::put(ReceivableFigures::key($this->asOn), ['computed_at' => '2026-10-01 09:45:00', 'rows' => $rows], 60);
     }
@@ -324,29 +325,34 @@ class ReceivableFollowupTest extends TestCase
         }
     }
 
-    public function test_row_says_not_paid_from_and_last_payment()
+    public function test_row_says_paid_till_rent_and_last_payment()
     {
         $html = $this->rows();
-        $c = $this->contracts[1];   // paid till 30/06/2026
-        $this->assertRegExp('/id="rf-row-' . $c->id . '".*?Not paid from.*?01\/07\/2026.*?paid till 30\/06\/2026/s', $this->rowHtml($html, $c->id) ?: $html);
-        $this->assertContains('02/05/2026', $this->rowHtml($html, $c->id));
-        $this->assertContains('350.000', $this->rowHtml($html, $c->id));
-        $this->assertContains('Not Paid From', $html);
+        $c = $this->contracts[1];   // paid till 30/06/2026, rent 351
+        $row = $this->rowHtml($html, $c->id);
+        $this->assertContains('30/06/2026', $row);
+        $this->assertContains('351.000', $row);
+        $this->assertNotContains('01/07/2026', $row);   // no "not paid from" date any more
+        $this->assertContains('02/05/2026', $row);
+        $this->assertContains('350.000', $row);
+        $this->assertContains('Paid Till', $html);
+        $this->assertContains('Rent', $html);
+        $this->assertNotContains('Not Paid From', $html);
         $this->assertContains('Last Payment', $html);
     }
 
-    public function test_never_paid_row_says_not_paid_from_its_first_month()
+    public function test_never_paid_row_says_never_paid()
     {
         $c = $this->contracts[2];
         $rows = Cache::get(ReceivableFigures::key($this->asOn));
         $rows['rows'][$c->id] = ['due' => 2800.0, 'received' => 0.0, 'balance' => 2800.0, 'not_paid_from' => '2026-01-01',
-            'last_received' => null, 'last_amount' => null, 'paid_till' => null, 'start' => '2026-01-01'];
+            'last_received' => null, 'last_amount' => null, 'paid_till' => null, 'start' => '2026-01-01', 'rent' => 700.0];
         Cache::put(ReceivableFigures::key($this->asOn), $rows, 60);
         $row = $this->rowHtml($this->rows(), $c->id);
-        $this->assertRegExp('/Not paid from.*?01\/01\/2026.*?never paid/s', $row);
+        $this->assertRegExp('/Never paid.*?started 01\/01\/2026/s', $row);
 
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('01/01/2026 (never paid)', $html);
+        $this->assertRegExp('/Paid till<\/dt><dd><span class="rf-unpaid">Never paid/', $html);
     }
 
     public function test_summary_explains_the_cutoff()
@@ -358,12 +364,13 @@ class ReceivableFollowupTest extends TestCase
         $this->assertContains('Payments up to <strong>' . Carbon::today()->format('d/m/Y') . '</strong>', $html);
     }
 
-    public function test_popup_header_says_not_paid_from_and_last_payment()
+    public function test_popup_header_says_paid_till_rent_and_last_payment()
     {
         $c = $this->contracts[1];
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('Not paid from', $html);
-        $this->assertContains('01/07/2026', $html);
+        $this->assertContains('Paid till</dt><dd>30/06/2026', $html);
+        $this->assertContains('<dt>Rent</dt><dd>' . number_format((float) $c->tenant_contract_rent, 3), $html);
+        $this->assertNotContains('Not paid from', $html);
         $this->assertContains('02/05/2026 · 350.000', $html);
     }
 
@@ -375,20 +382,48 @@ class ReceivableFollowupTest extends TestCase
         $cache['rows'][$c->id]['paid_till'] = '2026-06-30';
         Cache::put(ReceivableFigures::key($this->asOn), $cache, 60);
         $row = $this->rowHtml($this->rows(), $c->id);
-        $this->assertContains('short paid', $row);
-        $this->assertContains('receipts to 30/06/2026', $row);
-        $this->assertNotContains('paid till', $row);
+        $this->assertRegExp('/30\/06\/2026<span class="rf-sub">short paid/', $row);
 
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('short paid · receipts to 30/06/2026', $html);
+        $this->assertContains('30/06/2026<span class="rf-help">short paid', $html);
     }
 
-    public function test_sort_by_not_paid_from()
+    public function test_sort_by_paid_till_and_rent()
     {
         $this->seed3([500.0, 1500.0, 900.0], ['2026-06-30', '2025-01-31', '2026-01-31']);
-        $html = $this->rows(['sort' => 'not_paid_from', 'direction' => 'asc']);   // longest unpaid first
+        $html = $this->rows(['sort' => 'paid_till', 'direction' => 'asc']);   // longest unpaid first
         $no = $this->contracts->pluck('tenant_contract_no')->all();
         $this->assertTrue(strpos($html, $no[1]) < strpos($html, $no[2]) && strpos($html, $no[2]) < strpos($html, $no[0]));
+
+        $html = $this->rows(['sort' => 'rent', 'direction' => 'desc']);       // 352, 351, 350
+        $this->assertTrue(strpos($html, $no[2]) < strpos($html, $no[1]) && strpos($html, $no[1]) < strpos($html, $no[0]));
+    }
+
+    public function test_company_buildings_and_legal_cases_are_not_followed_up()
+    {
+        $company = TenantContract::whereIn('building_id', ReceivableFigures::EXCLUDED_BUILDINGS)->value('id');
+        $legal = DB::table('tenant_contracts as tc')->join('legal as l', function ($j) {
+            $j->on('l.tenant_id', '=', 'tc.tenant_id')->on('l.unit_id', '=', 'tc.unit_id');
+        })->whereColumn('l.tenant_contract_id', '<>', 'tc.id')->value('tc.id');   // legal case on another contract of the same tenant + unit
+        $plain = $this->contracts->first(function ($c) {
+            return !in_array((int) $c->building_id, ReceivableFigures::EXCLUDED_BUILDINGS, true)
+                && !DB::table('legal')->where('tenant_id', $c->tenant_id)->where('unit_id', $c->unit_id)->exists();
+        });
+        $this->assertNotNull($company);
+        $this->assertNotNull($legal);
+        $this->assertNotNull($plain);
+        $out = ReceivableFigures::notFollowedUp([$company, $legal, $plain->id]);
+        sort($out);
+        $want = [(int) $company, (int) $legal];
+        sort($want);
+        $this->assertSame($want, array_map('intval', $out));
+        $this->assertSame([], ReceivableFigures::notFollowedUp([]));
+
+        // nor offered in the Building filter
+        $html = $this->get(route('receivable-followup.index'))->assertOk()->getContent();
+        foreach (ReceivableFigures::EXCLUDED_BUILDINGS as $b) {
+            $this->assertNotRegExp('/<option value="' . $b . '"/', $html);
+        }
     }
 
     /** The <tr> of one contract, for assertions that must stay inside that row. */

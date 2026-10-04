@@ -26,7 +26,8 @@
     {!! $th('contract', 'Agreement', 'asc') !!}
     {!! $th('building', 'Building', 'asc') !!}
     <th scope="col">Unit No</th>
-    {!! $th('not_paid_from', 'Not Paid From', 'asc') !!}
+    {!! $th('rent', 'Rent', 'desc', true) !!}
+    {!! $th('paid_till', 'Paid Till', 'asc') !!}
     {!! $th('last_received', 'Last Payment', 'desc') !!}
     {!! $th('due', 'Total Due', 'desc', true) !!}
     {!! $th('received', 'Amount Received', 'desc', true) !!}
@@ -48,7 +49,8 @@
       <td>{{ $r->contract }}<span class="rf-sub">{{ $fmtDate($r->from) }} – {{ $fmtDate($r->to) }}</span></td>
       <td>{{ $r->building }}</td>
       <td>{{ $r->unit }}</td>
-      <td>@if($r->not_paid_from)<span class="rf-unpaid"><span class="rf-sr">Not paid from </span>{{ $fmtDate($r->not_paid_from) }}</span>@if($r->paid_till)<span class="rf-sub">{{ $r->paid_till >= $r->not_paid_from ? 'short paid · receipts to' : 'paid till' }} {{ $fmtDate($r->paid_till) }}</span>@else<span class="rf-sub">never paid</span>@endif @else — @endif</td>
+      <td class="num">{{ $r->rent !== null ? number_format($r->rent, 3) : '—' }}</td>
+      <td>@if($r->paid_till){{ $fmtDate($r->paid_till) }}@if($r->not_paid_from && $r->paid_till >= $r->not_paid_from)<span class="rf-sub">short paid</span>@endif @else<span class="rf-unpaid">Never paid</span>@if($r->start)<span class="rf-sub">started {{ $fmtDate($r->start) }}</span>@endif @endif</td>
       <td>@if($r->last_received){{ $fmtDate($r->last_received) }}@if($r->last_amount !== null)<span class="rf-sub">{{ number_format($r->last_amount, 3) }}</span>@endif @else — @endif</td>
       <td class="num">{{ number_format($r->due, 3) }}</td>
       <td class="num">{{ number_format($r->received, 3) }}</td>
@@ -62,12 +64,12 @@
       </td>
     </tr>
   @empty
-    <tr><td colspan="12" class="rf-empty"><strong>No agreements with a balance for these filters.</strong>Try another month, building or management type, or clear the search.</td></tr>
+    <tr><td colspan="13" class="rf-empty"><strong>No agreements with a balance for these filters.</strong>Try another month, building or management type, or clear the search.</td></tr>
   @endforelse
   </tbody>
   @if($count)
   <tfoot><tr class="rf-totals">
-    <td colspan="6">Total · {{ number_format($count) }} {{ $count === 1 ? 'agreement' : 'agreements' }}</td>
+    <td colspan="7">Total · {{ number_format($count) }} {{ $count === 1 ? 'agreement' : 'agreements' }}</td>
     <td class="num">{{ number_format($totals['due'], 3) }}</td>
     <td class="num">{{ number_format($totals['received'], 3) }}</td>
     <td class="num">{{ number_format($totals['balance'], 3) }}</td>

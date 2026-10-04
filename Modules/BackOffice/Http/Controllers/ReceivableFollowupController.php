@@ -22,7 +22,7 @@ use Modules\Sales\Entities\TenantContract;
 class ReceivableFollowupController extends Controller
 {
     const PER_PAGE = 25;
-    const SORTS = ['balance', 'due', 'received', 'last_received', 'not_paid_from', 'tenant', 'building', 'contract'];
+    const SORTS = ['balance', 'due', 'received', 'last_received', 'paid_till', 'rent', 'tenant', 'building', 'contract'];
     const MANAGEMENT = [1 => 'Comprehensive', 2 => 'Normal'];
 
     public function __construct()
@@ -48,7 +48,7 @@ class ReceivableFollowupController extends Controller
     public function index(Request $request)
     {
         list($month, $year) = $this->period($request);
-        $buildings = Building::areFilter()->where('building_status', 1)->orderBy('building_name')->get(['id', 'building_name']);
+        $buildings = Building::areFilter()->where('building_status', 1)->whereNotIn('id', ReceivableFigures::EXCLUDED_BUILDINGS)->orderBy('building_name')->get(['id', 'building_name']);
         $years = range((int) date('Y'), 2018);
         $management = self::MANAGEMENT;
         return view('backoffice::ReceivableFollowup.index', compact('month', 'year', 'buildings', 'years', 'management'));
@@ -102,6 +102,7 @@ class ReceivableFollowupController extends Controller
                 'not_paid_from' => isset($f['not_paid_from']) ? $f['not_paid_from'] : null,
                 'last_amount' => isset($f['last_amount']) ? $f['last_amount'] : null,
                 'start' => isset($f['start']) ? $f['start'] : null,
+                'rent' => isset($f['rent']) ? $f['rent'] : null,
             ];
             $totals['due'] += $f['due'];
             $totals['received'] += $f['received'];
@@ -167,12 +168,8 @@ class ReceivableFollowupController extends Controller
         return [
             'contract'     => $contract,
             'balance'      => $fig ? $fig['balance'] : null,
-            'notPaidFrom'  => $fig && !empty($fig['not_paid_from'])
-                ? Carbon::parse($fig['not_paid_from'])->format('d/m/Y') . ($paidTill ? '' : ' (never paid)')
-                : null,
             'paidTill'     => $paidTill ? $paidTill->format('d/m/Y') : null,
-            'paidLabel'    => $paidTill && $fig && !empty($fig['not_paid_from']) && $paidTill->format('Y-m-d') >= $fig['not_paid_from']
-                ? 'short paid · receipts to' : 'paid till',
+            'shortPaid'    => $paidTill && $fig && !empty($fig['not_paid_from']) && $paidTill->format('Y-m-d') >= $fig['not_paid_from'],
             'lastPayment'  => $fig && !empty($fig['last_received'])
                 ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . number_format($fig['last_amount'], 3) : '')
                 : null,

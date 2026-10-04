@@ -54,7 +54,7 @@ class ReceivableFiguresTest extends TestCase
         $out = RF::fromDues([11 => $this->due(11, '250', ['paid_till' => '2026-03-15', 'last_received' => '2026-09-20 10:00:00', 'last_amount' => '50'])]);
         $this->assertSame([
             'due' => 800.0, 'received' => 250.0, 'balance' => 550.0, 'not_paid_from' => '2026-03-01',
-            'last_received' => '2026-09-20', 'last_amount' => 50.0, 'paid_till' => '2026-03-15', 'start' => '2026-01-01',
+            'last_received' => '2026-09-20', 'last_amount' => 50.0, 'paid_till' => '2026-03-15', 'start' => '2026-01-01', 'rent' => 100.0,
         ], $out[11]);
     }
 
@@ -68,6 +68,6 @@ class ReceivableFiguresTest extends TestCase
 
     public function test_cache_key_has_the_cutoff_and_today()
     {
-        $this->assertSame('receivable_followup:v6:2026-08-31:2026-10-02', RF::key('2026-08-31', '2026-10-02'));
+        $this->assertSame('receivable_followup:v7:2026-08-31:2026-10-02', RF::key('2026-08-31', '2026-10-02'));
     }
 }
