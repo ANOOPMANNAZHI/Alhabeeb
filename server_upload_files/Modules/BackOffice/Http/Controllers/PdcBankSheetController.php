@@ -5,6 +5,7 @@ namespace Modules\BackOffice\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Modules\BackOffice\Entities\Pdc;
 use Modules\BackOffice\Exports\PdcBankSheetResultExport;
@@ -130,6 +131,7 @@ class PdcBankSheetController extends Controller
         $codeBanks = $unknownCodes ? Bank::active()->orderBy('bank_name', 'ASC')->get(['id', 'bank_name', 'bank_code', 'bank_clearing_codes']) : collect();
 
         return view('backoffice::Routine.pdc_bank_sheet_preview', [
+            'progressUrl'   => route('pdcBankSheetProgress', [$stored, PdcBankSheetProgressController::key($stored)]),
             'unknownCodes'  => $unknownCodes,
             'codeBanks'     => $codeBanks,
             'canEditBank'   => \Auth::user()->can('edit_bank'),
@@ -308,6 +310,7 @@ class PdcBankSheetController extends Controller
         }
 
         $selection = $this->selection($request, $stored);
+        Cache::forget(PdcBankSheetProgressController::cacheKey($stored));
 
         $toPost    = []; // sheet row_no => [pdc rows]
         $vatByDiff = []; // row_no => VAT amount (Case B)
@@ -361,7 +364,12 @@ class PdcBankSheetController extends Controller
         $vatCreator = new VatReceiptCreator($routines);
         $vatMade    = 0;
         $vatReusedCount = 0;
+        $total = count($toPost);
+        $done  = 0;
+        $this->progress($stored, 0, $total, 0, 0);
         foreach ($toPost as $rowNo => $pdcs) {
+            $this->progress($stored, $done, $total, $posted, count($failed), $pdcs[0]->pdc_check_no);
+            $done++;
             $ids = [];
             $vatNos = [];
             $vatReused = [];
@@ -484,7 +492,9 @@ class PdcBankSheetController extends Controller
             }
         }
 
+        $this->progress($stored, $total, $total, $posted, count($failed), null, 'Saving the posting history…');
         $uploadId = $this->audit($request, $stored, $analysis['results'], $outcome, $posted, $pdcsDone);
+        $this->progress($stored, $total, $total, $posted, count($failed), null, 'Done', true);
         $request->session()->forget($this->selectionKey($stored));
 
         $msg = $posted . ' cheque(s) posted (' . $pdcsDone . ' PDC row(s)' . ($vatMade > 0 ? ', ' . $vatMade . ' VAT receipt(s)' : '') . ($vatReusedCount > 0 ? ', ' . $vatReusedCount . ' existing VAT receipt(s) reused' : '') . '); '
@@ -498,6 +508,15 @@ class PdcBankSheetController extends Controller
         }
         $url = route('pdcBankSheetResult', $uploadId);
         return $request->ajax() ? response()->json(['ok' => true, 'redirect' => $url]) : redirect($url);
+    }
+
+    /** Where a running post is (cheque n of total), for the progress overlay on the review page. */
+    private function progress($stored, $done, $total, $posted, $failed, $chequeNo = null, $msg = null, $finished = false)
+    {
+        Cache::put(PdcBankSheetProgressController::cacheKey($stored), [
+            'done' => $done, 'total' => $total, 'posted' => $posted, 'failed' => $failed, 'finished' => $finished,
+            'msg'  => $msg ?: ($chequeNo !== null ? 'Posting cheque ' . ($done + 1) . ' of ' . $total . ' (no. ' . $chequeNo . ')' : 'Starting…'),
+        ], 30); // minutes (Laravel 5.7)
     }
 
     /** Error answer for post(): JSON for the review page's AJAX call, else a redirect carrying the message. */

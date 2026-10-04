@@ -65,6 +65,19 @@
   .bsp .bsp-code-btn:hover { background:#2440b3; }
   .bsp .bsp-code-btn:focus-visible, .bsp .bsp-code-row select:focus-visible { outline:2px solid #2f4fd6; outline-offset:2px; }
 
+  /* Posting progress overlay (same look as the Normal Management report) */
+  #bsp-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; align-items:center; justify-content:center; }
+  #bsp-overlay.active { display:flex; }
+  #bsp-ov-card { background:#fff; border-radius:10px; padding:36px 44px; min-width:300px; max-width:480px; width:90%; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,.22); }
+  #bsp-ov-card h5 { color:#1F4E79; font-weight:700; font-size:16px; margin-bottom:6px; }
+  #bsp-ov-msg { color:#555; font-size:13px; margin-bottom:18px; min-height:18px; }
+  #bsp-ov-track { background:#e2eaf3; border-radius:20px; height:18px; overflow:hidden; margin-bottom:10px; }
+  #bsp-ov-bar { height:100%; width:0%; background:linear-gradient(90deg,#1F4E79,#2E75B6); border-radius:20px; transition:width .4s ease; }
+  #bsp-ov-pct { font-size:20px; font-weight:700; color:#1F4E79; font-variant-numeric:tabular-nums; }
+  #bsp-ov-count { font-size:12px; color:#475569; margin-top:4px; font-variant-numeric:tabular-nums; }
+  #bsp-ov-note { font-size:11px; color:#6b7280; margin-top:14px; }
+  @media (prefers-reduced-motion: reduce) { #bsp-ov-bar { transition:none; } }
+
   /* section headings */
   .bsp .bsp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
   .bsp .bsp-head h4 { margin:0; font-size:16px; }
@@ -129,6 +142,18 @@
       <div class="page-title">PDC Bulk Posting — Bank Sheet Review</div>
     </div>
     {{ Breadcrumbs::render('pdcBankSheetPreview') }}
+  </div>
+</div>
+
+{{-- ── Posting progress overlay ─────────────────────────────────── --}}
+<div id="bsp-overlay" role="dialog" aria-modal="true" aria-labelledby="bsp-ov-title" aria-describedby="bsp-ov-msg">
+  <div id="bsp-ov-card">
+    <h5 id="bsp-ov-title">Posting cheques</h5>
+    <div id="bsp-ov-msg" aria-live="polite">Starting…</div>
+    <div id="bsp-ov-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="bsp-ov-title"><div id="bsp-ov-bar"></div></div>
+    <div id="bsp-ov-pct">0%</div>
+    <div id="bsp-ov-count"></div>
+    <div id="bsp-ov-note">Please keep this tab open. The result opens by itself when posting is done.</div>
   </div>
 </div>
 
@@ -875,7 +900,30 @@ $(function () {
 
   // Post over AJAX so a server error or a dropped connection is shown instead of an endless spinner.
   var postBtnHtml = $('#bsp-post-btn').html();
+  // progress overlay: the server records "cheque n of total" while it posts; ask it every second
+  var progressUrl = @json($progressUrl), progressTimer = null;
+  function showProgress(p) {
+    var pct = p.total > 0 ? Math.min(100, Math.round(p.done * 100 / p.total)) : 0;
+    $('#bsp-ov-bar').css('width', pct + '%');
+    $('#bsp-ov-track').attr('aria-valuenow', pct);
+    $('#bsp-ov-pct').text(pct + '%');
+    if (p.msg) { $('#bsp-ov-msg').text(p.msg); }
+    if (p.posted !== undefined) $('#bsp-ov-count').text(p.total > 0 ? (p.posted || 0) + ' posted' + (p.failed ? ' · ' + p.failed + ' failed' : '') : '');
+  }
+  function startProgress(total) {
+    showProgress({done: 0, total: total, msg: 'Checking the sheet…'});
+    $('#bsp-overlay').addClass('active');
+    progressTimer = setInterval(function () {
+      $.ajax({url: progressUrl, dataType: 'json', cache: false, global: false}).done(function (p) { if (p && p.total) { showProgress(p); } });
+    }, 1500);   // the api route allows 60 calls a minute
+  }
+  function stopProgress() {
+    clearInterval(progressTimer);
+    progressTimer = null;
+    $('#bsp-overlay').removeClass('active');
+  }
   function postError(html, allowRetry) {
+    stopProgress();
     $('#bsp-post-error').html(html).show();
     $('html, body').animate({ scrollTop: $('#bsp-post-error').offset().top - 80 }, 200);
     if (allowRetry) {
@@ -890,12 +938,15 @@ $(function () {
     if (!confirm('Post ' + count + ' cheque(s) to ' + $('#bsp-bank option:selected').text() + ' on ' + $('#bsp-date').val() + '?\n\nThis generates receipts and cannot be undone.')) { return; }
     $('#bsp-post-error').hide().empty();
     $('#bsp-post-btn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Posting…');
+    startProgress(count);
     var historyLink = ' <a href="{{ route('pdcBankSheetUploads') }}">Open Posting history</a> or <a href="' + window.location.href + '">reload this page</a> before posting again.';
     $.ajax({ method: 'POST', url: this.action, data: $(this).serialize(), dataType: 'json', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .done(function (res) {
         try {
           if (res && res.ok && res.redirect) {
             $('#bsp-post-btn').html('<i class="fa fa-check" aria-hidden="true"></i> Posted — opening result…');
+            showProgress({done: 1, total: 1, msg: 'Done — opening the result…'});
+            clearInterval(progressTimer);
             window.location.href = res.redirect;
           } else {
             postError($('<div>').text((res && res.message) || 'Posting failed.').html(), true);
