@@ -16,56 +16,108 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         9 => 'SEPT', 10 => 'OCT', 11 => 'NOV', 12 => 'DEC',
     ];
 
+    const AMC        = 'Annual Maint. Cont. - A C, FAS, Lift & Others';
+    const REPAIR_A   = 'A C, FAS, Lift, etc. Repair Charges - (a)';
+    const REPAIR_B   = 'Electric, Plumbing, Repair & Maint - (b)';
+
+    /** Expense rows of the consolidated sheet, in report order (user, 03/10/2026). */
+    const LABELS = [
+        'Municipal Tax',
+        'Management Fees',          // landlord contract, Normal buildings only
+        'Value Added Tax (VAT)',    // blank for now
+        self::AMC,
+        'Sewage Removal',
+        'Common Area E/Water Charges',
+        'Legal Expenses',           // no expense head yet
+        self::REPAIR_A,
+        self::REPAIR_B,
+        'Cleaning Charges',         // landlord contract
+    ];
+
+    /** Expense heads that go to one row whatever the bill. */
+    const BY_NAME = [
+        'MUNICIPAL TAX'       => 'Municipal Tax',
+        'DEWATERING'          => 'Sewage Removal',
+        'ELECTRICITY & WATER' => 'Common Area E/Water Charges',
+    ];
+
+    /** AMC accounts, used from AMC_CODES_FROM: A/C, fire alarm, lift. */
+    const AMC_CODES = [22307, 22308, 22309];
+    /** A/C, fire alarm and lift repair accounts. */
+    const REPAIR_A_CODES = [41107, 41108, 41109];
+    /** Routine & Maintenance accounts (normal and CIT). */
+    const REPAIR_B_CODES = [41110, 22310];
+
+    /** Bills from this date follow the account codes alone (user, 04/10/2026). */
+    const AMC_CODES_FROM = '2026-10-01';
+
     /**
-     * Expense rows of the consolidated sheet, in report order, with the expense
-     * heads each one adds up. A/C, fire alarm and lift bills from a sub-contractor
-     * are the AMC row; the same heads done in-house (from a technician's service
-     * report) are Repair Charges (a). Management Fees and Cleaning Charges come
-     * from the landlord contract (CONTRACT); VAT and Legal Expenses stay blank for
-     * now. Other heads (cleaning bills, lease rent, municipal tax penalty, ...) are
-     * not on the sheet.
+     * Before AMC_CODES_FROM, contract (AMC) work by these vendors was booked to
+     * Routine & Maintenance; it is moved to the AMC row. Pest control, lifts,
+     * fire & safety, garden and pools (user, 04/10/2026).
      */
-    private static $expenseHeads = [
-        'Municipal Tax'                                 => ['MUNICIPAL TAX'],
-        'Management Fees'                               => self::CONTRACT,
-        'Value Added Tax (VAT)'                         => [],
-        'Annual Maint. Cont. - A C, FAS, Lift & Others' => ['subcontractor' => self::AC_FAS_LIFT],
-        'Sewage Removal'                                => ['DEWATERING'],
-        'Common Area E/Water Charges'                   => ['ELECTRICITY & WATER'],
-        'Legal Expenses'                                => [],
-        'A C, FAS, Lift, etc. Repair Charges - (a)'     => ['inhouse' => self::AC_FAS_LIFT],
-        'Electric, Plumbing, Repair & Maint - (b)'      => ['ROUTINE & MAINTENANCE EXPENSES', 'CIT - ROUTINE & MAINTENANCE EXPENSES'],
-        'Cleaning Charges'                              => self::CONTRACT,
+    const OLD_AMC_VENDORS = [
+        619,    // MUSCAT PEST CONTROL
+        818,    // INTERNATIONAL INSECTICIDES
+        787,    // KONE ASSARAIN LLC
+        757,    // AG MELCO MUSCAT ELEVATOR LLC
+        726,    // INTISAR FIRE AND SAFETY ENGINEERING LLC
+        743,    // MARSA AL QURUM AGRICULTURE SERVICE AND TRAD LLC
+        616,    // KEHLAN POOLS AND FOUNTAINS LLC
     ];
 
-    const CONTRACT = ['contract'];
+    /** OLD_AMC_VENDORS as an SQL list. */
+    public static function oldAmcVendorList(): string
+    {
+        return implode(',', array_map('intval', self::OLD_AMC_VENDORS));
+    }
 
-    const AC_FAS_LIFT = [
-        'A C MAINTENANCE', 'CIT - AC MAINTENANCE',
-        'FIRE ALARM SYSTEM MAINT.', 'CIT - FIRE ALARAM SYSTEM MAINT.',
-        'LIFT & ESCALATORS MAINT.', 'CIT - LIFT & ESCALATORS MAINT.',
-    ];
+    /** True for a database boolean (true / 't' / 1). */
+    private static function flag($v): bool
+    {
+        return $v === true || $v === 't' || $v === 1 || $v === '1';
+    }
+
+    /**
+     * The row one expense line belongs to, or null when it is not on the sheet
+     * (cleaning bills, lease rent, municipal tax penalty, ...).
+     * From AMC_CODES_FROM the account decides: AMC accounts -> AMC, A/C, fire alarm
+     * and lift accounts -> Repair (a), Routine & Maintenance -> Repair (b).
+     * Before it, A/C, fire alarm and lift bills from a sub-contractor are AMC and
+     * the ones from a technician's service report are Repair (a); Routine &
+     * Maintenance bills from OLD_AMC_VENDORS are AMC.
+     */
+    public static function rowFor($exp)
+    {
+        if (isset(self::BY_NAME[$exp->expense_name])) {
+            return self::BY_NAME[$exp->expense_name];
+        }
+        $code    = (int) ($exp->acc_code ?? 0);
+        $old     = self::flag($exp->before_cutover ?? false);
+        $inhouse = self::flag($exp->inhouse ?? false);
+        if (in_array($code, self::AMC_CODES, true)) {
+            return self::AMC;
+        }
+        if (in_array($code, self::REPAIR_A_CODES, true)) {
+            return ($old && !$inhouse) ? self::AMC : self::REPAIR_A;
+        }
+        if (in_array($code, self::REPAIR_B_CODES, true)) {
+            return ($old && !$inhouse && self::flag($exp->old_amc_vendor ?? false)) ? self::AMC : self::REPAIR_B;
+        }
+        return null;
+    }
 
     /** One month's expense rows: [label => amount], in report order. */
     public static function expenseLines(array $month): array
     {
-        $out = array_fill_keys(array_keys(self::$expenseHeads), 0.0);
+        $out = array_fill_keys(self::LABELS, 0.0);
         // Management fee only for buildings of Management Type Normal in the building master (user, 03/10/2026)
         $out['Management Fees']  = (int) ($month['building_management_id'] ?? 0) === 2 ? self::managementFee($month) : 0.0;
         $out['Cleaning Charges'] = (float) ($month['cleaning_charge'] ?? 0);
         foreach ($month['expenses'] ?? [] as $exp) {
-            $inhouse = !empty($exp->inhouse) && $exp->inhouse !== 'f';
-            foreach (self::$expenseHeads as $label => $heads) {
-                $names = $heads;
-                if (isset($heads['subcontractor'])) {
-                    $names = $inhouse ? [] : $heads['subcontractor'];
-                } elseif (isset($heads['inhouse'])) {
-                    $names = $inhouse ? $heads['inhouse'] : [];
-                }
-                if (in_array($exp->expense_name, $names, true)) {
-                    $out[$label] += (float) $exp->expense_amount;
-                    break;
-                }
+            $row = self::rowFor($exp);
+            if ($row !== null) {
+                $out[$row] += (float) $exp->expense_amount;
             }
         }
         return $out;
@@ -196,7 +248,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         foreach (range(1, 12) as $m) {
             $linesByMonth[$m] = self::expenseLines($this->monthData[$m] ?? []);
         }
-        foreach (array_keys(self::$expenseHeads) as $label) {
+        foreach (self::LABELS as $label) {
             $expenseRow = ['', $label];
             $yearTotal  = 0;
             foreach (range(1, 12) as $m) {
