@@ -3,6 +3,7 @@
 namespace Modules\BackOffice\Services;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -13,7 +14,9 @@ use Illuminate\Support\Facades\Cache;
  * the month picked (October -> 31 August), from the shared RentDues / RentLedger
  * calculation (same rules as the Tenant Aging Report). Payments: every rent receipt
  * up to today, so a tenant who has paid since the cutoff is not chased. Only
- * agreements still owing at least 30 are kept (never-paid included).
+ * agreements still owing at least 30 are kept (never-paid included). Left out:
+ * company properties (EXCLUDED_BUILDINGS) and any tenant + unit with a legal case
+ * (the Normal Management report's rule), user 04/10/2026.
  * Cached per cutoff and day (Laravel 5.7: TTL in minutes). PHP < 7.4: no arrow functions.
  */
 class ReceivableFigures
@@ -22,6 +25,8 @@ class ReceivableFigures
     const BUSY_MINUTES = 2;
     const MONTHS_BACK = 2;
     const MIN_BALANCE = 30; // tiny leftovers are not chased
+    // company properties, nobody to chase: Al Habib Office Leases, In House Properties, Left & Other Bldgs
+    const EXCLUDED_BUILDINGS = [292, 414, 415];
 
     public static function lastMonth($today = null)
     {
@@ -37,15 +42,15 @@ class ReceivableFigures
         return ($end->gt($today) ? $today : $end)->format('Y-m-d');
     }
 
-    /** v6: RentLedger figures, payments up to the day they were computed. */
+    /** v7: RentLedger figures, payments up to the day they were computed; rent; company buildings and legal out. */
     public static function key($asOn, $today = null)
     {
-        return 'receivable_followup:v6:' . $asOn . ':' . Carbon::parse($today ?: Carbon::today())->format('Y-m-d');
+        return 'receivable_followup:v7:' . $asOn . ':' . Carbon::parse($today ?: Carbon::today())->format('Y-m-d');
     }
 
     /**
      * Pure. $dues: RentDues::forDate() result. Keeps contracts owing at least MIN_BALANCE.
-     * Returns [contractId => ['due', 'received', 'balance', 'not_paid_from', 'last_received', 'last_amount', 'paid_till', 'start']].
+     * Returns [contractId => ['due', 'received', 'balance', 'not_paid_from', 'last_received', 'last_amount', 'paid_till', 'start', 'rent']].
      */
     public static function fromDues(array $dues)
     {
@@ -64,6 +69,7 @@ class ReceivableFigures
                 'last_amount'   => $d->last_amount !== null ? round((float) $d->last_amount, 3) : null,
                 'paid_till'     => $d->paid_till ? Carbon::parse($d->paid_till)->format('Y-m-d') : null,
                 'start'         => Carbon::parse($d->eff)->format('Y-m-d'),
+                'rent'          => isset($d->rent) ? round((float) $d->rent, 3) : null,
             ];
         }
         return $out;
@@ -73,7 +79,30 @@ class ReceivableFigures
     public function compute($asOn)
     {
         $today = Carbon::today()->format('Y-m-d');
-        return self::fromDues(app(RentDues::class)->forDate($asOn, max($asOn, $today)));
+        $rows = self::fromDues(app(RentDues::class)->forDate($asOn, max($asOn, $today)));
+        foreach (self::notFollowedUp(array_keys($rows)) as $id) {
+            unset($rows[(int) $id]);
+        }
+        return $rows;
+    }
+
+    /** Of these contracts, the ones in a company building or whose tenant + unit has a legal case. */
+    public static function notFollowedUp(array $ids)
+    {
+        if (!$ids) {
+            return [];
+        }
+        return DB::table('tenant_contracts as tc')
+            ->whereIn('tc.id', $ids)
+            ->where(function ($w) {
+                $w->whereIn('tc.building_id', self::EXCLUDED_BUILDINGS)
+                  ->orWhereExists(function ($e) {
+                      $e->select(DB::raw(1))->from('legal as l')
+                        ->whereColumn('l.tenant_id', 'tc.tenant_id')
+                        ->whereColumn('l.unit_id', 'tc.unit_id');
+                  });
+            })
+            ->pluck('tc.id')->all();
     }
 
     /**

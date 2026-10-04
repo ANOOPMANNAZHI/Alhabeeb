@@ -5,6 +5,7 @@ namespace Modules\BackOffice\Http\Controllers;
 use Carbon\Carbon;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Entities\ReceivableFollowup;
@@ -22,14 +23,67 @@ use Modules\Sales\Entities\TenantContract;
 class ReceivableFollowupController extends Controller
 {
     const PER_PAGE = 25;
-    const SORTS = ['balance', 'due', 'received', 'last_received', 'not_paid_from', 'tenant', 'building', 'contract'];
+    const SORTS = ['balance', 'due', 'received', 'last_received', 'paid_till', 'rent', 'tenant', 'building', 'contract',
+        'unit', 'are', 'last_followup', 'next_followup'];
     const MANAGEMENT = [1 => 'Comprehensive', 2 => 'Normal'];
+    const FOLLOWUP_STATUS = ['none' => 'Not followed up', 'overdue' => 'Next follow-up overdue', 'today' => 'Next follow-up today',
+        'upcoming' => 'Next follow-up upcoming', 'no_date' => 'Followed up, no next date'];
+    // these see every building whatever other roles they hold
+    const MANAGER_ROLES = ['super_admin', 'backoffice_manager', 'ceo', 'md', 'finance_manager'];
 
     public function __construct()
     {
         $this->middleware('auth');
         $this->middleware('permission:view_receivable_followup');
         $this->middleware('permission:add_receivable_followup')->only(['form', 'store']);
+    }
+
+    /**
+     * The ARE users whose buildings this user follows up: null = every building (managers and other
+     * back-office users); an ARE team lead = their team + themselves; any other ARE = themselves,
+     * also when they hold a second role (call centre, back-office executive).
+     */
+    private function scopeAreUsers()
+    {
+        $u = \Auth::user();
+        if ($u->hasAnyRole(self::MANAGER_ROLES)) {
+            return null;
+        }
+        if ($u->hasRole('are_team_lead')) {
+            return DB::table('users')->join('employees', 'employees.id', '=', 'users.user_type_id')
+                ->where('users.user_type', 'employee')->where('employees.head_user', $u->id)
+                ->pluck('users.id')->push($u->id)->unique()->values()->all();
+        }
+        return $u->hasRole('are') ? [$u->id] : null;
+    }
+
+    /** Building ids this user may see (null = all). */
+    private function scopeBuildingIds()
+    {
+        $users = $this->scopeAreUsers();
+        if ($users === null) {
+            return null;
+        }
+        return DB::table('preferred_buildings as pb')->join('are_buildings as ab', 'ab.id', '=', 'pb.are_building_id')
+            ->whereNull('pb.assign_to')->whereIn('ab.user_id', $users ?: [0])
+            ->distinct()->pluck('pb.building_id')->map(function ($v) { return (int) $v; })->all();
+    }
+
+    /** Current ARE assignments: building_id, user_id, name. */
+    private function areAssignments()
+    {
+        return DB::table('preferred_buildings as pb')->join('are_buildings as ab', 'ab.id', '=', 'pb.are_building_id')
+            ->join('users as u', 'u.id', '=', 'ab.user_id')->leftJoin('employees as e', 'e.id', '=', 'u.user_type_id')
+            ->whereNull('pb.assign_to')
+            ->select('pb.building_id', 'ab.user_id', DB::raw('coalesce(e.employee_name, u.username) as name'))
+            ->distinct()->orderBy('name')->get();
+    }
+
+    /** An ARE following up only their own buildings has no use for the ARE column / filter. */
+    private function showAre()
+    {
+        $users = $this->scopeAreUsers();
+        return $users === null || count($users) > 1;
     }
 
     /** [month, year, asOn] from the request; default last month. */
@@ -48,10 +102,26 @@ class ReceivableFollowupController extends Controller
     public function index(Request $request)
     {
         list($month, $year) = $this->period($request);
-        $buildings = Building::areFilter()->where('building_status', 1)->orderBy('building_name')->get(['id', 'building_name']);
+        $scope = $this->scopeBuildingIds();
+        $bq = Building::where('building_status', 1)->whereNotIn('id', ReceivableFigures::EXCLUDED_BUILDINGS);
+        if ($scope !== null) {
+            $bq->whereIn('id', $scope ?: [0]);
+        }
+        $buildings = $bq->orderBy('building_name')->get(['id', 'building_name']);
         $years = range((int) date('Y'), 2018);
         $management = self::MANAGEMENT;
-        return view('backoffice::ReceivableFollowup.index', compact('month', 'year', 'buildings', 'years', 'management'));
+        $followupStatus = self::FOLLOWUP_STATUS;
+        $showAre = $this->showAre();
+        $ares = [];
+        if ($showAre) {
+            foreach ($this->areAssignments() as $a) {
+                if ($scope === null || in_array((int) $a->building_id, $scope, true)) {
+                    $ares[$a->user_id] = $a->name;
+                }
+            }
+            asort($ares);
+        }
+        return view('backoffice::ReceivableFollowup.index', compact('month', 'year', 'buildings', 'years', 'management', 'followupStatus', 'showAre', 'ares'));
     }
 
     public function rows(Request $request)
@@ -65,7 +135,16 @@ class ReceivableFollowupController extends Controller
         // every agreement still owing at the cutoff (picked month - 2), see ReceivableFigures
         $fig = $data['rows'];
 
-        $q = TenantContract::query()->areFilter()
+        $scope = $this->scopeBuildingIds();
+        $showAre = $this->showAre();
+        $areByBuilding = [];   // building id => [names]
+        $areBuildings = [];    // ARE user id => [building ids]
+        foreach ($this->areAssignments() as $a) {
+            $areByBuilding[$a->building_id][] = $a->name;
+            $areBuildings[$a->user_id][] = (int) $a->building_id;
+        }
+
+        $q = TenantContract::query()
             ->join('buildings', 'buildings.id', '=', 'tenant_contracts.building_id')
             ->join('tenant', 'tenant.id', '=', 'tenant_contracts.tenant_id')
             ->leftJoin('units', 'units.id', '=', 'tenant_contracts.unit_id')
@@ -73,6 +152,18 @@ class ReceivableFollowupController extends Controller
             ->select('tenant_contracts.id', 'tenant_contracts.tenant_contract_no', 'tenant_contracts.tenant_contract_effective_date',
                 'tenant_contracts.tenant_contract_valid_to_date', 'tenant_contracts.building_id', 'buildings.building_name',
                 'buildings.management_id', 'tenant.tenant_name', 'tenant.tenant_contact_person', 'tenant.tenant_contact_no', 'units.unit_no');
+        if ($scope !== null) {
+            $q->whereIn('tenant_contracts.building_id', $scope ?: [0]);
+        }
+        if ($showAre && $request->filled('are_id')) {
+            $aid = (int) $request->are_id;
+            $q->whereIn('tenant_contracts.building_id', isset($areBuildings[$aid]) ? $areBuildings[$aid] : [0]);
+        }
+        foreach (['tenant' => 'tenant.tenant_name', 'contract' => 'tenant_contracts.tenant_contract_no', 'unit' => 'units.unit_no'] as $key => $col) {
+            if ($request->filled($key)) {
+                $q->where($col, 'ilike', '%' . trim($request->input($key)) . '%');
+            }
+        }
         if ($request->filled('building_id')) {
             $q->where('tenant_contracts.building_id', (int) $request->building_id);
         }
@@ -88,10 +179,40 @@ class ReceivableFollowupController extends Controller
             });
         }
 
+        $contracts = $q->get();
+        // latest follow-up and latest next follow-up date of every listed agreement, for sorting / filtering
+        $ids = $contracts->pluck('id')->all() ?: [0];
+        $lastAt = DB::table('receivable_followups')->whereIn('tenant_contract_id', $ids)
+            ->selectRaw('DISTINCT ON (tenant_contract_id) tenant_contract_id, created_at')
+            ->orderBy('tenant_contract_id')->orderBy('created_at', 'desc')->orderBy('id', 'desc')
+            ->pluck('created_at', 'tenant_contract_id')->all();
+        $nextOn = DB::table('receivable_followups')->whereIn('tenant_contract_id', $ids)->whereNotNull('promised_date')
+            ->selectRaw('DISTINCT ON (tenant_contract_id) tenant_contract_id, promised_date')
+            ->orderBy('tenant_contract_id')->orderBy('created_at', 'desc')->orderBy('id', 'desc')
+            ->pluck('promised_date', 'tenant_contract_id')->all();
+        $today = Carbon::today()->format('Y-m-d');
+        $status = (string) $request->input('followup');
+        $balMin = is_numeric($request->input('balance_min')) ? (float) $request->balance_min : null;
+        $balMax = is_numeric($request->input('balance_max')) ? (float) $request->balance_max : null;
+        $paidTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->input('paid_till_to')) ? $request->paid_till_to : null;
+
         $list = [];
         $totals = ['due' => 0.0, 'received' => 0.0, 'balance' => 0.0];
-        foreach ($q->get() as $c) {
+        foreach ($contracts as $c) {
             $f = $fig[$c->id];
+            $last = isset($lastAt[$c->id]) ? substr($lastAt[$c->id], 0, 19) : null;
+            $next = isset($nextOn[$c->id]) ? substr($nextOn[$c->id], 0, 10) : null;
+            if (($status === 'none' && $last)
+                || ($status === 'overdue' && !($next && $next < $today))
+                || ($status === 'today' && $next !== $today)
+                || ($status === 'upcoming' && !($next && $next > $today))
+                || ($status === 'no_date' && !($last && !$next))
+                || ($balMin !== null && $f['balance'] < $balMin)
+                || ($balMax !== null && $f['balance'] > $balMax)
+                // "paid till up to": never-paid agreements have paid nothing, so they match
+                || ($paidTo && !empty($f['paid_till']) && $f['paid_till'] > $paidTo)) {
+                continue;
+            }
             $list[] = (object) [
                 'id' => $c->id, 'contract' => $c->tenant_contract_no, 'tenant' => $c->tenant_name,
                 'contact_person' => $c->tenant_contact_person, 'phone' => $c->tenant_contact_no,
@@ -102,6 +223,9 @@ class ReceivableFollowupController extends Controller
                 'not_paid_from' => isset($f['not_paid_from']) ? $f['not_paid_from'] : null,
                 'last_amount' => isset($f['last_amount']) ? $f['last_amount'] : null,
                 'start' => isset($f['start']) ? $f['start'] : null,
+                'rent' => isset($f['rent']) ? $f['rent'] : null,
+                'are' => isset($areByBuilding[$c->building_id]) ? implode(', ', array_unique($areByBuilding[$c->building_id])) : '',
+                'last_followup' => $last, 'next_followup' => $next,
             ];
             $totals['due'] += $f['due'];
             $totals['received'] += $f['received'];
@@ -130,7 +254,7 @@ class ReceivableFollowupController extends Controller
 
         return view('backoffice::ReceivableFollowup._rows', [
             'rows' => $paginator, 'totals' => $totals, 'followups' => $followups, 'computedAt' => $data['computed_at'],
-            'asOn' => $asOn, 'sort' => $sort, 'desc' => $desc, 'today' => Carbon::today()->format('Y-m-d'),
+            'asOn' => $asOn, 'sort' => $sort, 'desc' => $desc, 'today' => $today, 'showAre' => $showAre,
             'monthLabel' => Carbon::create($year, $month, 1)->format('F Y'),
         ]);
     }
@@ -150,7 +274,8 @@ class ReceivableFollowupController extends Controller
     private function contractInScope($id)
     {
         $contract = TenantContract::with(['tenant', 'building', 'Unit'])->findOrFail($id);
-        if (!TenantContract::areFilter()->where('tenant_contracts.id', $contract->id)->exists()) {
+        $scope = $this->scopeBuildingIds();
+        if ($scope !== null && !in_array((int) $contract->building_id, $scope, true)) {
             abort(403);
         }
         return $contract;
@@ -167,14 +292,10 @@ class ReceivableFollowupController extends Controller
         return [
             'contract'     => $contract,
             'balance'      => $fig ? $fig['balance'] : null,
-            'notPaidFrom'  => $fig && !empty($fig['not_paid_from'])
-                ? Carbon::parse($fig['not_paid_from'])->format('d/m/Y') . ($paidTill ? '' : ' (never paid)')
-                : null,
             'paidTill'     => $paidTill ? $paidTill->format('d/m/Y') : null,
-            'paidLabel'    => $paidTill && $fig && !empty($fig['not_paid_from']) && $paidTill->format('Y-m-d') >= $fig['not_paid_from']
-                ? 'short paid · receipts to' : 'paid till',
+            'shortPaid'    => $paidTill && $fig && !empty($fig['not_paid_from']) && $paidTill->format('Y-m-d') >= $fig['not_paid_from'],
             'lastPayment'  => $fig && !empty($fig['last_received'])
-                ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . number_format($fig['last_amount'], 3) : '')
+                ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . ReceivableFollowup::amount($fig['last_amount']) : '')
                 : null,
             'lastPromise'  => $lastPromise ? $lastPromise->promised_date->format('d/m/Y') : null,
             'asOn'         => $asOn,
@@ -202,7 +323,7 @@ class ReceivableFollowupController extends Controller
         $this->validate($request, [
             'comment'       => 'required|string|max:1000',
             'promised_date' => 'nullable|date|after_or_equal:today',
-        ]);
+        ], [], ['promised_date' => 'next follow-up date']);
         $h = $this->header($c, $this->asOnParam($request));
         $f = ReceivableFollowup::create([
             'tenant_contract_id'  => $c->id,
