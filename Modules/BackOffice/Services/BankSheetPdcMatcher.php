@@ -179,6 +179,10 @@ class BankSheetPdcMatcher
             // One cheque paying for several tenants (e.g. group companies): the same split rule as
             // within one tenant, but only when ALL of this cheque's PDCs for the month add up exactly.
             $tenantGroups = $this->groupByTenant($inMonth);
+            if (count($tenantGroups) > 1 && !$this->sameAmount($this->sum($inMonth), $amount)
+                && $this->sameAmount($this->sum($this->withVat($inMonth, $vatFound)), $amount)) {
+                $inMonth = $this->withVat($inMonth, $vatFound);   // their VAT is on the same cheque too
+            }
             if (count($tenantGroups) > 1 && $this->sameAmount($this->sum($inMonth), $amount)) {
                 $names = [];
                 foreach ($inMonth as $pdc) {
@@ -337,7 +341,11 @@ class BankSheetPdcMatcher
         return rtrim(rtrim(number_format($amount, 3, '.', ''), '0'), '.');
     }
 
-    /** Rent rows of one agreement + that agreement's VAT PDCs, when their sum is the bank amount. */
+    /**
+     * Rent rows of one agreement + that agreement's VAT PDCs, when their sum is the bank amount;
+     * failing that, all of one tenant's agreements on the cheque with each one's VAT (e.g. two
+     * flats, 280 + 14 each, paid with one cheque of 588).
+     */
     private function rentPlusVatGroups(array $rent, array $vat, $amount)
     {
         $out = [];
@@ -349,6 +357,29 @@ class BankSheetPdcMatcher
             $group = array_merge($rows, $vatRows);
             if ($this->sameAmount($this->sum($group), $amount)) {
                 $out[] = $group;
+            }
+        }
+        if (count($out) === 0) {
+            foreach ($this->groupByTenant($rent) as $rows) {
+                if (count($this->groupByContract($rows)) < 2) {
+                    continue; // one agreement: done above
+                }
+                $group = $this->withVat($rows, $vat);
+                if (count($group) > count($rows) && $this->sameAmount($this->sum($group), $amount)) {
+                    $out[] = $group;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /** Rent rows + the VAT PDCs of each of their agreements (those that look like VAT on its rent). */
+    private function withVat(array $rent, array $vat)
+    {
+        $out = $rent;
+        foreach ($this->groupByContract($rent) as $contractId => $rows) {
+            foreach ($this->vatOfContract($vat, $contractId, $this->sum($rows)) as $v) {
+                $out[] = $v;
             }
         }
         return $out;
