@@ -77,7 +77,7 @@ class ReceivableFollowupTest extends TestCase
         $nos = $this->contracts->pluck('tenant_contract_no')->all();
         // balance desc: 1500 (#2), 900 (#3), 500 (#1)
         $this->assertTrue(strpos($html, $nos[1]) < strpos($html, $nos[2]) && strpos($html, $nos[2]) < strpos($html, $nos[0]));
-        $this->assertContains('2,900.000', $html);           // total balance
+        $this->assertContains('total 2,900"', $html);         // total balance, whole OMR
         $this->assertContains('Figures as of 01/10/2026 09:45', $html);
     }
 
@@ -244,7 +244,7 @@ class ReceivableFollowupTest extends TestCase
         $c = $this->contracts[1];
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
         $this->assertContains($c->tenant_contract_no, $html);
-        $this->assertContains('1,500.000', $html);
+        $this->assertContains('>1,500<', $html);
         $this->assertContains('name="comment"', $html);
         $this->assertContains('name="promised_date"', $html);
     }
@@ -331,10 +331,10 @@ class ReceivableFollowupTest extends TestCase
         $c = $this->contracts[1];   // paid till 30/06/2026, rent 351
         $row = $this->rowHtml($html, $c->id);
         $this->assertContains('30/06/2026', $row);
-        $this->assertContains('351.000', $row);
+        $this->assertContains('>351<', $row);
         $this->assertNotContains('01/07/2026', $row);   // no "not paid from" date any more
         $this->assertContains('02/05/2026', $row);
-        $this->assertContains('350.000', $row);
+        $this->assertContains('>350<', $row);
         $this->assertContains('Paid Till', $html);
         $this->assertContains('Rent', $html);
         $this->assertNotContains('Not Paid From', $html);
@@ -369,9 +369,9 @@ class ReceivableFollowupTest extends TestCase
         $c = $this->contracts[1];
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
         $this->assertContains('Paid till</dt><dd>30/06/2026', $html);
-        $this->assertContains('<dt>Rent</dt><dd>' . number_format((float) $c->tenant_contract_rent, 3), $html);
+        $this->assertContains('<dt>Rent</dt><dd>' . ReceivableFollowup::amount($c->tenant_contract_rent) . '<', $html);
         $this->assertNotContains('Not paid from', $html);
-        $this->assertContains('02/05/2026 · 350.000', $html);
+        $this->assertContains('02/05/2026 · 350<', $html);
     }
 
     public function test_paid_till_after_not_paid_from_reads_short_paid()
@@ -424,6 +424,27 @@ class ReceivableFollowupTest extends TestCase
         foreach (ReceivableFigures::EXCLUDED_BUILDINGS as $b) {
             $this->assertNotRegExp('/<option value="' . $b . '"/', $html);
         }
+    }
+
+    public function test_amounts_drop_decimals_without_rounding()
+    {
+        $this->assertSame('351', ReceivableFollowup::amount(351.75));
+        $this->assertSame('1,499', ReceivableFollowup::amount(1499.999));
+        $this->assertSame('352', ReceivableFollowup::amount(351.99999999));   // float noise, not a real fraction
+        $this->assertSame('-20', ReceivableFollowup::amount(-20.5));
+        $this->assertSame('0', ReceivableFollowup::amount(null));
+    }
+
+    public function test_promised_date_is_labelled_next_followup_date()
+    {
+        $this->assertContains('Next Follow-up Date', $this->rows());
+        $this->assertNotContains('Promised Date', $this->rows());
+        $c = $this->contracts[0];
+        $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
+        $this->assertContains('<label for="rf-promised">Next Follow-up Date</label>', $html);
+        $this->assertContains('<dt>Next follow-up date</dt>', $html);
+        $this->postJson(route('receivable-followup.store', $c->id), ['comment' => 'x', 'promised_date' => '2020-01-01'])
+            ->assertStatus(422)->assertSee('next follow-up date');
     }
 
     /** The <tr> of one contract, for assertions that must stay inside that row. */

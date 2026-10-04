@@ -13,10 +13,10 @@
         @foreach($followups as $f)
           @php $st = $statusFor($f); @endphp
           <li>
-            <div class="rf-when"><strong>{{ $f->created_at->format('d/m/Y H:i') }}</strong> · {{ $f->creatorName() }}@if($f->balance_at_followup !== null) · balance {{ number_format($f->balance_at_followup, 3) }}@endif</div>
+            <div class="rf-when"><strong>{{ $f->created_at->format('d/m/Y H:i') }}</strong> · {{ $f->creatorName() }}@if($f->balance_at_followup !== null) · balance {{ \Modules\BackOffice\Entities\ReceivableFollowup::amount($f->balance_at_followup) }}@endif</div>
             <div class="rf-comment">{{ $f->comment }}</div>
             @if($f->promised_date)
-              <div class="rf-promise">Promised {{ $f->promised_date->format('d/m/Y') }}<span class="rf-badge {{ $st }}">{{ $labels[$st] }}</span></div>
+              <div class="rf-promise">Next follow-up {{ $f->promised_date->format('d/m/Y') }}<span class="rf-badge {{ $st }}">{{ $labels[$st] }}</span></div>
             @endif
           </li>
         @endforeach

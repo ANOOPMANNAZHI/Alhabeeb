@@ -11,7 +11,7 @@
         <ol>
           @foreach($recent as $f)
             <li>
-              <div class="rf-when"><strong>{{ $f->created_at->format('d/m/Y H:i') }}</strong> · {{ $f->creatorName() }}@if($f->promised_date) · promised {{ $f->promised_date->format('d/m/Y') }}@endif</div>
+              <div class="rf-when"><strong>{{ $f->created_at->format('d/m/Y H:i') }}</strong> · {{ $f->creatorName() }}@if($f->promised_date) · next follow-up {{ $f->promised_date->format('d/m/Y') }}@endif</div>
               <div class="rf-comment">{{ $f->comment }}</div>
             </li>
           @endforeach
@@ -30,9 +30,9 @@
         <span class="rf-field-error" id="rf-comment-error" hidden></span>
       </div>
       <div class="form-group" style="max-width:260px">
-        <label for="rf-promised">Promised Date</label>
+        <label for="rf-promised">Next Follow-up Date</label>
         <input type="date" id="rf-promised" name="promised_date" class="form-control" min="{{ date('Y-m-d') }}" aria-describedby="rf-promised-help rf-promised_date-error">
-        <span class="rf-help" id="rf-promised-help">Optional. Leave empty when the tenant gave no date.</span>
+        <span class="rf-help" id="rf-promised-help">Optional. When to follow up with the tenant again.</span>
         <span class="rf-field-error" id="rf-promised_date-error" hidden></span>
       </div>
       <div class="rf-foot">

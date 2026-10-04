@@ -171,7 +171,7 @@ class ReceivableFollowupController extends Controller
             'paidTill'     => $paidTill ? $paidTill->format('d/m/Y') : null,
             'shortPaid'    => $paidTill && $fig && !empty($fig['not_paid_from']) && $paidTill->format('Y-m-d') >= $fig['not_paid_from'],
             'lastPayment'  => $fig && !empty($fig['last_received'])
-                ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . number_format($fig['last_amount'], 3) : '')
+                ? Carbon::parse($fig['last_received'])->format('d/m/Y') . (isset($fig['last_amount']) && $fig['last_amount'] !== null ? ' · ' . ReceivableFollowup::amount($fig['last_amount']) : '')
                 : null,
             'lastPromise'  => $lastPromise ? $lastPromise->promised_date->format('d/m/Y') : null,
             'asOn'         => $asOn,
@@ -199,7 +199,7 @@ class ReceivableFollowupController extends Controller
         $this->validate($request, [
             'comment'       => 'required|string|max:1000',
             'promised_date' => 'nullable|date|after_or_equal:today',
-        ]);
+        ], [], ['promised_date' => 'next follow-up date']);
         $h = $this->header($c, $this->asOnParam($request));
         $f = ReceivableFollowup::create([
             'tenant_contract_id'  => $c->id,

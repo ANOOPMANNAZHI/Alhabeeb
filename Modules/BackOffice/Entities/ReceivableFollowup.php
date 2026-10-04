@@ -34,6 +34,13 @@ class ReceivableFollowup extends Model
         return optional($u->employee)->employee_name ?: (string) $u->username;
     }
 
+    /** Whole OMR for the screen: decimals cut off, never rounded (351.750 -> 351), user 04/10/2026. */
+    public static function amount($v)
+    {
+        $v = round((float) $v, 3);   // float noise first, so 351.9999999 stays 352
+        return number_format($v < 0 ? ceil($v) : floor($v));
+    }
+
     /**
      * Kept: a rent receipt dated on/after the follow-up day and on/before the promised date.
      * Broken: promised date before today and no such receipt. Upcoming: otherwise.
