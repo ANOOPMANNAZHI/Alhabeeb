@@ -106,6 +106,40 @@ class BankSheetPdcMatcherTest extends TestCase
         $this->assertStringContainsString('2026-10-01', $out[0]['reason']);
     }
 
+    public function test_pdc_saved_up_to_three_months_before_the_cheque_date_matches()
+    {
+        foreach (['2026-08-20' => '2026-08', '2026-07-01' => '2026-07', '2026-06-30' => '2026-06'] as $date => $month) {
+            $out = $this->matcher()->match([$this->sheetRow()], [$this->pdc(['pdc_check_date' => $date])]);   // sheet: 15/09/2026
+            $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status'], $date);
+            $this->assertSame($month, $out[0]['prev_month'], $date);
+        }
+        $out = $this->matcher()->match([$this->sheetRow()], [$this->pdc(['pdc_check_date' => '2026-05-31'])]);
+        $this->assertSame(BankSheetPdcMatcher::DATE_MISMATCH, $out[0]['status']);
+        $this->assertStringContainsString('or the 3 months before', $out[0]['reason']);
+    }
+
+    public function test_same_month_wins_over_earlier_and_nearest_earlier_month_first()
+    {
+        $sep = $this->pdc(['pdc_check_date' => '2026-09-01']);
+        $jul = $this->pdc(['pdc_check_date' => '2026-07-01']);
+        $out = $this->matcher()->match([$this->sheetRow()], [$jul, $sep]);
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([$sep->id], array_column($out[0]['pdcs'], 'id'));
+        $this->assertArrayNotHasKey('prev_month', $out[0]);
+
+        $aug = $this->pdc(['pdc_check_date' => '2026-08-01']);
+        $jun = $this->pdc(['pdc_check_date' => '2026-06-01']);
+        $out = $this->matcher()->match([$this->sheetRow()], [$jun, $aug]);
+        $this->assertSame([$aug->id], array_column($out[0]['pdcs'], 'id'));
+        $this->assertSame('2026-08', $out[0]['prev_month']);
+    }
+
+    public function test_pdc_dated_after_the_cheque_month_still_does_not_match()
+    {
+        $out = $this->matcher()->match([$this->sheetRow()], [$this->pdc(['pdc_check_date' => '2026-10-01'])]);
+        $this->assertSame(BankSheetPdcMatcher::DATE_MISMATCH, $out[0]['status']);
+    }
+
     public function test_pdc_anywhere_in_the_cheque_month_matches()
     {
         $out = $this->matcher()->match(
@@ -379,7 +413,7 @@ class BankSheetPdcMatcherTest extends TestCase
 
     public function test_date_mismatch_carries_the_other_month_pdcs_as_related()
     {
-        $pdc = $this->pdc(['pdc_check_date' => '2026-08-15']);
+        $pdc = $this->pdc(['pdc_check_date' => '2026-05-15']);   // 4 months before the September cheque
         $out = $this->matcher()->match([$this->sheetRow()], [$pdc]);
 
         $this->assertSame(BankSheetPdcMatcher::DATE_MISMATCH, $out[0]['status']);

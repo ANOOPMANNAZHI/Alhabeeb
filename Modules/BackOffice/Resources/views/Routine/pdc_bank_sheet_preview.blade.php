@@ -270,7 +270,7 @@
               @php $sheetAcc = \Modules\BackOffice\Services\BankSheetPdcMatcher::normaliseAccountNo(isset($r['row']['account_no']) ? $r['row']['account_no'] : null); @endphp
               @if($sheetAcc !== null)<span class="bsp-sub">Acct {{ $sheetAcc }}</span>@endif
             </td>
-            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}@if(!empty($r['prev_month']))<span class="bsp-sub">PLMS dated {{ \Carbon\Carbon::parse($r['prev_month'] . '-01')->format('M Y') }} (earlier month)</span>@endif</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
             <td>
               <label class="bsp-cand {{ $cur === '' ? 'is-on' : '' }}">
@@ -343,7 +343,7 @@
           <tr class="{{ $on ? '' : 'is-off' }}">
             <td><input type="checkbox" class="bsp-vat-tick" data-row="{{ $rowNo }}" {{ $on ? 'checked' : '' }} aria-label="Post cheque {{ $r['row']['cheque_no'] }} with VAT"></td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
-            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}@if(!empty($r['prev_month']))<span class="bsp-sub">PLMS dated {{ \Carbon\Carbon::parse($r['prev_month'] . '-01')->format('M Y') }} (earlier month)</span>@endif</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
             <td>{{ $first->tenant_name }}</td>
             <td>{{ $first->tenant_contract_no }}</td>
@@ -434,7 +434,7 @@
             <td><input type="checkbox" class="bsp-tick" data-row="{{ $rowNo }}" {{ $on ? 'checked' : '' }} aria-label="Post cheque {{ $r['row']['cheque_no'] }}"></td>
             <td>{{ $matched->perPage() * ($matched->currentPage() - 1) + $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
-            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}@if(!empty($r['prev_month']))<span class="bsp-sub">PLMS dated {{ \Carbon\Carbon::parse($r['prev_month'] . '-01')->format('M Y') }} (earlier month)</span>@endif</td>
             <td class="num"><b>{{ numberFormat($r['row']['amount']) }}</b></td>
             @php $tenantCount = count(array_unique(array_map(function ($p) { return $p->tenant_id; }, $r['pdcs']))); @endphp
             <td>
@@ -534,7 +534,7 @@
             <td>{{ $cannot->perPage() * ($cannot->currentPage() - 1) + $loop->iteration }}</td>
             <td><b>{{ $r['row']['cheque_no'] }}</b></td>
             <td>{{ $r['row']['bank_name'] }}</td>
-            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}@if(!empty($r['prev_month']))<span class="bsp-sub">PLMS dated {{ \Carbon\Carbon::parse($r['prev_month'] . '-01')->format('M Y') }} (earlier month)</span>@endif</td>
             <td class="num">{{ numberFormat($r['row']['amount']) }}</td>
             {{-- PLMS PDCs behind this row, for reference only (never posted from here) --}}
             <td>

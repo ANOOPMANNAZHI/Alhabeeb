@@ -8,12 +8,15 @@ namespace Modules\BackOffice\Services;
  * be split across several PDC rows (one per contract/unit of the same
  * tenant), and different tenants' cheques can share a serial number, so a
  * match is a *group* of PDC rows with the same cheque no + bank whose
- * cheque date falls in the sheet's cheque month and whose amounts add up
- * to the sheet amount. Pure PHP (no DB) so it can be unit tested; runs on
+ * cheque date falls in the sheet's cheque month - or, when none does, in one of
+ * the MONTHS_BACK months before it, nearest first (an October cheque saved as
+ * September, August or July; the result then carries 'prev_month') - and whose
+ * amounts add up to the sheet amount. Pure PHP (no DB) so it can be unit tested; runs on
  * PHP < 7.4 in production: no arrow functions.
  */
 class BankSheetPdcMatcher
 {
+    const MONTHS_BACK     = 3; // a cheque may be saved in PLMS up to 3 months before its date (user, 04/10/2026)
     const MATCHED         = 'matched';
     const AMBIGUOUS       = 'ambiguous';
     const AMOUNT_MISMATCH = 'amount_mismatch';
@@ -125,20 +128,46 @@ class BankSheetPdcMatcher
         }
 
         $month   = substr($row['cheque_date'], 0, 7);
-        $inMonth = [];
-        foreach ($found as $pdc) {
-            if (substr((string) $pdc->pdc_check_date, 0, 7) === $month) {
-                $inMonth[] = $pdc;
-            }
+        $inMonth = $this->inMonth($found, $month);
+        $prevMonth = null;
+        // the cheque's month first; only when nothing is in it, the months before, nearest first
+        for ($back = 1; count($inMonth) === 0 && $back <= self::MONTHS_BACK; $back++) {
+            $before = date('Y-m', strtotime($month . '-01 -' . $back . ' month'));
+            $inMonth = $this->inMonth($found, $before);
+            $prevMonth = count($inMonth) > 0 ? $before : null;
         }
         if (count($inMonth) === 0) {
             $dates = array_unique(array_map(function ($p) { return substr((string) $p->pdc_check_date, 0, 10); }, $found));
             return $this->withRelated(
-                $this->result($row, self::DATE_MISMATCH, [], [], 'PLMS cheque date ' . implode(', ', $dates) . ' is not in ' . $month),
+                $this->result($row, self::DATE_MISMATCH, [], [], 'PLMS cheque date ' . implode(', ', $dates) . ' is not in ' . $month
+                    . ' or the ' . self::MONTHS_BACK . ' months before'),
                 $found,
                 self::RELATED_SAME
             );
         }
+
+        $result = $this->matchAmounts($row, $inMonth, $vatFound);
+        if ($prevMonth !== null) {
+            $result['prev_month'] = $prevMonth;
+        }
+        return $result;
+    }
+
+    /** PDCs whose cheque date is in $month (Y-m). */
+    private function inMonth(array $pdcs, $month)
+    {
+        $out = [];
+        foreach ($pdcs as $pdc) {
+            if (substr((string) $pdc->pdc_check_date, 0, 7) === $month) {
+                $out[] = $pdc;
+            }
+        }
+        return $out;
+    }
+
+    /** The amount rules, on the rent PDCs of the accepted month(s). */
+    private function matchAmounts(array $row, array $inMonth, array $vatFound)
+    {
 
         $amount     = (float) $row['amount'];
         $candidates = $this->candidateGroups($inMonth, $amount);
