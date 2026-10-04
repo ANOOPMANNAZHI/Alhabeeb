@@ -167,14 +167,25 @@ class NormalManagementConsolidateExpensesTest extends TestCase
         // YTD (col O) from the Generate path's own query copy = the stream path's figures
         $data = app(\Modules\BackOffice\Http\Controllers\BackOfficeReportController::class)
             ->buildNormalManagementMonthData($b, 2026, range(1, 12));
-        $ytd = array_fill_keys(self::ORDER, 0.0);
-        foreach (range(1, 12) as $m) {
-            foreach (NormalManagementConsolidateSheet::expenseLines($data[$m] ?? []) as $k => $v) {
-                $ytd[$k] += $v;
+        $stream = (new NormalManagementConsolidateSheet($data, 2026, $b->building_name))->array();
+        foreach (self::ORDER as $i => $label) {
+            $this->assertEqualsWithDelta($num($stream[$start + $i][14]), $num($rows[$start + $i][14]), 0.001, $label);
+        }
+
+        // Whole OMR everywhere, and every month's rows add up to its Total Expenses
+        for ($r = 0; $r < $start + count(self::ORDER) + 1; $r++) {
+            foreach (array_slice($rows[$r], 2, 13) as $v) {
+                if (is_numeric($v)) {
+                    $this->assertEquals(round((float) $v), (float) $v, 'row ' . ($r + 1) . ' has decimals');
+                }
             }
         }
-        foreach (self::ORDER as $i => $label) {
-            $this->assertEqualsWithDelta($ytd[$label], $num($rows[$start + $i][14]), 0.001, $label);
+        for ($c = 2; $c <= 14; $c++) {
+            $sum = 0.0;
+            foreach (array_slice($rows, $start, count(self::ORDER)) as $row) {
+                $sum += $num($row[$c]);
+            }
+            $this->assertEquals($sum, $num($rows[$start + count(self::ORDER)][$c]), 'column ' . $c);
         }
     }
 }
