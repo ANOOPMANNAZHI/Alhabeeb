@@ -52,6 +52,19 @@
   .bsp .bsp-bounce-btn:focus-visible { outline:2px solid #2f4fd6; outline-offset:2px; }
   .bsp .bsp-bounce-btn[disabled] { opacity:.6; cursor:not-allowed; }
 
+  /* Bank codes on the sheet that no PLMS bank carries yet */
+  .bsp .bsp-codes { border-left:4px solid #b45309; }
+  .bsp .bsp-codes p { margin:0 0 12px; color:#475569; font-size:13px; }
+  .bsp .bsp-code-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 0; border-top:1px solid #e2e8f0; }
+  .bsp .bsp-code-row:first-of-type { border-top:0; }
+  .bsp .bsp-code-what { flex:1 1 260px; }
+  .bsp .bsp-code-no { display:inline-block; min-width:36px; padding:2px 8px; margin-right:6px; border-radius:6px; background:#fef3c7; color:#92400e; font-weight:700; text-align:center; }
+  .bsp .bsp-code-row select { height:36px; min-width:240px; padding:0 8px; border:1px solid #94a3b8; border-radius:6px; }
+  .bsp .bsp-code-btn { display:inline-flex; align-items:center; height:36px; padding:0 16px; border:1px solid #2f4fd6; border-radius:6px;
+                       background:#2f4fd6; color:#fff; font-size:14px; font-weight:600; white-space:nowrap; cursor:pointer; }
+  .bsp .bsp-code-btn:hover { background:#2440b3; }
+  .bsp .bsp-code-btn:focus-visible, .bsp .bsp-code-row select:focus-visible { outline:2px solid #2f4fd6; outline-offset:2px; }
+
   /* section headings */
   .bsp .bsp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; }
   .bsp .bsp-head h4 { margin:0; font-size:16px; }
@@ -173,6 +186,45 @@
     </div>
   </div>
 </form>
+
+{{-- ── Bank codes not on any PLMS bank: add them to the right bank, then the sheet is matched again ── --}}
+@if(count($unknownCodes) > 0)
+<div class="card card-box bsp-codes" id="bsp-codes">
+  <div class="card-body">
+    <div class="bsp-head">
+      <h4><i class="fa fa-university" style="color:#b45309" aria-hidden="true"></i> Bank codes not set up in PLMS
+        <span class="bsp-pill bsp-pill-choice">{{ count($unknownCodes) }}</span></h4>
+    </div>
+    <p>The bank's sheet uses these clearing codes, but no bank in the Bank master has them, so their cheques cannot be posted.
+      @if($canEditBank)Add each code to its bank: it is kept next to the codes the bank already has, and the sheet is matched again.
+      @else Ask someone who can edit the Bank master to add them.@endif</p>
+    @foreach($unknownCodes as $u)
+      @php
+        $suggested = $u['suggested_bank_id'] ? $codeBanks->firstWhere('id', $u['suggested_bank_id']) : null;
+      @endphp
+      <form method="post" action="{{ route('pdcBankSheetClearingCode', $stored) }}" class="bsp-code-row">
+        @csrf
+        <input type="hidden" name="code" value="{{ $u['code'] }}">
+        <div class="bsp-code-what">
+          <span class="bsp-code-no">{{ $u['code'] }}</span><strong>{{ $u['sheet_name'] ?: 'No bank name' }}</strong>
+          <span class="bsp-sub">{{ $u['rows'] }} {{ $u['rows'] === 1 ? 'cheque' : 'cheques' }} on this sheet
+            @if($suggested) · the same {{ $u['rows'] === 1 ? 'cheque is' : 'cheques are' }} in PLMS under {{ $suggested->bank_name }}@endif</span>
+        </div>
+        @if($canEditBank)
+          <label for="bsp-code-bank-{{ $u['code'] }}" class="sr-only">Bank for code {{ $u['code'] }}</label>
+          <select id="bsp-code-bank-{{ $u['code'] }}" name="bank_id" required>
+            <option value="">Choose the bank</option>
+            @foreach($codeBanks as $b)
+              <option value="{{ $b->id }}" {{ $suggested && $suggested->id === $b->id ? 'selected' : '' }}>{{ $b->bank_name }} - {{ $b->bank_code }}{{ $b->bank_clearing_codes ? ' (codes ' . $b->bank_clearing_codes . ')' : '' }}</option>
+            @endforeach
+          </select>
+          <button type="submit" class="bsp-code-btn"><i class="fa fa-plus" aria-hidden="true" style="margin-right:6px"></i>Add code {{ $u['code'] }}</button>
+        @endif
+      </form>
+    @endforeach
+  </div>
+</div>
+@endif
 
 {{-- Column filters (inputs reference this form via form=""); ticks and choices live in the session so they are unaffected --}}
 <form method="get" action="{{ route('pdcBankSheetPreview', $stored) }}" id="bsp-filter-form" autocomplete="off"></form>

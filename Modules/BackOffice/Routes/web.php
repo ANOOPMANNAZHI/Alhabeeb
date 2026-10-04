@@ -447,6 +447,7 @@ Route::post('/pdcPosting/bankSheet', 'PdcBankSheetController@upload')->name('pdc
 Route::get('/pdcPosting/bankSheet/{stored}', 'PdcBankSheetController@preview')->name('pdcBankSheetPreview');
 Route::post('/pdcPosting/bankSheet/{stored}/select', 'PdcBankSheetController@select')->name('pdcBankSheetSelect');
 Route::post('/pdcPosting/bankSheet/{stored}/post', 'PdcBankSheetController@post')->name('pdcBankSheetPost');
+Route::post('/pdcPosting/bankSheet/{stored}/clearingCode', 'PdcBankSheetController@saveClearingCode')->name('pdcBankSheetClearingCode');
 Route::get('/pdcPosting/bankSheetUploads', 'PdcBankSheetController@uploads')->name('pdcBankSheetUploads');
 Route::get('/pdcPosting/bankSheetUploads/{upload}', 'PdcBankSheetController@result')->name('pdcBankSheetResult');
 Route::get('/pdcPosting/bankSheetUploads/{upload}/excel', 'PdcBankSheetController@resultExcel')->name('pdcBankSheetResultExcel');

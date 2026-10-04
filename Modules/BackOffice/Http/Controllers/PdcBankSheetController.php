@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\BackOffice\Entities\Pdc;
 use Modules\BackOffice\Exports\PdcBankSheetResultExport;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
+use Modules\BackOffice\Services\BankClearingCodes;
 use Modules\BackOffice\Services\BankSheetPdcMatcher;
 use Modules\BackOffice\Services\BankSheetRejectedCheques;
 use Modules\BackOffice\Services\BankSheetReader;
@@ -124,7 +125,14 @@ class PdcBankSheetController extends Controller
             ? BankSheetRejectedCheques::match($rejectedRows, $this->candidatePdcs($rejectedRows, true), $this->bankMap())
             : [];
 
+        // codes on the sheet that no PLMS bank carries yet: can be added here (Bank master edit right)
+        $unknownCodes = BankClearingCodes::unknown($analysis['results']);
+        $codeBanks = $unknownCodes ? Bank::active()->orderBy('bank_name', 'ASC')->get(['id', 'bank_name', 'bank_code', 'bank_clearing_codes']) : collect();
+
         return view('backoffice::Routine.pdc_bank_sheet_preview', [
+            'unknownCodes'  => $unknownCodes,
+            'codeBanks'     => $codeBanks,
+            'canEditBank'   => \Auth::user()->can('edit_bank'),
             'rejected'      => $rejected,
             'activeTab'     => $activeTab,
             'stored'        => $stored,
@@ -792,6 +800,49 @@ class PdcBankSheetController extends Controller
         }
         list($y, $m, $d) = explode('-', $value);
         return checkdate((int) $m, (int) $d, (int) $y) ? $value : null;
+    }
+
+    /**
+     * Adds a clearing sheet code from the sheet to a bank, next to the codes it already has
+     * ("18" -> "18,45"). Needs the Bank master edit right. A code another bank already carries
+     * is refused here (it is no longer unknown); moving it is a Bank master change.
+     */
+    public function saveClearingCode(Request $request, $stored)
+    {
+        if (!\Auth::user()->can('edit_bank')) {
+            abort(403);
+        }
+        $this->validate($request, [
+            'code'    => ['required', 'regex:/^\d{1,10}$/'],
+            'bank_id' => 'required|integer|exists:bank,id',
+        ], ['bank_id.required' => 'Choose the bank for this code.']);
+        $back = redirect()->route('pdcBankSheetPreview', $stored);
+        $code = (string) $request->code;
+        $bank = Bank::findOrFail((int) $request->bank_id);
+
+        if (in_array($code, BankClearingCodes::split($bank->bank_clearing_codes), true)) {
+            return $back->with('success', 'Code ' . $code . ' is already on ' . $bank->bank_name . '.');
+        }
+        $others = Bank::where('id', '<>', $bank->id)->whereNotNull('bank_clearing_codes')->get()
+            ->filter(function ($b) use ($code) { return in_array($code, BankClearingCodes::split($b->bank_clearing_codes), true); });
+        if ($others->count() > 0) {
+            // saved meanwhile (another tab / the Bank master): the reloaded preview already uses it
+            return $back->with('error', 'Code ' . $code . ' is already on ' . $others->pluck('bank_name')->implode(', ')
+                . '. If it belongs to ' . $bank->bank_name . ' instead, change it in the Bank master.');
+        }
+
+        $old = $bank->bank_clearing_codes;
+        $bank->bank_clearing_codes = BankClearingCodes::add($old, $code);
+        if (strlen($bank->bank_clearing_codes) > 100) {
+            return $back->with('error', 'Too many codes on ' . $bank->bank_name . ' (100 characters at most).');
+        }
+        $bank->updated_by = \Auth::user()->id;
+        $bank->save();
+        \Log::info('Bank clearing code added from bank sheet', ['bank_id' => $bank->id, 'code' => $code, 'before' => $old,
+            'after' => $bank->bank_clearing_codes, 'user_id' => \Auth::user()->id, 'sheet' => $stored]);
+
+        return $back->with('success', 'Code ' . $code . ' added to ' . $bank->bank_name . ' (codes now ' . $bank->bank_clearing_codes
+            . '). The sheet has been matched again.');
     }
 
     /** "20260920_163000_7_Cheque.xls" => "Cheque.xls" */
