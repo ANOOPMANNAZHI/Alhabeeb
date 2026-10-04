@@ -223,6 +223,16 @@ class ReceivableFollowupTest extends TestCase
         $this->postJson(route('receivable-followup.store', $own->contract_id), ['comment' => 'x'])->assertStatus(403);
         $this->assertSame(0, ReceivableFollowup::where('tenant_contract_id', $own->contract_id)->where('comment', 'x')->count());
         $this->assertNotContains('rf-followup', $this->rows());
+        $this->assertNotContains('rf-tl-followup', $this->get(route('receivable-followup.timeline', $own->contract_id))->getContent());
+    }
+
+    public function test_history_popup_offers_follow_up()
+    {
+        $c = $this->contracts[0];
+        $html = $this->get(route('receivable-followup.timeline', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
+        $this->assertContains('class="rf-btn rf-btn-primary rf-tl-followup" data-url="' . route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn . '"', $html);
+        // the page swaps the history for the form in the same popup
+        $this->assertContains("on('click', '.rf-tl-followup'", $this->get(route('receivable-followup.index'))->getContent());
     }
 
     public function test_are_cannot_save_or_view_outside_own_buildings()

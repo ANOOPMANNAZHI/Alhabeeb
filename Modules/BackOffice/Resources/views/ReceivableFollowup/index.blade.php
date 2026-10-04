@@ -232,6 +232,8 @@
   }
   $('#rf-modal').on('hide.bs.modal', function () { modalSeq++; });
   $(document).on('click', '.rf-followup', function (e) { e.stopPropagation(); openModal($(this).attr('data-url'), this); });
+  // Follow-up from the history: the form replaces the history in the same popup; focus still returns to the row
+  $(document).on('click', '.rf-tl-followup', function () { openModal($(this).attr('data-url'), opener); });
   // the whole row opens the history (click, or Enter / Space when the row has focus); not while selecting text
   $(document).on('click', '#rf-rows .rf-row', function (e) {
     if ($(e.target).closest('a, button, input, select, textarea').length || String(window.getSelection())) { return; }

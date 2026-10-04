@@ -22,6 +22,11 @@
         @endforeach
       </ol>
     @endif
-    <div class="rf-foot"><button type="button" class="rf-btn" data-dismiss="modal">Close</button></div>
+    <div class="rf-foot">
+      <button type="button" class="rf-btn" data-dismiss="modal">Close</button>
+      @can('add_receivable_followup')
+      <button type="button" class="rf-btn rf-btn-primary rf-tl-followup" data-url="{{ route('receivable-followup.form', $contract->id) }}{{ $asOn ? '?as_on=' . $asOn : '' }}">Follow-up</button>
+      @endcan
+    </div>
   </div>
 </div></div>
