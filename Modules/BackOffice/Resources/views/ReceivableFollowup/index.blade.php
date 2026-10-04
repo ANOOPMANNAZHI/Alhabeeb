@@ -37,9 +37,9 @@
         @foreach($management as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
       </select></div>
     @if($showAre)
-    <div><label for="rf-are">ARE</label>
+    <div><label for="rf-are">CA (Contract Administrator)</label>
       <select id="rf-are" name="are_id" class="form-control">
-        <option value="">All AREs</option>
+        <option value="">All CAs</option>
         @foreach($ares as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
       </select></div>
     @endif
@@ -105,7 +105,7 @@
     if (applied.month !== defaults.month || applied.year !== defaults.year) { n++; }
     if (applied.building_id) { n++; parts.push($('#rf-building option[value="' + applied.building_id + '"]').text()); }
     if (applied.management_id) { n++; parts.push($('#rf-mgmt option[value="' + applied.management_id + '"]').text()); }
-    if (applied.are_id) { n++; parts.push('ARE ' + $('#rf-are option[value="' + applied.are_id + '"]').text()); }
+    if (applied.are_id) { n++; parts.push('CA ' + $('#rf-are option[value="' + applied.are_id + '"]').text()); }
     if (applied.tenant) { n++; parts.push('Tenant "' + applied.tenant + '"'); }
     if (applied.contract) { n++; parts.push('Agreement "' + applied.contract + '"'); }
     if (applied.unit) { n++; parts.push('Unit "' + applied.unit + '"'); }

@@ -238,9 +238,12 @@ class ReceivableFollowupTest extends TestCase
         $name = DB::table('users')->leftJoin('employees', 'employees.id', '=', 'users.user_type_id')->where('users.id', $uid)
             ->value(DB::raw('coalesce(employees.employee_name, users.username)'));
         $this->assertContains('data-sort="are"', $html);
+        $this->assertRegExp('/<th scope="col" title="Contract Administrator"[^>]*><button[^>]*data-sort="are"[^>]*>CA</', $html);
         $this->assertContains(e($name), $this->rowHtml($html, $per[$uid]->id));
         $page = $this->get(route('receivable-followup.index'))->getContent();
         $this->assertRegExp('/<select id="rf-are"[^>]*>.*?<option value="' . $uid . '">/s', $page);
+        $this->assertContains('<label for="rf-are">CA (Contract Administrator)</label>', $page);
+        $this->assertContains('<option value="">All CAs</option>', $page);
 
         $html = $this->rows(['are_id' => $uid]);
         foreach ($per as $u => $c) {

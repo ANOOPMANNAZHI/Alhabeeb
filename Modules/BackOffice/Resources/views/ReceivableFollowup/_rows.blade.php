@@ -25,7 +25,7 @@
     {!! $th('tenant', 'Tenant', 'asc') !!}
     {!! $th('contract', 'Agreement', 'asc') !!}
     {!! $th('building', 'Building', 'asc') !!}
-    @if($showAre){!! $th('are', 'ARE', 'asc') !!}@endif
+    @if($showAre){!! str_replace('<th scope="col"', '<th scope="col" title="Contract Administrator"', $th('are', 'CA', 'asc')) !!}@endif
     {!! $th('unit', 'Unit No', 'asc') !!}
     {!! $th('rent', 'Rent', 'desc', true) !!}
     {!! $th('paid_till', 'Paid Till', 'asc') !!}
