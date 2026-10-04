@@ -4433,11 +4433,15 @@ public function normalManagementReportV2Generate(Request $request)
 
         // ── Batch expense data for the entire year (one query per building) ────
         $expenseRows = DB::select("
-            SELECT month, expense_name, SUM(expense_amount) AS expense_amount
+            SELECT month, expense_name, inhouse, acc_code, before_cutover, old_amc_vendor, SUM(expense_amount) AS expense_amount
             FROM (
                 SELECT
                     EXTRACT(MONTH FROM mi.maintenance_invoice_date)::int AS month,
                     eh.expense_name,
+                    (mid.service_report_id IS NOT NULL) AS inhouse,
+                    ac.acc_code_val AS acc_code,
+                    (mi.maintenance_invoice_date < '" . NormalManagementConsolidateSheet::AMC_CODES_FROM . "') AS before_cutover,
+                    (mi.vendor_id IN (" . NormalManagementConsolidateSheet::oldAmcVendorList() . ")) AS old_amc_vendor,
                     CAST(mid.debit_amt AS NUMERIC) AS expense_amount
                 FROM maintenance_invoice_details mid
                 JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
@@ -4451,6 +4455,10 @@ public function normalManagementReportV2Generate(Request $request)
                 SELECT
                     EXTRACT(MONTH FROM gl.doc_date)::int AS month,
                     eh.expense_name,
+                    FALSE AS inhouse,
+                    ac.acc_code_val AS acc_code,
+                    (gl.doc_date < '" . NormalManagementConsolidateSheet::AMC_CODES_FROM . "') AS before_cutover,
+                    FALSE AS old_amc_vendor,
                     CAST(gld.debit_amt AS NUMERIC) AS expense_amount
                 FROM general_ledger_dim gld
                 JOIN general_ledgers gl ON gl.id = gld.general_ledger_id
@@ -4461,7 +4469,7 @@ public function normalManagementReportV2Generate(Request $request)
                   AND gl.general_ledger_status != 2
                   AND gl.deleted_at IS NULL
             ) src
-            GROUP BY month, expense_name
+            GROUP BY month, expense_name, inhouse, acc_code, before_cutover, old_amc_vendor
             ORDER BY month, expense_name
         ", [$building->id, $year, $building->id, $year]);
 
@@ -4572,6 +4580,8 @@ public function normalManagementReportV2Generate(Request $request)
         }
 
         // ── Per-month loop ────────────────────────────────────────────────────
+        $landlordContractRows = $this->nmrLandlordContracts($building->id);
+
         foreach (range(1, 12) as $m) {
             $startDate = date('Y-m-d', mktime(0, 0, 0, $m, 1, $year));
             $endDate   = date('Y-m-t', mktime(0, 0, 0, $m, 1, $year));
@@ -4646,12 +4656,18 @@ public function normalManagementReportV2Generate(Request $request)
                         GROUP BY unit_id, tenant_id
                     ),
                     occ_at_start AS (
-                        SELECT DISTINCT tc_oas.unit_id
+                        -- tenant already in the unit on the 1st: a contract of the same tenant running
+                        -- that day, even if it has ended since (a renewal is not a new occupancy, user 03/10/2026)
+                        SELECT DISTINCT tc_oas.unit_id, tc_oas.tenant_id
                         FROM tenant_contracts tc_oas
                         JOIN building_units bu ON bu.id = tc_oas.unit_id
-                        WHERE tc_oas.tenant_contract_status = 1
+                        LEFT JOIN (SELECT contract_id, MAX(termination_date) AS termination_date
+                                     FROM termination WHERE termination_date IS NOT NULL
+                                    GROUP BY contract_id) td_oas ON td_oas.contract_id = tc_oas.id
+                        WHERE (tc_oas.tenant_contract_status = 1 OR tc_oas.work_flow_processes_code = 108)
                           AND tc_oas.tenant_contract_start_date <= ?::date
-                          AND (tc_oas.tenant_contract_valid_to_date >= ?::date OR tc_oas.tenant_contract_valid_to_date IS NULL)
+                          AND (COALESCE(td_oas.termination_date, tc_oas.tenant_contract_valid_to_date) >= ?::date
+                               OR (td_oas.termination_date IS NULL AND tc_oas.tenant_contract_valid_to_date IS NULL))
                     )
                     SELECT
                         bu.id AS unit_id,
@@ -4675,7 +4691,7 @@ public function normalManagementReportV2Generate(Request $request)
                     LEFT JOIN rent_recd rr ON rr.unit_id = bu.id AND rr.tenant_id = ac.tenant_id
                     LEFT JOIN paid_thru pt ON pt.unit_id = bu.id AND pt.tenant_id = ac.tenant_id
                     LEFT JOIN monthly_col mc ON mc.unit_id = bu.id AND mc.tenant_id = ac.tenant_id
-                    LEFT JOIN occ_at_start os ON os.unit_id = bu.id
+                    LEFT JOIN occ_at_start os ON os.unit_id = bu.id AND os.tenant_id = ac.tenant_id
                     ORDER BY bu.unit_no
                 ", [
                     $building->id,  // building_units: building_id
@@ -4874,19 +4890,12 @@ public function normalManagementReportV2Generate(Request $request)
                           AND tc2.tenant_contract_start_date <= ?::date
                           AND (tc2.tenant_contract_valid_to_date >= ?::date OR tc2.tenant_contract_valid_to_date IS NULL)
                     )
+                    -- legal cases are not part of this report at any stage, settlements included (user, 03/10/2026)
                     AND NOT EXISTS (
                         SELECT 1 FROM legal l
-                        WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id AND l.legal_is_closed != 2
+                        WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id
                     )
-                    AND NOT (
-                        (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                        AND NOT EXISTS (
-                            SELECT 1 FROM legal l3
-                            WHERE l3.unit_id = bu.id
-                              AND l3.tenant_id = ec.tenant_id
-                              AND l3.legal_is_closed = 2
-                        )
-                    )
+                    AND t.tenant_name NOT ILIKE '%-legal%' AND t.tenant_name NOT ILIKE '%-U.legal%'
                     ORDER BY bu.unit_no
                 ", [
                     $building->id,  // building_units: building_id
@@ -4976,128 +4985,11 @@ public function normalManagementReportV2Generate(Request $request)
                 }
                 unset($unit);
 
-                // Legal tenants with expired contracts — add as a second row (red) even if an active contract also exists
-                $legalExpiredUnits = DB::select("
-                    WITH building_units AS (
-                        SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
-                        FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
-                        WHERE u.building_id = ? AND u.unit_status = 1
-                    ),
-                    legal_ids AS (
-                        SELECT DISTINCT l.unit_id, l.tenant_id FROM legal l
-                        JOIN building_units bu ON bu.id = l.unit_id WHERE l.legal_is_closed != 2
-                        UNION
-                        SELECT DISTINCT tc.unit_id, tc.tenant_id FROM tenant_contracts tc
-                        JOIN tenant t ON t.id = tc.tenant_id
-                        JOIN building_units bu ON bu.id = tc.unit_id
-                        WHERE (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                          AND NOT EXISTS (
-                              SELECT 1 FROM legal l2
-                              JOIN units u2 ON u2.id = l2.unit_id
-                              WHERE u2.building_id = ? AND l2.legal_is_closed != 2
-                                AND l2.tenant_contract_id IS NOT NULL
-                          )
-                          AND NOT EXISTS (
-                              SELECT 1 FROM legal l3
-                              WHERE l3.unit_id = tc.unit_id
-                                AND l3.tenant_id = tc.tenant_id
-                                AND l3.legal_is_closed = 2
-                          )
-                    ),
-                    latest_expired AS (
-                        -- Only truly expired contracts (end date before report month start)
-                        -- so active-contract units still get the second legal-outstanding row
-                        -- without duplicating what the active-contract row already covers
-                        SELECT DISTINCT ON (tc.unit_id)
-                            tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                            tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
-                        FROM tenant_contracts tc
-                        JOIN legal_ids li ON li.unit_id = tc.unit_id AND li.tenant_id = tc.tenant_id
-                        WHERE tc.tenant_contract_valid_to_date IS NOT NULL
-                          AND tc.tenant_contract_valid_to_date < ?::date
-                        ORDER BY tc.unit_id, tc.tenant_contract_valid_to_date DESC NULLS LAST
-                    ),
-                    all_legal_receipts AS (
-                        SELECT tc_r.unit_id, tc_r.tenant_id,
-                               rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                               rg.receipts_generation_receipt_date, rg.receipts_generation_amt
-                        FROM receipts_generation rg
-                        JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
-                        JOIN building_units bu ON bu.id = tc_r.unit_id
-                        JOIN legal_ids li ON li.unit_id = tc_r.unit_id AND li.tenant_id = tc_r.tenant_id
-                        WHERE rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
-                    ),
-                    rent_recd_l AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_to::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_to DESC NULLS LAST
-                    ),
-                    paid_thru_l AS (
-                        SELECT DISTINCT ON (unit_id, tenant_id)
-                            unit_id, tenant_id, receipts_generation_eff_to AS paid_through
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_from::date <= ?::date
-                        ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
-                    ),
-                    monthly_col_l AS (
-                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
-                        FROM all_legal_receipts
-                        WHERE receipts_generation_eff_from IS NOT NULL
-                          AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
-                        GROUP BY unit_id, tenant_id
-                    )
-                    SELECT
-                        bu.id AS unit_id,
-                        bu.unit_no, bu.unit_type, t.tenant_name,
-                        le.tenant_contract_start_date AS contract_start,
-                        le.tenant_contract_valid_to_date AS contract_end,
-                        rr.rent_recd_upto, pt.paid_through,
-                        COALESCE(le.tenant_contract_rent, 0) AS rent_per_month,
-                        COALESCE(mc.collection_amount, 0) AS collection_amount,
-                        0 AS income_amount, 0 AS outstanding_amount, 0 AS occupied_at_month_start
-                    FROM building_units bu
-                    JOIN latest_expired le ON le.unit_id = bu.id
-                    JOIN tenant t ON t.id = le.tenant_id
-                    LEFT JOIN rent_recd_l rr ON rr.unit_id = bu.id AND rr.tenant_id = le.tenant_id
-                    LEFT JOIN paid_thru_l pt ON pt.unit_id = bu.id AND pt.tenant_id = le.tenant_id
-                    LEFT JOIN monthly_col_l mc ON mc.unit_id = bu.id AND mc.tenant_id = le.tenant_id
-                    ORDER BY bu.unit_no
-                ", [$building->id, $building->id, $startDate, $endDate, $endDate, $startDate]);
-
-                foreach ($legalExpiredUnits as &$unit) {
-                    $unit->is_legal = true;
-                    $rent = (float)($unit->rent_per_month ?? 0);
-                    $effTo = $unit->paid_through ?? null;
-                    $contractStart = $unit->contract_start ?? null;
-                    if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
-                    if (empty($effTo) && !empty($contractStart)) {
-                        $effTo = date('Y-m-d', strtotime($contractStart) - 86400);
-                    }
-                    if (empty($effTo)) { $unit->outstanding_amount = 0; continue; }
-                    $effToTs = strtotime($effTo);
-                    $endDateTs = strtotime($endDate);
-                    if ($effToTs >= $endDateTs) { $unit->outstanding_amount = 0; continue; }
-                    $eY=(int)date('Y',$effToTs); $eM=(int)date('n',$effToTs); $eD=(int)date('j',$effToTs);
-                    $eD30 = ($eD >= (int)date('t',$effToTs)) ? 30 : min($eD, 30);
-                    $cY=(int)date('Y',$endDateTs); $cM=(int)date('n',$endDateTs); $cD=(int)date('j',$endDateTs);
-                    $cD30 = ($cD >= (int)date('t',$endDateTs)) ? 30 : min($cD, 30);
-                    $days = ($cY-$eY)*360 + ($cM-$eM)*30 + ($cD30-$eD30);
-                    $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
-                }
-                unset($unit);
-
-                // Filter expired-legal units: only keep those with outstanding > 0 or collection this month
-                $legalExpiredUnits = array_values(array_filter($legalExpiredUnits, function ($u) {
-                    return $u->outstanding_amount > 0 || (float)($u->collection_amount ?? 0) > 0;
-                }));
-
-                // Merge legal expired units into main units and sort by unit_no
-                if (!empty($legalExpiredUnits)) {
-                    $units = array_merge($units, $legalExpiredUnits);
-                    usort($units, function($a, $b) { return strnatcmp($a->unit_no ?? '', $b->unit_no ?? ''); });
-                }
+                // Legal tenants are not shown in this report (user, 03/10/2026): the separate
+                // "legal tenant with an expired contract" rows were removed.
+                // Rent paid before an incoming tenant's contract starts: collection of this month (user, 03/10/2026)
+                $units = $this->nmrWithIncomingTenants($units, $building->id, $startDate, $endDate);
+                $munTax = $this->nmrMunicipalTaxRows($building->id, $startDate);
 
                 // Expenses — use pre-fetched batch (no per-month DB hit)
                 $expenses = $expensesByMonth[$m] ?? [];
@@ -5118,6 +5010,7 @@ public function normalManagementReportV2Generate(Request $request)
                 ];
             } else {
                 $units          = [];
+                $munTax         = [];
                 $oldOutstanding = [];
                 $expenses       = [];
                 $occupancy      = [
@@ -5133,11 +5026,16 @@ public function normalManagementReportV2Generate(Request $request)
                 ];
             }
 
+            $matched = $this->nmrMatchLandlordContract($landlordContractRows, $startDate, $endDate);
             $monthData[$m] = [
-                'units'           => $units,
-                'old_outstanding' => $oldOutstanding ?? [],
-                'expenses'        => $expenses,
-                'occupancy'       => $occupancy,
+                'units'             => $units,
+                'old_outstanding'   => $oldOutstanding ?? [],
+                'expenses'          => $expenses,
+                'occupancy'         => $occupancy,
+                'cleaning_charge'   => $matched !== null ? (float) $matched->cleaning_charge : 0,
+                'landlord_contract' => $matched,
+                'building_management_id' => (int) $building->management_id,
+                'mun_tax'           => $munTax ?? [],
             ];
         }
 
@@ -5497,27 +5395,8 @@ public function landlordTaxInvoiceLineAmounts(\Modules\Masters\Entities\Building
             $totalRenewal    += (float) ($data['renewal_fee'] ?? 0);
             $totalNewLeasing += (float) ($data['new_leasing_fee'] ?? 0);
 
-            if ((int) $lc->management_method === 2) {
-                $managementFee += (float) $lc->landlord_contract_management_fee;
-                continue;
-            }
-
-            // Percentage type: apply to this month's income or collection only.
-            $monthIncome     = 0.0;
-            $monthCollection = 0.0;
-            foreach ($data['units'] ?? [] as $u) {
-                $monthIncome     += (float) ($u->income_amount ?? 0);
-                $monthCollection += (float) ($u->collection_amount ?? 0);
-            }
-            foreach ($data['old_outstanding'] ?? [] as $u) {
-                $monthCollection += (float) ($u->collection_amount ?? 0);
-            }
-            $percentageBasis = (int) $lc->landlord_contract_percentage;
-            if ($percentageBasis !== 1 && $percentageBasis !== 2) {
-                continue; // out-of-domain percentage basis on this contract; skip this month's fee rather than guess
-            }
-            $basis = ($percentageBasis === 2) ? $monthCollection : $monthIncome;
-            $managementFee += round($basis * ((float) $lc->landlord_contract_management_fee / 100), 3);
+            // Fixed, or a percentage of the month's income / collection (shared with the consolidated sheet)
+            $managementFee += NormalManagementConsolidateSheet::managementFee($data);
         }
     }
 
@@ -5605,11 +5484,13 @@ public function landlordOtherDeductionsLineAmounts(\Modules\Masters\Entities\Bui
                         $dewatering += (float) $exp->expense_amount;
                         break;
                     case 'A C MAINTENANCE':
-                    case 'CIT - AC MAINTENANCE':
+                    case 'CIT - AC MAINTENANCE':        // renamed to the AMC account name (04/10/2026)
+                    case 'A C MAINTENANCE - A M C':
                         $acMaintenance += (float) $exp->expense_amount;
                         break;
                     case 'FIRE ALARM SYSTEM MAINT.':
                     case 'CIT - FIRE ALARAM SYSTEM MAINT.':
+                    case 'FIRE ALARAM SYSTEM MAINT. - A M C':
                         $fas += (float) $exp->expense_amount;
                         break;
                 }
@@ -5826,6 +5707,156 @@ public function landlordTaxInvoiceAmountInWords(float $total): string
  *
  */
 
+/** Landlord contracts of a building, oldest first (Normal Management Report V2). */
+private function nmrLandlordContracts($buildingId)
+{
+    return DB::select("
+        SELECT landlord_contract_status AS status,
+               landlord_contract_valid_from_date AS valid_from,
+               landlord_contract_valid_to_date AS valid_to,
+               landlord_contract_cleaning_charge AS cleaning_charge,
+               management_method,
+               landlord_contract_percentage,
+               landlord_contract_management_fee,
+               vendor_id,
+               landlord_contract_facility_management_fee AS facility_management_fee,
+               landlord_contract_renewal_fee AS renewal_fee,
+               landlord_contract_new_leasing_fee_type AS new_leasing_fee_type,
+               landlord_contract_new_leasing_fee AS new_leasing_fee
+        FROM landlord_contract
+        WHERE building_id = ?
+        ORDER BY landlord_contract_valid_from_date
+    ", [$buildingId]);
+}
+
+/**
+ * The landlord contract that covers a month: prefer an active (status=1) one
+ * when several overlap, otherwise the most recent overlapping row.
+ */
+private function nmrMatchLandlordContract(array $rows, $startDate, $endDate)
+{
+    $matched = null;
+    foreach ($rows as $lc) {
+        if ($lc->valid_from !== null && $lc->valid_from > $endDate) continue;
+        if ($lc->valid_to !== null && $lc->valid_to < $startDate) continue;
+        if ($matched === null
+            || ((int)$lc->status === 1 && (int)$matched->status !== 1)
+            || (int)$lc->status === (int)$matched->status) {
+            $matched = $lc;
+        }
+    }
+    return $matched;
+}
+
+/**
+ * Normal Management Report V2: rent received in this month from an incoming
+ * tenant whose contract starts after the month (paid before moving in). It is
+ * collection of the month the money came in (user, 03/10/2026), shown as an
+ * extra row "Tenant (from dd/mm/yyyy)" with no rent or income for this month.
+ * A tenant who already holds the unit in this month is skipped: their advance is
+ * in their own row (receipts are matched by unit and tenant). Legal cases are left
+ * out, as in the rest of the report. Used by both the stream builder and Generate.
+ */
+private function nmrIncomingTenantRows($buildingId, $startDate, $endDate)
+{
+    $rows = DB::select("
+        WITH building_units AS (
+            SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
+            FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
+            WHERE u.building_id = ? AND u.unit_status = 1
+        )
+        SELECT bu.id AS unit_id, up.id AS contract_id, bu.unit_no, bu.unit_type, t.tenant_name,
+               up.tenant_contract_start_date AS contract_start, up.tenant_contract_valid_to_date AS contract_end,
+               MAX(rg.receipts_generation_eff_to) AS rent_recd_upto,
+               SUM(rg.receipts_generation_amt) AS collection_amount
+        FROM tenant_contracts up
+        JOIN building_units bu ON bu.id = up.unit_id
+        JOIN tenant t ON t.id = up.tenant_id
+        JOIN receipts_generation rg ON rg.tenant_contract_id = up.id
+        WHERE up.tenant_contract_start_date > ?::date
+          AND (up.tenant_contract_status = 1 OR up.work_flow_processes_code = 108)
+          AND rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
+          AND rg.receipts_generation_eff_from IS NOT NULL
+          AND DATE_TRUNC('month', rg.receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
+          AND NOT EXISTS (
+              SELECT 1 FROM tenant_contracts cur
+              LEFT JOIN (SELECT contract_id, MAX(termination_date) AS termination_date
+                           FROM termination WHERE termination_date IS NOT NULL
+                          GROUP BY contract_id) td ON td.contract_id = cur.id
+              WHERE cur.unit_id = up.unit_id AND cur.tenant_id = up.tenant_id AND cur.id <> up.id
+                AND cur.tenant_contract_start_date <= ?::date
+                AND (COALESCE(td.termination_date, cur.tenant_contract_valid_to_date) >= ?::date
+                     OR (td.termination_date IS NULL AND cur.tenant_contract_valid_to_date IS NULL))
+          )
+          AND NOT EXISTS (SELECT 1 FROM legal l WHERE l.unit_id = up.unit_id AND l.tenant_id = up.tenant_id)
+          AND t.tenant_name NOT ILIKE '%-legal%' AND t.tenant_name NOT ILIKE '%-U.legal%'
+        GROUP BY bu.id, up.id, bu.unit_no, bu.unit_type, t.tenant_name, up.tenant_contract_start_date, up.tenant_contract_valid_to_date
+        ORDER BY bu.unit_no
+    ", [$buildingId, $endDate, $startDate, $endDate, $startDate]);
+
+    foreach ($rows as $r) {
+        $r->tenant_name = $r->tenant_name . ' (from ' . date('d/m/Y', strtotime($r->contract_start)) . ')';
+        $r->contract_termination_date = null;
+        $r->paid_through = $r->rent_recd_upto;
+        $r->rent_per_month = 0;
+        $r->income_amount = 0;
+        $r->outstanding_amount = 0;
+        $r->occupied_at_month_start = 0;
+        $r->is_legal = false;
+        $r->is_incoming = true;
+    }
+    return $rows;
+}
+
+/**
+ * Normal Management Report V2: municipal tax paid back by tenants who left early.
+ * The landlord paid the tax for the whole contract, so the tenant's "Charges for
+ * Municipal Tax" receipt is the landlord's collection in the month received
+ * (user, 04/10/2026). One row per unit: "Add: Mun Tax F: <unit>". Penalties and
+ * fines are not included; legal cases are left out, as in the rest of the report.
+ */
+private function nmrMunicipalTaxRows($buildingId, $startDate)
+{
+    $rows = DB::select("
+        SELECT u.unit_no, SUM(rg.receipts_generation_amt) AS amount
+        FROM receipts_generation rg
+        JOIN tenant_contracts tc ON tc.id = rg.tenant_contract_id
+        JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
+        JOIN tenant t ON t.id = tc.tenant_id
+        WHERE rg.receipts_generation_type = 1
+          AND rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
+          AND rg.receipts_generation_description ~* '^\s*charges for mun(i)?cipal tax'
+          AND rg.receipts_generation_description !~* 'penalty|fine'
+          AND DATE_TRUNC('month', rg.receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
+          AND NOT EXISTS (SELECT 1 FROM legal l WHERE l.unit_id = tc.unit_id AND l.tenant_id = tc.tenant_id)
+          AND t.tenant_name NOT ILIKE '%-legal%' AND t.tenant_name NOT ILIKE '%-U.legal%'
+        GROUP BY u.unit_no
+        HAVING SUM(rg.receipts_generation_amt) > 0
+    ", [$buildingId, $startDate]);
+    usort($rows, function ($a, $b) { return strnatcmp((string) $a->unit_no, (string) $b->unit_no); });
+    foreach ($rows as $r) {
+        $r->description = 'Add: Mun Tax F: ' . $r->unit_no;
+        $r->amount = (float) $r->amount;
+    }
+    return $rows;
+}
+
+/** Adds the incoming-tenant rows to the month's units, in unit order. */
+private function nmrWithIncomingTenants(array $units, $buildingId, $startDate, $endDate)
+{
+    $incoming = $this->nmrIncomingTenantRows($buildingId, $startDate, $endDate);
+    if (!$incoming) {
+        return $units;
+    }
+    $units = array_merge($units, $incoming);
+    usort($units, function ($a, $b) {
+        $cmp = strnatcmp((string) ($a->unit_no ?? ''), (string) ($b->unit_no ?? ''));
+        // the unit's own row first, then the incoming tenant
+        return $cmp !== 0 ? $cmp : ((int) !empty($a->is_incoming) - (int) !empty($b->is_incoming));
+    });
+    return $units;
+}
+
 /**
  * Builds the per-month data structure (units, old_outstanding, expenses,
  * occupancy, cleaning_charge, landlord_contract) for one building/year,
@@ -5854,10 +5885,12 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
 
     // ── Batch expense data for the entire year ────────────────────────
     $expenseRows = DB::select("
-        SELECT month, expense_name, SUM(expense_amount) AS expense_amount
+        SELECT month, expense_name, inhouse, acc_code, before_cutover, old_amc_vendor, SUM(expense_amount) AS expense_amount
         FROM (
             SELECT EXTRACT(MONTH FROM mi.maintenance_invoice_date)::int AS month,
-                   eh.expense_name, CAST(mid.debit_amt AS NUMERIC) AS expense_amount
+                   eh.expense_name, (mid.service_report_id IS NOT NULL) AS inhouse, ac.acc_code_val AS acc_code,
+                   (mi.maintenance_invoice_date < '" . NormalManagementConsolidateSheet::AMC_CODES_FROM . "') AS before_cutover,
+                   (mi.vendor_id IN (" . NormalManagementConsolidateSheet::oldAmcVendorList() . ")) AS old_amc_vendor, CAST(mid.debit_amt AS NUMERIC) AS expense_amount
             FROM maintenance_invoice_details mid
             JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
             JOIN acc_codes ac ON ac.id = mid.ac_codes_id
@@ -5866,7 +5899,9 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
               AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
             UNION ALL
             SELECT EXTRACT(MONTH FROM gl.doc_date)::int AS month,
-                   eh.expense_name, CAST(gld.debit_amt AS NUMERIC) AS expense_amount
+                   eh.expense_name, FALSE AS inhouse, ac.acc_code_val AS acc_code,
+                   (gl.doc_date < '" . NormalManagementConsolidateSheet::AMC_CODES_FROM . "') AS before_cutover,
+                   FALSE AS old_amc_vendor, CAST(gld.debit_amt AS NUMERIC) AS expense_amount
             FROM general_ledger_dim gld
             JOIN general_ledgers gl ON gl.id = gld.general_ledger_id
             JOIN acc_codes ac ON ac.id = gld.account_id
@@ -5874,7 +5909,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             WHERE gld.building_id = ? AND EXTRACT(YEAR FROM gl.doc_date) = ?
               AND gl.general_ledger_status != 2 AND gl.deleted_at IS NULL
         ) src
-        GROUP BY month, expense_name ORDER BY month, expense_name
+        GROUP BY month, expense_name, inhouse, acc_code, before_cutover, old_amc_vendor ORDER BY month, expense_name
     ", [$building->id, $year, $building->id, $year]);
 
     $expensesByMonth = [];
@@ -5884,24 +5919,8 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
         $expensesByMonth[$em][] = $eRow;
     }
 
-    // ── Batch landlord contract cleaning charges + management fee for the year ─
-    $landlordContractRows = DB::select("
-        SELECT landlord_contract_status AS status,
-               landlord_contract_valid_from_date AS valid_from,
-               landlord_contract_valid_to_date AS valid_to,
-               landlord_contract_cleaning_charge AS cleaning_charge,
-               management_method,
-               landlord_contract_percentage,
-               landlord_contract_management_fee,
-               vendor_id,
-               landlord_contract_facility_management_fee AS facility_management_fee,
-               landlord_contract_renewal_fee AS renewal_fee,
-               landlord_contract_new_leasing_fee_type AS new_leasing_fee_type,
-               landlord_contract_new_leasing_fee AS new_leasing_fee
-        FROM landlord_contract
-        WHERE building_id = ?
-        ORDER BY landlord_contract_valid_from_date
-    ", [$building->id]);
+    // ── Landlord contracts of the building (cleaning charge, management fee, ...) ─
+    $landlordContractRows = $this->nmrLandlordContracts($building->id);
 
     // ── Batch occupancy for all months ────────────────────────────────
     $yearStart = $year . '-01-01';
@@ -6088,11 +6107,17 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                     GROUP BY unit_id, tenant_id
                 ),
                 occ_at_start AS (
-                    SELECT DISTINCT tc_oas.unit_id
+                    -- tenant already in the unit on the 1st: a contract of the same tenant running
+                    -- that day, even if it has ended since (a renewal is not a new occupancy, user 03/10/2026)
+                    SELECT DISTINCT tc_oas.unit_id, tc_oas.tenant_id
                     FROM tenant_contracts tc_oas JOIN building_units bu ON bu.id = tc_oas.unit_id
-                    WHERE tc_oas.tenant_contract_status = 1
+                    LEFT JOIN (SELECT contract_id, MAX(termination_date) AS termination_date
+                                 FROM termination WHERE termination_date IS NOT NULL
+                                GROUP BY contract_id) td_oas ON td_oas.contract_id = tc_oas.id
+                    WHERE (tc_oas.tenant_contract_status = 1 OR tc_oas.work_flow_processes_code = 108)
                       AND tc_oas.tenant_contract_start_date <= ?::date
-                      AND (tc_oas.tenant_contract_valid_to_date >= ?::date OR tc_oas.tenant_contract_valid_to_date IS NULL)
+                      AND (COALESCE(td_oas.termination_date, tc_oas.tenant_contract_valid_to_date) >= ?::date
+                           OR (td_oas.termination_date IS NULL AND tc_oas.tenant_contract_valid_to_date IS NULL))
                 )
                 SELECT bu.id AS unit_id, ac.id AS contract_id, bu.unit_no, bu.unit_type,
                     COALESCE(t.tenant_name, 'VACANT') AS tenant_name,
@@ -6111,7 +6136,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                 LEFT JOIN rent_recd rr ON rr.unit_id = bu.id AND rr.tenant_id = ac.tenant_id
                 LEFT JOIN paid_thru pt ON pt.unit_id = bu.id AND pt.tenant_id = ac.tenant_id
                 LEFT JOIN monthly_col mc ON mc.unit_id = bu.id AND mc.tenant_id = ac.tenant_id
-                LEFT JOIN occ_at_start os ON os.unit_id = bu.id
+                LEFT JOIN occ_at_start os ON os.unit_id = bu.id AND os.tenant_id = ac.tenant_id
                 ORDER BY bu.unit_no
             ", [$building->id, $endDate, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $startDate, $startDate]);
 
@@ -6240,19 +6265,12 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                       AND tc2.tenant_contract_start_date <= ?::date
                       AND (tc2.tenant_contract_valid_to_date >= ?::date OR tc2.tenant_contract_valid_to_date IS NULL)
                 )
+                -- legal cases are not part of this report at any stage, settlements included (user, 03/10/2026)
                 AND NOT EXISTS (
                     SELECT 1 FROM legal l
-                    WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id AND l.legal_is_closed != 2
+                    WHERE l.unit_id = bu.id AND l.tenant_id = ec.tenant_id
                 )
-                AND NOT (
-                    (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                    AND NOT EXISTS (
-                        SELECT 1 FROM legal l3
-                        WHERE l3.unit_id = bu.id
-                          AND l3.tenant_id = ec.tenant_id
-                          AND l3.legal_is_closed = 2
-                    )
-                )
+                AND t.tenant_name NOT ILIKE '%-legal%' AND t.tenant_name NOT ILIKE '%-U.legal%'
                 ORDER BY bu.unit_no
             ", [$building->id, $startDate, $startDate, $endDate, $endDate, $endDate, $startDate, $endDate, $startDate]);
 
@@ -6288,128 +6306,11 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             }
             unset($unit);
 
-            // Legal tenants with expired contracts — add as a second row (red) even if an active contract also exists
-            $legalExpiredUnits = DB::select("
-                WITH building_units AS (
-                    SELECT u.id, u.unit_no, ut.unit_types_name AS unit_type
-                    FROM units u LEFT JOIN unit_types ut ON ut.id = u.unit_type_id
-                    WHERE u.building_id = ? AND u.unit_status = 1
-                ),
-                legal_ids AS (
-                    SELECT DISTINCT l.unit_id, l.tenant_id FROM legal l
-                    JOIN building_units bu ON bu.id = l.unit_id WHERE l.legal_is_closed != 2
-                    UNION
-                    SELECT DISTINCT tc.unit_id, tc.tenant_id FROM tenant_contracts tc
-                    JOIN tenant t ON t.id = tc.tenant_id
-                    JOIN building_units bu ON bu.id = tc.unit_id
-                    WHERE (t.tenant_name ILIKE '%-legal%' OR t.tenant_name ILIKE '%-U.legal%')
-                      AND NOT EXISTS (
-                          SELECT 1 FROM legal l2
-                          JOIN units u2 ON u2.id = l2.unit_id
-                          WHERE u2.building_id = ? AND l2.legal_is_closed != 2
-                            AND l2.tenant_contract_id IS NOT NULL
-                      )
-                      AND NOT EXISTS (
-                          SELECT 1 FROM legal l3
-                          WHERE l3.unit_id = tc.unit_id
-                            AND l3.tenant_id = tc.tenant_id
-                            AND l3.legal_is_closed = 2
-                      )
-                ),
-                latest_expired AS (
-                    -- Only truly expired contracts (end date before report month start)
-                    -- so active-contract units still get the second legal-outstanding row
-                    -- without duplicating what the active-contract row already covers
-                    SELECT DISTINCT ON (tc.unit_id)
-                        tc.unit_id, tc.tenant_id, tc.tenant_contract_rent,
-                        tc.tenant_contract_start_date, tc.tenant_contract_valid_to_date
-                    FROM tenant_contracts tc
-                    JOIN legal_ids li ON li.unit_id = tc.unit_id AND li.tenant_id = tc.tenant_id
-                    WHERE tc.tenant_contract_valid_to_date IS NOT NULL
-                      AND tc.tenant_contract_valid_to_date < ?::date
-                    ORDER BY tc.unit_id, tc.tenant_contract_valid_to_date DESC NULLS LAST
-                ),
-                all_legal_receipts AS (
-                    SELECT tc_r.unit_id, tc_r.tenant_id,
-                           rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt
-                    FROM receipts_generation rg
-                    JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
-                    JOIN building_units bu ON bu.id = tc_r.unit_id
-                    JOIN legal_ids li ON li.unit_id = tc_r.unit_id AND li.tenant_id = tc_r.tenant_id
-                    WHERE rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
-                ),
-                rent_recd_l AS (
-                    SELECT DISTINCT ON (unit_id, tenant_id)
-                        unit_id, tenant_id, receipts_generation_eff_to AS rent_recd_upto
-                    FROM all_legal_receipts
-                    WHERE receipts_generation_eff_to::date <= ?::date
-                    ORDER BY unit_id, tenant_id, receipts_generation_eff_to DESC NULLS LAST
-                ),
-                paid_thru_l AS (
-                    SELECT DISTINCT ON (unit_id, tenant_id)
-                        unit_id, tenant_id, receipts_generation_eff_to AS paid_through
-                    FROM all_legal_receipts
-                    WHERE receipts_generation_eff_from::date <= ?::date
-                    ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
-                ),
-                monthly_col_l AS (
-                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
-                    FROM all_legal_receipts
-                    WHERE receipts_generation_eff_from IS NOT NULL
-                      AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
-                    GROUP BY unit_id, tenant_id
-                )
-                SELECT
-                    bu.id AS unit_id,
-                    bu.unit_no, bu.unit_type, t.tenant_name,
-                    le.tenant_contract_start_date AS contract_start,
-                    le.tenant_contract_valid_to_date AS contract_end,
-                    rr.rent_recd_upto, pt.paid_through,
-                    COALESCE(le.tenant_contract_rent, 0) AS rent_per_month,
-                    COALESCE(mc.collection_amount, 0) AS collection_amount,
-                    0 AS income_amount, 0 AS outstanding_amount, 0 AS occupied_at_month_start
-                FROM building_units bu
-                JOIN latest_expired le ON le.unit_id = bu.id
-                JOIN tenant t ON t.id = le.tenant_id
-                LEFT JOIN rent_recd_l rr ON rr.unit_id = bu.id AND rr.tenant_id = le.tenant_id
-                LEFT JOIN paid_thru_l pt ON pt.unit_id = bu.id AND pt.tenant_id = le.tenant_id
-                LEFT JOIN monthly_col_l mc ON mc.unit_id = bu.id AND mc.tenant_id = le.tenant_id
-                ORDER BY bu.unit_no
-            ", [$building->id, $building->id, $startDate, $endDate, $endDate, $startDate]);
-
-            foreach ($legalExpiredUnits as &$unit) {
-                $unit->is_legal = true;
-                $rent = (float)($unit->rent_per_month ?? 0);
-                $effTo = $unit->paid_through ?? null;
-                $contractStart = $unit->contract_start ?? null;
-                if ($rent <= 0) { $unit->outstanding_amount = 0; continue; }
-                if (empty($effTo) && !empty($contractStart)) {
-                    $effTo = date('Y-m-d', strtotime($contractStart) - 86400);
-                }
-                if (empty($effTo)) { $unit->outstanding_amount = 0; continue; }
-                $effToTs = strtotime($effTo);
-                $endDateTs = strtotime($endDate);
-                if ($effToTs >= $endDateTs) { $unit->outstanding_amount = 0; continue; }
-                $eY=(int)date('Y',$effToTs); $eM=(int)date('n',$effToTs); $eD=(int)date('j',$effToTs);
-                $eD30 = ($eD >= (int)date('t',$effToTs)) ? 30 : min($eD, 30);
-                $cY=(int)date('Y',$endDateTs); $cM=(int)date('n',$endDateTs); $cD=(int)date('j',$endDateTs);
-                $cD30 = ($cD >= (int)date('t',$endDateTs)) ? 30 : min($cD, 30);
-                $days = ($cY-$eY)*360 + ($cM-$eM)*30 + ($cD30-$eD30);
-                $unit->outstanding_amount = $days > 0 ? round($days * $rent / 30, 2) : 0;
-            }
-            unset($unit);
-
-            // Filter expired-legal units: only keep those with outstanding > 0 or collection this month
-            $legalExpiredUnits = array_values(array_filter($legalExpiredUnits, function ($u) {
-                return $u->outstanding_amount > 0 || (float)($u->collection_amount ?? 0) > 0;
-            }));
-
-            // Merge legal expired units into main units and sort by unit_no
-            if (!empty($legalExpiredUnits)) {
-                $units = array_merge($units, $legalExpiredUnits);
-                usort($units, function($a, $b) { return strnatcmp($a->unit_no ?? '', $b->unit_no ?? ''); });
-            }
+            // Legal tenants are not shown in this report (user, 03/10/2026): the separate
+            // "legal tenant with an expired contract" rows were removed.
+            // Rent paid before an incoming tenant's contract starts: collection of this month (user, 03/10/2026)
+            $units = $this->nmrWithIncomingTenants($units, $building->id, $startDate, $endDate);
+            $munTax = $this->nmrMunicipalTaxRows($building->id, $startDate);
 
             $expenses  = $expensesByMonth[$m] ?? [];
             $occ       = $occupiedByMonth[$m]  ?? ['occupied_residential' => 0, 'occupied_commercial' => 0];
@@ -6427,24 +6328,8 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             ];
             // Cleaning charge: the landlord contract valid for this month (prefer status=1 if
             // more than one overlaps; otherwise the latest matching valid_from).
-            $cleaningCharge = 0;
-            $matched = null;
-            foreach ($landlordContractRows as $lc) {
-                $validFrom = $lc->valid_from;
-                $validTo   = $lc->valid_to;
-                if ($validFrom !== null && $validFrom > $endDate) continue;
-                if ($validTo !== null && $validTo < $startDate) continue;
-                // Rows are ordered by valid_from ascending; prefer an active (status=1)
-                // match, otherwise keep the most recent overlapping row.
-                if ($matched === null
-                    || ((int)$lc->status === 1 && (int)$matched->status !== 1)
-                    || (int)$lc->status === (int)$matched->status) {
-                    $matched = $lc;
-                }
-            }
-            if ($matched !== null) {
-                $cleaningCharge = (float) $matched->cleaning_charge;
-            }
+            $matched = $this->nmrMatchLandlordContract($landlordContractRows, $startDate, $endDate);
+            $cleaningCharge = $matched !== null ? (float) $matched->cleaning_charge : 0;
 
             // Facility Management Fee, Renewal Fee, New Leasing Fee — all
             // derived from the matched landlord contract, same date-range
@@ -6466,7 +6351,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                 }
             }
         } else {
-            $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0; $matched = null;
+            $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0; $matched = null; $munTax = [];
             $facilityManagementFee = 0.0; $renewalFee = 0.0; $newLeasingFee = 0.0;
             $occupancy = ['total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
                 'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
@@ -6480,6 +6365,8 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             'occupancy'               => $occupancy,
             'cleaning_charge'         => $cleaningCharge,
             'landlord_contract'       => $matched,
+            'building_management_id'  => (int) $building->management_id,
+            'mun_tax'                 => $munTax ?? [],
             'facility_management_fee' => $facilityManagementFee,
             'renewal_fee'             => $renewalFee,
             'new_leasing_fee'         => $newLeasingFee,
