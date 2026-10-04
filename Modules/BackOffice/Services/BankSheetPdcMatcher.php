@@ -176,6 +176,16 @@ class BankSheetPdcMatcher
             $candidates = $this->rentPlusVatGroups($inMonth, $vatFound, $amount);
         }
         if (count($candidates) === 0) {
+            // rent + the agreement's other "Others" PDCs on this cheque (E&W, renewal fee, ...) add up exactly:
+            // those are posted as general receipts, like the PDC Posting screen does ('charge_ids')
+            $charged = $this->rentPlusChargesGroups($inMonth, $vatFound, $amount);
+            if (count($charged) === 1) {
+                $out = $this->result($row, self::MATCHED, $charged[0]['pdcs'], [], null);
+                $out['charge_ids'] = $charged[0]['charge_ids'];
+                return $out;
+            }
+        }
+        if (count($candidates) === 0) {
             // One cheque paying for several tenants (e.g. group companies): the same split rule as
             // within one tenant, but only when ALL of this cheque's PDCs for the month add up exactly.
             $tenantGroups = $this->groupByTenant($inMonth);
@@ -368,6 +378,70 @@ class BankSheetPdcMatcher
                 if (count($group) > count($rows) && $this->sameAmount($this->sum($group), $amount)) {
                     $out[] = $group;
                 }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Per tenant: rent rows + every "Others" PDC of those agreements on the cheque dated in the same
+     * month(s), when the total is the bank amount and at least one of them is not VAT-like.
+     * @return array of ['pdcs', 'charge_ids' => ids of the "Others" that are not VAT]
+     */
+    private function rentPlusChargesGroups(array $rent, array $others, $amount)
+    {
+        $out = [];
+        foreach ($this->groupByTenant($rent) as $rows) {
+            $contracts = [];
+            $months = [];
+            foreach ($rows as $r) {
+                $contracts[(int) $r->tenant_contract_id] = true;
+                $months[substr((string) $r->pdc_check_date, 0, 7)] = true;
+            }
+            $mine = [];
+            foreach ($others as $o) {
+                if (isset($contracts[(int) $o->tenant_contract_id]) && isset($months[substr((string) $o->pdc_check_date, 0, 7)])) {
+                    $mine[] = $o;
+                }
+            }
+            if (count($mine) === 0) {
+                continue;
+            }
+            $group = array_merge($rows, $mine);
+            if (!$this->sameAmount($this->sum($group), $amount)) {
+                continue;
+            }
+            // per agreement: its "Others" together look like VAT -> all VAT; else the one closest to 5% of
+            // its rent, if within the VAT band, is VAT and the rest are charges
+            $vatIds = [];
+            foreach ($this->groupByContract($rows) as $contractId => $contractRows) {
+                $rentSum = $this->sum($contractRows);
+                $all = $this->vatOfContract($mine, $contractId, $rentSum);
+                if (count($all) > 0) {
+                    foreach ($all as $v) {
+                        $vatIds[(int) $v->id] = true;
+                    }
+                    continue;
+                }
+                $best = null;
+                foreach ($mine as $o) {
+                    if ((int) $o->tenant_contract_id === (int) $contractId && count($this->vatOfContract([$o], $contractId, $rentSum)) > 0
+                        && ($best === null || abs((float) $o->pdc_amt - $rentSum * self::VAT_RATE) < abs((float) $best->pdc_amt - $rentSum * self::VAT_RATE))) {
+                        $best = $o;
+                    }
+                }
+                if ($best !== null) {
+                    $vatIds[(int) $best->id] = true;
+                }
+            }
+            $chargeIds = [];
+            foreach ($mine as $o) {
+                if (!isset($vatIds[(int) $o->id])) {
+                    $chargeIds[] = (int) $o->id;
+                }
+            }
+            if (count($chargeIds) > 0) {
+                $out[] = ['pdcs' => $group, 'charge_ids' => $chargeIds];
             }
         }
         return $out;

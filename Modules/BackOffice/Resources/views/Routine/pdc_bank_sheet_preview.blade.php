@@ -458,10 +458,16 @@
               @endforeach
             </td>
             <td>
+              @php $chargeIdsRow = isset($r['charge_ids']) ? $r['charge_ids'] : []; @endphp
               {{ $first->pdc_type_name }}
-              @if(count(array_filter($r['pdcs'], function ($p) { return (int) $p->pdc_type === 3; })) > 0)
+              @if(count(array_filter($r['pdcs'], function ($p) use ($chargeIdsRow) { return (int) $p->pdc_type === 3 && !in_array((int) $p->id, $chargeIdsRow, true); })) > 0)
                 <span class="bsp-pill bsp-pill-vat">+ VAT</span>
               @endif
+              @foreach($r['pdcs'] as $p)
+                @if(in_array((int) $p->id, $chargeIdsRow, true))
+                  <span class="bsp-pill bsp-pill-choice" title="Posted as a general receipt, like on the PDC Posting screen">+ {{ trim($p->pdc_remark) !== '' ? $p->pdc_remark : 'Other charge' }} {{ number_format($p->pdc_amt, 3) }}</span>
+                @endif
+              @endforeach
             </td>
             <td>{{ $first->bank_name }}</td>
             <td>{!! $accCell($r, $r['pdcs']) !!}</td>

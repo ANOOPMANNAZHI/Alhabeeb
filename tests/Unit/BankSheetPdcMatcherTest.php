@@ -87,12 +87,17 @@ class BankSheetPdcMatcherTest extends TestCase
         $this->assertSame($want, $ids);   // both rents and both VAT rows
     }
 
-    public function test_other_charges_that_are_not_vat_are_not_pulled_in()
+    public function test_other_charges_that_are_not_vat_are_marked_as_charges()
     {
-        // "Others" of 40 on each flat is not 5% of 280: no match, the amount mismatch stays
-        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '6303231', 'amount' => 640.0, 'cheque_date' => '2026-10-01'])],
-            $this->twoFlatsOneCheque(40.0));
-        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
+        // "Others" of 40 on each flat is not 5% of 280: matched, but both are charges (general receipts), not VAT
+        $pdcs = $this->twoFlatsOneCheque(40.0);
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '6303231', 'amount' => 640.0, 'cheque_date' => '2026-10-01'])], $pdcs);
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $want = [$pdcs[1]->id, $pdcs[3]->id];
+        $got = $out[0]['charge_ids'];
+        sort($want);
+        sort($got);
+        $this->assertSame($want, $got);
     }
 
     public function test_rent_only_cheque_for_two_agreements_still_matches_without_vat()
@@ -117,6 +122,47 @@ class BankSheetPdcMatcherTest extends TestCase
         $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '777', 'amount' => 525.0])], $pdcs);
         $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status'], (string) $out[0]['reason']);
         $this->assertCount(4, $out[0]['pdcs']);
+    }
+
+    /** Cheque 41901 (Bank Sohar): TAG2503674 rent 855 + "Others" 135 Electricity & Water = 990. */
+    public function test_rent_plus_a_non_vat_other_charge_matches_and_marks_the_charge()
+    {
+        $common = ['pdc_check_no' => '41901', 'bank_id' => 17, 'pdc_check_date' => '2026-10-01', 'tenant_contract_id' => 76599, 'management_id' => 2];
+        $rent = $this->pdc($common + ['pdc_amt' => 855.0, 'pdc_type' => 1]);
+        $ew = $this->vatPdc($common + ['pdc_amt' => 135.0, 'pdc_remark' => 'Electricity & Water charges']);
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '41901', 'bank_code' => '30', 'amount' => 990.0, 'cheque_date' => '2026-10-01'])], [$rent, $ew]);
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status'], (string) $out[0]['reason']);
+        $this->assertCount(2, $out[0]['pdcs']);
+        $this->assertSame([$ew->id], $out[0]['charge_ids']);
+    }
+
+    public function test_rent_plus_vat_plus_other_charge_marks_only_the_charge()
+    {
+        $common = ['pdc_check_no' => '555', 'tenant_contract_id' => 80001];
+        $rent = $this->pdc($common + ['pdc_amt' => 1000.0]);
+        $vat  = $this->vatPdc($common + ['pdc_amt' => 50.0]);
+        $fee  = $this->vatPdc($common + ['pdc_amt' => 26.25, 'pdc_remark' => 'short renewal fee']);
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '555', 'amount' => 1076.25])], [$rent, $vat, $fee]);
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status'], (string) $out[0]['reason']);
+        $this->assertCount(3, $out[0]['pdcs']);
+        $this->assertSame([$fee->id], $out[0]['charge_ids']);
+    }
+
+    public function test_plain_rent_plus_vat_has_no_charges()
+    {
+        $common = ['pdc_check_no' => '556', 'tenant_contract_id' => 80002];
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '556', 'amount' => 1050.0])],
+            [$this->pdc($common + ['pdc_amt' => 1000.0]), $this->vatPdc($common + ['pdc_amt' => 50.0])]);
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertArrayNotHasKey('charge_ids', $out[0]);
+    }
+
+    public function test_other_charge_of_another_month_is_not_added()
+    {
+        $common = ['pdc_check_no' => '557', 'tenant_contract_id' => 80003];
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '557', 'amount' => 1135.0])],
+            [$this->pdc($common + ['pdc_amt' => 1000.0]), $this->vatPdc($common + ['pdc_amt' => 135.0, 'pdc_check_date' => '2026-12-01'])]);
+        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
     }
 
     public function test_cheque_with_no_pdc_of_that_number_and_bank_is_not_found()
@@ -527,6 +573,11 @@ class BankSheetPdcMatcherTest extends TestCase
         $others = $this->vatPdc(['pdc_amt' => 100.0]); // 25% — an "Others" charge, not VAT
         $out    = $this->matcher()->match([$this->sheetRow(['amount' => 500.0])], [$rent, $others]);
 
+        // the cheque still matches (rent + charge = bank amount), but the 100 is a charge, never a VAT receipt
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([$others->id], $out[0]['charge_ids']);
+
+        $out = $this->matcher()->match([$this->sheetRow(['amount' => 520.0])], [$rent, $others]);   // does not add up
         $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
     }
 

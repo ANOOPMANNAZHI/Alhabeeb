@@ -311,12 +311,16 @@ class PdcBankSheetController extends Controller
 
         $toPost    = []; // sheet row_no => [pdc rows]
         $vatByDiff = []; // row_no => VAT amount (Case B)
+        $chargeIds = []; // row_no => ids of "Others" PDCs that are charges (E&W ...), not VAT
         $sheetAccounts = []; // row_no => the sheet's Pay Account, saved onto posted PDCs that have none
         foreach ($analysis['results'] as $r) {
             $rowNo = $r['row']['row_no'];
             $sheetAccounts[$rowNo] = isset($r['row']['account_no']) ? $r['row']['account_no'] : null;
             if ($r['status'] === BankSheetPdcMatcher::MATCHED && !isset($selection['unticked'][$rowNo])) {
                 $toPost[$rowNo] = $r['pdcs'];
+                if (!empty($r['charge_ids'])) {
+                    $chargeIds[$rowNo] = $r['charge_ids'];
+                }
             } elseif ($r['status'] === BankSheetPdcMatcher::AMBIGUOUS && !empty($selection['choice'][$rowNo])) {
                 $group = $this->candidateByIds($r['candidates'], $selection['choice'][$rowNo]);
                 if ($group !== null) {
@@ -333,7 +337,7 @@ class PdcBankSheetController extends Controller
         }
 
         try {
-            return $this->postRows($request, $stored, $analysis, $toPost, $vatByDiff, $sheetAccounts);
+            return $this->postRows($request, $stored, $analysis, $toPost, $vatByDiff, $sheetAccounts, $chargeIds);
         } catch (\Throwable $e) {
             \Log::error('PDC bank sheet post failed: ' . $e->getMessage(), ['stored' => $stored, 'exception' => $e]);
             return $this->postFailed($request, route('pdcBankSheetPreview', $stored),
@@ -345,7 +349,7 @@ class PdcBankSheetController extends Controller
      * Post each chosen cheque in its own transaction; a cheque that fails is
      * recorded and the rest carry on.
      */
-    private function postRows(Request $request, $stored, array $analysis, array $toPost, array $vatByDiff, array $sheetAccounts)
+    private function postRows(Request $request, $stored, array $analysis, array $toPost, array $vatByDiff, array $sheetAccounts, array $chargeIds = [])
     {
         $routines = app(RoutinesController::class);
         $posted   = 0;
@@ -364,15 +368,19 @@ class PdcBankSheetController extends Controller
             $vatBefore = $vatMade; // the closure counts receipts; undo if the cheque rolls back
             $vatReusedBefore = $vatReusedCount;
             try {
-                DB::transaction(function () use ($routines, $vatCreator, $pdcs, $request, $rowNo, $vatByDiff, $sheetAccounts, &$ids, &$tillEnd, &$vatNos, &$vatMade, &$vatReused, &$vatReusedCount) {
+                $charges = isset($chargeIds[$rowNo]) ? array_flip($chargeIds[$rowNo]) : [];
+                DB::transaction(function () use ($routines, $vatCreator, $pdcs, $request, $rowNo, $vatByDiff, $sheetAccounts, $charges, &$ids, &$tillEnd, &$vatNos, &$vatMade, &$vatReused, &$vatReusedCount) {
                     $rent = [];
                     $vat  = [];
+                    $other = []; // "Others" that are charges (E&W ...): a general receipt each, as on the PDC Posting screen
                     foreach ($pdcs as $p) {
                         $pdc = Pdc::lockForUpdate()->find($p->id);
                         if ($pdc === null || (int) $pdc->pdc_is_posted === 1) {
                             throw new \RuntimeException('cheque ' . $p->pdc_check_no . ' was already posted');
                         }
-                        if (BankSheetPdcMatcher::isVat($pdc)) {
+                        if (isset($charges[(int) $pdc->id])) {
+                            $other[] = $pdc;
+                        } elseif (BankSheetPdcMatcher::isVat($pdc)) {
                             $vat[] = $pdc;
                         } else {
                             $rent[] = $pdc;
@@ -401,6 +409,13 @@ class PdcBankSheetController extends Controller
                             if ($from && (!$periods[$cid][0] || $from < $periods[$cid][0])) { $periods[$cid][0] = $from; }
                             if ($to && (!$periods[$cid][1] || $to > $periods[$cid][1])) { $periods[$cid][1] = $to; }
                         }
+                    }
+                    foreach ($other as $pdc) {
+                        if (count($rent) > 0 && count($ids) === 0) {
+                            throw new \RuntimeException('receipts already run to contract end; ' . ($pdc->pdc_remark ?: 'other charge') . ' not posted');
+                        }
+                        $routines->postSinglePdc($pdc, $request->pdc_deposit_date, $request->bank_id);
+                        $ids[] = $pdc->id;
                     }
                     $this->fillAccountNo($ids, $sheetAccounts[$rowNo]);
                     if (!$hasVat) {
@@ -918,6 +933,7 @@ class PdcBankSheetController extends Controller
                 'building_name'      => $contract && $contract->building ? $contract->building->building_name : '',
                 'unit_no'            => $contract && $contract->Unit ? $contract->Unit->unit_code : '',
                 'pdc_account_no'     => $pdc->pdc_account_no,
+                'pdc_remark'         => (string) $pdc->pdc_remark,
                 'pdc_type'           => (int) $pdc->pdc_type,
                 'management_id'      => $contract && $contract->building ? (int) $contract->building->management_id : 0,
                 'pdc_cancel_reason'  => (int) $pdc->pdc_cancel_reason,
