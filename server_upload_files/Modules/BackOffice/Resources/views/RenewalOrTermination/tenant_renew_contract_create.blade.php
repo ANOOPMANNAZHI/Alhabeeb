@@ -146,7 +146,7 @@
                 <label for="occupant_primary_contact_no">Occupant Mob No</label>
                  <div class="p-relative">
                     <i class="fa fa-volume-control-phone icn-add" aria-hidden="true"></i>
-                <input type="text" class="form-control mob_validation_8" id="occupant_primary_contact_no" placeholder="Enter Occupant Mob No" name="occupant_primary_contact_no" value="{{(isset($tenantContract))?((!isset($tenantContract->occupant_id))?$tenantContract->tenant->tenant_contact_no:$tenantContract->occupant->occupant_primary_contact_no):old('occupant_primary_contact_no','')}}" onkeypress="return isNumber(event)">
+                <input type="text" class="form-control" id="occupant_primary_contact_no" placeholder="Enter Occupant Mob No" name="occupant_primary_contact_no" value="{{(isset($tenantContract))?((!isset($tenantContract->occupant_id))?$tenantContract->tenant->tenant_contact_no:$tenantContract->occupant->occupant_primary_contact_no):old('occupant_primary_contact_no','')}}" onkeypress="return isNumber(event)">
             </div>
             </div>
         </div>
