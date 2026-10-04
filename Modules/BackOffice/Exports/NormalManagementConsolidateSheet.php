@@ -217,7 +217,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
             foreach ($this->monthData[$m]['units'] ?? [] as $u) {
                 $total += (float)($u->income_amount ?? 0);
             }
-            $incomes[$m] = round($total);   // whole OMR on this sheet (user, 04/10/2026)
+            $incomes[$m] = $total;
         }
         $incomeRow = ['', 'Income as per rental agreement'];
         foreach ($incomes as $v) {
@@ -237,7 +237,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
                 $total += (float)($u->collection_amount ?? 0);
             }
             $total += self::munTaxCollection($this->monthData[$m] ?? []);
-            $collections[$m] = round($total);
+            $collections[$m] = $total;
         }
         $collectionRow = ['', 'Collection'];
         foreach ($collections as $v) {
@@ -261,11 +261,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         $expenseTotalsByMonth = array_fill(1, 12, 0);
         $linesByMonth = [];
         foreach (range(1, 12) as $m) {
-            // Every amount in whole OMR; VAT from the rounded rows it is based on,
-            // so the figures on the sheet add up (user, 04/10/2026)
-            $lines = array_map('round', self::expenseLines($this->monthData[$m] ?? []));
-            $lines['Value Added Tax (VAT)'] = round(($lines[self::REPAIR_B] + $lines['Management Fees'] + $lines['Cleaning Charges']) * self::VAT_RATE);
-            $linesByMonth[$m] = $lines;
+            $linesByMonth[$m] = self::expenseLines($this->monthData[$m] ?? []);
         }
         foreach (self::LABELS as $label) {
             $expenseRow = ['', $label];
@@ -315,7 +311,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
             foreach ($this->monthData[$m]['old_outstanding'] ?? [] as $u) {
                 $total += (float)($u->outstanding_amount ?? 0);
             }
-            $overdues[$m] = round($total);
+            $overdues[$m] = $total;
         }
         $overdueRow = ['', 'Overdues To Date'];
         foreach ($overdues as $v) {
