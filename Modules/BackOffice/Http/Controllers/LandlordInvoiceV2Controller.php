@@ -472,6 +472,8 @@ class LandlordInvoiceV2Controller extends Controller
             foreach ($data['old_outstanding'] ?? [] as $u) {
                 $collection += (float) ($u->collection_amount ?? 0);
             }
+            // Municipal tax paid back by early leavers, as on the consolidated sheet
+            $collection += NormalManagementConsolidateSheet::munTaxCollection($data);
 
             // Same expense rows as the consolidated sheet's Total Expenses
             $totalExpenses += array_sum(NormalManagementConsolidateSheet::expenseLines($data));

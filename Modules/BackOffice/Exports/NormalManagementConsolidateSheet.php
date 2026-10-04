@@ -109,6 +109,16 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         return null;
     }
 
+    /** Municipal tax paid back by tenants who left early, collected this month (user, 04/10/2026). */
+    public static function munTaxCollection(array $month): float
+    {
+        $sum = 0.0;
+        foreach ($month['mun_tax'] ?? [] as $mt) {
+            $sum += (float) $mt->amount;
+        }
+        return $sum;
+    }
+
     /** One month's expense rows: [label => amount], in report order. */
     public static function expenseLines(array $month): array
     {
@@ -226,6 +236,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
             foreach ($this->monthData[$m]['old_outstanding'] ?? [] as $u) {
                 $total += (float)($u->collection_amount ?? 0);
             }
+            $total += self::munTaxCollection($this->monthData[$m] ?? []);
             $collections[$m] = round($total);
         }
         $collectionRow = ['', 'Collection'];

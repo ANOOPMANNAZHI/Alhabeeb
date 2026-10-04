@@ -4989,6 +4989,7 @@ public function normalManagementReportV2Generate(Request $request)
                 // "legal tenant with an expired contract" rows were removed.
                 // Rent paid before an incoming tenant's contract starts: collection of this month (user, 03/10/2026)
                 $units = $this->nmrWithIncomingTenants($units, $building->id, $startDate, $endDate);
+                $munTax = $this->nmrMunicipalTaxRows($building->id, $startDate);
 
                 // Expenses — use pre-fetched batch (no per-month DB hit)
                 $expenses = $expensesByMonth[$m] ?? [];
@@ -5009,6 +5010,7 @@ public function normalManagementReportV2Generate(Request $request)
                 ];
             } else {
                 $units          = [];
+                $munTax         = [];
                 $oldOutstanding = [];
                 $expenses       = [];
                 $occupancy      = [
@@ -5033,6 +5035,7 @@ public function normalManagementReportV2Generate(Request $request)
                 'cleaning_charge'   => $matched !== null ? (float) $matched->cleaning_charge : 0,
                 'landlord_contract' => $matched,
                 'building_management_id' => (int) $building->management_id,
+                'mun_tax'           => $munTax ?? [],
             ];
         }
 
@@ -5805,6 +5808,39 @@ private function nmrIncomingTenantRows($buildingId, $startDate, $endDate)
     return $rows;
 }
 
+/**
+ * Normal Management Report V2: municipal tax paid back by tenants who left early.
+ * The landlord paid the tax for the whole contract, so the tenant's "Charges for
+ * Municipal Tax" receipt is the landlord's collection in the month received
+ * (user, 04/10/2026). One row per unit: "Add: Mun Tax F: <unit>". Penalties and
+ * fines are not included; legal cases are left out, as in the rest of the report.
+ */
+private function nmrMunicipalTaxRows($buildingId, $startDate)
+{
+    $rows = DB::select("
+        SELECT u.unit_no, SUM(rg.receipts_generation_amt) AS amount
+        FROM receipts_generation rg
+        JOIN tenant_contracts tc ON tc.id = rg.tenant_contract_id
+        JOIN units u ON u.id = tc.unit_id AND u.building_id = ? AND u.unit_status = 1
+        JOIN tenant t ON t.id = tc.tenant_id
+        WHERE rg.receipts_generation_type = 1
+          AND rg.receipts_generation_status != 2 AND rg.deleted_at IS NULL
+          AND rg.receipts_generation_description ~* '^\s*charges for mun(i)?cipal tax'
+          AND rg.receipts_generation_description !~* 'penalty|fine'
+          AND DATE_TRUNC('month', rg.receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
+          AND NOT EXISTS (SELECT 1 FROM legal l WHERE l.unit_id = tc.unit_id AND l.tenant_id = tc.tenant_id)
+          AND t.tenant_name NOT ILIKE '%-legal%' AND t.tenant_name NOT ILIKE '%-U.legal%'
+        GROUP BY u.unit_no
+        HAVING SUM(rg.receipts_generation_amt) > 0
+    ", [$buildingId, $startDate]);
+    usort($rows, function ($a, $b) { return strnatcmp((string) $a->unit_no, (string) $b->unit_no); });
+    foreach ($rows as $r) {
+        $r->description = 'Add: Mun Tax F: ' . $r->unit_no;
+        $r->amount = (float) $r->amount;
+    }
+    return $rows;
+}
+
 /** Adds the incoming-tenant rows to the month's units, in unit order. */
 private function nmrWithIncomingTenants(array $units, $buildingId, $startDate, $endDate)
 {
@@ -6274,6 +6310,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             // "legal tenant with an expired contract" rows were removed.
             // Rent paid before an incoming tenant's contract starts: collection of this month (user, 03/10/2026)
             $units = $this->nmrWithIncomingTenants($units, $building->id, $startDate, $endDate);
+            $munTax = $this->nmrMunicipalTaxRows($building->id, $startDate);
 
             $expenses  = $expensesByMonth[$m] ?? [];
             $occ       = $occupiedByMonth[$m]  ?? ['occupied_residential' => 0, 'occupied_commercial' => 0];
@@ -6314,7 +6351,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                 }
             }
         } else {
-            $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0; $matched = null;
+            $units = []; $oldOutstanding = []; $expenses = []; $cleaningCharge = 0; $matched = null; $munTax = [];
             $facilityManagementFee = 0.0; $renewalFee = 0.0; $newLeasingFee = 0.0;
             $occupancy = ['total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
                 'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
@@ -6329,6 +6366,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             'cleaning_charge'         => $cleaningCharge,
             'landlord_contract'       => $matched,
             'building_management_id'  => (int) $building->management_id,
+            'mun_tax'                 => $munTax ?? [],
             'facility_management_fee' => $facilityManagementFee,
             'renewal_fee'             => $renewalFee,
             'new_leasing_fee'         => $newLeasingFee,

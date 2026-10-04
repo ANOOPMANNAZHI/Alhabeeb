@@ -113,6 +113,12 @@ class NormalManagementMonthSheet implements FromArray, ShouldAutoSize, WithEvent
             ];
         }
 
+        // Municipal tax paid back by tenants who left early: collection of this month (user, 04/10/2026)
+        foreach ($this->data['mun_tax'] ?? [] as $mt) {
+            $totalCollection += (float) $mt->amount;
+            $rows[] = ['', '', $mt->description, '', '', '', '', (float) $mt->amount, '', ''];
+        }
+
         // Total row
         $rows[] = ['', '', 'TOTAL COLLECTION', '', '', '', $totalRentPer, $totalCollection, $totalIncome, $totalOutstanding];
 
