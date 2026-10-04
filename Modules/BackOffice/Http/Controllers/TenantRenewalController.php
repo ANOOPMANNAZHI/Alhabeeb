@@ -394,6 +394,8 @@ class TenantRenewalController extends Controller
         $isYearCorrect = (date('y') == $year)?true:false;
 
 
+        $tenantContract->unit_usage = $this->previousUnitUsage($tenantContract);
+
         return view('backoffice::RenewalOrTermination.tenant_renew_contract_edit',compact('tenantContract','banks','locations','employeeList','upload_size','landlord_contract_valid_to_date','isYearCorrect'));
     }
 
@@ -948,6 +950,24 @@ class TenantRenewalController extends Controller
     * Renewal New Contract
     *
     */
+    /**
+     * Unit usage to pre-select on a renewal: the contract's own, else the latest one
+     * recorded on this tenant's earlier contracts for the same unit.
+     */
+    private function previousUnitUsage($tenantContract)
+    {
+        if (!empty($tenantContract->unit_usage)) {
+            return $tenantContract->unit_usage;
+        }
+        return TenantContract::where('tenant_id', $tenantContract->tenant_id)
+            ->where('unit_id', $tenantContract->unit_id)
+            ->where('id', '<', $tenantContract->id)
+            ->whereNotNull('unit_usage')
+            ->where('unit_usage', '<>', '')
+            ->orderBy('id', 'desc')
+            ->value('unit_usage');
+    }
+
     public function renewalNewContract($id) 
     { 
         $tenantContractLatest = TenantContract::orderBy('id','desc')->limit(1)->first();
@@ -970,6 +990,7 @@ class TenantRenewalController extends Controller
 
 
         $tenantContract->tenant_contract_start_date = $startDate;
+        $tenantContract->unit_usage = $this->previousUnitUsage($tenantContract);
      	  $employeeList     = Employee::whereHas('user',function ($query){
                                           $query->role('sales_person');
                                       })->orderBy('id', 'DESC')->get();        
