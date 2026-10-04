@@ -52,8 +52,9 @@
   .rf .rf-link[disabled] { opacity:.6; cursor:progress; }
 
   /* table */
-  .rf .rf-table { width:100%; border-collapse:collapse; font-size:13px; }
-  .rf .rf-table th { position:sticky; top:0; background:#fff; z-index:1; font-weight:600; color:var(--rf-muted); text-align:left; white-space:nowrap;
+  /* type matches the Tenant Contract list table (style.css .table): Roboto, cells 15px / 500, headers 14px / 500 in #093875 */
+  .rf .rf-table { width:100%; border-collapse:collapse; font-family:'Roboto', sans-serif; font-size:15px; font-weight:500; }
+  .rf .rf-table th { position:sticky; top:0; background:#fff; z-index:1; font-size:14px; font-weight:500; color:#093875; text-align:left; white-space:nowrap;
         padding:10px 8px; border-bottom:2px solid var(--rf-line); }
   .rf .rf-table td { padding:10px 8px; border-bottom:1px solid var(--rf-line); vertical-align:top; line-height:1.45; }
   .rf .rf-table tbody tr:hover td { background:var(--rf-fill); }
@@ -62,7 +63,7 @@
   .rf .rf-table tbody tr.rf-row:focus-visible td { background:#e8f2fb; }
   .rf .rf-table .num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .rf .rf-table .rf-bal { font-weight:700; }
-  .rf .rf-sub { display:block; font-size:12px; color:var(--rf-muted); margin-top:2px; }
+  .rf .rf-sub { display:block; font-size:13px; font-weight:400; color:var(--rf-muted); margin-top:2px; }
   .rf .rf-sort { background:none; border:0; padding:0; font:inherit; color:inherit; cursor:pointer; white-space:nowrap; }
   .rf .rf-sort:hover { color:var(--rf-ink); text-decoration:underline; }
   .rf .rf-table th[aria-sort="ascending"] .rf-sort, .rf .rf-table th[aria-sort="descending"] .rf-sort { color:var(--rf-ink); }
