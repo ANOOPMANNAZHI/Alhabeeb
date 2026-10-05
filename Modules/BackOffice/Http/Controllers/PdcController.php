@@ -239,6 +239,31 @@ e     */
         return $typed !== null ? $typed : Pdc::where('id', $pdcId)->value('pdc_account_no');
     }
 
+    /**
+     * Ids of the bounced PDCs that were deposited again: a later, not cancelled PDC of the same
+     * contract with the same cheque no, bank, cheque date and amount. Their Redeposit button is hidden.
+     */
+    public static function redepositedIds($pdcs)
+    {
+        $key = function ($p) {
+            return ltrim((string) $p->pdc_check_no, '0') . '|' . (int) $p->bank_id . '|'
+                . substr((string) $p->pdc_check_date, 0, 10) . '|' . number_format((float) $p->pdc_amt, 3, '.', '');
+        };
+        $out = [];
+        foreach ($pdcs as $b) {
+            if ((int) $b->pdc_cancel_reason !== 1) {
+                continue;
+            }
+            foreach ($pdcs as $p) {
+                if ($p->id > $b->id && (int) $p->pdc_cancel_reason === 0 && $key($p) === $key($b)) {
+                    $out[] = (int) $b->id;
+                    break;
+                }
+            }
+        }
+        return $out;
+    }
+
     public function show($id)
     {
 
@@ -274,7 +299,8 @@ e     */
             else
                 $pdcTransacNo = $prefix.str_pad(1,4,'0',STR_PAD_LEFT);
 
-            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date'));
+            $redeposited = self::redepositedIds($tenantPdcInfo);
+            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date','redeposited'));
 
         }
         elseif($tenantContract->work_flow_processes_code >=106 || $salesEnquiry->work_flow_processes_code >=106){
@@ -293,7 +319,8 @@ e     */
             else
                 $pdcTransacNo = $prefix.str_pad(1,4,'0',STR_PAD_LEFT);
 
-            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date'));
+            $redeposited = self::redepositedIds($tenantPdcInfo);
+            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date','redeposited'));
         }
         else{
            // Contract in-progress

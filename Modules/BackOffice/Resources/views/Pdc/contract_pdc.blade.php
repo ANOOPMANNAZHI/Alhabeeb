@@ -274,8 +274,14 @@
               <a  class="dataRow"  id="{{$key}}" href="#" title="Delete">
                 <i class="fa fa-minus" aria-hidden="true"></i> 
               </a>
+              @elseif($item->pdc_cancel_reason == 1)
+                @if(in_array($item->id, $redeposited))
+                <span class="pdc-redeposited" title="Already deposited again - see the later row with this cheque no">Redeposited</span>
+                @else
+                <button type="button" class="btn btn-warning pdc-redeposit-btn redepositRow" data-row="{{$key}}" title="Add a new row with this bounced cheque's details, then Save">Redeposit</button>
+                @endif
               @endif
-            </td> 
+            </td>
              <td><span class="sl_no">{{$loop_no}} </span> @php  $loop_no++;   @endphp </td> 
             <td><input type="text" maxlength="10" {{($isDisable==1)?'readonly':''}} name="pdc_check_no_{{$key}}" id="pdc_check_no_{{$key}}" onkeypress="return isNumber(event)" value="{{$item->pdc_check_no}}" class="pdc_no_cls"></td>
             <td><input type="date" {{($isDisable==1)?'readonly':''}} name="pdc_check_date_{{$key}}" id="pdc_check_date_{{$key}}" value="{{$item->pdc_check_date->format('Y-m-d')}}" min="1970-01-01" max="2099-12-31" class="pdc_date_cls" ></td>
@@ -553,6 +559,61 @@
 <script type="text/javascript" src="{{asset('public/js/jquery.printPage.js')}}"></script>
 
 @include('backoffice::Pdc._bounce_reason_js')
+<style>
+  .pdc-redeposit-btn { padding: 2px 8px; font-size: 12px; line-height: 1.4; white-space: nowrap; }
+  .pdc-redeposited { font-size: 12px; color: #16a34a; white-space: nowrap; }
+  tr.pdc-redeposit-new td { background: #fff8e6; }
+</style>
+<script>
+// Redeposit a bounced cheque: a new unsaved row with the same details (no deposit/clear/cancel), created on Save.
+$(document).on("click", '.redepositRow', function (e) {
+  e.preventDefault();
+  var from = $(this).data('row');
+  var $btn = $(this);
+  var lastRowId = $(".chkRow:last").attr('id');
+  var i = parseInt(lastRowId.split('_')[1]) + 1;
+  if (parseInt($('#existRow').val()) < i) {
+    $('#existRow').val(i);
+  }
+  function val(name) { return $('#' + name + '_' + from).val() || ''; }
+  function esc(v) { return $('<div>').text(v).html().replace(/"/g, '&quot;'); }
+  var type = val('pdc_type'), bank = val('bank_id');
+  var remark = val('pdc_remark');
+  remark = 'Redeposit' + (remark ? ' - ' + remark : '');
+
+  var row = '<tr class="chkRow pdc-redeposit-new" id="tr_' + i + '"><td><input type="hidden" name="pdc_is_saved_' + i + '" value="0"><a id="' + i + '" class="dataRow" href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td>'
+    + '<td><span class="sl_no"></span></td>'
+    + '<td><input type="text" maxlength="10" name="pdc_check_no_' + i + '" id="pdc_check_no_' + i + '" value="' + esc(val('pdc_check_no')) + '" onkeypress="return isNumber(event)" class="pdc_no_cls"></td>'
+    + '<td><input type="date" name="pdc_check_date_' + i + '" id="pdc_check_date_' + i + '" value="' + esc(val('pdc_check_date')) + '" min="1970-01-01" max="2099-12-31"></td>'
+    + '<td><input type="text" name="pdc_amt_' + i + '" id="pdc_amt_' + i + '" value="' + esc(val('pdc_amt')) + '" onkeyup="return FormatCurrency(this)" class="pdc_amt_cls text-right allownumericwithdecimal" maxlength="10"></td>'
+    + '<td><input type="number" min="1" max="100" name="pdc_stage_' + i + '" id="pdc_stage_' + i + '" value="' + esc(val('pdc_stage')) + '" class="pdc_stage_cls"></td>'
+    + '<td><select name="pdc_type_' + i + '" id="pdc_type_' + i + '">'
+    + '<option value="1"' + (type == 1 ? ' selected' : '') + '>Rent</option><option value="2"' + (type == 2 ? ' selected' : '') + '>Deposit</option>'
+    + '<option value="3"' + (type == 3 ? ' selected' : '') + '>Others</option><option value="4"' + (type == 4 ? ' selected' : '') + '>VAT</option></select></td>'
+    + '<td><select name="bank_id_' + i + '" id="bank_id_' + i + '"><option value="">Select</option>'
+    @foreach($bankMaster as $name)
+    + '<option value="{{$name->id}}"' + (bank == '{{$name->id}}' ? ' selected' : '') + '>{{$name->bank_code}}</option>'
+    @endforeach
+    + '</select></td>'
+    + '<td><input type="text" maxlength="20" name="pdc_account_no_' + i + '" id="pdc_account_no_' + i + '" value="' + esc(val('pdc_account_no').replace(/\D/g, '')) + '" onkeypress="return isNumber(event)" placeholder="Optional" class="pdc_acc_cls"></td>'
+    + '<td><input type="date" name="pdc_recieve_date_' + i + '" id="pdc_recieve_date_' + i + '" value="' + esc(val('pdc_recieve_date')) + '" min="1970-01-01" max="2099-12-31"></td>'
+    + '<td><input type="date" name="pdc_from_date_' + i + '" id="pdc_from_date_' + i + '" value="' + esc(val('pdc_from_date')) + '" min="1970-01-01" max="2099-12-31"></td>'
+    + '<td><input type="date" name="pdc_to_date_' + i + '" id="pdc_to_date_' + i + '" value="' + esc(val('pdc_to_date')) + '" min="1970-01-01" max="2099-12-31"></td>'
+    + '<td><input type="date" readonly name="pdc_deposit_date_' + i + '" id="pdc_deposit_date_' + i + '" value="" min="1970-01-01" max="2099-12-31"></td>'
+    + '<td><input type="date" class="pdc_clear_date" name="pdc_clear_date_' + i + '" id="pdc_clear_date_' + i + '" value="" min="1970-01-01" max="2099-12-31"></td>'
+    + '<td><input type="date" name="pdc_cancel_date_' + i + '" id="pdc_cancel_date_' + i + '" value="" min="1970-01-01" max="2099-12-31"></td>'
+    + '<td><input type="hidden" name="pdc_reference_' + i + '" id="pdc_reference_' + i + '" value=""><select name="pdc_cancel_reason_' + i + '" class="pdc_cancel_reason" disabled id="pdc_cancel_reason_' + i + '"><option value="">Select</option><option value="1">Bounce</option><option value="2">Exchange</option></select></td>'
+    + '<td><select name="pdc_bounce_reason_' + i + '" disabled id="pdc_bounce_reason_' + i + '"><option value="">Select</option>' + bounceReasonOptions('') + '</select></td>'
+    + '<td></td>'
+    + '<td><input type="text" name="pdc_cheque_acknowledge_' + i + '" id="pdc_cheque_acknowledge_' + i + '" value="' + esc(val('pdc_cheque_acknowledge')) + '"></td>'
+    + '<td><input type="text" name="pdc_remark_' + i + '" id="pdc_remark_' + i + '" value="' + esc(remark) + '"></td></tr>';
+
+  $('#' + lastRowId).after(row);
+  $(".sl_no").each(function (index) { $(this).html(index + 1); });
+  $btn.replaceWith('<span class="pdc-redeposited" title="Click Save to create it">Added - Save</span>');
+  $('#tr_' + i)[0].scrollIntoView({ block: 'nearest' });
+});
+</script>
 <script>
 $(document).ready(function() {
     
