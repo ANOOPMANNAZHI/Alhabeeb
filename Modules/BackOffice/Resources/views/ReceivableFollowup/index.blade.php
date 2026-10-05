@@ -5,18 +5,18 @@
 @section('content')
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Receivables Follow-up</div></div>{{ Breadcrumbs::render('receivable-followup.index') }}</div></div>
 <div class="rf"><div class="card card-box"><div class="card-body">
-  {{-- summary cards: a click filters the list by that follow-up status, a second click clears it --}}
-  <div class="rf-cards" role="group" aria-label="Follow-up summary">
+  {{-- follow-up summary: one segmented strip; a click filters the list by that status, a second click clears it --}}
+  <div class="rf-cards" role="group" aria-label="Follow-up summary: choose one to filter the list">
     @foreach([
-        'today'    => ["Today's follow-ups", 'fa-calendar-check-o', 'warn', 'Next follow-up date is today'],
-        'overdue'  => ['Overdue follow-ups', 'fa-exclamation-circle', 'bad', 'Next follow-up date has passed'],
-        'upcoming' => ['Upcoming follow-ups', 'fa-calendar', 'info', 'Next follow-up date is later'],
-        'none'     => ['Not followed up', 'fa-user-times', 'muted', 'No follow-up recorded yet'],
+        'today'    => ["Today's follow-ups", 'today',   'Next follow-up date is today'],
+        'overdue'  => ['Overdue',            'overdue', 'Next follow-up date has passed'],
+        'upcoming' => ['Upcoming',           'upcoming','Next follow-up date is later'],
+        'none'     => ['Not followed up',    'none',    'No follow-up recorded yet'],
       ] as $key => $card)
-    <button type="button" class="rf-kpi rf-kpi-{{ $card[2] }}" data-status="{{ $key }}" aria-pressed="false" title="{{ $card[3] }}">
-      <span class="rf-kpi-label"><i class="fa {{ $card[1] }}" aria-hidden="true"></i> {{ $card[0] }}</span>
+    <button type="button" class="rf-kpi" data-status="{{ $key }}" aria-pressed="false" title="{{ $card[2] }}">
+      <span class="rf-kpi-label"><span class="rf-kpi-dot rf-kpi-dot-{{ $card[1] }}" aria-hidden="true"></span>{{ $card[0] }}</span>
       <span class="rf-kpi-count" data-count>—</span>
-      <span class="rf-kpi-sub">Balance <span data-balance>—</span></span>
+      <span class="rf-kpi-sub"><span data-balance>—</span> balance</span>
     </button>
     @endforeach
   </div>
@@ -253,6 +253,7 @@
     $('.rf-kpi').each(function () {
       var c = cards[$(this).attr('data-status')];
       $(this).find('[data-count]').text(c ? Number(c.count).toLocaleString('en-US') : '—');
+      $(this).toggleClass('has-items', !!(c && c.count > 0));
       $(this).find('[data-balance]').text(c ? c.balance : '—');
     });
     markCards();

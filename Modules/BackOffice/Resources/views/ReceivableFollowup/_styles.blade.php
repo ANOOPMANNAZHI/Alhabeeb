@@ -42,22 +42,36 @@
   .rf .rf-combo-none { padding:8px 12px; font-size:13px; color:var(--rf-muted); }
   .rf .rf-applied { margin:0 0 12px; font-size:13px; font-weight:600; color:var(--rf-muted); }
 
-  /* follow-up summary cards (buttons: a click filters the list); colour always paired with a label */
-  .rf .rf-cards { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin:0 0 16px; }
-  .rf .rf-kpi { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-height:96px; padding:12px 16px; text-align:left;
-        background:#fff; border:1px solid var(--rf-line); border-left:4px solid var(--rf-kpi-accent); border-radius:8px; cursor:pointer;
-        color:var(--rf-ink); transition:box-shadow .15s, border-color .15s, background .15s; }
-  .rf .rf-kpi:hover { box-shadow:0 4px 12px rgba(15, 23, 42, .08); }
-  .rf .rf-kpi.is-on { background:var(--rf-kpi-bg); border-color:var(--rf-kpi-accent); box-shadow:inset 0 0 0 1px var(--rf-kpi-accent); }
-  .rf .rf-kpi-label { font-size:13px; font-weight:600; color:var(--rf-muted); }
-  .rf .rf-kpi-label .fa { color:var(--rf-kpi-accent); margin-right:4px; }
-  .rf .rf-kpi-count { font-size:26px; font-weight:700; line-height:1.1; font-variant-numeric:tabular-nums; }
+  /* follow-up summary: one bordered strip split into four segments that work like tabs.
+     Quiet by default (neutral text, a small status dot); the chosen segment gets the page blue
+     underline + tint; only a non-zero Overdue count turns red. */
+  .rf .rf-cards { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); margin:0 0 24px;
+        border:1px solid var(--rf-line); border-radius:8px; background:#fff; overflow:hidden; }
+  .rf .rf-kpi { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-height:96px; padding:16px 24px; margin:0;
+        text-align:left; background:#fff; border:0; border-left:1px solid var(--rf-line); border-radius:0; cursor:pointer;
+        color:var(--rf-ink); position:relative; transition:background .15s; }
+  .rf .rf-kpi::after { content:''; position:absolute; left:0; right:0; bottom:0; height:3px; background:transparent; }
+  .rf .rf-kpi:first-child { border-left:0; }
+  .rf .rf-kpi:hover { background:var(--rf-fill); }
+  .rf .rf-kpi:focus-visible { outline:2px solid var(--rf-primary); outline-offset:-2px; }
+  .rf .rf-kpi.is-on { background:#dbeafe; }
+  .rf .rf-kpi.is-on::after { background:var(--rf-primary); }
+  .rf .rf-kpi.is-on .rf-kpi-label { color:var(--rf-primary-dark); }
+  .rf .rf-kpi-label { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--rf-muted); }
+  .rf .rf-kpi-dot { width:8px; height:8px; border-radius:50%; flex:none; }
+  .rf .rf-kpi-dot-today    { background:#b45309; }
+  .rf .rf-kpi-dot-overdue  { background:var(--rf-bad); }
+  .rf .rf-kpi-dot-upcoming { background:var(--rf-primary); }
+  .rf .rf-kpi-dot-none     { background:#94a3b8; }
+  .rf .rf-kpi-count { font-size:25px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; }
+  .rf .rf-kpi[data-status="overdue"].has-items .rf-kpi-count { color:var(--rf-bad); }
   .rf .rf-kpi-sub { font-size:12px; color:var(--rf-muted); font-variant-numeric:tabular-nums; }
-  .rf .rf-kpi-warn  { --rf-kpi-accent:#b45309; --rf-kpi-bg:#fef3c7; }
-  .rf .rf-kpi-bad   { --rf-kpi-accent:var(--rf-bad); --rf-kpi-bg:var(--rf-bad-bg); }
-  .rf .rf-kpi-info  { --rf-kpi-accent:var(--rf-info); --rf-kpi-bg:var(--rf-info-bg); }
-  .rf .rf-kpi-muted { --rf-kpi-accent:#64748b; --rf-kpi-bg:#f1f5f9; }
-  @media (max-width: 991px) { .rf .rf-cards { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 767px) {
+    .rf .rf-cards { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .rf .rf-kpi { padding:12px 16px; min-height:88px; }
+    .rf .rf-kpi:nth-child(3) { border-left:0; }
+    .rf .rf-kpi:nth-child(n+3) { border-top:1px solid var(--rf-line); }
+  }
   @media (prefers-reduced-motion: reduce) { .rf .rf-kpi { transition:none; } }
 
   /* summary strip */
