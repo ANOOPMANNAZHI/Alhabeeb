@@ -25,6 +25,7 @@ class BankSheetPdcMatcher
     const UNKNOWN_BANK    = 'unknown_bank';
     const REJECTED        = 'rejected';
     const VAT_CHECK       = 'vat_check';
+    const ALREADY_POSTED  = 'already_posted'; // set by the controller (BankSheetPostedCheques), never by match()
 
     /** Amounts closer than this are equal (OMR has 3 decimals). */
     const AMOUNT_EPSILON = 0.0005;

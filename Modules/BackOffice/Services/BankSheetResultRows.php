@@ -15,6 +15,8 @@ class BankSheetResultRows
     const RECEIPT_HEADINGS = ['#', 'Receipt No', 'Receipt Date', 'Tenant', 'Agreement No', 'Building / Unit',
                               'Cheque No', 'Cheque Bank', 'Type', 'Amount', 'Status'];
     const NOT_POSTED_HEADINGS = ['Sheet Row', 'Cheque No', 'Cheque Bank', 'Cheque Date', 'Amount', 'Status', 'Reason'];
+    const PENDING_HEADINGS = ['#', 'Cheque No', 'Cheque Bank', 'Cheque Date', 'Amount', 'Status', 'Reason',
+                              'Last Upload', 'Last Uploaded On', 'Times Uploaded'];
 
     private static $types = [0 => 'Rent', 1 => 'General', 2 => 'Deposit'];
 
@@ -25,6 +27,7 @@ class BankSheetResultRows
         'amount_mismatch' => 'Amount mismatch',
         'date_mismatch'   => 'Date mismatch',
         'unknown_bank'    => 'Unknown bank',
+        'already_posted'  => 'Already posted',
     ];
 
     /**
@@ -146,5 +149,29 @@ class BankSheetResultRows
             ];
         }
         return ['rows' => $rows, 'heading_row' => 1, 'total_row' => null, 'amount_column' => 'E'];
+    }
+
+    /** "Pending cheques" sheet: headings, one row per cheque still waiting, then the total. */
+    public static function pendingSheet(array $pending)
+    {
+        $rows = [self::PENDING_HEADINGS];
+        $total = 0.0;
+        foreach ($pending as $i => $x) {
+            $rows[] = [
+                $i + 1,
+                (string) $x->cheque_no,
+                $x->bank_name ?: '-',
+                self::date($x->cheque_date),
+                round((float) $x->amount, 3),
+                self::rowStatus($x->status),
+                $x->reason ?: '-',
+                '#' . $x->upload_id,
+                self::date($x->uploaded_at),
+                (int) $x->times,
+            ];
+            $total += (float) $x->amount;
+        }
+        $rows[] = ['', '', '', 'Total', round($total, 3), '', '', '', '', ''];
+        return ['rows' => $rows, 'heading_row' => 1, 'total_row' => count($rows), 'amount_column' => 'E'];
     }
 }

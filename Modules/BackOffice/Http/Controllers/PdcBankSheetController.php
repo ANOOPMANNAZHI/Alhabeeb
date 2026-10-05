@@ -12,8 +12,11 @@ use Modules\BackOffice\Exports\PdcBankSheetResultExport;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Services\BankClearingCodes;
 use Modules\BackOffice\Services\BankSheetPdcMatcher;
+use Modules\BackOffice\Services\BankSheetPostedCheques;
 use Modules\BackOffice\Services\BankSheetRejectedCheques;
 use Modules\BackOffice\Services\BankSheetReader;
+use Modules\BackOffice\Services\BankSheetResultRows;
+use Modules\BackOffice\Exports\PdcBankSheetResultSheet;
 use Modules\BackOffice\Services\VatReceiptCreator;
 use Modules\Masters\Entities\Bank;
 use Modules\Sales\Entities\TenantContract;
@@ -91,10 +94,12 @@ class PdcBankSheetController extends Controller
 
         $matched = $this->paginate($sections['matched'], $request, 'mpage', $stored, 'matched');
         $cannot  = $this->paginate($sections['cannot'], $request, 'cpage', $stored, 'cannot');
+        $posted  = $this->paginate($sections['posted'], $request, 'ppage', $stored, 'posted');
 
         // Which result tab opens: ?tab=, else the tab being paged / filtered, else Auto-matched
-        $activeTab = in_array($request->input('tab'), ['matched', 'cannot', 'rejected'], true) ? $request->input('tab')
-            : (($request->has('cpage') || count($filters['cannot']) > 0) ? 'cannot' : 'matched');
+        $activeTab = in_array($request->input('tab'), ['matched', 'cannot', 'posted', 'rejected'], true) ? $request->input('tab')
+            : ($request->has('ppage') ? 'posted'
+            : (($request->has('cpage') || count($filters['cannot']) > 0) ? 'cannot' : 'matched'));
 
         $chosen = 0;
         foreach ($selection['choice'] as $v) {
@@ -145,6 +150,7 @@ class PdcBankSheetController extends Controller
             'vatRows'   => $sections['vat'],
             'matched'   => $matched,
             'cannot'    => $cannot,
+            'posted'    => $posted,
             'counts'    => $analysis['counts'],
             'selection' => $selection,
             'toPost'    => $toPost,
@@ -645,7 +651,156 @@ class PdcBankSheetController extends Controller
         return view('backoffice::Routine.pdc_bank_sheet_day', compact('date', 'uploads', 'receipts', 'notPosted'));
     }
 
+    /**
+     * Cheques still waiting: every accepted sheet cheque from any upload whose latest
+     * upload did not post it and whose PDC has not been posted since (by a later upload
+     * or the PDC Posting screen). One line per cheque however often it was uploaded.
+     */
+    public function pending(Request $request)
+    {
+        $filters = $this->pendingFilters($request);
+        list($rows, $statusCounts) = $this->pendingRows($filters);
+
+        $total = 0.0;
+        foreach ($rows as $r) {
+            $total += (float) $r->amount;
+        }
+        $page = max(1, (int) $request->input('page', 1));
+        $pending = new LengthAwarePaginator(
+            array_slice($rows, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
+            count($rows), self::PER_PAGE, $page,
+            ['path' => route('pdcBankSheetPending')]
+        );
+        $pending->appends($request->except('page'));
+
+        return view('backoffice::Routine.pdc_bank_sheet_pending', [
+            'pending'      => $pending,
+            'filters'      => $filters,
+            'statusCounts' => $statusCounts,
+            'total'        => $total,
+            'statuses'     => self::PENDING_STATUSES,
+        ]);
+    }
+
+    /** The Pending cheques list (current filters) as an Excel sheet. */
+    public function pendingExcel(Request $request)
+    {
+        list($rows) = $this->pendingRows($this->pendingFilters($request));
+        return \Excel::download(new PdcBankSheetResultSheet('Pending cheques', BankSheetResultRows::pendingSheet($rows)),
+            'bank_sheet_pending_cheques_' . date('Y-m-d') . '.xlsx');
+    }
+
     // ── helpers ────────────────────────────────────────────────────────
+
+    /** Row statuses that leave a cheque pending (the audit never stores ambiguous / vat_check: those are 'skipped'). */
+    const PENDING_STATUSES = ['not_found', 'amount_mismatch', 'date_mismatch', 'unknown_bank', 'skipped', 'failed'];
+
+    private function pendingFilters(Request $request)
+    {
+        $status = (string) $request->input('status', '');
+        return [
+            'from'   => $this->validDate($request->input('from')),
+            'to'     => $this->validDate($request->input('to')),
+            'status' => in_array($status, self::PENDING_STATUSES, true) ? $status : '',
+            'cheque' => trim((string) $request->input('cheque', '')),
+            'bank'   => trim((string) $request->input('bank', '')),
+        ];
+    }
+
+    /**
+     * [pending rows (newest cheque date first), count per status before the status filter].
+     * The latest upload row per cheque (cheque no without leading zeros + sheet bank +
+     * amount + cheque date) decides: posted / already posted / rejected there => done.
+     */
+    private function pendingRows(array $f)
+    {
+        $key = "ltrim(trim(ur.cheque_no), '0'), ur.bank_name, ur.amount, ur.cheque_date";
+        $in  = implode(',', array_fill(0, count(self::PENDING_STATUSES), '?'));
+        $where = [];
+        $bind  = self::PENDING_STATUSES;
+        if ($f['from']) {
+            $where[] = 'x.cheque_date >= ?';
+            $bind[] = $f['from'];
+        }
+        if ($f['to']) {
+            $where[] = 'x.cheque_date <= ?';
+            $bind[] = $f['to'];
+        }
+        if ($f['cheque'] !== '') {
+            $where[] = "ltrim(trim(x.cheque_no), '0') LIKE ?";
+            $bind[] = '%' . BankSheetPdcMatcher::normaliseChequeNo($f['cheque']) . '%';
+        }
+        if ($f['bank'] !== '') {
+            $where[] = 'x.bank_name ILIKE ?';
+            $bind[] = '%' . $f['bank'] . '%';
+        }
+
+        $rows = DB::select("
+            SELECT x.*
+            FROM (
+                SELECT DISTINCT ON ($key)
+                       ur.id, ur.upload_id, ur.sheet_row_no, ur.cheque_no, ur.bank_name, ur.amount, ur.cheque_date,
+                       ur.status, ur.reason, u.created_at AS uploaded_at,
+                       COUNT(*) OVER (PARTITION BY $key) AS times
+                FROM pdc_bank_sheet_upload_rows ur
+                JOIN pdc_bank_sheet_uploads u ON u.id = ur.upload_id
+                ORDER BY $key, ur.upload_id DESC, ur.id DESC
+            ) x
+            WHERE x.status IN ($in)" . (count($where) ? ' AND ' . implode(' AND ', $where) : '') . "
+            ORDER BY x.cheque_date DESC NULLS LAST, x.cheque_no, x.id", $bind);
+
+        $rows = $this->withoutPostedSince($rows);
+
+        $counts = array_fill_keys(self::PENDING_STATUSES, 0);
+        $out = [];
+        foreach ($rows as $r) {
+            $counts[$r->status]++;
+            if ($f['status'] === '' || $r->status === $f['status']) {
+                $out[] = $r;
+            }
+        }
+        return [$out, $counts];
+    }
+
+    /**
+     * Drops pending rows whose cheque has been posted since. Not-found / unknown-bank rows go
+     * on any posted PDC with that cheque no + bank in the date window; the rest only when the
+     * posted PDCs add up to the sheet amount (an unposted PDC shared the number there).
+     */
+    private function withoutPostedSince(array $rows)
+    {
+        if (count($rows) === 0) {
+            return $rows;
+        }
+        $sheetRows = [];
+        foreach ($rows as $r) {
+            $sheetRows[] = [
+                'row_no'      => (int) $r->id,
+                'cheque_no'   => (string) $r->cheque_no,
+                'bank_code'   => BankSheetReader::bankCode((string) $r->bank_name),
+                'amount'      => (float) $r->amount,
+                'cheque_date' => $r->cheque_date ? substr((string) $r->cheque_date, 0, 10) : '',
+            ];
+        }
+        $posted = [];
+        foreach (array_chunk($sheetRows, 1000) as $chunk) {
+            foreach ($this->postedPdcs($chunk) as $p) {
+                $posted[$p->id] = $p;
+            }
+        }
+        $found = BankSheetPostedCheques::find($sheetRows, array_values($posted), $this->bankMap());
+
+        $out = [];
+        foreach ($rows as $r) {
+            $f = isset($found[(int) $r->id]) ? $found[(int) $r->id] : null;
+            $anyAmount = in_array($r->status, [BankSheetPdcMatcher::NOT_FOUND, BankSheetPdcMatcher::UNKNOWN_BANK], true);
+            if ($f !== null && ($f['same_amount'] || $anyAmount)) {
+                continue;
+            }
+            $out[] = $r;
+        }
+        return $out;
+    }
 
     /**
      * Reads the stored sheet, pulls the unposted PDCs sharing its cheque
@@ -666,15 +821,19 @@ class PdcBankSheetController extends Controller
             throw new \RuntimeException('No cheque rows found in the uploaded sheet');
         }
 
-        $results = (new BankSheetPdcMatcher($this->bankMap()))->match($rows, $this->candidatePdcs($rows));
+        $bankMap = $this->bankMap();
+        $results = (new BankSheetPdcMatcher($bankMap))->match($rows, $this->candidatePdcs($rows));
+        $results = $this->markAlreadyPosted($results, $bankMap);
 
         // Rows the bank rejected (NSF, signature, ...) are kept out of the
         // review: only accepted cheques are shown. They still reach the audit.
-        $sections = ['ambiguous' => [], 'vat' => [], 'matched' => [], 'cannot' => []];
+        $sections = ['ambiguous' => [], 'vat' => [], 'matched' => [], 'cannot' => [], 'posted' => []];
         $rejected = 0;
         foreach ($results as $r) {
             if ($r['status'] === BankSheetPdcMatcher::REJECTED) {
                 $rejected++;
+            } elseif ($r['status'] === BankSheetPdcMatcher::ALREADY_POSTED) {
+                $sections['posted'][] = $r;
             } elseif ($r['status'] === BankSheetPdcMatcher::MATCHED) {
                 $sections['matched'][] = $r;
             } elseif ($r['status'] === BankSheetPdcMatcher::AMBIGUOUS) {
@@ -693,9 +852,116 @@ class PdcBankSheetController extends Controller
             'vat'       => count($sections['vat']),
             'matched'   => count($sections['matched']),
             'cannot'    => count($sections['cannot']),
+            'posted'    => count($sections['posted']),
         ];
 
         return ['results' => $results, 'sections' => $sections, 'counts' => $counts, 'batch_date' => BankSheetReader::batchDate($rows)];
+    }
+
+    /**
+     * Rows with no unposted PDC whose cheque was posted already (an earlier upload of
+     * the same sheet, or the PDC Posting screen) become ALREADY_POSTED: shown on their
+     * own tab, never posted again. A date / amount mismatch row only when the posted
+     * PDCs add up to the sheet amount, as there an unposted PDC also carries the number.
+     */
+    private function markAlreadyPosted(array $results, array $bankMap)
+    {
+        $check = [];
+        foreach ($results as $i => $r) {
+            if (in_array($r['status'], [BankSheetPdcMatcher::NOT_FOUND, BankSheetPdcMatcher::DATE_MISMATCH, BankSheetPdcMatcher::AMOUNT_MISMATCH], true)) {
+                $check[$i] = $r['row'];
+            }
+        }
+        if (count($check) === 0) {
+            return $results;
+        }
+
+        $found = BankSheetPostedCheques::find(array_values($check), $this->postedPdcs(array_values($check)), $bankMap);
+        if (count($found) === 0) {
+            return $results;
+        }
+        $ids = [];
+        foreach ($found as $f) {
+            foreach ($f['pdcs'] as $p) {
+                $ids[] = $p->id;
+            }
+        }
+        $uploads = $this->postingUploads($ids);
+
+        foreach ($check as $i => $row) {
+            if (!isset($found[$row['row_no']])) {
+                continue;
+            }
+            $f = $found[$row['row_no']];
+            if ($results[$i]['status'] !== BankSheetPdcMatcher::NOT_FOUND && !$f['same_amount']) {
+                continue;
+            }
+            $receipts = [];
+            $upload = null;
+            foreach ($f['pdcs'] as $p) {
+                if ($p->pdc_receipt_no && !in_array($p->pdc_receipt_no, $receipts, true)) {
+                    $receipts[] = $p->pdc_receipt_no;
+                }
+                if (isset($uploads[$p->id])) {
+                    $upload = $uploads[$p->id];
+                }
+            }
+            $posted = $f['pdcs'][0]->pdc_posted_date;
+            $reason = 'Already posted' . ($receipts ? ': receipt ' . implode(', ', $receipts) : '')
+                    . ($posted ? ' on ' . \Carbon\Carbon::parse($posted)->format('d/m/Y') : '')
+                    . ($upload ? ' (bank sheet upload #' . $upload . ')' : ' (PDC Posting)')
+                    . ($f['same_amount'] ? '' : '; PLMS amount ' . number_format($f['amount'], 3) . ' differs from the sheet');
+            $results[$i] = array_merge($results[$i], [
+                'status'        => BankSheetPdcMatcher::ALREADY_POSTED,
+                'pdcs'          => [],
+                'candidates'    => [],
+                'reason'        => $reason,
+                'posted'        => $f['pdcs'],
+                'posted_amount' => $f['amount'],
+                'same_amount'   => $f['same_amount'],
+                'receipts'      => $receipts,
+                'upload_id'     => $upload,
+            ]);
+        }
+        return $results;
+    }
+
+    /** Posted PDCs whose cheque number appears on the given sheet rows. */
+    private function postedPdcs(array $rows)
+    {
+        $q = Pdc::with(['tenantContractInfo.tenant', 'tenantContractInfo.building', 'tenantContractInfo.Unit', 'bankInfo'])
+            ->whereIn('pdc_check_no', $this->chequeNumbers($rows))
+            ->where('pdc_is_posted', 1)
+            ->orderBy('id');
+        $out = [];
+        foreach ($q->get() as $pdc) {
+            $out[] = $this->pdcObject($pdc);
+        }
+        return $out;
+    }
+
+    /** pdc id => id of the bank sheet upload that posted it (latest when several). */
+    private function postingUploads(array $pdcIds)
+    {
+        $pdcIds = array_values(array_unique(array_map('intval', $pdcIds)));
+        if (count($pdcIds) === 0) {
+            return [];
+        }
+        $in = implode(',', array_fill(0, count($pdcIds), '?'));
+        $rows = DB::select("
+            SELECT x.pdc_id, MAX(x.upload_id) AS upload_id
+            FROM (
+                SELECT ur.upload_id, unnest(string_to_array(ur.pdc_ids, ','))::int AS pdc_id
+                FROM pdc_bank_sheet_upload_rows ur
+                WHERE ur.status = 'posted' AND ur.pdc_ids IS NOT NULL
+            ) x
+            WHERE x.pdc_id IN ($in)
+            GROUP BY x.pdc_id", $pdcIds);
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(int) $r->pdc_id] = (int) $r->upload_id;
+        }
+        return $out;
     }
 
     private function paginate(array $items, Request $request, $pageName, $stored, $tab = null)
@@ -820,7 +1086,7 @@ class PdcBankSheetController extends Controller
         }
         return DB::table('pdc_bank_sheet_upload_rows')
             ->whereIn('upload_id', $uploadIds)
-            ->whereNotIn('status', ['posted', BankSheetPdcMatcher::REJECTED])
+            ->whereNotIn('status', ['posted', BankSheetPdcMatcher::REJECTED, BankSheetPdcMatcher::ALREADY_POSTED])
             ->orderBy('upload_id')
             ->orderBy('sheet_row_no')
             ->get();
@@ -911,19 +1177,8 @@ class PdcBankSheetController extends Controller
      */
     private function candidatePdcs(array $rows, $forRejected = false)
     {
-        // the cheque number as printed on the sheet (e.g. 00205886) and, failing that, without its
-        // leading zeros (205886): PDCs are stored either way. The matchers compare both sides normalised.
-        $numbers = [];
-        foreach ($rows as $r) {
-            $printed = trim((string) $r['cheque_no']);
-            if ($printed !== '') {
-                $numbers[$printed] = true;
-            }
-            $numbers[BankSheetPdcMatcher::normaliseChequeNo($r['cheque_no'])] = true;
-        }
-
         $q = Pdc::with(['tenantContractInfo.tenant', 'tenantContractInfo.building', 'tenantContractInfo.Unit', 'bankInfo'])
-            ->whereIn('pdc_check_no', array_keys($numbers))
+            ->whereIn('pdc_check_no', $this->chequeNumbers($rows))
             ->whereNull('pdc_clear_date')
             ->whereIn('pdc_type', [1, 2, 3])
             ->orderBy('id');
@@ -932,36 +1187,58 @@ class PdcBankSheetController extends Controller
         } else {
             $q->where('pdc_is_posted', 0)->where('pdc_cancel_reason', 0);
         }
-        $pdcs = $q->get();
-
         $out = [];
-        foreach ($pdcs as $pdc) {
-            $contract = $pdc->tenantContractInfo;
-            $out[] = (object) [
-                'id'                 => (int) $pdc->id,
-                'pdc_check_no'       => (string) $pdc->pdc_check_no,
-                'bank_id'            => (int) $pdc->bank_id,
-                'bank_name'          => $pdc->bankInfo ? $pdc->bankInfo->bank_name : '',
-                'pdc_amt'            => (float) $pdc->pdc_amt,
-                'pdc_check_date'     => $pdc->pdc_check_date ? $pdc->pdc_check_date->format('Y-m-d') : '',
-                'pdc_type_name'      => $pdc->pdc_type_name,
-                'tenant_contract_id' => (int) $pdc->tenant_contract_id,
-                'tenant_id'          => $contract ? (int) $contract->tenant_id : 0,
-                'tenant_name'        => $contract && $contract->tenant ? $contract->tenant->tenant_name : '',
-                'tenant_contract_no' => $contract ? $contract->tenant_contract_no : '',
-                'building_name'      => $contract && $contract->building ? $contract->building->building_name : '',
-                'unit_no'            => $contract && $contract->Unit ? $contract->Unit->unit_code : '',
-                'pdc_account_no'     => $pdc->pdc_account_no,
-                'pdc_remark'         => (string) $pdc->pdc_remark,
-                'pdc_type'           => (int) $pdc->pdc_type,
-                'management_id'      => $contract && $contract->building ? (int) $contract->building->management_id : 0,
-                'pdc_cancel_reason'  => (int) $pdc->pdc_cancel_reason,
-                'pdc_is_posted'      => (int) $pdc->pdc_is_posted,
-                'pdc_receipt_no'     => $pdc->pdc_receipt_no,
-                'bounce_reason_name' => (int) $pdc->pdc_cancel_reason === BankSheetRejectedCheques::BOUNCED ? $pdc->pdc_cancel_reason_name : null,
-            ];
+        foreach ($q->get() as $pdc) {
+            $out[] = $this->pdcObject($pdc);
         }
         return $out;
+    }
+
+    /**
+     * The cheque numbers of sheet rows as printed (e.g. 00205886) and without their
+     * leading zeros (205886): PDCs are stored either way. The matchers compare both sides normalised.
+     */
+    private function chequeNumbers(array $rows)
+    {
+        $numbers = [];
+        foreach ($rows as $r) {
+            $printed = trim((string) $r['cheque_no']);
+            if ($printed !== '') {
+                $numbers[$printed] = true;
+            }
+            $numbers[BankSheetPdcMatcher::normaliseChequeNo($r['cheque_no'])] = true;
+        }
+        return array_keys($numbers);
+    }
+
+    /** A PDC as the light object the matchers and the pages read. */
+    private function pdcObject(Pdc $pdc)
+    {
+        $contract = $pdc->tenantContractInfo;
+        return (object) [
+            'id'                 => (int) $pdc->id,
+            'pdc_check_no'       => (string) $pdc->pdc_check_no,
+            'bank_id'            => (int) $pdc->bank_id,
+            'bank_name'          => $pdc->bankInfo ? $pdc->bankInfo->bank_name : '',
+            'pdc_amt'            => (float) $pdc->pdc_amt,
+            'pdc_check_date'     => $pdc->pdc_check_date ? $pdc->pdc_check_date->format('Y-m-d') : '',
+            'pdc_type_name'      => $pdc->pdc_type_name,
+            'tenant_contract_id' => (int) $pdc->tenant_contract_id,
+            'tenant_id'          => $contract ? (int) $contract->tenant_id : 0,
+            'tenant_name'        => $contract && $contract->tenant ? $contract->tenant->tenant_name : '',
+            'tenant_contract_no' => $contract ? $contract->tenant_contract_no : '',
+            'building_name'      => $contract && $contract->building ? $contract->building->building_name : '',
+            'unit_no'            => $contract && $contract->Unit ? $contract->Unit->unit_code : '',
+            'pdc_account_no'     => $pdc->pdc_account_no,
+            'pdc_remark'         => (string) $pdc->pdc_remark,
+            'pdc_type'           => (int) $pdc->pdc_type,
+            'management_id'      => $contract && $contract->building ? (int) $contract->building->management_id : 0,
+            'pdc_cancel_reason'  => (int) $pdc->pdc_cancel_reason,
+            'pdc_is_posted'      => (int) $pdc->pdc_is_posted,
+            'pdc_receipt_no'     => $pdc->pdc_receipt_no,
+            'bounce_reason_name' => (int) $pdc->pdc_cancel_reason === BankSheetRejectedCheques::BOUNCED ? $pdc->pdc_cancel_reason_name : null,
+            'pdc_posted_date'    => $pdc->pdc_posted_date ? substr((string) $pdc->pdc_posted_date, 0, 10) : null,
+        ];
     }
 
     /** The candidate group whose pdc ids are exactly the submitted "id,id" list, or null. */

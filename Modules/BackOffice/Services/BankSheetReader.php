@@ -67,7 +67,7 @@ class BankSheetReader
             $rows[] = [
                 'row_no'        => $rowNo,
                 'cheque_no'     => $chequeNo,
-                'bank_code'     => $this->bankCode($bankName),
+                'bank_code'     => self::bankCode($bankName),
                 'bank_name'     => $bankName,
                 'account_no'    => $this->text($this->cell($cells, $cols, self::COL_ACCOUNT)),
                 'amount'        => $this->amount($this->cell($cells, $cols, self::COL_AMOUNT)),
@@ -186,7 +186,7 @@ class BankSheetReader
     }
 
     /** "27 - Bank Of Muscat" => "27" */
-    private function bankCode($bankName)
+    public static function bankCode($bankName)
     {
         if (preg_match('/^\s*(\d+)\s*-/', $bankName, $m)) {
             return $m[1];

@@ -37,6 +37,7 @@
         <label>&nbsp;</label>
         <button type="submit" class="btn btn-primary">Show</button>
         <a href="{{ route('pdcBankSheetUploads') }}" class="btn btn-default">Reset</a>
+        <a href="{{ route('pdcBankSheetPending') }}" class="btn btn-warning"><i class="fa fa-hourglass-half" aria-hidden="true"></i> Pending cheques</a>
         <a href="{{ route('pdcPosting') }}" class="btn btn-outline-secondary">Back to PDC Posting</a>
       </div>
     </form>

@@ -460,6 +460,10 @@ Breadcrumbs::for('pdcBankSheetResult', function ($trail, $upload) {
     $trail->parent('pdcBankSheetUploads');
     $trail->push('Posting #' . $upload->id);
 });
+Breadcrumbs::for('pdcBankSheetPending', function ($trail) {
+    $trail->parent('pdcBankSheetUploads');
+    $trail->push('Pending Cheques');
+});
 Breadcrumbs::for('pdcBankSheetDay', function ($trail, $date) {
     $trail->parent('pdcBankSheetUploads');
     $trail->push(\Carbon\Carbon::parse($date)->format('d/m/Y'));

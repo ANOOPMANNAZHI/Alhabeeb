@@ -39,6 +39,9 @@
   .bsp .bsp-tab-count { min-width:24px; padding:2px 8px; border-radius:12px; font-size:12px; line-height:18px; text-align:center; font-variant-numeric:tabular-nums; }
   .bsp .bsp-tab-ok .bsp-tab-count { background:#dcfce7; color:#166534; }
   .bsp .bsp-tab-bad .bsp-tab-count { background:#fee2e2; color:#991b1b; }
+  .bsp .bsp-tab-info i { color:#475569; }
+  .bsp .bsp-tab-info .bsp-tab-count { background:#e2e8f0; color:#334155; }
+  .bsp-pill-posted { background:#e2e8f0; color:#334155; }
   .bsp .bsp-panel { padding:16px 24px 24px; }
   .bsp .bsp-panel[hidden] { display:none; }
   .bsp .bsp-panel:focus-visible { outline:2px solid #2f4fd6; outline-offset:-2px; }
@@ -181,6 +184,9 @@
             @endif
             <span class="bsp-pill bsp-pill-matched"><i class="fa fa-check-circle" aria-hidden="true"></i>{{ $counts['matched'] }} matched</span>
             <span class="bsp-pill bsp-pill-cannot"><i class="fa fa-ban" aria-hidden="true"></i>{{ $counts['cannot'] }} cannot post</span>
+            @if($counts['posted'] > 0)
+            <a href="#bsp-tabs" class="bsp-pill bsp-pill-posted bsp-goto-tab" data-tab="posted"><i class="fa fa-history" aria-hidden="true"></i>{{ $counts['posted'] }} already posted</a>
+            @endif
           </div>
         </div>
         <div class="col-md-3 col-sm-6">
@@ -394,6 +400,7 @@
   $bspTabs = [
       'matched'  => ['Auto-matched', 'fa-check-circle', 'ok', ($filtering['matched'] ? $shown['matched'] . ' of ' : '') . $counts['matched']],
       'cannot'   => ['Cannot post', 'fa-ban', 'bad', ($filtering['cannot'] ? $shown['cannot'] . ' of ' : '') . $counts['cannot']],
+      'posted'   => ['Already posted', 'fa-history', 'info', $counts['posted']],
       'rejected' => ['Rejected by bank', 'fa-times-circle', 'bad', count($rejected)],
   ];
 @endphp
@@ -595,6 +602,62 @@
       </table>
     </div></div>
     <div id="pagination_c"><div class="text-center">{{ $cannot->links() }}</div></div>
+</div>
+
+{{-- Posted earlier (an earlier upload of this sheet or the PDC Posting screen): shown, never posted again --}}
+<div class="bsp-panel" role="tabpanel" id="bsp-panel-posted" aria-labelledby="bsp-tab-posted" tabindex="0" {{ $activeTab === 'posted' ? '' : 'hidden' }}>
+    <div class="bsp-head">
+      <span class="bsp-hint">These cheques were posted before (receipt below). Nothing happens to them here.</span>
+    </div>
+    <h4>
+      <div id="pagination_info_p">@include('includes.pagination_info', ['paginator' => $posted])</div>
+      <div class="clr"></div>
+    </h4>
+    <div class="table-wrap"><div class="table-responsive">
+      <table class="table display product-overview mb-30">
+        <thead>
+          <tr>
+            <th width="5%">Sl No.</th>
+            <th width="10%">Cheque No</th>
+            <th width="15%">Bank (sheet)</th>
+            <th width="9%">Cheque Date</th>
+            <th class="num" width="9%">Amount</th>
+            <th>Building / Unit</th>
+            <th>Tenant</th>
+            <th>Receipt</th>
+            <th width="9%">Posted On</th>
+            <th>Posted By</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($posted as $r)
+          <tr>
+            <td>{{ $posted->perPage() * ($posted->currentPage() - 1) + $loop->iteration }}</td>
+            <td><b>{{ $r['row']['cheque_no'] }}</b></td>
+            <td>{{ $r['row']['bank_name'] }}</td>
+            <td>{{ $fmtDate($r['row']['cheque_date']) }}</td>
+            <td class="num">{{ numberFormat($r['row']['amount']) }}
+              @if(!$r['same_amount'])<span class="bsp-sub" style="color:#991b1b">PLMS {{ numberFormat($r['posted_amount']) }}</span>@endif
+            </td>
+            <td>{{ $r['posted'][0]->building_name }} / {{ $r['posted'][0]->unit_no }}</td>
+            <td>{{ $r['posted'][0]->tenant_name }}<span class="bsp-sub">{{ $r['posted'][0]->tenant_contract_no }}</span></td>
+            <td>{{ $r['receipts'] ? implode(', ', $r['receipts']) : '-' }}</td>
+            <td>{{ $fmtDate($r['posted'][0]->pdc_posted_date) }}</td>
+            <td>
+              @if($r['upload_id'])
+                <a href="{{ route('pdcBankSheetResult', $r['upload_id']) }}" target="_blank" rel="noopener">Bank sheet upload #{{ $r['upload_id'] }}</a>
+              @else
+                PDC Posting
+              @endif
+            </td>
+          </tr>
+          @empty
+          <tr><td colspan="10" align="center"><p>None — no cheque on this sheet was posted before.</p></td></tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div></div>
+    <div id="pagination_p"><div class="text-center">{{ $posted->links() }}</div></div>
 </div>
 
 {{-- Rejected by the bank: mark the PDC bounced --}}
