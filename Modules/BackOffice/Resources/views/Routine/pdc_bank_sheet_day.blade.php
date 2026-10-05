@@ -23,7 +23,7 @@
     <div class="bsr-head">
       <h4>Uploads posted on {{ $dayLabel }}</h4>
       <span class="bsr-right">
-        <a href="{{ route('pdcBankSheetUploads') }}" class="btn btn-outline-secondary btn-sm">Posting history</a>
+        <a href="{{ route('pdcBankSheetUploads') }}" class="btn btn-outline-secondary">Posting history</a>
       </span>
     </div>
     <div class="table-responsive">

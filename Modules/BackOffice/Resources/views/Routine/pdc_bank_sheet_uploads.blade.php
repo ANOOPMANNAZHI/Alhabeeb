@@ -54,7 +54,7 @@
       <span class="bsr-pill bsr-pill-ok"><i class="fa fa-check-circle" aria-hidden="true"></i>{{ (int) $d->cheques }} cheque(s) posted</span>
       <span class="bsr-pill bsr-pill-ok"><i class="fa fa-file-text-o" aria-hidden="true"></i>{{ $totalsByDay[$d->day]['receipts'] }} receipt(s) · {{ number_format($totalsByDay[$d->day]['amount'], 3) }}</span>
       <span class="bsr-right">
-        <a href="{{ route('pdcBankSheetDay', $d->day) }}" class="btn btn-primary btn-sm">View day's receipts</a>
+        <a href="{{ route('pdcBankSheetDay', $d->day) }}" class="btn btn-primary">View day's receipts</a>
       </span>
     </div>
     <div class="table-responsive">
