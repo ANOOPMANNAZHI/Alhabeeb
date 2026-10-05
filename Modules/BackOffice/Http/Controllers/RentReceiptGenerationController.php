@@ -209,7 +209,8 @@ class RentReceiptGenerationController extends Controller
         
         $bankMaster = Bank::Where('bank_status', 1)->where('accounts_bank',1)->orderBy('bank_name', 'ASC')->get();    
         $contract_bounce_pdc  = Pdc::where('tenant_contract_id',$rentReceiptInfo->tenant_contract_id)->where('pdc_cancel_reason',1)->get();
-        $contract_replace_pdc = Pdc::where('tenant_contract_id',$rentReceiptInfo->tenant_contract_id)->whereNull('pdc_receipt_no')->get();
+        $contract_replace_pdc = $this->replaceablePdcs($rentReceiptInfo->tenant_contract_id,
+            $rentReceiptInfo->receipts_generation_is_bounce_normal == 3 ? $rentReceiptInfo->receipts_generation_is_pdc_bounce_id : null);
 
 		// 1 - cheque, 2 - cash - receipt No sequence
 		$cashReceiptNo    = $this->receiptGenerateCode('receipt_cash');
@@ -2166,11 +2167,7 @@ $receiptslist = ViewReceipt::filter($request)
   */
   public function pdcListWithoutReceiptByContract(Request $request)
   {
-      $contract_id = $request->contractId;
-
-      $pdc_list = Pdc::where('tenant_contract_id', $contract_id)
-                     ->whereNull('pdc_receipt_no')
-                     ->get();
+      $pdc_list = $this->replaceablePdcs($request->contractId, $request->current ?: null);
 
       $option = '';
       if (count($pdc_list) == 0) {
@@ -2178,11 +2175,42 @@ $receiptslist = ViewReceipt::filter($request)
       } else {
           $option .= '<option value="">Select Cheque</option>';
           foreach ($pdc_list as $list) {
-              $option .= '<option value="' . $list->id . '" data-cheque="' . $list->pdc_check_no . '">' . $list->pdc_check_no . '</option>';
+              $option .= '<option value="' . $list->id . '" data-cheque="' . $list->pdc_check_no . '"' . ((string) $list->id === (string) $request->current ? ' selected' : '') . '>'
+                       . e($list->pdc_check_no . ' - ' . ($list->pdc_check_date ? $list->pdc_check_date->format('d/m/Y') : '') . ' - ' . numberFormat($list->pdc_amt)) . '</option>';
           }
       }
 
       return json_encode(['option_html' => $option]);
+  }
+
+  /**
+   * PDCs of the agreement a cash receipt can still replace: no receipt yet (not
+   * posted, cleared, bounced, exchanged or already replaced) and no live receipt
+   * on the agreement carrying the cheque number (booked by hand). $keepId: the
+   * PDC the receipt being edited already replaces, kept in the list.
+   */
+  private function replaceablePdcs($contractId, $keepId = null)
+  {
+      return Pdc::where('tenant_contract_id', $contractId)
+          ->where(function ($q) use ($keepId) {
+              $q->where(function ($open) {
+                  $open->whereNull('pdc_receipt_no')
+                       ->where('pdc_is_posted', 0)
+                       ->whereNull('pdc_clear_date')
+                       ->where(function ($c) { $c->where('pdc_cancel_reason', '0')->orWhereNull('pdc_cancel_reason'); })
+                       ->whereRaw("NOT EXISTS (
+                            SELECT 1 FROM receipts_generation rg
+                            WHERE rg.tenant_contract_id = pdc.tenant_contract_id AND rg.deleted_at IS NULL
+                              AND rg.receipts_generation_status <> 2
+                              AND ltrim(CASE WHEN position('__' in rg.receipts_generation_cheque_no) > 0 THEN split_part(rg.receipts_generation_cheque_no, '__', 2)
+                                             ELSE rg.receipts_generation_cheque_no END, '0') = ltrim(pdc.pdc_check_no::text, '0'))");
+              });
+              if ($keepId) {
+                  $q->orWhere('id', $keepId);
+              }
+          })
+          ->orderBy('pdc_check_date')
+          ->get();
   }
 
    /***    receiptsAgreementList    of Contract    ***/

@@ -282,7 +282,7 @@
                                 <select name="pdc_replace_cheque" class="form-control" id="pdc_replace_cheque">
                                     @if(isset($rentReceiptInfo->receipts_generation_is_bounce_normal) && $rentReceiptInfo->receipts_generation_is_bounce_normal==3 && isset($contract_replace_pdc))
                                         @foreach($contract_replace_pdc as $pdc)
-                                            <option value="{{$pdc->id}}" data-cheque="{{$pdc->pdc_check_no}}" {{($pdc->id==$rentReceiptInfo->receipts_generation_is_pdc_bounce_id)?'selected':''}}>{{$pdc->pdc_check_no}}</option>
+                                            <option value="{{$pdc->id}}" data-cheque="{{$pdc->pdc_check_no}}" {{($pdc->id==$rentReceiptInfo->receipts_generation_is_pdc_bounce_id)?'selected':''}}>{{$pdc->pdc_check_no}} - {{ $pdc->pdc_check_date ? $pdc->pdc_check_date->format('d/m/Y') : '' }} - {{ numberFormat($pdc->pdc_amt) }}</option>
                                         @endforeach
                                     @endif
                                 </select>
@@ -1107,7 +1107,7 @@ $(document).on('click','.pay_type',function(){
             $.ajax({
                 method: "POST",
                 url: "{{route('pdcListWithoutReceiptByContract')}}",
-                data: { contractId: contractId, "_token": $('meta[name="csrf-token"]').attr('content') },
+                data: { contractId: contractId, current: "{{ isset($rentReceiptInfo) && $rentReceiptInfo->receipts_generation_is_bounce_normal == 3 ? $rentReceiptInfo->receipts_generation_is_pdc_bounce_id : '' }}", "_token": $('meta[name="csrf-token"]').attr('content') },
                 success: function(data){
                     var parsed_data = JSON.parse(data);
                     $('#pdc_replace_cheque').html(parsed_data.option_html);
