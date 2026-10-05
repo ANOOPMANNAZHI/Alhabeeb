@@ -24,6 +24,7 @@ use Dynamics;
 use App\Setting;
 use DB;
 use Modules\BackOffice\Services\ReceiptNarration;
+use Modules\BackOffice\Services\VatReceiptCreator;
 
 
 class RoutinesController extends Controller
@@ -143,7 +144,7 @@ class RoutinesController extends Controller
           ->join('bank', 'bank.id', '=', 'pdc.bank_id')->whereBetween('pdc_check_date', [$fromDate, $toDate])
                 ->where('pdc_clear_date', null)
                 ->where('pdc_is_posted',0)
-				->whereIn('pdc_type',[1,2])
+				->whereIn('pdc_type',[1,2,4])
                 ->where('pdc_cancel_reason',0)->sortable()
                 ->when($building_name, function ($query) use($building_name,$custom_direction) { 
                     return $query->orderBy($building_name,$custom_direction);
@@ -161,7 +162,7 @@ class RoutinesController extends Controller
                    ->where('pdc_clear_date', null)
                    ->where('pdc_check_no',intval($pdc_check_no))
                    ->where('pdc_cancel_reason',0)
-				   ->whereIn('pdc_type',[1,2])
+				   ->whereIn('pdc_type',[1,2,4])
                    ->where('pdc_is_posted',0)
                     ->when($building_name, function ($query) use($building_name,$custom_direction) { 
                     return $query->orderBy($building_name,$custom_direction);
@@ -175,7 +176,7 @@ class RoutinesController extends Controller
         $pdc = Pdc::join('tenant_contracts','tenant_contracts.id','=','pdc.tenant_contract_id')->join('buildings', 'buildings.id', '=', 'tenant_contracts.building_id')
 				   ->where('pdc_check_no',intval($pdc_check_no))
                    ->where('pdc_is_posted',0)
-				   ->whereIn('pdc_type',[1,2])
+				   ->whereIn('pdc_type',[1,2,4])
                    ->where('pdc_cancel_reason',0)
 				   ->where('pdc_clear_date', null)
                    ->when($building_name, function ($query) use($building_name,$custom_direction) { 
@@ -187,7 +188,7 @@ class RoutinesController extends Controller
 
       }else {
         $pdc = Pdc::join('tenant_contracts','tenant_contracts.id','=','pdc.tenant_contract_id')->join('buildings', 'buildings.id', '=', 'tenant_contracts.building_id')->where('pdc.id',0)
-          ->whereIn('pdc_type',[1,2])
+          ->whereIn('pdc_type',[1,2,4])
 		  ->when($building_name, function ($query) use($building_name,$custom_direction) { 
                     return $query->orderBy($building_name,$custom_direction);
                 })
@@ -230,11 +231,30 @@ class RoutinesController extends Controller
 	  $totalPdc         = count($pdcArr);
 	  $overeffdatearray = array();	  
 
-      foreach($pdcArr as $key=>$pdc){
-        $result = $this->postSinglePdc(Pdc::find($pdc), $pdc_deposit_date, $selectedBank);
+      // VAT PDCs last: their receipt takes its period from the month's rent receipt, which may be in this batch
+      $pdcs = Pdc::whereIn('id', $pdcArr)->get()->sortBy(function ($p) {
+        return ((int) $p->pdc_type === Pdc::TYPE_VAT ? 1 : 0) . '-' . str_pad($p->id, 12, '0', STR_PAD_LEFT);
+      });
+      $vatFailed = array();
+      foreach($pdcs as $pdcRow){
+        if((int) $pdcRow->pdc_type === Pdc::TYPE_VAT){
+          try{
+            DB::transaction(function () use ($pdcRow, $pdc_deposit_date, $selectedBank) {
+              $this->postSinglePdc($pdcRow, $pdc_deposit_date, $selectedBank);
+            });
+          }catch(\RuntimeException $e){
+            $vatFailed[] = 'VAT cheque ' . $pdcRow->pdc_check_no . ': ' . $e->getMessage();
+          }
+          continue;
+        }
+        $result = $this->postSinglePdc($pdcRow, $pdc_deposit_date, $selectedBank);
         if(!$result['posted']){
           array_push($overeffdatearray, $result['contract_no']);
         }
+      }
+      $totalPdc = $totalPdc - count($vatFailed);
+      if(count($vatFailed) > 0){
+        session()->flash('error', 'Not posted: ' . implode(' | ', $vatFailed));
       }
 
 
@@ -287,6 +307,12 @@ class RoutinesController extends Controller
             
  }
  //Notification Ends
+
+// VAT PDC: a VAT receipt for the rent period it belongs to (throws when that rent is not posted yet)
+if ((int) $pdc_type === Pdc::TYPE_VAT) {
+    (new VatReceiptCreator($this))->createSeparate([$pdcData], $pdcData->pdc_check_no, $pdcBankInfo->bank_code, $pdc_deposit_date, $bank_id);
+    return ['posted' => true, 'contract_no' => $contractInfo->tenant_contract_no];
+}
 // 1 - cheque, 2 - cash - receipt No sequence
 $rentIndexCheque   = ReceiptsGeneration::withTrashed()->where('receipts_generation_payment_method',1)->orderBy('id', 'DESC')->first();
 $prefix_cheque  = prefixData('receipt_cheque')->configuration_value;

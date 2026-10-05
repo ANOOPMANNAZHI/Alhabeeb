@@ -21,6 +21,7 @@ class Kernel extends ConsoleKernel
          \Modules\BackOffice\Console\RentOutstandingApplyDayCount::class,
          \Modules\BackOffice\Console\BulkMessagesSend::class,
          \Modules\BackOffice\Console\RefreshReceivableFollowup::class,
+         \Modules\BackOffice\Console\PdcConvertVat::class,
     ];
 
     /**

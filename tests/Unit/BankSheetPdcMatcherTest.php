@@ -680,4 +680,64 @@ class BankSheetPdcMatcherTest extends TestCase
         $this->assertSame([], $out[0]['related']);
         $this->assertNull($out[0]['related_kind']);
     }
+
+    // ── VAT PDC type (4) ──────────────────────────────────────────────
+
+    private function vatTypePdc(array $overrides = [])
+    {
+        return $this->pdc(array_merge(['pdc_type' => 4, 'pdc_amt' => 11.5, 'pdc_check_no' => '777'], $overrides));
+    }
+
+    public function test_separate_vat_cheque_matches_on_its_own()
+    {
+        $vat = $this->vatTypePdc();
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '00000777', 'amount' => 11.5])], [$vat]);
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertTrue($out[0]['vat_only']);
+        $this->assertSame([$vat->id], array_column($out[0]['pdcs'], 'id'));
+    }
+
+    public function test_separate_vat_cheque_wrong_amount_or_month_is_not_posted()
+    {
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '777', 'amount' => 12.0])], [$this->vatTypePdc()]);
+        $this->assertSame(BankSheetPdcMatcher::AMOUNT_MISMATCH, $out[0]['status']);
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '777', 'amount' => 11.5])], [$this->vatTypePdc(['pdc_check_date' => '2026-01-01'])]);
+        $this->assertSame(BankSheetPdcMatcher::DATE_MISMATCH, $out[0]['status']);
+    }
+
+    public function test_others_only_cheque_is_still_not_found()
+    {
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '777', 'amount' => 11.5])], [$this->vatPdc(['pdc_check_no' => '777', 'pdc_amt' => 11.5])]);
+        $this->assertSame(BankSheetPdcMatcher::NOT_FOUND, $out[0]['status']);
+    }
+
+    public function test_vat_type_on_rent_cheque_is_vat_whatever_the_amount()
+    {
+        // 30 is 3% of 1000, outside the 5% band an "Others" row needs; the VAT type is VAT anyway
+        $common = ['pdc_check_no' => '555', 'pdc_check_date' => '2026-09-15'];
+        $rent = $this->pdc($common + ['pdc_amt' => 1000.0, 'pdc_type' => 1]);
+        $vat  = $this->vatTypePdc($common + ['pdc_amt' => 30.0]);
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '555', 'amount' => 1030.0])], [$rent, $vat]);
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertEmpty(isset($out[0]['charge_ids']) ? $out[0]['charge_ids'] : []);
+        $this->assertCount(2, $out[0]['pdcs']);
+    }
+
+    public function test_vat_type_plus_other_charge_on_rent_cheque_marks_only_the_charge()
+    {
+        $common = ['pdc_check_no' => '555', 'pdc_check_date' => '2026-09-15'];
+        $rent = $this->pdc($common + ['pdc_amt' => 1000.0, 'pdc_type' => 1]);
+        $vat  = $this->vatTypePdc($common + ['pdc_amt' => 50.0]);
+        $fee  = $this->vatPdc($common + ['pdc_amt' => 52.0, 'pdc_remark' => 'renewal fee']); // near 5% but VAT is already typed
+        $out = $this->matcher()->match([$this->sheetRow(['cheque_no' => '555', 'amount' => 1102.0])], [$rent, $vat, $fee]);
+        $this->assertSame(BankSheetPdcMatcher::MATCHED, $out[0]['status']);
+        $this->assertSame([$fee->id], $out[0]['charge_ids']);
+    }
+
+    public function test_is_vat_type_only_for_type_4()
+    {
+        $this->assertTrue(BankSheetPdcMatcher::isVatType($this->vatTypePdc()));
+        $this->assertFalse(BankSheetPdcMatcher::isVatType($this->vatPdc()));
+        $this->assertTrue(BankSheetPdcMatcher::isVat($this->vatTypePdc()));
+    }
 }

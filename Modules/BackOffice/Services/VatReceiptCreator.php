@@ -8,9 +8,10 @@ use Modules\BackOffice\Entities\Pdc;
 use Modules\BackOffice\Entities\ReceiptGenerationDim;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Http\Controllers\RoutinesController;
+use Modules\Sales\Entities\TenantContract;
 
 /**
- * The VAT part of a rent + VAT cheque, booked as a General Receipt in the
+ * The VAT part of a rent + VAT cheque, or a separate VAT cheque (createSeparate), booked as a General Receipt in the
  * format the back office types by hand (reference: CPY2619717):
  * "VAT for 16.08.26 to 15.09.26 UNIT NO. S 03 , Teeb Complex", one credit
  * line to 12211 RENT RECEIVABLE. Runs inside the caller's transaction.
@@ -117,6 +118,97 @@ class VatReceiptCreator
         $this->closePdcs($vatPdcs, $receiptNo, $a['deposit_date']);
 
         return ['receipt_no' => $receiptNo, 'created' => true];
+    }
+
+    /**
+     * A separate VAT cheque: one VAT receipt per agreement on it, for the rent period
+     * its VAT PDCs belong to (see rentPeriod). Throws when that rent is not posted yet.
+     * @return array of ['receipt_no' => string, 'created' => bool]
+     */
+    public function createSeparate(array $vatPdcs, $chequeNo, $bankCode, $depositDate, $depositBankId)
+    {
+        $byContract = [];
+        foreach ($vatPdcs as $v) {
+            $byContract[(int) $v->tenant_contract_id][] = $v;
+        }
+        $out = [];
+        foreach ($byContract as $contractId => $pdcs) {
+            $contract = TenantContract::with(['Unit', 'building'])->find($contractId);
+            list($from, $to) = $this->rentPeriod($contract, $pdcs);
+            $amount = 0.0;
+            foreach ($pdcs as $v) {
+                $amount += (float) $v->pdc_amt;
+            }
+            $out[] = $this->create([
+                'contract'        => $contract,
+                'cheque_no'       => $chequeNo,
+                'bank_code'       => $bankCode,
+                'amount'          => round($amount, 3),
+                'eff_from'        => $from,
+                'eff_to'          => $to,
+                'deposit_date'    => $depositDate,
+                'deposit_bank_id' => $depositBankId,
+                'vat_pdcs'        => $pdcs,
+            ]);
+        }
+        return $out;
+    }
+
+    /**
+     * [from, to] covering the rent receipts the VAT PDCs belong to: per VAT PDC, the receipt
+     * of the agreement's posted rent PDC dated in the same month, else a live rent receipt
+     * whose period covers the VAT cheque date.
+     */
+    public function rentPeriod($contract, array $vatPdcs)
+    {
+        $from = null;
+        $to   = null;
+        foreach ($vatPdcs as $v) {
+            $date = Carbon::parse($v->pdc_check_date)->format('Y-m-d');
+            $receipt = $this->rentReceiptFor((int) $contract->id, $date);
+            if ($receipt === null) {
+                throw new \RuntimeException('rent for ' . Carbon::parse($date)->format('M Y') . ' of ' . $contract->tenant_contract_no
+                    . ' is not posted yet - post the rent cheque first, then this VAT cheque');
+            }
+            $f = Carbon::parse($receipt->receipts_generation_eff_from)->format('Y-m-d');
+            $t = Carbon::parse($receipt->receipts_generation_eff_to)->format('Y-m-d');
+            $from = $from === null || $f < $from ? $f : $from;
+            $to   = $to === null || $t > $to ? $t : $to;
+        }
+        return [$from, $to];
+    }
+
+    private function rentReceiptFor($contractId, $date)
+    {
+        $rentPdc = Pdc::where('tenant_contract_id', $contractId)
+            ->where('pdc_type', 1)
+            ->where('pdc_is_posted', 1)
+            ->whereNotNull('pdc_receipt_no')
+            ->whereRaw("to_char(pdc_check_date, 'YYYY-MM') = ?", [substr($date, 0, 7)])
+            ->orderBy('pdc_check_date')
+            ->first();
+        if ($rentPdc !== null) {
+            $receipt = $this->liveRentReceipts($contractId)
+                ->where('receipts_generation_receipt_no', $rentPdc->pdc_receipt_no)
+                ->first();
+            if ($receipt !== null) {
+                return $receipt;
+            }
+        }
+        return $this->liveRentReceipts($contractId)
+            ->where('receipts_generation_eff_from', '<=', $date)
+            ->where('receipts_generation_eff_to', '>=', $date)
+            ->orderBy('id', 'desc')
+            ->first();
+    }
+
+    private function liveRentReceipts($contractId)
+    {
+        return ReceiptsGeneration::where('tenant_contract_id', $contractId)
+            ->where('receipts_generation_type', 0)
+            ->where('receipts_generation_status', '<>', 2)
+            ->whereNotNull('receipts_generation_eff_from')
+            ->whereNotNull('receipts_generation_eff_to');
     }
 
     private function closePdcs(array $vatPdcs, $receiptNo, $depositDate)

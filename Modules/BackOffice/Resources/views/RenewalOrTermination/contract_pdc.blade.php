@@ -223,6 +223,7 @@
               <option value="1" {{($item->pdc_type == 1)?'selected':''}}>Rent</option>
               <option value="2" {{($item->pdc_type == 2)?'selected':''}}>Deposit</option>
               <option value="3" {{($item->pdc_type == 3)?'selected':''}}>Others</option>
+              <option value="4" {{($item->pdc_type == 4)?'selected':''}}>VAT</option>
 
             </select>
 
@@ -231,6 +232,7 @@
               <option value="1" {{($item->pdc_type == 1)?'selected':''}}>Rent</option>
               <option value="2" {{($item->pdc_type == 2)?'selected':''}}>Deposit</option>
               <option value="3" {{($item->pdc_type == 3)?'selected':''}}>Others</option>
+              <option value="4" {{($item->pdc_type == 4)?'selected':''}}>VAT</option>
 
             </select>
             @endif
@@ -320,7 +322,7 @@
           <select name="pdc_type_0" id="pdc_type_0">
             <option value="1">Rent</option>
             <option value="2">Deposit</option>
-            <option value="3">Others</option>
+            <option value="3">Others</option><option value="4">VAT</option>
 
           </select>
         </td>
@@ -592,7 +594,7 @@ $(document).on("click",'#process_btn, .addDataRow', function(event){
        pdc_check_date = nextMonth.getFullYear()+'-'+month+'-'+day;
        
 
-       $htmlRow +='<tr class="chkRow" id="tr_'+i+'"><td><input type="hidden" name="pdc_is_saved_'+i+'" value="0" ><a  id="'+i+'" class="dataRow"  href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td><td><span class="sl_no">'+i+'</span></td><td><input type="text" maxlength="10" name="pdc_check_no_'+i+'" id="pdc_check_no_'+i+'" value="'+pdc_check_no+'" onkeypress="return isNumber(event)" class="pdc_no_cls"></td><td><input type="date"  name="pdc_check_date_'+i+'" id="pdc_check_date_'+i+'" value="'+pdc_check_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="text" name="pdc_amt_'+i+'" class="pdc_amt_cls text-right" id="pdc_amt_'+i+'" value="'+pdc_amt+'"   min="1" step="0.01" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" onkeyup="return FormatCurrency(this)" class="text-right" maxlength="10"></td><td><input type="number" min="1" max="100" name="pdc_stage_'+i+'" id="pdc_stage_'+i+'" value="'+pdc_stage+'" class="pdc_stage_cls"><td><select name="pdc_type_'+i+'" id="pdc_type_'+i+'"><option value="1" '+(pdc_type==1?'SELECTED':'')+'>Rent</option><option value="2" '+(pdc_type==2?'SELECTED':'')+'>Deposit</option><option value="3" '+(pdc_type==3?'SELECTED':'')+'>Others</option></select></td></td><td><select name="bank_id_'+i+'" id="bank_id_'+i+'"><option value="">Select</option>';
+       $htmlRow +='<tr class="chkRow" id="tr_'+i+'"><td><input type="hidden" name="pdc_is_saved_'+i+'" value="0" ><a  id="'+i+'" class="dataRow"  href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td><td><span class="sl_no">'+i+'</span></td><td><input type="text" maxlength="10" name="pdc_check_no_'+i+'" id="pdc_check_no_'+i+'" value="'+pdc_check_no+'" onkeypress="return isNumber(event)" class="pdc_no_cls"></td><td><input type="date"  name="pdc_check_date_'+i+'" id="pdc_check_date_'+i+'" value="'+pdc_check_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="text" name="pdc_amt_'+i+'" class="pdc_amt_cls text-right" id="pdc_amt_'+i+'" value="'+pdc_amt+'"   min="1" step="0.01" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" onkeyup="return FormatCurrency(this)" class="text-right" maxlength="10"></td><td><input type="number" min="1" max="100" name="pdc_stage_'+i+'" id="pdc_stage_'+i+'" value="'+pdc_stage+'" class="pdc_stage_cls"><td><select name="pdc_type_'+i+'" id="pdc_type_'+i+'"><option value="1" '+(pdc_type==1?'SELECTED':'')+'>Rent</option><option value="2" '+(pdc_type==2?'SELECTED':'')+'>Deposit</option><option value="3" '+(pdc_type==3?'SELECTED':'')+'>Others</option><option value="4" '+(pdc_type==4?'SELECTED':'')+'>VAT</option></select></td></td><td><select name="bank_id_'+i+'" id="bank_id_'+i+'"><option value="">Select</option>';
 
        @foreach($bankMaster as $name)
        $htmlRow +='<option value="'+'{{$name->id}}'+'"';
@@ -659,7 +661,7 @@ $(document).on("click",'#exchange', function(){
             for (i = lastRow; i <= lastRow; i++) {
 
               var sl_no = i+1;
-              $htmlRow +='<tr class="chkRow" id="tr_'+i+'"><td><input type="hidden" name="pdc_is_saved_"'+i+'" value="0" ><a  id="'+i+'" class="dataRow"  href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td><td>'+sl_no+'</td><td><input maxlength="10" type="text" name="pdc_check_no_'+i+'" id="pdc_check_no_'+i+'" value="'+pdc_check_no+'" onkeypress="return isNumber(event)"></td><td><input type="date"  name="pdc_check_date_'+i+'" id="pdc_check_date_'+i+'" value="'+pdc_check_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="text" class="text-right" name="pdc_amt_'+i+'" id="pdc_amt_'+i+'" value="'+pdc_amt+'"  min="1" step="0.01" onkeyup="return FormatCurrency(this)" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" maxlength="10"></td><td><input type="number"  name="pdc_stage_'+i+'" id="pdc_stage_'+i+'" value="'+pdc_stage+'"  min="1" max="100" ></td><td><select name="pdc_type_'+i+'" id="pdc_type_'+i+'"><option value="1" >Rent</option><option value="2" >Deposit</option><option value="3" >Others</option></select></td><td><select name="bank_id_'+i+'" id="bank_id_'+i+'"><option value="">Select</option>';
+              $htmlRow +='<tr class="chkRow" id="tr_'+i+'"><td><input type="hidden" name="pdc_is_saved_"'+i+'" value="0" ><a  id="'+i+'" class="dataRow"  href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td><td>'+sl_no+'</td><td><input maxlength="10" type="text" name="pdc_check_no_'+i+'" id="pdc_check_no_'+i+'" value="'+pdc_check_no+'" onkeypress="return isNumber(event)"></td><td><input type="date"  name="pdc_check_date_'+i+'" id="pdc_check_date_'+i+'" value="'+pdc_check_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="text" class="text-right" name="pdc_amt_'+i+'" id="pdc_amt_'+i+'" value="'+pdc_amt+'"  min="1" step="0.01" onkeyup="return FormatCurrency(this)" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" maxlength="10"></td><td><input type="number"  name="pdc_stage_'+i+'" id="pdc_stage_'+i+'" value="'+pdc_stage+'"  min="1" max="100" ></td><td><select name="pdc_type_'+i+'" id="pdc_type_'+i+'"><option value="1" >Rent</option><option value="2" >Deposit</option><option value="3" >Others</option><option value="4" >VAT</option></select></td><td><select name="bank_id_'+i+'" id="bank_id_'+i+'"><option value="">Select</option>';
 
               @foreach($bankMaster as $name)
               $htmlRow +='<option value="'+'{{$name->id}}'+'"';

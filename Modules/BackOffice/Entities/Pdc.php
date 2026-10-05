@@ -7,6 +7,11 @@ use Kyslik\ColumnSortable\Sortable;
 class Pdc extends Model
 {
 	use Sortable;
+
+    const TYPE_RENT    = 1;
+    const TYPE_DEPOSIT = 2;
+    const TYPE_OTHERS  = 3;
+    const TYPE_VAT     = 4;
     protected $fillable = [];
     protected $guarded = [];
     protected $table = 'pdc';
@@ -75,6 +80,7 @@ class Pdc extends Model
           case '1' : return 'Rent';
           case '2' : return 'Deposit';
           case '3' : return 'Others';
+          case '4' : return 'VAT';
         }
       }
       

@@ -34,13 +34,21 @@ class BankSheetPdcMatcher
     const VAT_TOLERANCE  = 1.0;
     const VAT_PDC_BAND   = 0.005; // an "Others" PDC is VAT when within this share of the rent of 5% (or VAT_TOLERANCE)
     const COMPREHENSIVE  = 1;
-    const PDC_TYPE_VAT   = 3;
+    const PDC_TYPE_OTHERS = 3; // "Others": VAT entered before the VAT type existed, or a charge (E&W, fees ...)
+    const PDC_TYPE_VAT    = 4; // "VAT": always VAT, whatever the amount
 
     /** 'related' on a result that cannot be posted: PDCs shown for reference only, never posted. */
     const RELATED_SAME       = 'same';       // same cheque no + bank, amount or month differs
     const RELATED_OTHER_BANK = 'other_bank'; // same cheque no, but on a PLMS bank the sheet bank does not map to
 
+    /** A VAT or "Others" PDC: posted with (or apart from) the rent, never as rent. */
     public static function isVat($pdc)
+    {
+        return isset($pdc->pdc_type) && in_array((int) $pdc->pdc_type, [self::PDC_TYPE_OTHERS, self::PDC_TYPE_VAT], true);
+    }
+
+    /** A PDC entered with the VAT type. */
+    public static function isVatType($pdc)
     {
         return isset($pdc->pdc_type) && (int) $pdc->pdc_type === self::PDC_TYPE_VAT;
     }
@@ -125,26 +133,21 @@ class BankSheetPdcMatcher
         }
         $found = $rentFound;
         if (count($found) === 0) {
+            $vatOnly = [];
+            foreach ($vatFound as $pdc) {
+                if (self::isVatType($pdc)) {
+                    $vatOnly[] = $pdc;
+                }
+            }
+            if (count($vatOnly) > 0) {
+                return $this->matchVatOnly($row, $vatOnly);
+            }
             return $this->result($row, self::NOT_FOUND, [], [], 'No unposted PDC with this cheque number and bank');
         }
 
-        $month   = substr($row['cheque_date'], 0, 7);
-        $inMonth = $this->inMonth($found, $month);
-        $prevMonth = null;
-        // the cheque's month first; only when nothing is in it, the months before, nearest first
-        for ($back = 1; count($inMonth) === 0 && $back <= self::MONTHS_BACK; $back++) {
-            $before = date('Y-m', strtotime($month . '-01 -' . $back . ' month'));
-            $inMonth = $this->inMonth($found, $before);
-            $prevMonth = count($inMonth) > 0 ? $before : null;
-        }
+        list($inMonth, $prevMonth) = $this->inWindow($found, $row['cheque_date']);
         if (count($inMonth) === 0) {
-            $dates = array_unique(array_map(function ($p) { return substr((string) $p->pdc_check_date, 0, 10); }, $found));
-            return $this->withRelated(
-                $this->result($row, self::DATE_MISMATCH, [], [], 'PLMS cheque date ' . implode(', ', $dates) . ' is not in ' . $month
-                    . ' or the ' . self::MONTHS_BACK . ' months before'),
-                $found,
-                self::RELATED_SAME
-            );
+            return $this->dateMismatch($row, $found);
         }
 
         $result = $this->matchAmounts($row, $inMonth, $vatFound);
@@ -152,6 +155,79 @@ class BankSheetPdcMatcher
             $result['prev_month'] = $prevMonth;
         }
         return $result;
+    }
+
+    /**
+     * [PDCs dated in the cheque's month, null] or, when none is, those of the nearest
+     * of the MONTHS_BACK months before it with the month found; [[], null] when none.
+     */
+    private function inWindow(array $pdcs, $chequeDate)
+    {
+        $month   = substr($chequeDate, 0, 7);
+        $inMonth = $this->inMonth($pdcs, $month);
+        $prevMonth = null;
+        for ($back = 1; count($inMonth) === 0 && $back <= self::MONTHS_BACK; $back++) {
+            $before = date('Y-m', strtotime($month . '-01 -' . $back . ' month'));
+            $inMonth = $this->inMonth($pdcs, $before);
+            $prevMonth = count($inMonth) > 0 ? $before : null;
+        }
+        return [$inMonth, $prevMonth];
+    }
+
+    private function dateMismatch(array $row, array $found)
+    {
+        $dates = array_unique(array_map(function ($p) { return substr((string) $p->pdc_check_date, 0, 10); }, $found));
+        return $this->withRelated(
+            $this->result($row, self::DATE_MISMATCH, [], [], 'PLMS cheque date ' . implode(', ', $dates) . ' is not in ' . substr($row['cheque_date'], 0, 7)
+                . ' or the ' . self::MONTHS_BACK . ' months before'),
+            $found,
+            self::RELATED_SAME
+        );
+    }
+
+    /**
+     * A separate VAT cheque: only VAT-type PDCs carry its number. Same month window and
+     * amount rules as rent; the result carries 'vat_only' so posting books VAT receipts.
+     */
+    private function matchVatOnly(array $row, array $vatPdcs)
+    {
+        list($inMonth, $prevMonth) = $this->inWindow($vatPdcs, $row['cheque_date']);
+        if (count($inMonth) === 0) {
+            return $this->dateMismatch($row, $vatPdcs);
+        }
+
+        $amount = (float) $row['amount'];
+        $candidates = $this->candidateGroups($inMonth, $amount);
+        if (count($candidates) === 0 && count($this->groupByTenant($inMonth)) > 1 && $this->sameAmount($this->sum($inMonth), $amount)) {
+            $candidates = [$inMonth]; // one VAT cheque for several tenants
+        }
+        if (count($candidates) > 1) {
+            $byAccount = $this->groupsWithAccount($candidates, isset($row['account_no']) ? $row['account_no'] : null);
+            if (count($byAccount) === 1) {
+                $candidates = $byAccount;
+            }
+        }
+
+        if (count($candidates) === 1) {
+            $out = $this->result($row, self::MATCHED, $candidates[0], [], 'Separate VAT cheque');
+        } elseif (count($candidates) > 1) {
+            $out = $this->result($row, self::AMBIGUOUS, [], $candidates, count($candidates) . ' possible VAT matches');
+        } else {
+            $totals = [];
+            foreach ($this->groupByTenant($inMonth) as $group) {
+                $totals[] = $this->fmt($this->sum($group));
+            }
+            return $this->withRelated(
+                $this->result($row, self::AMOUNT_MISMATCH, [], [], 'PLMS VAT total ' . implode(' / ', $totals) . ' does not equal bank amount ' . $this->fmt($amount)),
+                $inMonth,
+                self::RELATED_SAME
+            );
+        }
+        $out['vat_only'] = true;
+        if ($prevMonth !== null) {
+            $out['prev_month'] = $prevMonth;
+        }
+        return $out;
     }
 
     /** PDCs whose cheque date is in $month (Y-m). */
@@ -494,17 +570,25 @@ class BankSheetPdcMatcher
     }
 
     /**
-     * The agreement's pdc_type 3 ("Others") PDCs on this cheque, but only when
-     * together they look like VAT on its rent: within ±1.000 OMR or ±0.5% of the
-     * rent (whichever is wider) of 5%. Other charges filed as "Others" are left out.
+     * The agreement's VAT PDCs on this cheque. VAT-type rows always are; when it has
+     * none, its "Others" rows only when together they look like VAT on its rent: within
+     * ±1.000 OMR or ±0.5% of the rent (whichever is wider) of 5%. Other charges filed
+     * as "Others" are left out.
      */
     private function vatOfContract(array $vat, $contractId, $rentSum)
     {
         $out = [];
+        $typed = [];
         foreach ($vat as $pdc) {
             if ((int) $pdc->tenant_contract_id === (int) $contractId) {
                 $out[] = $pdc;
+                if (self::isVatType($pdc)) {
+                    $typed[] = $pdc;
+                }
             }
+        }
+        if (count($typed) > 0) {
+            return $typed;
         }
         if (count($out) === 0) {
             return [];
