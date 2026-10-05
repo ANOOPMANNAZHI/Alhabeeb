@@ -97,6 +97,18 @@ class RentLedgerTest extends TestCase
      * Where the old count is lower (February, 30-day months) it stands: those were settled
      * with it (TAG2200489: 16/02 - 15/05/2022 at 160 = 87 days = 464, collected 464).
      */
+    /**
+     * Mid-month too: never more than the 30-day count. TAG2301091: 16/07/2023 - 29/02/2024 at 490;
+     * old count 227 days = 3,708, 30-day count 7 months + 14 days = 224 days = 3,659 (paid 3,675).
+     */
+    public function test_old_mid_month_termination_is_capped_at_the_30_day_count()
+    {
+        $this->assertSame(3659.0, L::earlyTerminationDue('2023-07-16', '2024-02-29', 490));
+        $this->assertSame(464.0, L::earlyTerminationDue('2022-02-16', '2022-05-15', 160));  // old count lower: stands
+        $c = $this->c(['eff' => '2023-07-16', 'start' => '2023-07-16', 'vto' => '2024-07-15', 'rent' => '490', 'value' => '5880', 'term_date' => '2024-02-29']);
+        $this->assertSame(0.0, L::build($c, '2026-10-05', 3675)['balance']);
+    }
+
     public function test_old_termination_on_the_last_day_of_a_rent_month_is_capped_at_whole_months()
     {
         $this->assertSame(4400.0, L::earlyTerminationDue('2024-07-01', '2025-05-31', 400));
@@ -107,7 +119,7 @@ class RentLedgerTest extends TestCase
         $this->assertSame(464.0, L::earlyTerminationDue('2022-02-16', '2022-05-15', 160));
         $this->assertSame(522.0, L::earlyTerminationDue('2022-01-01', '2022-02-28', 275));  // 57 days = 522.5 -> 522
         $this->assertSame(497.0, L::earlyTerminationDue('2026-01-01', '2026-05-31', 100));
-        // not on a period end: the old count
+        // not on a period end: the old count (lower than the 30-day count here: 138 vs 140 days)
         $this->assertSame(460.0, L::earlyTerminationDue('2026-01-01', '2026-05-20', 100));
         $l = L::build($this->c(['eff' => '2024-07-01', 'start' => '2024-07-01', 'vto' => '2025-06-30', 'rent' => '400', 'value' => '4800', 'term_date' => '2025-05-31']), '2026-10-05', 4400);
         $this->assertSame(0.0, $l['balance']);

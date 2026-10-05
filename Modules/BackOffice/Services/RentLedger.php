@@ -16,10 +16,11 @@ use Carbon\Carbon;
  *    date, else days x rent / 30, half to even. For terminations dated from
  *    DAY_COUNT_FROM on, every month counts 30 days (see thirtyDayCount: 01/08..31/08
  *    and 01/02..28/02 are both one month); earlier ones keep the old v2 count
- *    (termination - start - 1) so settlements made with it stay settled - except a
- *    termination on the last day of a rent month never owes more than the months
- *    used (user, 05/10/2026: the old count added up to 3 days over runs of 31-day
- *    months; where it comes out lower, e.g. over February, it is kept as settled).
+ *    (termination - start - 1) so settlements made with it stay settled - but never
+ *    more than the 30-day count, nor than whole months x rent on the last day of a
+ *    rent month (user, 05/10/2026: the old count added days for every 31-day month,
+ *    e.g. TAG2400856, TAG2301091; where it comes out lower, e.g. over February, it
+ *    stands as settled).
  *    A termination on or before the start owes nothing;
  *  - ended by the as-on date, not terminated: the contract value (rent stops at
  *    the end; a tenant who stays on is taken over manually);
@@ -85,8 +86,8 @@ class RentLedger
      * Rent owed for a contract terminated early (before its end date) on $term:
      * days x rent / 30, rounded half to even. From DAY_COUNT_FROM every month counts
      * 30 days (thirtyDayCount); earlier terminations keep the old v2 count
-     * (termination - start - 1), capped at whole months x rent when they end on the
-     * last day of a rent month. Shared by the reports and RentOutstanding (the
+     * (termination - start - 1), capped at the 30-day count and, when they end on the
+     * last day of a rent month, at whole months x rent. Shared by the reports and RentOutstanding (the
      * termination screens and Termination Dues) so both give the same amount.
      */
     public static function earlyTerminationDue($start, $term, $rent)
@@ -99,6 +100,9 @@ class RentLedger
             : $start->diffInDays($termDay, false) - 1;
         $due = $days > 0 ? (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0;
         if ($termDay->format('Y-m-d') < self::DAY_COUNT_FROM) {
+            // never more than the 30-day count (the rule from DAY_COUNT_FROM on)
+            $thirty = self::thirtyDayCount($start, $termDay);
+            $due = min($due, $thirty > 0 ? (float) round($thirty * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0);
             $months = self::wholeMonthsEndingOn($start, $termDay);
             if ($months !== null) {
                 $due = min($due, (float) round($months * $rent, 3));
