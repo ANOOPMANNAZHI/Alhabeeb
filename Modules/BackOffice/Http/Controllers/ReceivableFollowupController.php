@@ -198,19 +198,25 @@ class ReceivableFollowupController extends Controller
 
         $list = [];
         $totals = ['due' => 0.0, 'received' => 0.0, 'balance' => 0.0];
+        // summary cards: agreements per follow-up status under every filter except the follow-up one
+        $cards = [];
+        foreach (array_keys(self::FOLLOWUP_STATUS) as $k) {
+            $cards[$k] = ['count' => 0, 'balance' => 0.0];
+        }
         foreach ($contracts as $c) {
             $f = $fig[$c->id];
             $last = isset($lastAt[$c->id]) ? substr($lastAt[$c->id], 0, 19) : null;
             $next = isset($nextOn[$c->id]) ? substr($nextOn[$c->id], 0, 10) : null;
-            if (($status === 'none' && $last)
-                || ($status === 'overdue' && !($next && $next < $today))
-                || ($status === 'today' && $next !== $today)
-                || ($status === 'upcoming' && !($next && $next > $today))
-                || ($status === 'no_date' && !($last && !$next))
-                || ($balMin !== null && $f['balance'] < $balMin)
+            if (($balMin !== null && $f['balance'] < $balMin)
                 || ($balMax !== null && $f['balance'] > $balMax)
                 // "paid till up to": never-paid agreements have paid nothing, so they match
                 || ($paidTo && !empty($f['paid_till']) && $f['paid_till'] > $paidTo)) {
+                continue;
+            }
+            $rowStatus = self::followupStatusOf($last, $next, $today);
+            $cards[$rowStatus]['count']++;
+            $cards[$rowStatus]['balance'] += $f['balance'];
+            if ($status !== '' && isset(self::FOLLOWUP_STATUS[$status]) && $rowStatus !== $status) {
                 continue;
             }
             $list[] = (object) [
@@ -252,11 +258,31 @@ class ReceivableFollowupController extends Controller
             ->whereIn('tenant_contract_id', collect($paginator->items())->pluck('id')->all() ?: [0])
             ->orderBy('created_at', 'desc')->orderBy('id', 'desc')->get()->groupBy('tenant_contract_id');
 
+        foreach ($cards as $k => $v) {
+            $cards[$k]['balance'] = ReceivableFollowup::amount($v['balance']);
+        }
+
         return view('backoffice::ReceivableFollowup._rows', [
+            'cards' => $cards,
             'rows' => $paginator, 'totals' => $totals, 'followups' => $followups, 'computedAt' => $data['computed_at'],
             'asOn' => $asOn, 'sort' => $sort, 'desc' => $desc, 'today' => $today, 'showAre' => $showAre,
             'monthLabel' => Carbon::create($year, $month, 1)->format('F Y'),
         ]);
+    }
+
+    /**
+     * One follow-up status per agreement, from its latest follow-up and latest next
+     * follow-up (promised) date: none, overdue, today, upcoming or no_date.
+     */
+    public static function followupStatusOf($lastFollowup, $nextDate, $today)
+    {
+        if (!$lastFollowup) {
+            return 'none';
+        }
+        if (!$nextDate) {
+            return 'no_date';
+        }
+        return $nextDate < $today ? 'overdue' : ($nextDate === $today ? 'today' : 'upcoming');
     }
 
     public function refresh(Request $request)

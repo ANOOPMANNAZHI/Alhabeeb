@@ -42,6 +42,24 @@
   .rf .rf-combo-none { padding:8px 12px; font-size:13px; color:var(--rf-muted); }
   .rf .rf-applied { margin:0 0 12px; font-size:13px; font-weight:600; color:var(--rf-muted); }
 
+  /* follow-up summary cards (buttons: a click filters the list); colour always paired with a label */
+  .rf .rf-cards { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin:0 0 16px; }
+  .rf .rf-kpi { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-height:96px; padding:12px 16px; text-align:left;
+        background:#fff; border:1px solid var(--rf-line); border-left:4px solid var(--rf-kpi-accent); border-radius:8px; cursor:pointer;
+        color:var(--rf-ink); transition:box-shadow .15s, border-color .15s, background .15s; }
+  .rf .rf-kpi:hover { box-shadow:0 4px 12px rgba(15, 23, 42, .08); }
+  .rf .rf-kpi.is-on { background:var(--rf-kpi-bg); border-color:var(--rf-kpi-accent); box-shadow:inset 0 0 0 1px var(--rf-kpi-accent); }
+  .rf .rf-kpi-label { font-size:13px; font-weight:600; color:var(--rf-muted); }
+  .rf .rf-kpi-label .fa { color:var(--rf-kpi-accent); margin-right:4px; }
+  .rf .rf-kpi-count { font-size:26px; font-weight:700; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .rf .rf-kpi-sub { font-size:12px; color:var(--rf-muted); font-variant-numeric:tabular-nums; }
+  .rf .rf-kpi-warn  { --rf-kpi-accent:#b45309; --rf-kpi-bg:#fef3c7; }
+  .rf .rf-kpi-bad   { --rf-kpi-accent:var(--rf-bad); --rf-kpi-bg:var(--rf-bad-bg); }
+  .rf .rf-kpi-info  { --rf-kpi-accent:var(--rf-info); --rf-kpi-bg:var(--rf-info-bg); }
+  .rf .rf-kpi-muted { --rf-kpi-accent:#64748b; --rf-kpi-bg:#f1f5f9; }
+  @media (max-width: 991px) { .rf .rf-cards { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+  @media (prefers-reduced-motion: reduce) { .rf .rf-kpi { transition:none; } }
+
   /* summary strip */
   .rf .rf-strip { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 24px; padding:12px 16px; margin:0 0 12px;
         background:var(--rf-fill); border:1px solid var(--rf-line); border-radius:8px; font-size:13px; color:var(--rf-muted); }

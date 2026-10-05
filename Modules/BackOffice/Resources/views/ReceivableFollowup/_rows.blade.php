@@ -9,6 +9,7 @@
   $count = $rows->total();
   $asOnText = \Carbon\Carbon::parse($asOn)->format('d/m/Y');
 @endphp
+<div id="rf-cards-data" hidden data-cards="{{ json_encode($cards) }}"></div>
 <div class="rf-strip" data-summary="{{ $count }} {{ $count === 1 ? 'agreement' : 'agreements' }} with a balance, total {{ \Modules\BackOffice\Entities\ReceivableFollowup::amount($totals['balance']) }}">
   <div class="rf-stats">
     <span>Dues up to <strong>{{ $asOnText }}</strong> ({{ $monthLabel }} − 2 months)</span>

@@ -5,6 +5,21 @@
 @section('content')
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Receivables Follow-up</div></div>{{ Breadcrumbs::render('receivable-followup.index') }}</div></div>
 <div class="rf"><div class="card card-box"><div class="card-body">
+  {{-- summary cards: a click filters the list by that follow-up status, a second click clears it --}}
+  <div class="rf-cards" role="group" aria-label="Follow-up summary">
+    @foreach([
+        'today'    => ["Today's follow-ups", 'fa-calendar-check-o', 'warn', 'Next follow-up date is today'],
+        'overdue'  => ['Overdue follow-ups', 'fa-exclamation-circle', 'bad', 'Next follow-up date has passed'],
+        'upcoming' => ['Upcoming follow-ups', 'fa-calendar', 'info', 'Next follow-up date is later'],
+        'none'     => ['Not followed up', 'fa-user-times', 'muted', 'No follow-up recorded yet'],
+      ] as $key => $card)
+    <button type="button" class="rf-kpi rf-kpi-{{ $card[2] }}" data-status="{{ $key }}" aria-pressed="false" title="{{ $card[3] }}">
+      <span class="rf-kpi-label"><i class="fa {{ $card[1] }}" aria-hidden="true"></i> {{ $card[0] }}</span>
+      <span class="rf-kpi-count" data-count>—</span>
+      <span class="rf-kpi-sub">Balance <span data-balance>—</span></span>
+    </button>
+    @endforeach
+  </div>
   <div class="rf-toolbar">
     <div class="rf-search"><label for="rf-q" class="rf-sr">Search</label>
       <i class="fa fa-search" aria-hidden="true"></i>
@@ -214,6 +229,7 @@
         return;
       }
       $rows.html(html);
+      updateCards();
       $('#rf-live').text($rows.find('.rf-strip').attr('data-summary') || '');
     }).fail(function (x) {
       if (x.statusText !== 'abort') {
@@ -225,6 +241,29 @@
       if (!x || x.status !== 202) { $rows.attr('aria-busy', 'false').find('.rf-calc').remove(); }
     });
   }
+  // ---- summary cards -------------------------------------------------------------------
+  function markCards() {
+    $('.rf-kpi').each(function () {
+      var on = applied.followup === $(this).attr('data-status');
+      $(this).attr('aria-pressed', on ? 'true' : 'false').toggleClass('is-on', on);
+    });
+  }
+  function updateCards() {
+    var cards = $('#rf-cards-data').data('cards') || {};
+    $('.rf-kpi').each(function () {
+      var c = cards[$(this).attr('data-status')];
+      $(this).find('[data-count]').text(c ? Number(c.count).toLocaleString('en-US') : '—');
+      $(this).find('[data-balance]').text(c ? c.balance : '—');
+    });
+    markCards();
+  }
+  $(document).on('click', '.rf-kpi', function () {
+    var key = $(this).attr('data-status');
+    applied.followup = applied.followup === key ? '' : key;
+    $('#rf-followup').val(applied.followup);
+    markCards(); showApplied(); state.page = 1; load();
+  });
+
   var typing;
   $('#rf-q').on('input', function () { clearTimeout(typing); typing = setTimeout(function () { state.page = 1; load(); }, 400); });
   $(document).on('click', '#rf-retry', load);
