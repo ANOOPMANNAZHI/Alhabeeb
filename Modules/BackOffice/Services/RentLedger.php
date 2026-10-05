@@ -16,7 +16,10 @@ use Carbon\Carbon;
  *    date, else days x rent / 30, half to even. For terminations dated from
  *    DAY_COUNT_FROM on, every month counts 30 days (see thirtyDayCount: 01/08..31/08
  *    and 01/02..28/02 are both one month); earlier ones keep the old v2 count
- *    (termination - start - 1) so settlements made with it stay settled.
+ *    (termination - start - 1) so settlements made with it stay settled - except a
+ *    termination on the last day of a rent month never owes more than the months
+ *    used (user, 05/10/2026: the old count added up to 3 days over runs of 31-day
+ *    months; where it comes out lower, e.g. over February, it is kept as settled).
  *    A termination on or before the start owes nothing;
  *  - ended by the as-on date, not terminated: the contract value (rent stops at
  *    the end; a tenant who stays on is taken over manually);
@@ -82,7 +85,8 @@ class RentLedger
      * Rent owed for a contract terminated early (before its end date) on $term:
      * days x rent / 30, rounded half to even. From DAY_COUNT_FROM every month counts
      * 30 days (thirtyDayCount); earlier terminations keep the old v2 count
-     * (termination - start - 1). Shared by the reports and RentOutstanding (the
+     * (termination - start - 1), capped at whole months x rent when they end on the
+     * last day of a rent month. Shared by the reports and RentOutstanding (the
      * termination screens and Termination Dues) so both give the same amount.
      */
     public static function earlyTerminationDue($start, $term, $rent)
@@ -93,7 +97,33 @@ class RentLedger
         $days = $termDay->format('Y-m-d') >= self::DAY_COUNT_FROM
             ? self::thirtyDayCount($start, $termDay)
             : $start->diffInDays($termDay, false) - 1;
-        return $days > 0 ? (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0;
+        $due = $days > 0 ? (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0;
+        if ($termDay->format('Y-m-d') < self::DAY_COUNT_FROM) {
+            $months = self::wholeMonthsEndingOn($start, $termDay);
+            if ($months !== null) {
+                $due = min($due, (float) round($months * $rent, 3));
+            }
+        }
+        return $due;
+    }
+
+    /**
+     * Number of whole rent months when $term is the last day of one (the day before
+     * the next period starts, same day-of-month rule as the ledger lines); else null.
+     */
+    private static function wholeMonthsEndingOn(Carbon $start, Carbon $term)
+    {
+        $dayAfter = $term->copy()->addDay();
+        for ($k = 1; $k <= self::MAX_LINES; $k++) {
+            $next = $start->copy()->addMonthsNoOverflow($k);
+            if ($next->eq($dayAfter)) {
+                return $k;
+            }
+            if ($next->gt($dayAfter)) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /**
