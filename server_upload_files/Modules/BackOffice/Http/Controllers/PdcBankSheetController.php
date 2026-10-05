@@ -345,6 +345,24 @@ class PdcBankSheetController extends Controller
             return $this->postFailed($request, route('pdcBankSheetPreview', $stored), 'Nothing selected to post');
         }
 
+        // separate VAT cheques last: their receipt takes its period from the month's rent receipt,
+        // which may be on this same sheet
+        $vatOnly = [];
+        foreach ($toPost as $rowNo => $pdcs) {
+            $allVat = true;
+            foreach ($pdcs as $p) {
+                if (!BankSheetPdcMatcher::isVatType($p)) {
+                    $allVat = false;
+                    break;
+                }
+            }
+            if ($allVat) {
+                $vatOnly[$rowNo] = $pdcs;
+                unset($toPost[$rowNo]);
+            }
+        }
+        $toPost = $toPost + $vatOnly;
+
         try {
             return $this->postRows($request, $stored, $analysis, $toPost, $vatByDiff, $sheetAccounts, $chargeIds);
         } catch (\Throwable $e) {
@@ -401,6 +419,26 @@ class PdcBankSheetController extends Controller
                         }
                     }
                     $hasVat = count($vat) > 0 || isset($vatByDiff[$rowNo]);
+
+                    if (count($rent) === 0 && count($other) === 0) {
+                        // a separate VAT cheque: one VAT receipt per agreement, period from its rent receipt
+                        $made = $vatCreator->createSeparate($vat, $vat[0]->pdc_check_no, Bank::where('id', $vat[0]->bank_id)->value('bank_code'),
+                            $request->pdc_deposit_date, $request->bank_id);
+                        foreach ($made as $m) {
+                            $vatNos[] = $m['receipt_no'];
+                            if ($m['created']) {
+                                $vatMade++;
+                            } else {
+                                $vatReused[] = $m['receipt_no'];
+                                $vatReusedCount++;
+                            }
+                        }
+                        foreach ($vat as $v) {
+                            $ids[] = $v->id;
+                        }
+                        $this->fillAccountNo($ids, $sheetAccounts[$rowNo]);
+                        return;
+                    }
 
                     $periods = []; // contract id => [from, to] of the rent receipts just made
                     foreach ($rent as $pdc) {
@@ -1040,7 +1078,7 @@ class PdcBankSheetController extends Controller
 
         $rows = DB::select("
             SELECT y.upload_id, y.sheet_row_no, y.sheet_cheque_no, y.sheet_bank_name,
-                   (y.is_vat = 1 OR y.pdc_type = 3) AS is_vat,
+                   (y.is_vat = 1 OR y.pdc_type IN (3, 4)) AS is_vat,
                    y.row_reason,
                    rg.id AS receipt_id, rg.receipts_generation_receipt_no AS receipt_no,
                    rg.receipts_generation_receipt_date AS receipt_date,
@@ -1180,7 +1218,7 @@ class PdcBankSheetController extends Controller
         $q = Pdc::with(['tenantContractInfo.tenant', 'tenantContractInfo.building', 'tenantContractInfo.Unit', 'bankInfo'])
             ->whereIn('pdc_check_no', $this->chequeNumbers($rows))
             ->whereNull('pdc_clear_date')
-            ->whereIn('pdc_type', [1, 2, 3])
+            ->whereIn('pdc_type', [1, 2, 3, 4])
             ->orderBy('id');
         if ($forRejected) {
             $q->whereIn('pdc_cancel_reason', [0, BankSheetRejectedCheques::BOUNCED]);

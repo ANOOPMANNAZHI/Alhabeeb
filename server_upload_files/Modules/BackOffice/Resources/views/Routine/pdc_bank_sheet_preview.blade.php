@@ -366,7 +366,7 @@
           @foreach($vatRows as $r)
           @php
             $rowNo = $r['row']['row_no'];
-            $rentPdcs = array_values(array_filter($r['pdcs'], function ($p) { return (int) $p->pdc_type !== 3; }));
+            $rentPdcs = array_values(array_filter($r['pdcs'], function ($p) { return !\Modules\BackOffice\Services\BankSheetPdcMatcher::isVat($p); }));
             $first = $rentPdcs[0];
             $rentSum = 0; foreach ($rentPdcs as $p) { $rentSum += $p->pdc_amt; }
             $on = !empty($selection['vat'][$rowNo]);
@@ -491,9 +491,13 @@
             </td>
             <td>
               @php $chargeIdsRow = isset($r['charge_ids']) ? $r['charge_ids'] : []; @endphp
+              @if(!empty($r['vat_only']))
+                <span class="bsp-pill bsp-pill-vat">Separate VAT cheque</span>
+              @else
               {{ $first->pdc_type_name }}
-              @if(count(array_filter($r['pdcs'], function ($p) use ($chargeIdsRow) { return (int) $p->pdc_type === 3 && !in_array((int) $p->id, $chargeIdsRow, true); })) > 0)
+              @if(count(array_filter($r['pdcs'], function ($p) use ($chargeIdsRow) { return \Modules\BackOffice\Services\BankSheetPdcMatcher::isVat($p) && !in_array((int) $p->id, $chargeIdsRow, true); })) > 0)
                 <span class="bsp-pill bsp-pill-vat">+ VAT</span>
+              @endif
               @endif
               @foreach($r['pdcs'] as $p)
                 @if(in_array((int) $p->id, $chargeIdsRow, true))
