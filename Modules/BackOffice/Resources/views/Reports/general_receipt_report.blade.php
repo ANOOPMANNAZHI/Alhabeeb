@@ -72,20 +72,6 @@
           </div> 
           <div class="col-sm-6">
               <div class="form-group">
-                <label for="pay_mode">Payment Mode</label>
-                <div class="p-relative">
-                 <i class="fa fa-money icn-add" aria-hidden="true"></i>
-                 <select class="form-control" id="pay_mode" name="pay_mode">
-                  <option value="" selected>All</option>
-                  <option value="2">Cash</option>
-                  <option value="1">Cheque</option>
-                  <option value="3">Others (Bank Transfer)</option>
-                 </select>
-                </div>
-              </div>
-            </div>
-          <div class="col-sm-6">
-              <div class="form-group">
                 <label for="download_type">Download Type<small class="textRed">*</small>  </label>
                 <div class="p-relative">
                  <i class="fa fa-cubes icn-add" aria-hidden="true"></i>

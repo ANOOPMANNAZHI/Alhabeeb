@@ -1016,7 +1016,6 @@ public function depositRentReportPdfV2(Request $request){
 }
 
 public function rentReceiptReportPdf(Request $request){
- $pay_mode = in_array((string) $request->pay_mode, ['1', '2', '3'], true) ? (string) $request->pay_mode : ''; // payment method: 1 cheque, 2 cash, 3 bank transfer; '' all
  $db = config('report.database');
  $username = Auth::user()->username;
  $Date1 =  $request['start_date'];
@@ -1042,7 +1041,7 @@ else{
     /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo,"pay_mode" => $pay_mode),$db)->execute();
+    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
     $file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt.pdf";
     return redirect()->away($file);
@@ -1053,7 +1052,7 @@ else{
     /*$a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'))->execute();
     print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo,"pay_mode" => $pay_mode),$db)->execute();
+    $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
     $file= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_compo.pdf";
     return redirect()->away($file);
@@ -1065,7 +1064,7 @@ else{
    /* $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel.jrxml'))->execute();
    print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-   $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo,"pay_mode" => $pay_mode),$db)->execute();
+   $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
    $file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_excel.xlsx";
 
@@ -1077,7 +1076,7 @@ else{
   /*  $a=JasperPHP::compile(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.jrxml'))->execute();
   print_r($a); */
 // Process a Jasper file to PDF and RTF (you can use directly the .jrxml)
-  $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo,"pay_mode" => $pay_mode),$db)->execute();
+  $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"management_type" => $management_type,"logo" => $logo),$db)->execute();
 
   $file1= getReportUrl()."vendor/cossou/jasperphp/examples/rent_receipt_excel_compo.xlsx";
 
@@ -1137,7 +1136,6 @@ public function showGeneralReceiptReport(){
   return view('backoffice::reports.general_receipt_report',compact('buildings'));
 }
 public function generalReceiptReportPdf(Request $request){
- $pay_mode = in_array((string) $request->pay_mode, ['1', '2', '3'], true) ? (string) $request->pay_mode : ''; // payment method: 1 cheque, 2 cash, 3 bank transfer; '' all
 
 
  $db = config('report.database');
@@ -1164,7 +1162,7 @@ else{
 
       if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($building_code) && empty($acc_code_val)){ //Mandotory
 
-          $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_date.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo,"pay_mode" => $pay_mode),$db)->execute();
+          $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_date.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
           $file= getReportUrl()."vendor/cossou/jasperphp/examples/general_receipt_date.pdf";
           return redirect()->away($file);
           print_r($r);
@@ -1175,7 +1173,7 @@ else{
           // var_dump($a);
 
 
-            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo,"pay_mode" => $pay_mode),$db)->execute();
+            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_compo.jrxml'),false,array('pdf'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
             $file= getReportUrl()."vendor/cossou/jasperphp/examples/general_receipt_compo.pdf";
             return redirect()->away($file);
             print_r($r);
@@ -1185,7 +1183,7 @@ else{
 
        if(!empty($Date1) && !empty($Date2) && empty($building_name) && empty($building_code) && empty($acc_code_val)){ //Mandotory
 
-            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_excel_date.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo,"pay_mode" => $pay_mode),$db)->execute();
+            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_excel_date.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
 
             $file1= getReportUrl()."vendor/cossou/jasperphp/examples/general_receipt_excel_date.xlsx";
 
@@ -1194,7 +1192,7 @@ else{
           }
           else{
              
-            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo,"pay_mode" => $pay_mode),$db)->execute();
+            $r=JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/general_receipt_excel_compo.jrxml'),false,array('xlsx'),array("username" => $username,"Date1" => $Date1,"Date2" => $Date2,"building_name" => $building_name,"building_code" => $building_code,"acc_code_val" => (int)$acc_code_val,"logo" => $logo),$db)->execute();
 
             $file1= getReportUrl()."vendor/cossou/jasperphp/examples/general_receipt_excel_compo.xlsx";
 
