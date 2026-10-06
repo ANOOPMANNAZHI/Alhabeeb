@@ -1116,6 +1116,43 @@ public function rentBuildingCodeAutocompleteCode(Request $request){
  */
 
 /*
+ * Cash Receipts: every cash receipt (Rent, Deposit, General) in a period, in the Rent Receipt
+ * PDF / Excel layout with a Receipt Type column and totals per type
+ * (templates cash_receipt.jrxml / cash_receipt_excel.jrxml).
+ */
+public function showCashReceiptReport(){
+  $buildings = Building::active()->orderBy('building_name','asc')->get();
+  $managementTypes = \Modules\Masters\Entities\ManagementType::active()->get();
+  return view('backoffice::reports.cash_receipt_report',compact('buildings','managementTypes'));
+}
+
+public function cashReceiptReportPdf(Request $request){
+  $request->validate([
+    'start_date'    => 'required|date',
+    'end_date'      => 'required|date|after_or_equal:start_date',
+    'download_type' => 'required|in:pdf,excel',
+  ]);
+  $db = config('report.database');
+  $building = $request->building_name ? Building::find($request->building_name) : null;
+  $params = array(
+    'username'        => Auth::user()->username,
+    'Date1'           => $request->start_date,
+    'Date2'           => $request->end_date,
+    'building_name'   => $building ? $building->building_name : '',
+    'building_code'   => $building ? $building->building_code : '',
+    'management_type' => (string) $request->management_type,
+    'receipt_type'    => in_array((string) $request->receipt_type, ['0', '1', '2'], true) ? (string) $request->receipt_type : '', // 0 rent, 1 general, 2 deposit, '' all
+    'logo'            => getLogoPath(),
+  );
+  if($request->download_type == 'pdf'){
+    JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/cash_receipt.jrxml'),false,array('pdf'),$params,$db)->execute();
+    return redirect()->away(getReportUrl()."vendor/cossou/jasperphp/examples/cash_receipt.pdf");
+  }
+  JasperPHP::process(base_path('/vendor/cossou/jasperphp/examples/cash_receipt_excel.jrxml'),false,array('xlsx'),$params,$db)->execute();
+  return redirect()->away(getReportUrl()."vendor/cossou/jasperphp/examples/cash_receipt_excel.xlsx");
+}
+
+/*
  *
  * General Receipt starts
  *

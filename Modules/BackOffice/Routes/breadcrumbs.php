@@ -811,6 +811,10 @@ Breadcrumbs::for('showRentReceiptReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Rent Receipt',route('showRentReceiptReport'));
 });
+Breadcrumbs::for('showCashReceiptReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Cash Receipts',route('showCashReceiptReport'));
+});
 Breadcrumbs::for('showGeneralReceiptReport', function ($trail) {
     $trail->parent('home');
     $trail->push('General Receipt',route('showGeneralReceiptReport'));
