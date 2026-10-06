@@ -504,7 +504,7 @@ class TenantContractEditController extends Controller
         'occupant_email' => $request['occupant_email'],
         'created_by' => \Auth::user()->id,
         ]);
-       $request['occupant_id'] = $occupant_id;
+       $request['occupant_id'] = $occupant_id->id;
      }
      
      $yearToMonth = ($request['yeartxt'] > 0)? $request['yeartxt']*12:0;
