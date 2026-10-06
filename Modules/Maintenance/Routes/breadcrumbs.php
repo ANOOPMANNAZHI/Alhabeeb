@@ -257,3 +257,37 @@ Breadcrumbs::for('showMaintenanceInvoiceReportV2', function ($trail) {
     $trail->push('Maintenance Invoice Report v2', route('showMaintenanceInvoiceReportV2'));
 });
 
+// Building Inspection & Maintenance
+Breadcrumbs::for('inspection.dashboard', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Building Inspection', route('inspection.dashboard'));
+});
+Breadcrumbs::for('inspection.visits', function ($trail) {
+    $trail->parent('inspection.dashboard');
+    $trail->push('Visits', route('inspection.visits'));
+});
+Breadcrumbs::for('inspection.visits.show', function ($trail, $visit) {
+    $trail->parent('inspection.visits');
+    $trail->push($visit->visit_no, route('inspection.visits.show', $visit->id));
+});
+Breadcrumbs::for('inspection.visits.inspect', function ($trail, $visit) {
+    $trail->parent('inspection.visits');
+    $trail->push('Inspection ' . $visit->visit_no, route('inspection.visits.inspect', $visit->id));
+});
+Breadcrumbs::for('inspection.issues', function ($trail) {
+    $trail->parent('inspection.dashboard');
+    $trail->push('Issue Register', route('inspection.issues'));
+});
+Breadcrumbs::for('inspection.issues.show', function ($trail, $issue) {
+    $trail->parent('inspection.issues');
+    $trail->push($issue->issue_no, route('inspection.issues.show', $issue->id));
+});
+Breadcrumbs::for('inspection.reports', function ($trail) {
+    $trail->parent('inspection.dashboard');
+    $trail->push('Reports', route('inspection.reports'));
+});
+Breadcrumbs::for('inspection.setup', function ($trail) {
+    $trail->parent('inspection.dashboard');
+    $trail->push('Setup', route('inspection.setup'));
+});
+
