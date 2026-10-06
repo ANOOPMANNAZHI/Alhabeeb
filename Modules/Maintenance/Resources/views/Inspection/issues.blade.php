@@ -6,7 +6,6 @@
 @php use Modules\Maintenance\Services\Inspection as I; $canCreate = Auth::user()->can('inspection_issue_create'); $today = date('Y-m-d'); @endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.issues') }}</div></div>
 <div class="ins">
-  @include('maintenance::Inspection._nav', ['active' => 'issues'])
   <div class="ins-head">
     <div><h1>Issue register</h1><p class="sub">Every finding, from inspection to verified closure.</p></div>
     <div class="ins-tools">@if($canCreate)<button type="button" class="ins-btn primary" data-toggle="modal" data-target="#ins-issue-modal"><i class="fa fa-plus" aria-hidden="true"></i> New issue</button>@endif</div>

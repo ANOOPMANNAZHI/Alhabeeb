@@ -6,7 +6,6 @@
 @php use Modules\Maintenance\Services\Inspection as I; $canCreate = Auth::user()->can('inspection_visit_create'); @endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.visits') }}</div></div>
 <div class="ins">
-  @include('maintenance::Inspection._nav', ['active' => 'visits'])
   <div class="ins-head">
     <div>
       <h1>{{ $tab === 'mine' ? 'My schedule' : 'Inspection visits' }}</h1>
