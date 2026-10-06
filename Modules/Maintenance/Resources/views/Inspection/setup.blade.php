@@ -21,7 +21,6 @@
 @php use Modules\Maintenance\Services\Inspection as I; $unassigned = $buildings->whereStrict('user_id', null)->count(); @endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.setup') }}</div></div>
 <div class="ins">
-  @include('maintenance::Inspection._nav', ['active' => 'setup'])
   <div class="ins-head"><div><h1>Setup</h1><p class="sub">Who inspects which building, and what is checked on every visit.</p></div></div>
   <div class="ins-tabs" style="margin-bottom:16px">
     <a href="{{ route('inspection.setup') }}" class="{{ $tab === 'buildings' ? 'active' : '' }}">Building assignment</a>

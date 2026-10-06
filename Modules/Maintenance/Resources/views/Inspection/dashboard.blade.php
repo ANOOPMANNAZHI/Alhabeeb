@@ -15,7 +15,6 @@
 @php use Modules\Maintenance\Services\Inspection as I; $tot = isset($compliance['totals'][date('Y-m')]) ? $compliance['totals'][date('Y-m')] : [0, 0]; $ok = $tot[0] ? round($tot[1] / $tot[0] * 100) : 0; @endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.dashboard') }}</div></div>
 <div class="ins">
-  @include('maintenance::Inspection._nav', ['active' => 'dashboard'])
   <div class="ins-head">
     <div><h1>Inspection overview</h1>
       <p class="sub">{{ date('F Y') }} · {{ $myBuildings === null ? 'All executives' : 'Your ' . $myBuildings . ' assigned building' . ($myBuildings === 1 ? '' : 's') }}</p></div>

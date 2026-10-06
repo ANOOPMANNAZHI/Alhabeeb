@@ -29,7 +29,6 @@
 @endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.reports') }}</div></div>
 <div class="ins">
-  @include('maintenance::Inspection._nav', ['active' => 'reports'])
   <div class="ins-head">
     <div><h1>Inspection reports</h1><p class="sub">{{ $period }} · closed means verified by a supervisor</p></div>
     <div class="ins-tools"><a class="ins-btn" href="{{ route('inspection.reports.export', $exportQuery) }}"><i class="fa fa-file-excel-o" aria-hidden="true"></i> Export to Excel</a></div>

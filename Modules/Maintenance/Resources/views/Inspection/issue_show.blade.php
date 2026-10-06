@@ -135,7 +135,6 @@
 @endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.issues.show', $issue) }}</div></div>
 <div class="ins iss">
-  @include('maintenance::Inspection._nav', ['active' => 'issues'])
 
   {{-- Header: what, where, status --}}
   <header class="iss-hero">

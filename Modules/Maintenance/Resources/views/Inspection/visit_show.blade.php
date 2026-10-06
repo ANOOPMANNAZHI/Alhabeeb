@@ -10,7 +10,6 @@
 @php use Modules\Maintenance\Services\Inspection as I; $n = function ($id) use ($names) { return isset($names[$id]) ? $names[$id] : ''; }; @endphp
 <div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.visits.show', $visit) }}</div></div>
 <div class="ins">
-  @include('maintenance::Inspection._nav', ['active' => 'visits'])
   <div class="ins-head">
     <div><h1>{{ $visit->building_name }}</h1><p class="sub">{{ I::VISIT_TYPES[$visit->visit_type] }} · {{ $visit->visit_no }}</p></div>
     <span class="ins-chip v{{ $visit->status }}" style="font-size:14px;padding:4px 12px">{{ I::VISIT_STATUSES[$visit->status] }}</span>
