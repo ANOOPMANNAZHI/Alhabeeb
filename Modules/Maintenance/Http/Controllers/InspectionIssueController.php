@@ -143,8 +143,12 @@ class InspectionIssueController extends Controller
         $updates = DB::table('inspection_issue_updates')->where('issue_id', $id)->orderBy('created_at')->orderBy('id')->get();
         $photos = DB::table('inspection_photos')->where('issue_id', $id)->orderBy('id')->get();
         $updatePhotos = $photos->groupBy('update_id');
+        $changes = DB::table('inspection_issue_changes')->where('issue_id', $id)->orderBy('changed_at', 'desc')->orderBy('id', 'desc')->get();
         $names = Inspection::userNames(array_merge([$issue->executive_id, $issue->raised_by, $issue->resolved_by, $issue->closed_by],
-            $updates->pluck('created_by')->all()));
+            $updates->pluck('created_by')->all(), $changes->pluck('changed_by')->all()));
+        // one row per save: when, who, reason, and the fields it changed
+        $changeSets = $changes->groupBy(function ($c) { return $c->update_id ?: 'c' . $c->id; })->values();
+        $lastPlan = $updates->where('kind', 'plan')->last();
         $visit = $issue->visit_id ? DB::table('inspection_visits')->where('id', $issue->visit_id)->first() : null;
         $canWork = Inspection::canWork($issue);
         $canVerify = Inspection::canVerify($issue);
@@ -152,7 +156,7 @@ class InspectionIssueController extends Controller
         $me = DB::table('users as u')->leftJoin('employees as e', 'e.id', '=', 'u.user_type_id')->where('u.id', \Auth::id())
             ->select(DB::raw('coalesce(e.employee_name, u.username) as name'), 'e.employee_contact_no')->first();
         return view('maintenance::Inspection.issue_show', compact('issue', 'updates', 'photos', 'updatePhotos', 'names', 'visit',
-            'canWork', 'canVerify', 'canComplaint', 'me'));
+            'canWork', 'canVerify', 'canComplaint', 'me', 'changeSets', 'lastPlan'));
     }
 
     private function workable($id)
@@ -171,23 +175,35 @@ class InspectionIssueController extends Controller
             'estimated_cost'    => 'required|numeric|min:0|max:999999999',
             'landlord_approval' => 'required|in:0,1',
             'target_date'       => 'required|date_format:Y-m-d',
+            'change_reason'     => 'nullable|string|max:1000',
         ], ['action_plan.required' => 'Describe the action to be taken.']);
-        $cost = round((float) $request->input('estimated_cost'), 3);
-        DB::transaction(function () use ($request, $issue, $cost) {
-            DB::table('inspection_issues')->where('id', $issue->id)->update([
-                'action_plan' => trim($request->input('action_plan')), 'responsible_party' => $request->input('responsible_party'),
-                'estimated_cost' => $cost, 'landlord_approval' => (bool) $request->input('landlord_approval'),
-                'target_date' => $request->input('target_date'),
+        $values = [
+            'action_plan'       => trim($request->input('action_plan')),
+            'responsible_party' => $request->input('responsible_party'),
+            'estimated_cost'    => round((float) $request->input('estimated_cost'), 3),
+            'landlord_approval' => (bool) $request->input('landlord_approval'),
+            'target_date'       => $request->input('target_date'),
+        ];
+        $first = $issue->action_plan === null || $issue->action_plan === '';
+        if (!$first && !Inspection::wouldChange($issue, $values)) {
+            return redirect()->route('inspection.issues.show', $id)->with('success', 'Nothing changed - the action plan is the same as before.');
+        }
+        $changed = [];
+        DB::transaction(function () use ($request, $issue, $values, $first, &$changed) {
+            $reason = trim((string) $request->input('change_reason'));
+            $note = $first ? 'Action plan added.' : 'Action plan changed: ' . implode(', ', Inspection::wouldChange($issue, $values)) . '.';
+            if (!$first && $reason !== '') {
+                $note .= "\nReason: " . $reason;
+            }
+            $updateId = Inspection::addUpdate($issue->id, 'plan', $note);
+            $changed = Inspection::recordChanges($issue, $values, $updateId);
+            DB::table('inspection_issues')->where('id', $issue->id)->update($values + [
                 'status' => (int) $issue->status === Inspection::OPEN ? Inspection::IN_PROGRESS : $issue->status,
                 'updated_by' => \Auth::id(), 'updated_at' => now(),
             ]);
-            $note = 'Action plan ' . ($issue->action_plan ? 'updated' : 'added') . ': ' . trim($request->input('action_plan'))
-                . "\nResponsible: " . $request->input('responsible_party') . ' · Estimated cost: OMR ' . number_format($cost, 3)
-                . ' · Landlord approval: ' . ($request->input('landlord_approval') ? 'needed' : 'not needed')
-                . ' · Target: ' . date('d/m/Y', strtotime($request->input('target_date')));
-            Inspection::addUpdate($issue->id, 'plan', $note);
         });
-        return redirect()->route('inspection.issues.show', $id)->with('success', 'Action plan saved.');
+        return redirect()->route('inspection.issues.show', $id)
+            ->with('success', $first ? 'Action plan saved.' : 'Action plan updated (' . implode(', ', $changed) . ').');
     }
 
     public function addProgress(Request $request, $id)

@@ -208,6 +208,89 @@ class Inspection
         return $id;
     }
 
+    // fields whose changes are kept in inspection_issue_changes, with their labels
+    const TRACKED = ['action_plan' => 'Action to be taken', 'responsible_party' => 'Responsible party', 'estimated_cost' => 'Estimated cost',
+        'landlord_approval' => 'Landlord approval', 'target_date' => 'Target date', 'priority' => 'Priority'];
+
+    /** Stored form of a tracked value, so "45.5" and "45.500" or true and "1" compare equal. */
+    public static function normalize($field, $value)
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        switch ($field) {
+            case 'estimated_cost':
+                return number_format((float) $value, 3, '.', '');
+            case 'landlord_approval':
+                return $value ? '1' : '0';
+            case 'target_date':
+                return date('Y-m-d', strtotime($value));
+            case 'priority':
+                return (string) (int) $value;
+            default:
+                return trim(str_replace("\r\n", "\n", (string) $value));
+        }
+    }
+
+    /** How a tracked value reads on screen. */
+    public static function display($field, $value)
+    {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+        switch ($field) {
+            case 'estimated_cost':
+                return 'OMR ' . number_format((float) $value, 3);
+            case 'landlord_approval':
+                return $value === '1' ? 'Needed' : 'Not needed';
+            case 'target_date':
+                return date('d M Y', strtotime($value));
+            case 'priority':
+                return isset(self::PRIORITIES[(int) $value]) ? self::PRIORITIES[(int) $value] : $value;
+            default:
+                return $value;
+        }
+    }
+
+    /**
+     * Compare the issue with the new values of tracked fields and record every change.
+     * @return array labels of the changed fields (empty = nothing changed)
+     */
+    public static function recordChanges($issue, array $new, $updateId = null)
+    {
+        $changed = [];
+        $rows = [];
+        foreach ($new as $field => $value) {
+            if (!isset(self::TRACKED[$field])) {
+                continue;
+            }
+            $old = self::normalize($field, $issue->$field);
+            $value = self::normalize($field, $value);
+            if ($old === $value) {
+                continue;
+            }
+            $changed[] = self::TRACKED[$field];
+            $rows[] = ['issue_id' => $issue->id, 'update_id' => $updateId, 'field' => $field, 'old_value' => $old, 'new_value' => $value,
+                'changed_by' => \Auth::id(), 'changed_at' => now()];
+        }
+        if ($rows) {
+            DB::table('inspection_issue_changes')->insert($rows);
+        }
+        return $changed;
+    }
+
+    /** Labels of the tracked fields that would change - without recording anything. */
+    public static function wouldChange($issue, array $new)
+    {
+        $changed = [];
+        foreach ($new as $field => $value) {
+            if (isset(self::TRACKED[$field]) && self::normalize($field, $issue->$field) !== self::normalize($field, $value)) {
+                $changed[] = self::TRACKED[$field];
+            }
+        }
+        return $changed;
+    }
+
     public static function photoUrl($path)
     {
         return asset('storage/app/' . $path);
