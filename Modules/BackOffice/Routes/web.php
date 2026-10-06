@@ -732,6 +732,8 @@ Route::middleware('auth')->group(function () {
 	Route::get('showRentReceiptReport', 'BackOfficeReportController@showRentReceiptReport')->name('showRentReceiptReport');
 
 	Route::post('rentReceiptReportPdf', 'BackOfficeReportController@rentReceiptReportPdf')->name('rentReceiptReportPdf');
+	Route::get('showCashReceiptReport', 'BackOfficeReportController@showCashReceiptReport')->name('showCashReceiptReport');
+	Route::post('cashReceiptReportPdf', 'BackOfficeReportController@cashReceiptReportPdf')->name('cashReceiptReportPdf');
 
 	Route::get('rentBuildingAutocompleteCode', 'BackOfficeReportController@rentBuildingAutocompleteCode')->name('rentBuildingAutocompleteCode');
 
