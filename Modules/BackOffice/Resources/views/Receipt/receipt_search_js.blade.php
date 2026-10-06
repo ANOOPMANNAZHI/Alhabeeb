@@ -33,7 +33,7 @@ $(document).ready(function() {
     $(".advanceSearch").toggle();
   }); 
 
-  $("#receipts_generation_eff_from, #receipts_generation_eff_to, #payment_type, #status, #receipt_date").change(function(){
+  $("#receipts_generation_eff_from, #receipts_generation_eff_to, #payment_type, #status, #receipt_date, #paid_to_landlord").change(function(){
                 
                 $('.search_fields').trigger('keyup');
     });
@@ -56,6 +56,7 @@ $(document).ready(function() {
      var receipts_generation_payment_method = $("#payment_type").val();
      var receipts_generation_amt            = $("#amount").val();
      var receipts_generation_approval_status= $("#status").val();
+     var paid_to_landlord                   = $("#paid_to_landlord").val();
      var route_href                         = $("#action").val(); 
      var tab                                = $("#tab").val(); 
      var are_id = document.getElementById("are").getAttribute("are");
@@ -102,7 +103,7 @@ $(document).ready(function() {
                   method: "GET",
                   url: '{{$route}}',
                   data: {are_id:are_id,date:date,'receipts_generation_receipt_no': receipts_generation_receipt_no,'receipts_generation_receipt_date': receipts_generation_receipt_date,'receipts_generation_eff_from':receipts_generation_eff_from,'receipts_generation_eff_to':receipts_generation_eff_to,'unit_no':unit_no,'building_name':building_name,'building_code':building_code,
-                         'tenant_name': tenant_name, 'tenant_code':tenant_code,'tenant_contract_no':contract_no ,'receipts_generation_payment_method':receipts_generation_payment_method,'receipts_generation_amt':receipts_generation_amt, 'receipts_generation_approval_status':receipts_generation_approval_status ,'route':'{{$route}}',
+                         'tenant_name': tenant_name, 'tenant_code':tenant_code,'tenant_contract_no':contract_no ,'receipts_generation_payment_method':receipts_generation_payment_method,'receipts_generation_amt':receipts_generation_amt, 'receipts_generation_approval_status':receipts_generation_approval_status ,'paid_to_landlord':paid_to_landlord ,'route':'{{$route}}',
                            'tab':tab,'ajax' : true ,'fieldName' : fieldName , 
                            'operation' : operation , 'fieldValue' : fieldValue , 
                            'logic' : logic},           
@@ -132,7 +133,7 @@ $(document).ready(function() {
                     var txt = '' ;
 
                       txt = 'receipts_generation_receipt_no='+ receipts_generation_receipt_no+'receipts_generation_receipt_date='+ receipts_generation_receipt_date+'&receipts_generation_eff_from='+receipts_generation_eff_from+'&receipts_generation_eff_to='+receipts_generation_eff_to+'&unit_no='+unit_no+'&building_name='+building_name+'&building_code='+building_code+
-                         '&tenant_name='+ tenant_name+ '&tenant_code'+tenant_code+'&tenant_contract_no='+contract_no+'&receipts_generation_payment_method='+receipts_generation_payment_method+'&receipts_generation_amt='+receipts_generation_amt+'&receipts_generation_approval_status='+receipts_generation_approval_status+
+                         '&tenant_name='+ tenant_name+ '&tenant_code'+tenant_code+'&tenant_contract_no='+contract_no+'&receipts_generation_payment_method='+receipts_generation_payment_method+'&receipts_generation_amt='+receipts_generation_amt+'&receipts_generation_approval_status='+receipts_generation_approval_status+'&paid_to_landlord='+paid_to_landlord+
                            '&tab='+tab;  
 
                    var txt_hashes = txt.split('&');

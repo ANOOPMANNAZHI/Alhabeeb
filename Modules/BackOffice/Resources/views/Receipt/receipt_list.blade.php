@@ -135,7 +135,12 @@
                             
                             </select>
                           </td>
-                          <td><input type="hidden" id="action" value="{{route('receiptsTabViewList')}}">
+                          <td><select name="paid_to_landlord" id="paid_to_landlord" class="search_fields" title="Direct deposit to landlord" style="width:90px">
+                              <option value="">Paid to LL: All</option>
+                              <option value="1">Paid to LL: Yes</option>
+                              <option value="0">Paid to LL: No</option>
+                            </select>
+                            <input type="hidden" id="action" value="{{route('receiptsTabViewList')}}">
                             <input type="hidden" id="tab" value="{{$tab}}">
                           </td>
                         </tr>

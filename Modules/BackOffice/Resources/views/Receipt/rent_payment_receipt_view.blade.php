@@ -272,6 +272,7 @@
                     </div>
                     @endif
           
+                    @include('backoffice::Receipt._landlord_deposit_status', ['receipt' => $rentReceiptInfo])
                     <div class="col-lg-6 p-t-20"> 
                         <div class = "txt-full-width">
                             <h5 class="details"><b class="frame">Payment Method :  </b>
