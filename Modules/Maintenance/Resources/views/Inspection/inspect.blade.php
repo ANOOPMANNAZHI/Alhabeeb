@@ -39,7 +39,7 @@
 @endsection
 @section('content')
 @php use Modules\Maintenance\Services\Inspection as I; $totalItems = 0; foreach ($areas as $a) { $totalItems += count($items[$a->id]); } @endphp
-<div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.visits.inspect', $visit) }}</div></div>
+<div class="page-bar"><div class="page-title-breadcrumb">{{ Breadcrumbs::render('inspection.visits.inspect', $visit) }}</div></div>
 <div class="ins">
   <div class="ins-head">
     <div><h1>{{ $visit->building_name }}</h1><p class="sub">{{ I::VISIT_TYPES[$visit->visit_type] }} · {{ $visit->visit_no }}</p></div>

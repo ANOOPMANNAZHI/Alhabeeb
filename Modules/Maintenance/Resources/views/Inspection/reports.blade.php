@@ -27,7 +27,7 @@
   $agingMax = 1; foreach ($aging as $row) { $agingMax = max($agingMax, array_sum($row)); }
   $exportQuery = request()->query();
 @endphp
-<div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.reports') }}</div></div>
+<div class="page-bar"><div class="page-title-breadcrumb">{{ Breadcrumbs::render('inspection.reports') }}</div></div>
 <div class="ins">
   <div class="ins-head">
     <div><h1>Inspection reports</h1><p class="sub">{{ $period }} · closed means verified by a supervisor</p></div>
