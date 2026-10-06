@@ -230,7 +230,7 @@
     <div class = "txt-full-width">
       <h5 class="details"><b>OutStanding Rent : </b>
         <span>
-        {{($outstandingOs > 0)? numberFormat($outstandingOs)." OMR":"NA"}}
+        @if($outstandingOs > 0)<a href="#" class="tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">{{ numberFormat($outstandingOs) }} OMR</a>@else NA @endif
         </span>
       </h5>
     </div>
@@ -569,6 +569,7 @@ $totalamt+= $total;
 
 <!-- Inspection Image Ends -->
 
+@include('backoffice::Termination._tenant_outstanding_modal')
 @endsection
 @section('scripts')
 @endsection

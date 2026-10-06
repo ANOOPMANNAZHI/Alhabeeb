@@ -28,7 +28,9 @@ class RentDues
     /**
      * @param  string $asOn          Y-m-d: rent that fell due on or before this date
      * @param  string $receiptsUpTo  Y-m-d: rent receipts dated on or before this date
-     * @param  array  $filters       building_name, building_no, tenant_name, management_type, are
+     * @param  array  $filters       building_name, building_no, tenant_name, management_type, are;
+     *                               tenant_id + include_legal (termination screens: a tenant's
+     *                               contracts including legal cases, each flagged ->in_legal)
      * @return object[] keyed by contract id, each with ->ledger (RentLedger::build result)
      */
     public function forDate($asOn, $receiptsUpTo, array $filters = [])
@@ -50,6 +52,13 @@ class RentDues
                          WHERE pb.assign_to IS NULL AND pb.building_id = b.id AND emp.employee_name = ?)";
             $bind[] = $filters['are'];
         }
+        if (isset($filters['tenant_id']) && $filters['tenant_id'] !== '') {
+            $where .= " AND tc.tenant_id = ?";
+            $bind[] = (int) $filters['tenant_id'];
+        }
+        $withLegal = !empty($filters['include_legal']);
+        $legalWhere = $withLegal ? '' : 'AND NOT EXISTS (SELECT 1 FROM legal l WHERE l.tenant_contract_id = tc.id)';
+        $legalCol = $withLegal ? ', EXISTS (SELECT 1 FROM legal l WHERE l.tenant_contract_id = tc.id) AS in_legal' : '';
 
         $rows = DB::select("
             SELECT tc.id, tc.tenant_contract_no AS contract_no, t.tenant_name,
@@ -66,6 +75,7 @@ class RentDues
                      WHERE rl.tenant_contract_id = tc.id AND rl.receipts_generation_type = '0' AND rl.deleted_at IS NULL
                        AND rl.receipts_generation_approval_status IN (3, 6) AND rl.receipts_generation_status <> 2
                        AND rl.receipts_generation_receipt_date::date = r.last_received::date) AS last_amount
+                   $legalCol
               FROM tenant_contracts tc
               JOIN buildings b ON b.id = tc.building_id AND b.building_status = '1'
               LEFT JOIN tenant t ON t.id = tc.tenant_id
@@ -86,7 +96,7 @@ class RentDues
                           GROUP BY contract_id) ter ON ter.contract_id = tc.id
              WHERE tc.work_flow_processes_code = 108
                AND tc.tenant_contract_effective_date::date <= ?::date
-               AND NOT EXISTS (SELECT 1 FROM legal l WHERE l.tenant_contract_id = tc.id)
+               $legalWhere
                $where
         ", $bind);
 

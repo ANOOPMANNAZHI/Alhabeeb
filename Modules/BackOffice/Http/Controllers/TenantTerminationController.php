@@ -43,6 +43,7 @@ use Modules\BackOffice\Services\MunicipalTaxCalculator;
 use Modules\BackOffice\Services\UnpaidRentPeriod;
 use Modules\BackOffice\Services\TerminationDuesService;
 use Modules\BackOffice\Services\RentOutstanding;
+use Modules\BackOffice\Services\TenantRentOutstanding;
 use Modules\BackOffice\Services\TenantDepositHeld;
 
 class TenantTerminationController extends Controller
@@ -1399,10 +1400,11 @@ class TenantTerminationController extends Controller
      $datediff = $validTo - $today;
      $remainingDays = $datediff / 86400;    // 24 * 60 * 60 = 86400 seconds 
 
-     list($outstandingOs) = $this->terminationOutstanding($tenantContract);
+     $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
+     $outstandingOs = $tenantOs['total'];
 
 
-      return view('backoffice::Termination.tenant_termination_handover_unassigned_view',compact('tenantContract','termination','openTerminationDocument','remainingDays','outstandingOs'));
+      return view('backoffice::Termination.tenant_termination_handover_unassigned_view',compact('tenantContract','termination','openTerminationDocument','remainingDays','outstandingOs','tenantOs'));
     }
     /*
     *
@@ -1570,7 +1572,9 @@ class TenantTerminationController extends Controller
         $validTo =  strtotime($tenantContract->tenant_contract_valid_to_date); 
 		$terminationDate      = $termination->termination_date;
       // same figure on every termination screen - see terminationOutstanding()
-      list($outstandingOs, $totalOutstanding) = $this->terminationOutstanding($tenantContract);
+      $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
+      $outstandingOs = $tenantOs['total'];
+      $totalOutstanding = $tenantOs['same_unit_total'];
      $today = strtotime(date('Y-m-d'));
 
      $datediff = $validTo - $today;
@@ -1579,7 +1583,7 @@ class TenantTerminationController extends Controller
 	  $tenancyStartDt = TenantContract::where('tenant_id',$tenantContract->tenant_id)->where('unit_id',$tenantContract->unit_id)->where('work_flow_processes_code',108)->select('tenant_contract_start_date')->orderBy('id','asc')->first();
      
 
-        return view('backoffice::Termination.tenant_termination_handover_assigned_view',compact('tenantContract','termination','groupedWork','terminationDocument','openTerminationDocument','backHistory','remainingDays','outstandingOs','depositeCheque','tenancyStartDt'));
+        return view('backoffice::Termination.tenant_termination_handover_assigned_view',compact('tenantContract','termination','groupedWork','terminationDocument','openTerminationDocument','backHistory','remainingDays','outstandingOs','tenantOs','depositeCheque','tenancyStartDt'));
       }
 
       public function handoverAssignedViewSalesPerson($terminationId)
@@ -1617,7 +1621,9 @@ class TenantTerminationController extends Controller
         $validTo =  strtotime($tenantContract->tenant_contract_valid_to_date); 
     $terminationDate      = $termination->termination_date;
       // same figure on every termination screen - see terminationOutstanding()
-      list($outstandingOs, $totalOutstanding) = $this->terminationOutstanding($tenantContract);
+      $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
+      $outstandingOs = $tenantOs['total'];
+      $totalOutstanding = $tenantOs['same_unit_total'];
      $today = strtotime(date('Y-m-d'));
 
      $datediff = $validTo - $today;
@@ -1626,7 +1632,7 @@ class TenantTerminationController extends Controller
     $tenancyStartDt = TenantContract::where('tenant_id',$tenantContract->tenant_id)->where('unit_id',$tenantContract->unit_id)->where('work_flow_processes_code',108)->select('tenant_contract_start_date')->orderBy('id','asc')->first();
      
 
-        return view('backoffice::Termination.tenant_termination_handover_assigned_view_salesperson',compact('tenantContract','termination','groupedWork','terminationDocument','openTerminationDocument','backHistory','remainingDays','outstandingOs','depositeCheque','tenancyStartDt'));
+        return view('backoffice::Termination.tenant_termination_handover_assigned_view_salesperson',compact('tenantContract','termination','groupedWork','terminationDocument','openTerminationDocument','backHistory','remainingDays','outstandingOs','tenantOs','depositeCheque','tenancyStartDt'));
       }
     /*
     *
@@ -1666,7 +1672,9 @@ class TenantTerminationController extends Controller
       }
 	   $terminationDate      = $termination->termination_date;
       // same figure on every termination screen - see terminationOutstanding()
-      list($outstandingOs, $totalOutstanding) = $this->terminationOutstanding($tenantContract);
+      $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
+      $outstandingOs = $tenantOs['total'];
+      $totalOutstanding = $tenantOs['same_unit_total'];
 
 	  $tenancyStartDt = TenantContract::where('tenant_id',$tenantContract->tenant_id)->where('unit_id',$tenantContract->unit_id)->where('work_flow_processes_code',108)->select('tenant_contract_start_date')->orderBy('id','asc')->first();
 	$totalOtherAmt = 0;
@@ -1677,9 +1685,9 @@ class TenantTerminationController extends Controller
       }
     }
 
-     $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $outstandingOs, $totalOutstanding);
+     $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $tenantOs['current']['outstanding'] + $totalOutstanding, $totalOutstanding);
 
-     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
+     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenantOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
 
    }
 
@@ -1771,7 +1779,9 @@ class TenantTerminationController extends Controller
       }
 	  $terminationDate      = $termination->termination_date;
       // same figure on every termination screen - see terminationOutstanding()
-      list($outstandingOs, $totalOutstanding) = $this->terminationOutstanding($tenantContract);
+      $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
+      $outstandingOs = $tenantOs['total'];
+      $totalOutstanding = $tenantOs['same_unit_total'];
        $totalOtherAmt = 0;
     if(!empty($tenantContract->terminationChecklistOther)){
       foreach($tenantContract->terminationChecklistOther as $other){
@@ -1779,9 +1789,9 @@ class TenantTerminationController extends Controller
         $totalOtherAmt+= $total;
       }
     }
-      $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $outstandingOs, $totalOutstanding);
+      $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $tenantOs['current']['outstanding'] + $totalOutstanding, $totalOutstanding);
 
-      return view('backoffice::Termination.tenant_termination_handover_assigned_inspection_edit',compact('tenantContract','works','termination','terminationDocument','groupedWork','arry','otherArray','backHistory','openTerminationDocument','outstandingOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
+      return view('backoffice::Termination.tenant_termination_handover_assigned_inspection_edit',compact('tenantContract','works','termination','terminationDocument','groupedWork','arry','otherArray','backHistory','openTerminationDocument','outstandingOs','tenantOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
 
     }
     /*
@@ -2312,9 +2322,10 @@ class TenantTerminationController extends Controller
      $datediff = $validTo - $today;
      $remainingDays = $datediff / 86400;    // 24 * 60 * 60 = 86400 seconds 
 
-     list($outstandingOs) = $this->terminationOutstanding($tenantContract);
+     $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
+     $outstandingOs = $tenantOs['total'];
      $deposit = TenantDepositHeld::forContract($termination->contract_id);
-     return view('backoffice::Termination.tenant_termination_takenover_view',compact('tenantContract','termination','groupedWork','terminationDocument','terminationNotes','openTerminationDocument','remainingDays','outstandingOs','deposit'));
+     return view('backoffice::Termination.tenant_termination_takenover_view',compact('tenantContract','termination','groupedWork','terminationDocument','terminationNotes','openTerminationDocument','remainingDays','outstandingOs','tenantOs','deposit'));
    }
     /*
     *
@@ -3162,22 +3173,13 @@ event(new TenantTerminationReferBack($termination,$users));
   }
 
   /**
-   * Outstanding rent shown on every tenant termination screen: this contract plus the
-   * earlier contracts of the same tenant on the unit, each by RentOutstanding (the same
-   * figure as Rent Receivable V2).
-   *
-   * @return array [total, of which earlier contracts]
+   * Outstanding rent shown on every tenant termination screen: this contract as on the
+   * termination date plus the tenant's expired contracts on any unit (V2 figures, legal
+   * cases included) - see TenantRentOutstanding. The total opens a breakup modal.
    */
-  private function terminationOutstanding($tenantContract)
+  private function terminationOutstanding($tenantContract, $termination)
   {
-      $previous = 0.0;
-      $earlier = TenantContract::where('tenant_id', $tenantContract->tenant_id)->where('unit_id', $tenantContract->unit_id)
-          ->where('work_flow_processes_code', 108)->where('id', '!=', $tenantContract->id)->pluck('id');
-      foreach ($earlier as $id) {
-          $previous += $this->outstandingOs($id);
-      }
-      $previous = round($previous, 3);
-      return [round($this->outstandingOs($tenantContract->id) + $previous, 3), $previous];
+      return TenantRentOutstanding::forTermination($tenantContract, $termination->termination_date);
   }
 
   /**

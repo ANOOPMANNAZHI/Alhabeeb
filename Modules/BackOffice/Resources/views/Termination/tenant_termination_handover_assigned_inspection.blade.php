@@ -149,6 +149,7 @@
   .insp .i-photo .i-photo-meta a { word-break:break-all; }
   .insp .i-alert { border:1px solid #fecaca; background:#fef2f2; color:#991b1b; border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:13px; }
 </style>
+@include('backoffice::Termination._tenant_outstanding_modal')
 @endsection
 
 @section('content')
@@ -183,7 +184,7 @@
         <div class="i-sub">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</div>
         <div class="i-os">
           @if($outstandingOs > 0)
-            <span class="i-pill i-pill-warn" title="Outstanding rent {{ numberFormat($outstandingOs) }} OMR">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
+            <a href="#" class="i-pill i-pill-warn tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">Outstanding {{ numberFormat($outstandingOs) }} OMR</a>
           @else
             <span class="i-pill i-pill-ok">No outstanding</span>
           @endif
