@@ -40,6 +40,7 @@
   }
 
 </style>
+@include('backoffice::Termination._tenant_outstanding_modal')
 @endsection
 @section('content')
 <!-- start widget -->
@@ -156,7 +157,7 @@
         <div class="row">
           <div class="col-md-5"><b>OutStanding Rent</b></div>
           <div class="col-md-1 s-clm">:</div>
-          <div class="col-md-6"><span> {{($outstandingOs > 0)? numberFormat($outstandingOs)." OMR":"NA"}}</span></div>
+          <div class="col-md-6"><span>@if($outstandingOs > 0)<a href="#" class="tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">{{ numberFormat($outstandingOs) }} OMR</a>@else NA @endif</span></div>
         </div>
       </div>
       @if(isset($tenantContract->tenant_contract_duration_countdown))

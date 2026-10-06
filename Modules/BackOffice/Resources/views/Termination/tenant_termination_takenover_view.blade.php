@@ -62,6 +62,7 @@
   .tov .t-two { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width: 900px) { .tov .t-two { grid-template-columns:1fr; } }
 </style>
+@include('backoffice::Termination._tenant_outstanding_modal')
 @endsection
 
 @section('content')
@@ -91,7 +92,7 @@
         <div class="t-sub">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</div>
         <div class="t-os">
           @if($outstandingOs > 0)
-            <span class="t-os-yes" title="Outstanding rent">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
+            <a href="#" class="t-os-yes tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">Outstanding {{ numberFormat($outstandingOs) }} OMR</a>
           @else
             <span class="t-os-no">No outstanding</span>
           @endif        </div>

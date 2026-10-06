@@ -83,7 +83,7 @@
                     </div> 
                     <div class="col-lg-6 p-t-20"> 
                         <div class = "txt-full-width">
-                            <h5 class="details"><b>Outstanding:  </b><span>{{ ($outstandingOs > 0)? "Yes": 'No'}}</span></h5>
+                            <h5 class="details"><b>Outstanding:  </b><span>@if($outstandingOs > 0)<a href="#" class="tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">{{ numberFormat($outstandingOs) }} OMR</a>@else No @endif</span></h5>
                         </div>
                     </div>
                     <div class="col-lg-6 p-t-20"> 
@@ -414,6 +414,7 @@
 </div>
 
 
+@include('backoffice::Termination._tenant_outstanding_modal')
 @endsection
 @section('scripts')
 @include('backoffice::Termination.termination_js') 
