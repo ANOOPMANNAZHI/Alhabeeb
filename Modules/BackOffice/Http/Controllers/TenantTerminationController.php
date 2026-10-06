@@ -1399,7 +1399,7 @@ class TenantTerminationController extends Controller
      $datediff = $validTo - $today;
      $remainingDays = $datediff / 86400;    // 24 * 60 * 60 = 86400 seconds 
 
-     $outstandingOs = $this->outstandingOs($termination->contract_id);
+     list($outstandingOs) = $this->terminationOutstanding($tenantContract);
 
 
       return view('backoffice::Termination.tenant_termination_handover_unassigned_view',compact('tenantContract','termination','openTerminationDocument','remainingDays','outstandingOs'));
@@ -1566,17 +1566,11 @@ class TenantTerminationController extends Controller
 		
 		//  $outstandingOs += $this->outstandingOs($prev_contract->id);	
 	//	$outstandingOs += $this->outstandingOs($prev_contract->id);
-	$totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
       }
         $validTo =  strtotime($tenantContract->tenant_contract_valid_to_date); 
 		$terminationDate      = $termination->termination_date;
-      $osAmount   = 0 ;
-      // Outstanding Creation
-      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
-         $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
-      // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt;
-      $outstandingOs = $totalOutstanding + $osAmount;
+      // same figure on every termination screen - see terminationOutstanding()
+      list($outstandingOs, $totalOutstanding) = $this->terminationOutstanding($tenantContract);
      $today = strtotime(date('Y-m-d'));
 
      $datediff = $validTo - $today;
@@ -1619,17 +1613,11 @@ class TenantTerminationController extends Controller
     
     //  $outstandingOs += $this->outstandingOs($prev_contract->id); 
   //  $outstandingOs += $this->outstandingOs($prev_contract->id);
-  $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
       }
         $validTo =  strtotime($tenantContract->tenant_contract_valid_to_date); 
     $terminationDate      = $termination->termination_date;
-      $osAmount   = 0 ;
-      // Outstanding Creation
-      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
-         $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
-      // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt;
-      $outstandingOs = $totalOutstanding + $osAmount;
+      // same figure on every termination screen - see terminationOutstanding()
+      list($outstandingOs, $totalOutstanding) = $this->terminationOutstanding($tenantContract);
      $today = strtotime(date('Y-m-d'));
 
      $datediff = $validTo - $today;
@@ -1675,16 +1663,10 @@ class TenantTerminationController extends Controller
           }
         }
 		//$outstandingOs += $this->outstandingOs($prev_contract->id);
-$totalOutstanding += $this->outstandingOsAmount($prev_contract->id);		
       }
 	   $terminationDate      = $termination->termination_date;
-      $osAmount   = 0 ;
-      // Outstanding Creation
-      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
-         $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
-      // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt;
-      $outstandingOs = $totalOutstanding + $osAmount;
+      // same figure on every termination screen - see terminationOutstanding()
+      list($outstandingOs, $totalOutstanding) = $this->terminationOutstanding($tenantContract);
 
 	  $tenancyStartDt = TenantContract::where('tenant_id',$tenantContract->tenant_id)->where('unit_id',$tenantContract->unit_id)->where('work_flow_processes_code',108)->select('tenant_contract_start_date')->orderBy('id','asc')->first();
 	$totalOtherAmt = 0;
@@ -1786,16 +1768,10 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
             $depositeCheque = $pdcDepositCheque;
           }
         }
-		$totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
       }
 	  $terminationDate      = $termination->termination_date;
-      $osAmount   = 0 ;
-      // Outstanding Creation
-      $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
-         $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
-      // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt;
-      $outstandingOs = $totalOutstanding + $osAmount;
+      // same figure on every termination screen - see terminationOutstanding()
+      list($outstandingOs, $totalOutstanding) = $this->terminationOutstanding($tenantContract);
        $totalOtherAmt = 0;
     if(!empty($tenantContract->terminationChecklistOther)){
       foreach($tenantContract->terminationChecklistOther as $other){
@@ -2336,7 +2312,7 @@ $totalOutstanding += $this->outstandingOsAmount($prev_contract->id);
      $datediff = $validTo - $today;
      $remainingDays = $datediff / 86400;    // 24 * 60 * 60 = 86400 seconds 
 
-     $outstandingOs = $this->outstandingOs($termination->contract_id);
+     list($outstandingOs) = $this->terminationOutstanding($tenantContract);
      $deposit = TenantDepositHeld::forContract($termination->contract_id);
      return view('backoffice::Termination.tenant_termination_takenover_view',compact('tenantContract','termination','groupedWork','terminationDocument','terminationNotes','openTerminationDocument','remainingDays','outstandingOs','deposit'));
    }
@@ -3183,6 +3159,25 @@ event(new TenantTerminationReferBack($termination,$users));
 
       return RentOutstanding::amountForContract($contractId);
 
+  }
+
+  /**
+   * Outstanding rent shown on every tenant termination screen: this contract plus the
+   * earlier contracts of the same tenant on the unit, each by RentOutstanding (the same
+   * figure as Rent Receivable V2).
+   *
+   * @return array [total, of which earlier contracts]
+   */
+  private function terminationOutstanding($tenantContract)
+  {
+      $previous = 0.0;
+      $earlier = TenantContract::where('tenant_id', $tenantContract->tenant_id)->where('unit_id', $tenantContract->unit_id)
+          ->where('work_flow_processes_code', 108)->where('id', '!=', $tenantContract->id)->pluck('id');
+      foreach ($earlier as $id) {
+          $previous += $this->outstandingOs($id);
+      }
+      $previous = round($previous, 3);
+      return [round($this->outstandingOs($tenantContract->id) + $previous, 3), $previous];
   }
 
   /**
