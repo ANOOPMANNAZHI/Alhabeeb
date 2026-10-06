@@ -534,6 +534,8 @@ $domain=  $_SERVER['HTTP_HOST'];
 
 if($domain == '134.0.205.114:9443'){
 $logo = 'public/img/logo-1.png'; //path for http://134.0.205.114:9081/
+}elseif(strpos($domain, 'localhost') !== false || strpos($domain, '127.0.0.1') !== false){
+$logo = base_path('public/img/logo-1.png'); // local: php -S serves one request at a time, so Jasper cannot fetch the logo by URL
 }else{
 $logo = asset('public/img/logo-1.png');  //path for http://plms.alhabib.om:8086/
 }
