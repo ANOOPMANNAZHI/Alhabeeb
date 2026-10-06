@@ -74,6 +74,17 @@ class ViewReceipt extends Model
    *  Filter 
    *
    */
+   /*
+   *  "Direct deposit to landlord" filter: '1' marked, '0' not marked, anything else all
+   */
+   public function scopePaidToLandlord($query, $value){
+      if($value === '1' || $value === '0'){
+        $ids = \DB::table('receipts_generation')->select('id')->where('receipts_generation_paid_to_landlord', $value === '1');
+        $query->whereIn('id', $ids);
+      }
+      return $query;
+   }
+
    public function scopeFilter($query, $request){
 
       if(isset($request)){     
@@ -82,7 +93,7 @@ class ViewReceipt extends Model
       $generalSearch = array(); 
      
     
-        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','tab','date','are_id']) as $key => $val){         
+        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','tab','date','are_id','paid_to_landlord']) as $key => $val){         
 
            if($key == 'fieldValue' || $key == 'fieldValues' )
               continue;

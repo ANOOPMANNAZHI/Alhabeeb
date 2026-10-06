@@ -12,9 +12,29 @@ class ReceiptsGeneration extends Model
     protected $guarded = [];
     protected $hidden = ["deleted_at"];
     protected $table = 'receipts_generation';
-    protected $dates = ['receipts_generation_receipt_date','receipts_generation_posted_date','receipts_generation_cancel_date','created_at','receipts_generation_eff_from','receipts_generation_eff_to'];
+    protected $dates = ['receipts_generation_receipt_date','receipts_generation_posted_date','receipts_generation_cancel_date','created_at','receipts_generation_eff_from','receipts_generation_eff_to','receipts_generation_landlord_marked_at'];
 	public $sortable = ['id','receipts_generation_receipt_no','receipts_generation_eff_from','receipts_generation_eff_from'];
-	
+
+	/*
+    * "Direct deposit to landlord" columns for a create/update from the receipt form's checkbox.
+    * Who/when are recorded only when the flag's value changes.
+    */
+	public static function landlordDepositFields($paid, ReceiptsGeneration $existing = null){
+		$paid = (bool) $paid;
+		if($existing && (bool) $existing->receipts_generation_paid_to_landlord === $paid){
+			return ['receipts_generation_paid_to_landlord' => $paid];
+		}
+		return [
+			'receipts_generation_paid_to_landlord'   => $paid,
+			'receipts_generation_landlord_marked_by' => ($existing || $paid) ? \Auth::id() : null,
+			'receipts_generation_landlord_marked_at' => ($existing || $paid) ? now() : null,
+		];
+	}
+
+	public function landlordMarkedBy(){
+	  return $this->belongsTo('App\User','receipts_generation_landlord_marked_by','id');
+	}
+
 	/*
     * Tenant Contract Building
     */

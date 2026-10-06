@@ -552,6 +552,7 @@ Route::post('rentReceiptGeneration/receiptContractDetailsByBuildingUnit','RentRe
 Route::match(['get', 'post'],'receiptsTabViewList/rentReceiptGeneration/{tab?}/{data?}','RentReceiptGenerationController@receiptsTabViewList')->name('receiptsTabViewList');
 /*******Print Preview**********/
 Route::get('rentReceiptGeneration/printPreview/{id}', 'RentReceiptGenerationController@printPreview')->name('printPreview');
+Route::post('rentReceiptGeneration/{id}/landlordDeposit', 'RentReceiptGenerationController@landlordDeposit')->name('receiptLandlordDeposit')->middleware('permission:mark_receipt_landlord_deposit');
 /******* End Print Preview**********/
  Route::match(['get', 'post'],'receiptsTabViewList/rentReceiptGeneration/{tab}','RentReceiptGenerationController@receiptsTabViewList')->name('receiptsTabViewListtab');
 Route::match(['get', 'post'],'receiptsAgreementViewList/rentReceiptGeneration/{id}/{tab}','RentReceiptGenerationController@receiptsAgreementViewList')->name('receiptsAgreementViewList');

@@ -156,7 +156,7 @@ class RentReceiptGenerationController extends Controller
                          ? (isset($request->pdc_replace_cheque) ? $request->pdc_replace_cheque : null)
                          : (isset($request->pdc_bounce_cheque) ? $request->pdc_bounce_cheque : null),
                      'created_by' => \Auth::user()->id
-                 ]);
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord));
 
         // If Replace: update PDC cancel reason and remark at save time so PDC page reflects it immediately
         if (isset($request->pay_type) && $request->pay_type == 3 && !empty($request->pdc_replace_cheque)) {
@@ -194,6 +194,20 @@ class RentReceiptGenerationController extends Controller
         // print_r($rentReceiptInfo->count());exit();
 
         return view('backoffice::Receipt.rent_payment_receipt_view',compact('rentReceiptInfo','bankMaster','dimList','acc_parameter'));
+    }
+
+    /**
+     * Mark / unmark a receipt as "Direct deposit to landlord" (tenant paid the landlord directly).
+     * Changes only the flag, for any receipt status; amounts, status and AX posting are untouched.
+     */
+    public function landlordDeposit(Request $request, $id)
+    {
+        $receipt = ReceiptsGeneration::findOrFail($id);
+        $paid = $request->paid_to_landlord == 1;
+        $receipt->update(ReceiptsGeneration::landlordDepositFields($paid, $receipt));
+
+        session()->flash('success', $paid ? 'Marked as direct deposit to landlord' : 'Direct deposit to landlord mark removed');
+        return redirect()->route('rentReceiptGeneration.show', $id);
     }
 
     /**
@@ -274,7 +288,7 @@ class RentReceiptGenerationController extends Controller
                          ? (isset($request->pdc_replace_cheque) ? $request->pdc_replace_cheque : null)
                          : (isset($request->pdc_bounce_cheque) ? $request->pdc_bounce_cheque : null),
                      'created_by' => \Auth::user()->id
-                 ]);
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord, $rentReceiptInfo));
 
         // If Replace: update PDC cancel reason and remark at save time so PDC page reflects it immediately
         if (isset($request->pay_type) && $request->pay_type == 3 && !empty($request->pdc_replace_cheque)) {
@@ -526,7 +540,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
     $route   =   $request->url();     
    // print_r($route);exit;
     if(!isset($request->are_id) || $request->are_id == ''){
-       $receiptslist = ViewReceipt::whereNull('deleted_at')->filter($request)->type($tab)
+       $receiptslist = ViewReceipt::whereNull('deleted_at')->filter($request)->type($tab)->paidToLandlord($request->paid_to_landlord)
                                         ->sortable()
                                         ->paginate($this->noOfRecord);  
     $are_id = ''; 
@@ -555,7 +569,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                     })
                 ->pluck('id')->toArray();
             // print_r($collectionMTD);exit;
-        $receiptslist = ViewReceipt::whereNull('deleted_at')->filter($request)->type($tab)
+        $receiptslist = ViewReceipt::whereNull('deleted_at')->filter($request)->type($tab)->paidToLandlord($request->paid_to_landlord)
                                         ->sortable()->whereIn('id',$collectionMTD)
                                         ->paginate($this->noOfRecord);
         $are_id =  $headUser; 
@@ -563,11 +577,13 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
     }
    
                                      
+    // receipts marked "Direct deposit to landlord" on this page (view_receipt has no such column)
+    $landlordIds = ReceiptsGeneration::whereIn('id', $receiptslist->pluck('id'))->where('receipts_generation_paid_to_landlord', true)->pluck('id')->all();
     //dd($receiptslist);
     if(isset($request->ajax))
-    return view('backoffice::Receipt.receipt_list_ajax',compact('receiptslist','tab','request','route','are_id','date')); 
+    return view('backoffice::Receipt.receipt_list_ajax',compact('receiptslist','tab','request','route','are_id','date','landlordIds')); 
 
-    return view('backoffice::Receipt.receipt_list',compact('receiptslist','tab','search_fields','operations','route','are_id','date'));
+    return view('backoffice::Receipt.receipt_list',compact('receiptslist','tab','search_fields','operations','route','are_id','date','landlordIds'));
        
 
     }
@@ -672,7 +688,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'receipts_generation_is_bounce_normal'=>isset($request->pay_type)?$request->pay_type:1,
                      'receipts_generation_is_pdc_bounce_id'=>isset($request->pdc_bounce_cheque)?$request->pdc_bounce_cheque:null,
                      'created_by' => \Auth::user()->id,
-                 ]);   
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord));   
                
                  // Debit Insertation
                  ReceiptGenerationDim::create([
@@ -811,7 +827,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'receipts_generation_is_bounce_normal'=>isset($request->pay_type)?$request->pay_type:1,
                      'receipts_generation_is_pdc_bounce_id'=>isset($request->pdc_bounce_cheque)?$request->pdc_bounce_cheque:null,
                      'created_by' => \Auth::user()->id,
-                 ]);   
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord, $rentReceiptInfo));   
 
 
         session()->flash('success', 'Update Successfully');
@@ -899,7 +915,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'general_receipt_narration'=>$request->general_narration ,
                      'created_by' => \Auth::user()->id,
                      
-                 ]);   
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord));   
         
         if(count($request->account_code) > 0){ 
             foreach ($request->account_code as $key => $value) {
@@ -1011,7 +1027,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'finance_dim' => $request->finance_dim,
                      'general_receipt_narration'=> $request->general_narration,
                      'created_by' => \Auth::user()->id,
-                 ]);   
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord, $generalReceiptInfo));   
            
             
             ReceiptGenerationDim::where('receipts_generation_id',$id)->delete();
