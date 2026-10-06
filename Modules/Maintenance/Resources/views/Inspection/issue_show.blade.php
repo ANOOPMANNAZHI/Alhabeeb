@@ -133,7 +133,7 @@
     'sent_back' => ['Sent back', 'fa-undo'], 'complaint' => ['Complaint ticket', 'fa-ticket']];
   $la = old('landlord_approval', $issue->landlord_approval === null ? '' : (int) $issue->landlord_approval);
 @endphp
-<div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.issues.show', $issue) }}</div></div>
+<div class="page-bar"><div class="page-title-breadcrumb">{{ Breadcrumbs::render('inspection.issues.show', $issue) }}</div></div>
 <div class="ins iss">
 
   {{-- Header: what, where, status --}}

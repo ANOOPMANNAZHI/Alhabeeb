@@ -4,7 +4,7 @@
 @endsection
 @section('content')
 @php use Modules\Maintenance\Services\Inspection as I; $canCreate = Auth::user()->can('inspection_issue_create'); $today = date('Y-m-d'); @endphp
-<div class="page-bar"><div class="page-title-breadcrumb"><div class="pull-left"><div class="page-title">Building Inspection</div></div>{{ Breadcrumbs::render('inspection.issues') }}</div></div>
+<div class="page-bar"><div class="page-title-breadcrumb">{{ Breadcrumbs::render('inspection.issues') }}</div></div>
 <div class="ins">
   <div class="ins-head">
     <div><h1>Issue register</h1><p class="sub">Every finding, from inspection to verified closure.</p></div>
