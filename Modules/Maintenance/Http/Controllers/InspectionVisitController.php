@@ -262,6 +262,7 @@ class InspectionVisitController extends Controller
                     $priority = max(1, (int) $p->priority - 1);
                     $target = Inspection::targetDate($priority);
                     $set += ['priority' => $priority, 'target_date' => min($target, $p->target_date)];
+                    Inspection::recordChanges($p, ['priority' => $set['priority'], 'target_date' => $set['target_date']], $updateId);
                 }
                 if ($cond !== 2 && $request->hasFile('followup_photo.' . $p->id)) {
                     Inspection::storePhoto($request->file('followup_photo.' . $p->id), $p->id, 2, $updateId);

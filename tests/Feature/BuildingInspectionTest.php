@@ -221,6 +221,47 @@ class BuildingInspectionTest extends TestCase
         $this->as($this->manager)->get($url)->assertOk()->assertSee('Verified');
     }
 
+    public function test_action_plan_edits_are_recorded_field_by_field()
+    {
+        list(, $issue) = $this->inspect();
+        $plan = ['action_plan' => 'Replace gasket', 'responsible_party' => 'Contractor', 'estimated_cost' => '45.5',
+            'landlord_approval' => 0, 'target_date' => $issue->target_date];
+        $this->as($this->exec1)->post(route('inspection.issues.plan', $issue->id), $plan)->assertSessionHasNoErrors();
+        // first save: the four new fields are recorded as set (target date unchanged)
+        $this->assertEquals(['action_plan', 'estimated_cost', 'landlord_approval', 'responsible_party'],
+            DB::table('inspection_issue_changes')->where('issue_id', $issue->id)->orderBy('field')->pluck('field')->all());
+
+        // same values again (45.500 = 45.5): nothing recorded
+        $this->as($this->exec1)->post(route('inspection.issues.plan', $issue->id), ['estimated_cost' => '45.500'] + $plan)
+            ->assertSessionHas('success', 'Nothing changed - the action plan is the same as before.');
+        $this->assertEquals(4, DB::table('inspection_issue_changes')->where('issue_id', $issue->id)->count());
+
+        // the manager edits cost and target date, with a reason
+        $newTarget = date('Y-m-d', strtotime('+20 days'));
+        $this->as($this->manager)->post(route('inspection.issues.plan', $issue->id),
+            ['estimated_cost' => '60', 'target_date' => $newTarget, 'change_reason' => 'Contractor quote received'] + $plan)->assertSessionHasNoErrors();
+        $edit = DB::table('inspection_issue_changes')->where('issue_id', $issue->id)->where('changed_by', $this->manager->id)->orderBy('field')->get();
+        $this->assertCount(2, $edit);
+        $this->assertEquals(['estimated_cost', '45.500', '60.000'], [$edit[0]->field, $edit[0]->old_value, $edit[0]->new_value]);
+        $this->assertEquals(['target_date', $issue->target_date, $newTarget], [$edit[1]->field, $edit[1]->old_value, $edit[1]->new_value]);
+        $note = DB::table('inspection_issue_updates')->where('id', $edit[0]->update_id)->value('note');
+        $this->assertEquals("Action plan changed: Estimated cost, Target date.\nReason: Contractor quote received", $note);
+
+        $this->as($this->exec1)->get(route('inspection.issues.show', $issue->id))->assertOk()
+            ->assertSee('Change history (2)')->assertSee('OMR 45.500')->assertSee('OMR 60.000')->assertSee('Contractor quote received');
+    }
+
+    public function test_worsened_follow_up_is_recorded_in_change_history()
+    {
+        list(, $issue) = $this->inspect();
+        $v2 = $this->visit($this->exec1, $this->b1, 2);
+        $this->as($this->exec1)->post(route('inspection.visits.submit', $v2->id), ['results' => array_fill_keys($this->items(), 1),
+            'followup' => [$issue->id => ['condition' => 3, 'note' => 'Worse']]])->assertSessionHasNoErrors();
+        $c = DB::table('inspection_issue_changes')->where('issue_id', $issue->id)->orderBy('field')->get();
+        $this->assertEquals(['priority', '2', '1'], [$c[0]->field, $c[0]->old_value, $c[0]->new_value]);
+        $this->assertEquals('target_date', $c[1]->field);
+    }
+
     public function test_supervisor_cannot_verify_own_issue()
     {
         $sup = $this->makeUser('ins_t_sup', 'maintenance_supervisor');
