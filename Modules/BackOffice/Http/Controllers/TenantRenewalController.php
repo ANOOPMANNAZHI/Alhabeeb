@@ -1326,7 +1326,9 @@ class TenantRenewalController extends Controller
         ->where(function ($q) use ($today) {
           $q->whereNull('vacant_to')->orWhere('vacant_to', '<>', $today);
         })->get();
-	  
+
+      // saved together: one commit for the whole run, and nothing half-updated if it stops
+      DB::transaction(function () use ($vacanyDataList) {
       foreach($vacanyDataList as $lst){
 
         $start  = $lst->vacant_from;
@@ -1341,6 +1343,7 @@ class TenantRenewalController extends Controller
         }
         VacantVacancyLoss::where('unit_id','=',$lst->unit_id)->where('status','=',1)->update(['vacant_to'=>$validToDt,'vacant_days'=>$vacantDays,'vacany_loss'=>$vacany_loss]);
       }
+      });
 	 // Manually Terminate by backoffice team
 	/*
       $affectedTenInactive = TenantContract::whereDate('tenant_contract_valid_to_date','<=',$today)
