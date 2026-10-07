@@ -52,7 +52,7 @@ class InspectionSetupController extends Controller
             'building_ids.*' => 'integer',
             'user_id'        => 'required',
             'effective_from' => 'required|date|before_or_equal:today',
-        ], ['building_ids.required' => 'Tick at least one building.', 'user_id.required' => 'Select the executive, or Nobody to unassign.',
+        ], ['building_ids.required' => 'Tick at least one building.', 'user_id.required' => 'Select employee, or Nobody to unassign.',
             'effective_from.required' => 'Enter the date the change takes effect.',
             'effective_from.before_or_equal' => 'The effective date cannot be in the future.']);
         $userId = $request->input('user_id') === 'none' ? null : (int) $request->input('user_id');

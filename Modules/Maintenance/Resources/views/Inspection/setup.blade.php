@@ -40,8 +40,8 @@
     <form method="post" action="{{ route('inspection.setup.assign') }}" id="assign-form">
       @csrf
       <div class="ins-assignbar">
-        <div class="ins-field"><label for="as-user">Assign ticked buildings to</label>
-          <select name="user_id" id="as-user" required><option value="">Select an executive</option>@foreach($executives as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach<option value="none">Nobody (unassign)</option></select></div>
+        <div class="ins-field" style="min-width:280px"><label for="as-user">Assign ticked buildings to</label>
+          <select name="user_id" id="as-user" class="ins-searchable" data-placeholder="Select employee" data-empty="No employee matches" required><option value="">Select employee</option>@foreach($executives as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach<option value="none">Nobody (unassign)</option></select></div>
         <div class="ins-field" style="min-width:160px"><label for="as-from">Effective from</label>
           <input type="date" name="effective_from" id="as-from" value="{{ old('effective_from', date('Y-m-d')) }}" max="{{ date('Y-m-d') }}" required style="height:38px"></div>
         <button type="submit" class="ins-btn primary" id="as-btn" disabled>Assign <span id="as-count">0</span> building(s)</button>
@@ -117,6 +117,7 @@
 </div>
 @endsection
 @section('scripts')
+@include('maintenance::Inspection._combo')
 <script>
 $(function () {
   var execFilter = '';

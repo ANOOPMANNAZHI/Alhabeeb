@@ -39,7 +39,7 @@
         shown = $.grep(items, function (i) { return !t || i.label.toLowerCase().indexOf(t) !== -1; }).slice(0, 500);
         $list.empty();
         $.each(shown, function (k, i) { $list.append($('<li role="option"></li>').attr('id', id + '-' + k).text(i.label).data('k', k)); });
-        if (!shown.length) { $list.append('<li class="empty">No building matches</li>'); }
+        if (!shown.length) { $list.append($('<li class="empty"></li>').text($sel.data('empty') || 'No building matches')); }
         active = -1;
         $list.prop('hidden', false); $in.attr('aria-expanded', 'true');
       }
