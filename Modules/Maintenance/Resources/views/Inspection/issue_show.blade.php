@@ -130,7 +130,7 @@
   $updatesById = $updates->keyBy('id');
   $kinds = ['raised' => ['Issue raised', 'fa-flag'], 'progress' => ['Progress update', 'fa-comment'], 'plan' => ['Action plan', 'fa-wrench'],
     'followup' => ['Inspection follow-up', 'fa-search'], 'resolved' => ['Marked resolved', 'fa-check'], 'verified' => ['Verified & closed', 'fa-shield'],
-    'sent_back' => ['Sent back', 'fa-undo'], 'complaint' => ['Complaint ticket', 'fa-ticket']];
+    'sent_back' => ['Sent back', 'fa-undo'], 'complaint' => ['Complaint ticket', 'fa-ticket'], 'reassigned' => ['Reassigned', 'fa-exchange']];
   $la = old('landlord_approval', $issue->landlord_approval === null ? '' : (int) $issue->landlord_approval);
 @endphp
 <div class="page-bar"><div class="page-title-breadcrumb">{{ Breadcrumbs::render('inspection.issues.show', $issue) }}</div></div>

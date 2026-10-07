@@ -316,7 +316,7 @@ class BuildingInspectionTest extends TestCase
             ->whereNotIn('id', DB::table('building_executives')->whereNull('assigned_till')->pluck('building_id')->all())
             ->orderBy('id')->value('id');
 
-        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$building], 'user_id' => $cashier->id])
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$building], 'user_id' => $cashier->id, 'effective_from' => date('Y-m-d')])
             ->assertRedirect(route('inspection.setup'));
         $cashier = User::find($cashier->id);
         $this->assertTrue($cashier->can('inspection_view'));
@@ -327,16 +327,98 @@ class BuildingInspectionTest extends TestCase
         $this->as($cashier)->get(route('inspection.dashboard'))->assertOk();
         $this->as($cashier)->get(route('inspection.visits'))->assertOk();
         // a Maintenance Executive assigned through Setup already has the screens through the role: no direct grants
-        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id]);
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id, 'effective_from' => date('Y-m-d')]);
         $this->assertCount(0, User::find($this->exec2->id)->getDirectPermissions());
         $this->assertCount(0, User::find($this->exec1->id)->getDirectPermissions(), 'exec1 lost b1 but keeps the role');
         $this->assertTrue(User::find($this->exec1->id)->can('inspection_view'));
 
         // last building taken away -> the direct permissions go
-        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$building], 'user_id' => 'none']);
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$building], 'user_id' => 'none', 'effective_from' => date('Y-m-d')]);
         $cashier = User::find($cashier->id);
         $this->assertFalse($cashier->can('inspection_view'));
         $this->assertCount(0, $cashier->getDirectPermissions());
+    }
+
+    /** exec1 has had b1 since $since; one scheduled visit, one open and one closed issue. */
+    private function exec1Work($since)
+    {
+        DB::table('building_executives')->where('building_id', $this->b1)->whereNull('assigned_till')->update(['assigned_from' => $since]);
+        $this->actingAs($this->exec1);
+        $visit = DB::table('inspection_visits')->insertGetId(['building_id' => $this->b1, 'executive_id' => $this->exec1->id, 'visit_type' => 2,
+            'visit_month' => date('Y-m-01'), 'planned_date' => date('Y-m-d'), 'status' => Inspection::SCHEDULED, 'created_by' => $this->exec1->id,
+            'created_at' => now(), 'updated_at' => now()]);
+        $work = (int) array_keys(Inspection::categories())[0];
+        $open = Inspection::createIssue(['building_id' => $this->b1, 'work_id' => $work, 'priority' => 3, 'source' => 2,
+            'executive_id' => $this->exec1->id, 'description' => 'Open issue']);
+        $closed = Inspection::createIssue(['building_id' => $this->b1, 'work_id' => $work, 'priority' => 3, 'source' => 2,
+            'executive_id' => $this->exec1->id, 'description' => 'Closed issue']);
+        DB::table('inspection_issues')->where('id', $closed)->update(['status' => Inspection::CLOSED]);
+        return [$visit, $open, $closed];
+    }
+
+    /** Reassign with an effective date: A till the day before, B from that date; open work moves (user, 07/10/2026). */
+    public function test_reassign_keeps_history_with_dates_and_moves_open_work()
+    {
+        $since = date('Y-m-d', strtotime('-40 days'));
+        $change = date('Y-m-d', strtotime('-10 days'));
+        list($visit, $open, $closed) = $this->exec1Work($since);
+
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id, 'effective_from' => $change])
+            ->assertRedirect(route('inspection.setup'))->assertSessionHasNoErrors();
+
+        $rows = DB::table('building_executives')->where('building_id', $this->b1)->orderBy('assigned_from')->get();
+        $this->assertCount(2, $rows);
+        $this->assertSame([$this->exec1->id, $since, date('Y-m-d', strtotime($change . ' -1 day'))], [(int) $rows[0]->user_id, $rows[0]->assigned_from, $rows[0]->assigned_till]);
+        $this->assertSame([$this->exec2->id, $change, null], [(int) $rows[1]->user_id, $rows[1]->assigned_from, $rows[1]->assigned_till]);
+
+        $this->assertSame($this->exec2->id, (int) DB::table('inspection_visits')->where('id', $visit)->value('executive_id'), 'scheduled visit moved');
+        $this->assertSame($this->exec2->id, (int) DB::table('inspection_issues')->where('id', $open)->value('executive_id'), 'open issue moved');
+        $this->assertSame($this->exec1->id, (int) DB::table('inspection_issues')->where('id', $closed)->value('executive_id'), 'closed issue stays');
+        $this->assertStringContainsString('Reassigned from', DB::table('inspection_issue_updates')->where('issue_id', $open)->where('kind', 'reassigned')->value('note'));
+
+        // the history panel lists both
+        $html = $this->as($this->manager)->get(route('inspection.setup.history', $this->b1))->assertOk()->getContent();
+        $this->assertContains('Ins_t_exec1', $html);
+        $this->assertContains('Current', $html);
+        $this->as($this->manager)->get(route('inspection.issues.show', $open))->assertOk()->assertSee('Reassigned');
+    }
+
+    public function test_effective_date_rules()
+    {
+        $since = date('Y-m-d', strtotime('-5 days'));
+        $this->exec1Work($since);
+        // before exec1 started
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id,
+            'effective_from' => date('Y-m-d', strtotime('-6 days'))])->assertSessionHasErrors('assign');
+        // in the future
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id,
+            'effective_from' => date('Y-m-d', strtotime('+1 day'))])->assertSessionHasErrors('effective_from');
+        $this->assertSame($this->exec1->id, (int) Inspection::buildingExecutive($this->b1), 'nothing changed');
+    }
+
+    public function test_correcting_a_date_moves_the_joining_date()
+    {
+        $since = date('Y-m-d', strtotime('-40 days'));
+        $change = date('Y-m-d', strtotime('-10 days'));
+        $this->exec1Work($since);
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id, 'effective_from' => $change]);
+        $b = DB::table('building_executives')->where('building_id', $this->b1)->whereNull('assigned_till')->first();
+        $a = DB::table('building_executives')->where('building_id', $this->b1)->whereNotNull('assigned_till')->first();
+
+        // exec2 really started 3 days earlier: exec1's till moves with it
+        $earlier = date('Y-m-d', strtotime($change . ' -3 days'));
+        $this->as($this->manager)->post(route('inspection.setup.history.update', $b->id), ['assigned_from' => $earlier])
+            ->assertRedirect(route('inspection.setup', ['history' => $this->b1]))->assertSessionHasNoErrors();
+        $this->assertSame($earlier, DB::table('building_executives')->where('id', $b->id)->value('assigned_from'));
+        $this->assertSame(date('Y-m-d', strtotime($earlier . ' -1 day')), DB::table('building_executives')->where('id', $a->id)->value('assigned_till'));
+
+        // a start on or before exec1's start is refused
+        $this->as($this->manager)->post(route('inspection.setup.history.update', $b->id), ['assigned_from' => $since])->assertSessionHasErrors('history');
+        // exec1's till corrected: exec2's from follows
+        $till = date('Y-m-d', strtotime($earlier . ' +1 day'));
+        $this->as($this->manager)->post(route('inspection.setup.history.update', $a->id), ['assigned_from' => $since, 'assigned_till' => $till])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(date('Y-m-d', strtotime($till . ' +1 day')), DB::table('building_executives')->where('id', $b->id)->value('assigned_from'));
     }
 
     public function test_inactive_employee_is_not_offered()
@@ -344,7 +426,7 @@ class BuildingInspectionTest extends TestCase
         $off = $this->makeUser('ins_t_inactive', 'cashier');
         DB::table('employees')->where('id', $off->user_type_id)->update(['employee_status' => 0]);
         $this->assertArrayNotHasKey($off->id, Inspection::executives());
-        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $off->id])
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $off->id, 'effective_from' => date('Y-m-d')])
             ->assertSessionHasErrors('user_id');
     }
 
@@ -374,7 +456,7 @@ class BuildingInspectionTest extends TestCase
 
     public function test_setup_assignment_keeps_history()
     {
-        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id])
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id, 'effective_from' => date('Y-m-d')])
             ->assertSessionHasNoErrors();
         $rows = DB::table('building_executives')->where('building_id', $this->b1)->orderBy('id')->get();
         $this->assertCount(2, $rows);

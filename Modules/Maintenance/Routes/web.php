@@ -344,6 +344,8 @@ Route::post('inspection-issues/{id}/verify', 'InspectionIssueController@verify')
 Route::post('inspection-issues/{id}/complaint', 'InspectionIssueController@createComplaint')->where('id', '[0-9]+')->name('inspection.issues.complaint');
 Route::get('inspection-setup', 'InspectionSetupController@index')->name('inspection.setup');
 Route::post('inspection-setup/assign', 'InspectionSetupController@assign')->name('inspection.setup.assign');
+Route::get('inspection-setup/history/{building}', 'InspectionSetupController@history')->where('building', '[0-9]+')->name('inspection.setup.history');
+Route::post('inspection-setup/history/{id}', 'InspectionSetupController@updateHistory')->where('id', '[0-9]+')->name('inspection.setup.history.update');
 Route::post('inspection-setup/area', 'InspectionSetupController@saveArea')->name('inspection.setup.area');
 Route::post('inspection-setup/item', 'InspectionSetupController@saveItem')->name('inspection.setup.item');
 });
