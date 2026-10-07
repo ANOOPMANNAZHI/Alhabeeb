@@ -107,6 +107,11 @@ e     */
                       return redirect()->route('pdc.edit', $contractId);
                 }
 				*/
+                // Locked row (2: bounced / exchanged through the Cheque Bounce popup): leave it as it is.
+                // It used to fall through to create() below and came back as a new open PDC on every Save.
+                if($request->{'pdc_is_saved_'.$i} == 2 && $request->{'pdc_check_id_'.$i}){
+                    continue;
+                }
                 if($request->{'pdc_is_saved_'.$i} == 1 && $request->{'pdc_check_no_'.$i} > 0){
 
                     if($request->{'pdc_reference_'.$i} >0 ){
