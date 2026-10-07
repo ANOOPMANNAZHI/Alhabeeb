@@ -25,7 +25,7 @@
   </div>
 
   @if($unassigned)
-  <div class="ins-alert warn">{{ $unassigned }} active building{{ $unassigned === 1 ? ' has' : 's have' }} no maintenance executive.@can('inspection_masters') <a href="{{ route('inspection.setup') }}">Assign executives</a>@endcan</div>
+  <div class="ins-alert warn">{{ $unassigned }} active building{{ $unassigned === 1 ? ' has' : 's have' }} nobody assigned for inspections.@can('inspection_masters') <a href="{{ route('inspection.setup') }}">Assign executives</a>@endcan</div>
   @endif
 
   <div class="ins-kpis">

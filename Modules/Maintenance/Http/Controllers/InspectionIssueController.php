@@ -126,6 +126,7 @@ class InspectionIssueController extends Controller
             ], $request->file('photo'));
         });
         $issue = DB::table('inspection_issues')->where('id', $id)->first();
+        Inspection::syncAccess($executiveId);
         return redirect()->route('inspection.issues.show', $id)
             ->with('success', $issue->issue_no . ' created. Target date ' . date('d/m/Y', strtotime($issue->target_date)) . '.');
     }
@@ -261,6 +262,7 @@ class InspectionIssueController extends Controller
                     'resolved_by' => null, 'updated_by' => \Auth::id(), 'updated_at' => now()]);
             }
         });
+        Inspection::syncAccess($issue->executive_id);
         return redirect()->route('inspection.issues.show', $id)
             ->with('success', $request->input('decision') === 'close' ? 'Issue verified and closed.' : 'Issue sent back to the executive.');
     }

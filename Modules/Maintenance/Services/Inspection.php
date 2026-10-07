@@ -27,8 +27,10 @@ class Inspection
     const CONDITIONS = [1 => 'Still open', 2 => 'Resolved', 3 => 'Worsened'];
     const PARTIES = ['In-house technician', 'Contractor', 'Landlord', 'Tenant'];
     const PHOTO_KINDS = [1 => 'Before', 2 => 'Progress', 3 => 'After'];
-    // roles that carry out inspections (have buildings); managers verify anybody's issue
+    // roles that carry out inspections by role; any active employee can also be assigned (user, 07/10/2026)
     const EXECUTIVE_ROLES = ['maintenance_executive', 'maintenance_supervisor'];
+    // given straight to a person while they have a building, a scheduled visit or an open issue (syncAccess)
+    const EXECUTIVE_PERMISSIONS = ['inspection_view', 'inspection_visit_create', 'inspection_execute', 'inspection_issue_create', 'inspection_complaint_create'];
     const MANAGER_ROLES = ['super_admin', 'maintenance_manager'];
     const PHOTO_DIR = 'public/InspectionPhotos';
 
@@ -69,16 +71,51 @@ class Inspection
         });
     }
 
-    /** Active users holding an executive role: id => name. */
+    /**
+     * People who can be given buildings, visits and issues: every active employee (active login +
+     * active employee record), whatever their role (user, 07/10/2026): id => name.
+     */
     public static function executives()
     {
         return DB::table('users as u')
-            ->join('model_has_roles as m', function ($j) { $j->on('m.model_id', '=', 'u.id')->where('m.model_type', 'App\User'); })
-            ->join('roles as r', 'r.id', '=', 'm.role_id')
-            ->leftJoin('employees as e', 'e.id', '=', 'u.user_type_id')
-            ->whereIn('r.name', self::EXECUTIVE_ROLES)->where('u.user_type_status', 1)
+            ->join('employees as e', 'e.id', '=', 'u.user_type_id')
+            ->where('u.user_type', 'employee')->where('u.user_type_status', 1)->where('e.employee_status', 1)
             ->select('u.id', DB::raw('coalesce(e.employee_name, u.username) as name'))
-            ->distinct()->orderBy('name')->pluck('name', 'id')->all();
+            ->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    /**
+     * Screen access follows the assignment: a person with a building, a scheduled visit or an open
+     * issue gets EXECUTIVE_PERMISSIONS directly (their role is untouched); with none left, those direct
+     * permissions are taken away again. What their role gives them never changes.
+     */
+    public static function syncAccess($userIds)
+    {
+        $names = DB::table('permissions')->whereIn('name', self::EXECUTIVE_PERMISSIONS)->pluck('name')->all();
+        if (!$names) {
+            return;
+        }
+        foreach (array_unique(array_filter(array_map('intval', (array) $userIds))) as $userId) {
+            $user = \App\User::find($userId);
+            if (!$user) {
+                continue;
+            }
+            $assigned = DB::table('building_executives')->where('user_id', $userId)->whereNull('assigned_till')->exists()
+                || DB::table('inspection_visits')->where('executive_id', $userId)->where('status', self::SCHEDULED)->exists()
+                || DB::table('inspection_issues')->where('executive_id', $userId)->where('status', '<>', self::CLOSED)->exists();
+            $direct = $user->getDirectPermissions()->pluck('name')->all();
+            if ($assigned) {
+                // only what neither the role nor an earlier grant gives them
+                $missing = array_values(array_diff($names, $direct, $user->getPermissionsViaRoles()->pluck('name')->all()));
+                if ($missing) {
+                    $user->givePermissionTo($missing);
+                }
+            } else {
+                foreach (array_intersect($names, $direct) as $name) {
+                    $user->revokePermissionTo($name);
+                }
+            }
+        }
     }
 
     public static function userName($userId)

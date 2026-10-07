@@ -306,6 +306,48 @@ class BuildingInspectionTest extends TestCase
         $this->assertEquals($before + 1, DB::table('complaint_enquiries')->count());
     }
 
+    /** Any active employee can be assigned; their screens follow the assignment (user, 07/10/2026). */
+    public function test_employee_of_another_role_gets_the_screens_while_assigned()
+    {
+        $cashier = $this->makeUser('ins_t_cashier', 'cashier');
+        $this->assertFalse($cashier->can('inspection_view'), 'no inspection access through the cashier role');
+        $this->assertArrayHasKey($cashier->id, Inspection::executives());
+        $building = DB::table('buildings')->where('building_status', 1)->where('building_name', 'not ilike', '%in house%')
+            ->whereNotIn('id', DB::table('building_executives')->whereNull('assigned_till')->pluck('building_id')->all())
+            ->orderBy('id')->value('id');
+
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$building], 'user_id' => $cashier->id])
+            ->assertRedirect(route('inspection.setup'));
+        $cashier = User::find($cashier->id);
+        $this->assertTrue($cashier->can('inspection_view'));
+        $this->assertTrue($cashier->can('inspection_execute'));
+        $this->assertFalse($cashier->can('inspection_verify'), 'verify stays with managers / supervisors');
+        $this->assertFalse($cashier->can('inspection_masters'));
+        $this->assertSame([(int) $building], Inspection::buildingIds($cashier), 'only the assigned building');
+        $this->as($cashier)->get(route('inspection.dashboard'))->assertOk();
+        $this->as($cashier)->get(route('inspection.visits'))->assertOk();
+        // a Maintenance Executive assigned through Setup already has the screens through the role: no direct grants
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $this->exec2->id]);
+        $this->assertCount(0, User::find($this->exec2->id)->getDirectPermissions());
+        $this->assertCount(0, User::find($this->exec1->id)->getDirectPermissions(), 'exec1 lost b1 but keeps the role');
+        $this->assertTrue(User::find($this->exec1->id)->can('inspection_view'));
+
+        // last building taken away -> the direct permissions go
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$building], 'user_id' => 'none']);
+        $cashier = User::find($cashier->id);
+        $this->assertFalse($cashier->can('inspection_view'));
+        $this->assertCount(0, $cashier->getDirectPermissions());
+    }
+
+    public function test_inactive_employee_is_not_offered()
+    {
+        $off = $this->makeUser('ins_t_inactive', 'cashier');
+        DB::table('employees')->where('id', $off->user_type_id)->update(['employee_status' => 0]);
+        $this->assertArrayNotHasKey($off->id, Inspection::executives());
+        $this->as($this->manager)->post(route('inspection.setup.assign'), ['building_ids' => [$this->b1], 'user_id' => $off->id])
+            ->assertSessionHasErrors('user_id');
+    }
+
     public function test_pages_render_and_reports_count()
     {
         list(, $issue) = $this->inspect();
