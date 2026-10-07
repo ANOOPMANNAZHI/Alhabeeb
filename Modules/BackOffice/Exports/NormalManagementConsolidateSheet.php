@@ -141,7 +141,9 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         return $rows;
     }
 
-    /** The month's direct deposits to the landlord (current + old outstanding), deducted from Collection. */
+    const DIRECT_DEPOSIT_LABEL = 'Less: Direct Deposit to Landlord';
+
+    /** The month's direct deposits to the landlord (current + old outstanding), deducted from Amount Transfer to Land Lord. */
     public static function directDepositTotal(array $month): float
     {
         $sum = 0.0;
@@ -270,7 +272,6 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
                 $total += (float)($u->collection_amount ?? 0);
             }
             $total += self::munTaxCollection($this->monthData[$m] ?? []);
-            $total -= self::directDepositTotal($this->monthData[$m] ?? []);
             $collections[$m] = $total;
         }
         $collectionRow = ['', 'Collection'];
@@ -321,11 +322,26 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         // Empty
         $rows[] = array_fill(0, 15, '');
 
+        // Rent the tenant paid straight to the landlord: in Collection, but not ours to transfer (user, 07/10/2026).
+        // Row only when the year has one.
+        $directDeposits = [];
+        foreach (range(1, 12) as $m) {
+            $directDeposits[$m] = self::directDepositTotal($this->monthData[$m] ?? []);
+        }
+        if (array_sum($directDeposits) > 0) {
+            $ddRow = ['', self::DIRECT_DEPOSIT_LABEL];
+            foreach ($directDeposits as $v) {
+                $ddRow[] = $v > 0 ? -$v : '-';
+            }
+            $ddRow[] = -array_sum($directDeposits);
+            $rows[] = $ddRow;
+        }
+
         // Amount Transfer to Land Lord
         $transferRow = ['', 'Amount Transfer to Land Lord'];
         $transferYTD = 0;
         foreach (range(1, 12) as $m) {
-            $transfer = $collections[$m] - $expenseTotalsByMonth[$m];
+            $transfer = $collections[$m] - $expenseTotalsByMonth[$m] - $directDeposits[$m];
             $transferRow[] = $transfer ?: '-';
             $transferYTD  += $transfer;
         }

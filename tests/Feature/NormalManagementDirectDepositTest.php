@@ -80,7 +80,7 @@ class NormalManagementDirectDepositTest extends TestCase
         $this->fail("no consolidated row $label");
     }
 
-    public function test_marked_receipt_gets_a_less_row_and_nets_collection_and_transfer()
+    public function test_marked_receipt_gets_less_rows_after_the_full_collection_and_nets_the_transfer()
     {
         $b      = $this->building();
         $before = $this->monthData($b);
@@ -94,6 +94,14 @@ class NormalManagementDirectDepositTest extends TestCase
         $less = $this->find($rows, 'Less: D.Deposit - ' . $unitNo);
         $this->assertNotNull($less, 'Less: D.Deposit row');
         $this->assertEqualsWithDelta(-$amount, $less[7], 0.001);
+        $this->assertNull($this->find($beforeRows, 'NET COLLECTION'), 'no net row when nothing is marked');
+
+        // order: TOTAL COLLECTION, then the Less rows, then NET COLLECTION
+        $labels = array_map(function ($r) { return trim((string) $r[2]); }, $rows);
+        $iTotal = array_search('TOTAL COLLECTION', $labels, true);
+        $iLess  = array_search('Less: D.Deposit - ' . $unitNo, $labels, true);
+        $iNet   = array_search('NET COLLECTION', $labels, true);
+        $this->assertTrue($iTotal < $iLess && $iLess < $iNet, 'Less row after TOTAL COLLECTION, NET COLLECTION after it');
 
         // unit row keeps what the tenant paid
         $unitsBefore = $unitsAfter = 0.0;
@@ -101,9 +109,12 @@ class NormalManagementDirectDepositTest extends TestCase
         foreach ($after[self::MONTH]['units'] as $u) { $unitsAfter += (float) $u->collection_amount; }
         $this->assertEqualsWithDelta($unitsBefore, $unitsAfter, 0.001);
 
-        // TOTAL COLLECTION, consolidated Collection and Transfer drop by the amount
-        $this->assertEqualsWithDelta($this->find($beforeRows, 'TOTAL COLLECTION')[7] - $amount, $this->find($rows, 'TOTAL COLLECTION')[7], 0.001);
-        $this->assertEqualsWithDelta((float) $this->consolidated($before, 'Collection') - $amount, (float) $this->consolidated($after, 'Collection'), 0.001);
+        // TOTAL COLLECTION and consolidated Collection stay full; NET COLLECTION and Transfer drop by the amount
+        $total = $this->find($rows, 'TOTAL COLLECTION')[7];
+        $this->assertEqualsWithDelta($this->find($beforeRows, 'TOTAL COLLECTION')[7], $total, 0.001);
+        $this->assertEqualsWithDelta($total - $amount, $this->find($rows, 'NET COLLECTION')[7], 0.001);
+        $this->assertEqualsWithDelta((float) $this->consolidated($before, 'Collection'), (float) $this->consolidated($after, 'Collection'), 0.001);
+        $this->assertEqualsWithDelta(-$amount, (float) $this->consolidated($after, NormalManagementConsolidateSheet::DIRECT_DEPOSIT_LABEL), 0.001);
         $this->assertEqualsWithDelta((float) $this->consolidated($before, 'Amount Transfer to Land Lord') - $amount,
             (float) $this->consolidated($after, 'Amount Transfer to Land Lord'), 0.001);
 
