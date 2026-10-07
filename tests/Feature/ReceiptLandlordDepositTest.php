@@ -97,7 +97,7 @@ class ReceiptLandlordDepositTest extends TestCase
             ->where('receipts_generation_paid_to_landlord', false)->orderBy('id', 'desc')->first();
         $this->actingAs(User::find(1));
 
-        $this->get(route('rentReceiptGeneration.show', $r->id))->assertOk()->assertSee('Mark as direct deposit to landlord');
+        $this->get(route('rentReceiptGeneration.show', $r->id))->assertOk()->assertSee('Mark Direct Deposit to Landlord');
         $this->post(route('receiptLandlordDeposit', $r->id), ['paid_to_landlord' => 1])
             ->assertRedirect(route('rentReceiptGeneration.show', $r->id));
         $after = DB::table('receipts_generation')->find($r->id);
@@ -108,7 +108,7 @@ class ReceiptLandlordDepositTest extends TestCase
             $this->assertEquals($r->$col, $after->$col, $col);
         }
         $this->get(route('rentReceiptGeneration.show', $r->id))->assertSee('Paid directly to landlord')
-            ->assertSee('Unmark direct deposit to landlord');
+            ->assertSee('Unmark Direct Deposit to Landlord');
 
         $this->post(route('receiptLandlordDeposit', $r->id), ['paid_to_landlord' => 0]);
         $this->assertFalse((bool) DB::table('receipts_generation')->where('id', $r->id)->value('receipts_generation_paid_to_landlord'));
