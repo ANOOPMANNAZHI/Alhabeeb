@@ -250,7 +250,8 @@ class MassMailController extends Controller
     **/
     public function emailCcAutocomplete(Request $request){
         $key = $request->search;
-        $user = User::where('email', 'ILIKE', '%'.$key.'%')
+        // only active staff (active login + active employee record), user 07/10/2026
+        $user = User::activeStaff()->where('email', 'ILIKE', '%'.$key.'%')
                 ->select('id AS value','email AS text as type')->get();
   
         return $user ;
