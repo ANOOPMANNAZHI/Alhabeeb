@@ -119,14 +119,11 @@ class NormalManagementMonthSheet implements FromArray, ShouldAutoSize, WithEvent
             $rows[] = ['', '', $mt->description, '', '', '', '', (float) $mt->amount, '', ''];
         }
 
-        // Rent paid directly to the landlord: not our collection (user, 07/10/2026)
-        foreach (NormalManagementConsolidateSheet::directDepositRows($units) as $dd) {
-            $totalCollection -= $dd->amount;
-            $rows[] = ['', '', $dd->description, '', '', '', '', -$dd->amount, '', ''];
-        }
-
         // Total row
         $rows[] = ['', '', 'TOTAL COLLECTION', '', '', '', $totalRentPer, $totalCollection, $totalIncome, $totalOutstanding];
+
+        // Rent paid directly to the landlord: shown under the full TOTAL COLLECTION, then the net (user, 07/10/2026)
+        $this->addDirectDepositRows($rows, $units, $totalCollection, 'NET COLLECTION');
 
         // Old Outstanding section
         $oldOutstanding = $this->data['old_outstanding'] ?? [];
@@ -170,16 +167,29 @@ class NormalManagementMonthSheet implements FromArray, ShouldAutoSize, WithEvent
                 ];
             }
 
-            foreach (NormalManagementConsolidateSheet::directDepositRows($oldOutstanding) as $dd) {
-                $oldTotalCollection -= $dd->amount;
-                $rows[] = ['', '', $dd->description, '', '', '', '', -$dd->amount, '', ''];
-            }
-
             $rows[] = ['', '', 'TOTAL OLD OUTSTANDING', '', '', '', $oldTotalRentPer, $oldTotalCollection, '', $oldTotalOutstanding];
+            $this->addDirectDepositRows($rows, $oldOutstanding, $oldTotalCollection, 'NET OLD OUTSTANDING COLLECTION');
             $rows[] = ['', '', 'GRAND TOTAL', '', '', '', '', $totalCollection + $oldTotalCollection, '', $totalOutstanding + $oldTotalOutstanding];
         }
 
         return $rows;
+    }
+
+    /**
+     * "Less: D.Deposit - <unit>" rows (rent the tenant paid straight to the landlord) under a total,
+     * then the net after them. Nothing is added when no receipt of these units is marked.
+     */
+    private function addDirectDepositRows(array &$rows, array $units, $total, $netLabel)
+    {
+        $less = NormalManagementConsolidateSheet::directDepositRows($units);
+        if (count($less) === 0) {
+            return;
+        }
+        foreach ($less as $dd) {
+            $total -= $dd->amount;
+            $rows[] = ['', '', $dd->description, '', '', '', '', -$dd->amount, '', ''];
+        }
+        $rows[] = ['', '', $netLabel, '', '', '', '', round($total, 3), '', ''];
     }
 
     public function registerEvents(): array
@@ -270,6 +280,12 @@ class NormalManagementMonthSheet implements FromArray, ShouldAutoSize, WithEvent
                             'font'    => ['name' => 'Century Gothic', 'bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
                             'fill'    => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C55A11']],
                             'borders' => ['outline' => ['borderStyle' => $medium, 'color' => ['rgb' => 'C55A11']]],
+                        ]);
+                    } elseif ($cellC === 'NET COLLECTION' || $cellC === 'NET OLD OUTSTANDING COLLECTION') {
+                        // Net after direct deposits to the landlord — bold, thin outline
+                        $sheet->getStyle('A' . $r . ':J' . $r)->applyFromArray([
+                            'font'    => ['name' => 'Century Gothic', 'bold' => true, 'size' => 10],
+                            'borders' => ['outline' => ['borderStyle' => $medium, 'color' => ['rgb' => '1F4E79']]],
                         ]);
                     } elseif (is_string($cellC) && strpos($cellC, 'Less: D.Deposit - ') === 0) {
                         // Direct deposit to landlord — red text

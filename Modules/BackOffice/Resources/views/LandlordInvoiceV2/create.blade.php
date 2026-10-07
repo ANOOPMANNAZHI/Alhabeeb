@@ -263,6 +263,7 @@
                     ['income', 'Income as per Rental Agreement', true],
                     ['collection', 'Selected Month Collection', true],
                     ['expenses', 'Total Expenses for the Month', false],
+                    ['direct_deposit', 'Less: Direct Deposit to Landlord', false],
                     ['transfer', 'Amount Transfer to Landlord', true],
                     ['total_units', 'Total Number of Units', true],
                     ['occupancy_level', 'Total Building Occupancy Level', true],
@@ -471,6 +472,7 @@ $(function () {
             $('#disp_ov_income').text(r.income);
             $('#disp_ov_collection').text(r.collection);
             $('#disp_ov_expenses').text(r.total_expenses);
+            $('#disp_ov_direct_deposit').text(r.direct_deposit);
             $('#disp_ov_transfer').text(r.transfer_to_landlord);
             $('#disp_ov_total_units').text(r.total_units);
             $('#disp_ov_occupancy_level').text(r.occupancy_level + '%');

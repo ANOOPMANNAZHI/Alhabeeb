@@ -458,6 +458,7 @@ class LandlordInvoiceV2Controller extends Controller
         $income = 0.0;
         $collection = 0.0;
         $totalExpenses = 0.0;
+        $directDeposit = 0.0;
         $occupancy = [
             'total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
             'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
@@ -474,8 +475,8 @@ class LandlordInvoiceV2Controller extends Controller
             }
             // Municipal tax paid back by early leavers, as on the consolidated sheet
             $collection += NormalManagementConsolidateSheet::munTaxCollection($data);
-            // Rent paid directly to the landlord is not our collection
-            $collection -= NormalManagementConsolidateSheet::directDepositTotal($data);
+            // Rent paid directly to the landlord: in Collection, deducted from the transfer (as on the consolidated sheet)
+            $directDeposit = NormalManagementConsolidateSheet::directDepositTotal($data);
 
             // Same expense rows as the consolidated sheet's Total Expenses
             $totalExpenses += array_sum(NormalManagementConsolidateSheet::expenseLines($data));
@@ -483,7 +484,7 @@ class LandlordInvoiceV2Controller extends Controller
             $occupancy = array_merge($occupancy, $data['occupancy'] ?? []);
         }
 
-        $transfer = $collection - $totalExpenses;
+        $transfer = $collection - $totalExpenses - $directDeposit;
         $occupiedTotal = $occupancy['occupied_residential'] + $occupancy['occupied_commercial'];
         $occupancyLevel = $occupancy['total_units'] > 0
             ? round(($occupiedTotal / $occupancy['total_units']) * 100, 1)
@@ -493,6 +494,7 @@ class LandlordInvoiceV2Controller extends Controller
             'income'                  => round($income, 3),
             'collection'              => round($collection, 3),
             'total_expenses'          => round($totalExpenses, 3),
+            'direct_deposit'          => round($directDeposit, 3),
             'transfer_to_landlord'    => round($transfer, 3),
             'total_units'             => $occupancy['total_units'],
             'new_leased_residential'  => $occupancy['new_leased_residential'],
