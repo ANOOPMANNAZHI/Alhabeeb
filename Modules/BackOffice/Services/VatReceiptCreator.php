@@ -14,13 +14,16 @@ use Modules\Sales\Entities\TenantContract;
  * The VAT part of a rent + VAT cheque, or a separate VAT cheque (createSeparate), booked as a General Receipt in the
  * format the back office types by hand (reference: CPY2619717):
  * "VAT for 16.08.26 to 15.09.26 UNIT NO. S 03 , Teeb Complex", one credit
- * line to 12211 RENT RECEIVABLE. Runs inside the caller's transaction.
+ * line to 12211 RENT RECEIVABLE, or 22301 CASH IN TRANSIT for a Normal building (see ledgerAccount).
+ * Runs inside the caller's transaction.
  * PHP < 7.4 in production: no arrow functions.
  */
 class VatReceiptCreator
 {
-    const SEQUENCE       = 'receipt_cheque';
-    const LEDGER_ACCOUNT = 12211;
+    const SEQUENCE          = 'receipt_cheque';
+    const RENT_RECEIVABLE = 12211;
+    const CASH_IN_TRANSIT = 22301;
+    const MANAGEMENT_NORMAL = 2; // management_types: 1 Comprehensive, 2 Normal, 3 Commission
 
     private $routines;
 
@@ -42,6 +45,12 @@ class VatReceiptCreator
     public static function chequeNo($bankCode, $chequeNo)
     {
         return trim((string) $bankCode) . '__' . trim((string) $chequeNo);
+    }
+
+    /** Normal buildings: 22301 CASH IN TRANSIT; Comprehensive and Commission: 12211 RENT RECEIVABLE (user, 07/10/2026). */
+    public static function ledgerAccount($managementId)
+    {
+        return (int) $managementId === self::MANAGEMENT_NORMAL ? self::CASH_IN_TRANSIT : self::RENT_RECEIVABLE;
     }
 
     public static function division($axDivision)
@@ -72,9 +81,10 @@ class VatReceiptCreator
             return ['receipt_no' => $existing->receipts_generation_receipt_no, 'created' => false];
         }
 
-        $account = AccountCodes::where('acc_code_val', self::LEDGER_ACCOUNT)->first();
+        $ledger  = self::ledgerAccount($contract->building->management_id);
+        $account = AccountCodes::where('acc_code_val', $ledger)->first();
         if ($account === null) {
-            throw new \RuntimeException('Account ' . self::LEDGER_ACCOUNT . ' (RENT RECEIVABLE) is missing');
+            throw new \RuntimeException('Account ' . $ledger . ' is missing');
         }
 
         $approved  = \Auth::user()->hasPermissionTo('request_approval_receipt');
@@ -104,7 +114,7 @@ class VatReceiptCreator
 
         ReceiptGenerationDim::create([
             'receipts_generation_id' => $receipt->id,
-            'account_code'           => self::LEDGER_ACCOUNT,
+            'account_code'           => $ledger,
             'description'            => $account->acc_code_desc,
             'dim_type'               => 'LEDGER',
             'debit_amount'           => 0,
