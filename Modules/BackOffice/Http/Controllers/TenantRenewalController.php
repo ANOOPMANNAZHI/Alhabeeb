@@ -1307,9 +1307,25 @@ class TenantRenewalController extends Controller
       fwrite($myfile, $txt);
       fclose($myfile);
      	  
+      // Runs every minute and on every dashboard load: one run at a time, the others skip (no deadlock)
+      $lock = DB::selectOne("SELECT pg_try_advisory_lock(hashtext('cronRenewalContract')) AS ok");
+      if (!$lock->ok) {
+        return;
+      }
+      try {
+        $this->runRenewalContractCron($today);
+      } finally {
+        DB::selectOne("SELECT pg_advisory_unlock(hashtext('cronRenewalContract'))");
+      }
+    }
+
+    private function runRenewalContractCron($today) {
       $units = new Unit;
-	  // Vacany Loss Table Update
-      $vacanyDataList = VacantVacancyLoss::where('status','=',1)->where('vacant_from','<=',date('Y-m-d'))->get();
+	  // Vacany Loss Table Update; rows already brought up to today are skipped (days only change once a day)
+      $vacanyDataList = VacantVacancyLoss::where('status','=',1)->where('vacant_from','<=',date('Y-m-d'))
+        ->where(function ($q) use ($today) {
+          $q->whereNull('vacant_to')->orWhere('vacant_to', '<>', $today);
+        })->get();
 	  
       foreach($vacanyDataList as $lst){
 
