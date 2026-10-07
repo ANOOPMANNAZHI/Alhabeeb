@@ -1,0 +1,236 @@
+<?php
+
+namespace Modules\BackOffice\Services;
+
+use Carbon\Carbon;
+use Modules\BackOffice\Entities\AccountCodes;
+use Modules\BackOffice\Entities\Pdc;
+use Modules\BackOffice\Entities\ReceiptGenerationDim;
+use Modules\BackOffice\Entities\ReceiptsGeneration;
+use Modules\BackOffice\Http\Controllers\RoutinesController;
+use Modules\Sales\Entities\TenantContract;
+
+/**
+ * The VAT part of a rent + VAT cheque, or a separate VAT cheque (createSeparate), booked as a General Receipt in the
+ * format the back office types by hand (reference: CPY2619717):
+ * "VAT for 16.08.26 to 15.09.26 UNIT NO. S 03 , Teeb Complex", one credit
+ * line to 12211 RENT RECEIVABLE, or 22301 CASH IN TRANSIT for a Normal building (see ledgerAccount).
+ * Runs inside the caller's transaction.
+ * PHP < 7.4 in production: no arrow functions.
+ */
+class VatReceiptCreator
+{
+    const SEQUENCE          = 'receipt_cheque';
+    const RENT_RECEIVABLE = 12211;
+    const CASH_IN_TRANSIT = 22301;
+    const MANAGEMENT_NORMAL = 2; // management_types: 1 Comprehensive, 2 Normal, 3 Commission
+
+    private $routines;
+
+    public function __construct(RoutinesController $routines)
+    {
+        $this->routines = $routines;
+    }
+
+    public static function remark($effFrom, $effTo, $unitNo, $buildingName)
+    {
+        return self::narration($effFrom, $effTo) . ' UNIT NO. ' . $unitNo . ' , ' . $buildingName;
+    }
+
+    public static function narration($effFrom, $effTo)
+    {
+        return 'VAT for ' . Carbon::parse($effFrom)->format('d.m.y') . ' to ' . Carbon::parse($effTo)->format('d.m.y');
+    }
+
+    public static function chequeNo($bankCode, $chequeNo)
+    {
+        return trim((string) $bankCode) . '__' . trim((string) $chequeNo);
+    }
+
+    /** Normal buildings: 22301 CASH IN TRANSIT; Comprehensive and Commission: 12211 RENT RECEIVABLE (user, 07/10/2026). */
+    public static function ledgerAccount($managementId)
+    {
+        return (int) $managementId === self::MANAGEMENT_NORMAL ? self::CASH_IN_TRANSIT : self::RENT_RECEIVABLE;
+    }
+
+    public static function division($axDivision)
+    {
+        return trim((string) $axDivision) === '01' ? AX_DIVISION_HO : AX_DIVISION_PLMS;
+    }
+
+    /** A live (not deleted, not cancelled) General Receipt already booked for this agreement's cheque. */
+    public function existing($contractId, $chequeNo)
+    {
+        return ReceiptsGeneration::where('tenant_contract_id', $contractId)
+            ->where('receipts_generation_type', 1)
+            ->where('receipts_generation_status', '<>', 2)
+            ->whereRaw("split_part(receipts_generation_cheque_no, '__', 2) = ?", [trim((string) $chequeNo)])
+            ->orderBy('id')
+            ->first();
+    }
+
+    /** @return array ['receipt_no' => string, 'created' => bool] */
+    public function create(array $a)
+    {
+        $contract = $a['contract'];
+        $vatPdcs  = isset($a['vat_pdcs']) ? $a['vat_pdcs'] : [];
+
+        $existing = $this->existing($contract->id, $a['cheque_no']);
+        if ($existing !== null) {
+            $this->closePdcs($vatPdcs, $existing->receipts_generation_receipt_no, $a['deposit_date']);
+            return ['receipt_no' => $existing->receipts_generation_receipt_no, 'created' => false];
+        }
+
+        $ledger  = self::ledgerAccount($contract->building->management_id);
+        $account = AccountCodes::where('acc_code_val', $ledger)->first();
+        if ($account === null) {
+            throw new \RuntimeException('Account ' . $ledger . ' is missing');
+        }
+
+        $approved  = \Auth::user()->hasPermissionTo('request_approval_receipt');
+        $receiptNo = $this->routines->receiptGenerateCode(self::SEQUENCE);
+        $remark    = self::remark($a['eff_from'], $a['eff_to'], $contract->Unit->unit_no, $contract->building->building_name);
+        $amount    = round((float) $a['amount'], 3);
+
+        $receipt = ReceiptsGeneration::create([
+            'tenant_contract_id'                  => $contract->id,
+            'receipts_generation_payment_method'  => 1, // cheque
+            'receipts_generation_receipt_no'      => $receiptNo,
+            'receipts_generation_receipt_date'    => $a['deposit_date'],
+            'bank_id'                             => $a['deposit_bank_id'],
+            'receipts_generation_amt'             => $amount,
+            'receipts_generation_cheque_no'       => self::chequeNo($a['bank_code'], $a['cheque_no']),
+            'receipts_generation_remark'          => $remark,
+            'receipts_generation_description'     => $remark,
+            'receipts_generation_posted_by'       => \Auth::user()->id,
+            'receipts_generation_posted_date'     => date('Y-m-d'),
+            'receipts_generation_status'          => $approved ? 1 : 0,
+            'receipts_generation_approval_status' => $approved ? 3 : 1,
+            'receipts_generation_type'            => 1, // general
+            'receipts_generation_index'           => 0,
+            'finance_dim'                         => self::division($contract->building->ax_division),
+            'created_by'                          => \Auth::user()->id,
+        ]);
+
+        ReceiptGenerationDim::create([
+            'receipts_generation_id' => $receipt->id,
+            'account_code'           => $ledger,
+            'description'            => $account->acc_code_desc,
+            'dim_type'               => 'LEDGER',
+            'debit_amount'           => 0,
+            'credit_amount'          => $amount,
+            'narration'              => self::narration($a['eff_from'], $a['eff_to']),
+            'ac_codes_id'            => $account->id,
+            'created_by'             => \Auth::user()->id,
+        ]);
+
+        $this->routines->incrementSequenceNo(self::SEQUENCE);
+        $this->closePdcs($vatPdcs, $receiptNo, $a['deposit_date']);
+
+        return ['receipt_no' => $receiptNo, 'created' => true];
+    }
+
+    /**
+     * A separate VAT cheque: one VAT receipt per agreement on it, for the rent period
+     * its VAT PDCs belong to (see rentPeriod). Throws when that rent is not posted yet.
+     * @return array of ['receipt_no' => string, 'created' => bool]
+     */
+    public function createSeparate(array $vatPdcs, $chequeNo, $bankCode, $depositDate, $depositBankId)
+    {
+        $byContract = [];
+        foreach ($vatPdcs as $v) {
+            $byContract[(int) $v->tenant_contract_id][] = $v;
+        }
+        $out = [];
+        foreach ($byContract as $contractId => $pdcs) {
+            $contract = TenantContract::with(['Unit', 'building'])->find($contractId);
+            list($from, $to) = $this->rentPeriod($contract, $pdcs);
+            $amount = 0.0;
+            foreach ($pdcs as $v) {
+                $amount += (float) $v->pdc_amt;
+            }
+            $out[] = $this->create([
+                'contract'        => $contract,
+                'cheque_no'       => $chequeNo,
+                'bank_code'       => $bankCode,
+                'amount'          => round($amount, 3),
+                'eff_from'        => $from,
+                'eff_to'          => $to,
+                'deposit_date'    => $depositDate,
+                'deposit_bank_id' => $depositBankId,
+                'vat_pdcs'        => $pdcs,
+            ]);
+        }
+        return $out;
+    }
+
+    /**
+     * [from, to] covering the rent receipts the VAT PDCs belong to: per VAT PDC, the receipt
+     * of the agreement's posted rent PDC dated in the same month, else a live rent receipt
+     * whose period covers the VAT cheque date.
+     */
+    public function rentPeriod($contract, array $vatPdcs)
+    {
+        $from = null;
+        $to   = null;
+        foreach ($vatPdcs as $v) {
+            $date = Carbon::parse($v->pdc_check_date)->format('Y-m-d');
+            $receipt = $this->rentReceiptFor((int) $contract->id, $date);
+            if ($receipt === null) {
+                throw new \RuntimeException('rent for ' . Carbon::parse($date)->format('M Y') . ' of ' . $contract->tenant_contract_no
+                    . ' is not posted yet - post the rent cheque first, then this VAT cheque');
+            }
+            $f = Carbon::parse($receipt->receipts_generation_eff_from)->format('Y-m-d');
+            $t = Carbon::parse($receipt->receipts_generation_eff_to)->format('Y-m-d');
+            $from = $from === null || $f < $from ? $f : $from;
+            $to   = $to === null || $t > $to ? $t : $to;
+        }
+        return [$from, $to];
+    }
+
+    private function rentReceiptFor($contractId, $date)
+    {
+        $rentPdc = Pdc::where('tenant_contract_id', $contractId)
+            ->where('pdc_type', 1)
+            ->where('pdc_is_posted', 1)
+            ->whereNotNull('pdc_receipt_no')
+            ->whereRaw("to_char(pdc_check_date, 'YYYY-MM') = ?", [substr($date, 0, 7)])
+            ->orderBy('pdc_check_date')
+            ->first();
+        if ($rentPdc !== null) {
+            $receipt = $this->liveRentReceipts($contractId)
+                ->where('receipts_generation_receipt_no', $rentPdc->pdc_receipt_no)
+                ->first();
+            if ($receipt !== null) {
+                return $receipt;
+            }
+        }
+        return $this->liveRentReceipts($contractId)
+            ->where('receipts_generation_eff_from', '<=', $date)
+            ->where('receipts_generation_eff_to', '>=', $date)
+            ->orderBy('id', 'desc')
+            ->first();
+    }
+
+    private function liveRentReceipts($contractId)
+    {
+        return ReceiptsGeneration::where('tenant_contract_id', $contractId)
+            ->where('receipts_generation_type', 0)
+            ->where('receipts_generation_status', '<>', 2)
+            ->whereNotNull('receipts_generation_eff_from')
+            ->whereNotNull('receipts_generation_eff_to');
+    }
+
+    private function closePdcs(array $vatPdcs, $receiptNo, $depositDate)
+    {
+        foreach ($vatPdcs as $pdc) {
+            Pdc::where('id', $pdc->id)->update([
+                'pdc_is_posted'    => 1,
+                'pdc_deposit_date' => $depositDate,
+                'pdc_posted_date'  => date('Y-m-d'),
+                'pdc_posted_by'    => \Auth::user()->id,
+                'pdc_receipt_no'   => $receiptNo,
+            ]);
+        }
+    }
+}
