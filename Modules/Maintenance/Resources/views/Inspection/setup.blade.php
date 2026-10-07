@@ -30,7 +30,7 @@
   @if($tab === 'buildings')
   <section class="ins-card">
     @if(!$executives)
-    <div class="ins-alert warn" style="margin:16px 24px">No users hold the Maintenance Executive or Maintenance Supervisor role yet. Give the role to the executives in Administrator → Users, then assign buildings here.</div>
+    <div class="ins-alert warn" style="margin:16px 24px">No active employees found. Activate the employee and their login, then assign buildings here.</div>
     @endif
     <form method="post" action="{{ route('inspection.setup.assign') }}" id="assign-form">
       @csrf

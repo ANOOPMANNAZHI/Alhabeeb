@@ -108,6 +108,7 @@ class InspectionVisitController extends Controller
             'created_by' => $user->id, 'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('inspection_visits')->where('id', $id)->update(['visit_no' => 'VIS-' . date('y') . '-' . str_pad($id, 5, '0', STR_PAD_LEFT)]);
+        Inspection::syncAccess($executiveId);
         return redirect()->route('inspection.visits', ['tab' => $executiveId === $user->id ? 'mine' : 'all', 'month' => substr($month, 0, 7)])
             ->with('success', 'Visit scheduled for ' . Inspection::userName($executiveId) . ' on ' . date('d/m/Y', strtotime($planned)) . '.');
     }
@@ -133,6 +134,7 @@ class InspectionVisitController extends Controller
         DB::table('inspection_visits')->where('id', $id)->update(['status' => Inspection::CANCELLED,
             'cancel_reason' => trim($request->input('cancel_reason')), 'cancelled_by' => \Auth::id(), 'cancelled_at' => now(),
             'updated_by' => \Auth::id(), 'updated_at' => now()]);
+        Inspection::syncAccess($visit->executive_id);
         return back()->with('success', $visit->visit_no . ' cancelled.');
     }
 
@@ -295,6 +297,7 @@ class InspectionVisitController extends Controller
                 'updated_by' => \Auth::id(), 'updated_at' => now(),
             ]);
         });
+        Inspection::syncAccess($visit->executive_id);
         return redirect()->route('inspection.visits.show', $visit->id)
             ->with('success', 'Inspection submitted. ' . $created . ' new issue' . ($created === 1 ? '' : 's') . ' recorded, '
                 . count($pending) . ' pending issue' . (count($pending) === 1 ? '' : 's') . ' updated.');

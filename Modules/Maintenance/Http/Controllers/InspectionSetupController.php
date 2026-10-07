@@ -50,17 +50,19 @@ class InspectionSetupController extends Controller
         ], ['building_ids.required' => 'Tick at least one building.', 'user_id.required' => 'Select the executive, or Nobody to unassign.']);
         $userId = $request->input('user_id') === 'none' ? null : (int) $request->input('user_id');
         if ($userId && !array_key_exists($userId, Inspection::executives())) {
-            return back()->withErrors(['user_id' => 'Select a maintenance executive.']);
+            return back()->withErrors(['user_id' => 'Select an active employee.']);
         }
         $today = date('Y-m-d');
         $n = 0;
-        DB::transaction(function () use ($request, $userId, $today, &$n) {
+        $touched = [$userId];
+        DB::transaction(function () use ($request, $userId, $today, &$n, &$touched) {
             foreach ($request->input('building_ids') as $buildingId) {
                 $current = DB::table('building_executives')->where('building_id', $buildingId)->whereNull('assigned_till')->lockForUpdate()->first();
                 if ($current && (int) $current->user_id === (int) $userId) {
                     continue;
                 }
                 if ($current) {
+                    $touched[] = $current->user_id;
                     DB::table('building_executives')->where('id', $current->id)
                         ->update(['assigned_till' => $today, 'updated_by' => \Auth::id(), 'updated_at' => now()]);
                 }
@@ -71,6 +73,7 @@ class InspectionSetupController extends Controller
                 $n++;
             }
         });
+        Inspection::syncAccess($touched); // the new person gets the screens; a previous one with nothing left loses them
         $msg = $userId ? "$n building(s) assigned to " . Inspection::userName($userId) . '.' : "$n building(s) unassigned.";
         return redirect()->route('inspection.setup')->with('success', $msg);
     }
