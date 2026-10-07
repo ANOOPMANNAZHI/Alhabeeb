@@ -53,7 +53,21 @@ class User extends Authenticatable
     {
         return $query->where('user_type_status', TRUE);
     }
-	
+
+    /**
+     * Staff a message may go to: an active login and, for an employee login, an active
+     * employee record (employees.employee_status = 1). Used by Mail -> Compose and Send (user, 07/10/2026).
+     */
+    public function scopeActiveStaff($query)
+    {
+        return $query->where('user_type_status', TRUE)->where(function ($q) {
+            $q->where('user_type', '<>', 'employee')
+              ->orWhereIn('user_type_id', function ($e) {
+                  $e->select('id')->from('employees')->where('employee_status', 1);
+              });
+        });
+    }
+
     /**
      * Get all of the user Roles
      */

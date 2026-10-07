@@ -256,7 +256,7 @@ class RecipientFinder
     private static function staff(array $filters)
     {
         $roles = array_values(array_filter(isset($filters['roles']) ? (array) $filters['roles'] : []));
-        $q = User::active()->orderBy('id');
+        $q = User::activeStaff()->orderBy('id');
         if ($roles) {
             $ids = DB::table('model_has_roles')->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
                 ->whereIn('roles.name', $roles)->where('model_has_roles.model_type', 'App\User')->pluck('model_has_roles.model_id');
