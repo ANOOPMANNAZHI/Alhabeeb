@@ -119,6 +119,12 @@ class NormalManagementMonthSheet implements FromArray, ShouldAutoSize, WithEvent
             $rows[] = ['', '', $mt->description, '', '', '', '', (float) $mt->amount, '', ''];
         }
 
+        // Rent paid directly to the landlord: not our collection (user, 07/10/2026)
+        foreach (NormalManagementConsolidateSheet::directDepositRows($units) as $dd) {
+            $totalCollection -= $dd->amount;
+            $rows[] = ['', '', $dd->description, '', '', '', '', -$dd->amount, '', ''];
+        }
+
         // Total row
         $rows[] = ['', '', 'TOTAL COLLECTION', '', '', '', $totalRentPer, $totalCollection, $totalIncome, $totalOutstanding];
 
@@ -162,6 +168,11 @@ class NormalManagementMonthSheet implements FromArray, ShouldAutoSize, WithEvent
                     '',
                     $outstanding,
                 ];
+            }
+
+            foreach (NormalManagementConsolidateSheet::directDepositRows($oldOutstanding) as $dd) {
+                $oldTotalCollection -= $dd->amount;
+                $rows[] = ['', '', $dd->description, '', '', '', '', -$dd->amount, '', ''];
             }
 
             $rows[] = ['', '', 'TOTAL OLD OUTSTANDING', '', '', '', $oldTotalRentPer, $oldTotalCollection, '', $oldTotalOutstanding];
@@ -259,6 +270,11 @@ class NormalManagementMonthSheet implements FromArray, ShouldAutoSize, WithEvent
                             'font'    => ['name' => 'Century Gothic', 'bold' => true, 'size' => 10, 'color' => ['rgb' => 'FFFFFF']],
                             'fill'    => ['fillType' => 'solid', 'startColor' => ['rgb' => 'C55A11']],
                             'borders' => ['outline' => ['borderStyle' => $medium, 'color' => ['rgb' => 'C55A11']]],
+                        ]);
+                    } elseif (is_string($cellC) && strpos($cellC, 'Less: D.Deposit - ') === 0) {
+                        // Direct deposit to landlord — red text
+                        $sheet->getStyle('A' . $r . ':J' . $r)->applyFromArray([
+                            'font' => ['name' => 'Century Gothic', 'size' => 9, 'color' => ['rgb' => 'C00000']],
                         ]);
                     } elseif (in_array($r, $this->legalRowIndices)) {
                         // Legal data rows — red background

@@ -119,6 +119,38 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         return $sum;
     }
 
+    /**
+     * Rent the tenant paid straight to the landlord (receipt flag "Direct deposit to landlord"):
+     * one "Less: D.Deposit - <unit>" row per unit, amount positive (user, 07/10/2026).
+     */
+    public static function directDepositRows(array $units): array
+    {
+        $byUnit = [];
+        foreach ($units as $u) {
+            $amount = (float) ($u->direct_deposit_amount ?? 0);
+            if ($amount > 0) {
+                $key = (string) $u->unit_no;
+                $byUnit[$key] = (isset($byUnit[$key]) ? $byUnit[$key] : 0.0) + $amount;
+            }
+        }
+        uksort($byUnit, 'strnatcmp');
+        $rows = [];
+        foreach ($byUnit as $unitNo => $amount) {
+            $rows[] = (object) ['description' => 'Less: D.Deposit - ' . $unitNo, 'amount' => round($amount, 3)];
+        }
+        return $rows;
+    }
+
+    /** The month's direct deposits to the landlord (current + old outstanding), deducted from Collection. */
+    public static function directDepositTotal(array $month): float
+    {
+        $sum = 0.0;
+        foreach (array_merge($month['units'] ?? [], $month['old_outstanding'] ?? []) as $u) {
+            $sum += (float) ($u->direct_deposit_amount ?? 0);
+        }
+        return $sum;
+    }
+
     /** One month's expense rows: [label => amount], in report order. */
     public static function expenseLines(array $month): array
     {
@@ -141,7 +173,8 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
      * One month's management fee from the landlord contract covering it: a fixed
      * amount (management_method 2), or a percentage of the month's income
      * (landlord_contract_percentage 1) or collection (2). Same formula as the
-     * Landlord Tax Invoice.
+     * Landlord Tax Invoice. The collection basis includes rent paid directly to the
+     * landlord: the fee is earned on it too (user, 07/10/2026).
      */
     public static function managementFee(array $month): float
     {
@@ -237,6 +270,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
                 $total += (float)($u->collection_amount ?? 0);
             }
             $total += self::munTaxCollection($this->monthData[$m] ?? []);
+            $total -= self::directDepositTotal($this->monthData[$m] ?? []);
             $collections[$m] = $total;
         }
         $collectionRow = ['', 'Collection'];

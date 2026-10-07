@@ -474,6 +474,8 @@ class LandlordInvoiceV2Controller extends Controller
             }
             // Municipal tax paid back by early leavers, as on the consolidated sheet
             $collection += NormalManagementConsolidateSheet::munTaxCollection($data);
+            // Rent paid directly to the landlord is not our collection
+            $collection -= NormalManagementConsolidateSheet::directDepositTotal($data);
 
             // Same expense rows as the consolidated sheet's Total Expenses
             $totalExpenses += array_sum(NormalManagementConsolidateSheet::expenseLines($data));

@@ -4662,7 +4662,7 @@ public function normalManagementReportV2Generate(Request $request)
                             rg.receipts_generation_eff_from,
                             rg.receipts_generation_eff_to,
                             rg.receipts_generation_receipt_date,
-                            rg.receipts_generation_amt
+                            rg.receipts_generation_amt, rg.receipts_generation_paid_to_landlord
                         FROM receipts_generation rg
                         JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
                         JOIN building_units bu ON bu.id = tc_r.unit_id
@@ -4686,7 +4686,7 @@ public function normalManagementReportV2Generate(Request $request)
                         ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
                     ),
                     monthly_col AS (
-                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
+                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount, SUM(CASE WHEN receipts_generation_paid_to_landlord THEN receipts_generation_amt ELSE 0 END) AS direct_deposit_amount
                         FROM all_receipts
                         WHERE receipts_generation_eff_from IS NOT NULL
                           AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
@@ -4718,7 +4718,7 @@ public function normalManagementReportV2Generate(Request $request)
                         rr.rent_recd_upto,
                         pt.paid_through,
                         COALESCE(ac.tenant_contract_rent, 0) AS rent_per_month,
-                        CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.collection_amount, 0) ELSE 0 END AS collection_amount,
+                        CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.collection_amount, 0) ELSE 0 END AS collection_amount, CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.direct_deposit_amount, 0) ELSE 0 END AS direct_deposit_amount,
                         COALESCE(ac.tenant_contract_rent, 0) AS income_amount,
                         0 AS outstanding_amount,
                         CASE WHEN os.unit_id IS NOT NULL THEN 1 ELSE 0 END AS occupied_at_month_start
@@ -4870,7 +4870,7 @@ public function normalManagementReportV2Generate(Request $request)
                             rg.receipts_generation_eff_from,
                             rg.receipts_generation_eff_to,
                             rg.receipts_generation_receipt_date,
-                            rg.receipts_generation_amt
+                            rg.receipts_generation_amt, rg.receipts_generation_paid_to_landlord
                         FROM receipts_generation rg
                         JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
                         JOIN building_units bu ON bu.id = tc_r.unit_id
@@ -4896,7 +4896,7 @@ public function normalManagementReportV2Generate(Request $request)
                         ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
                     ),
                     monthly_col_old AS (
-                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
+                        SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount, SUM(CASE WHEN receipts_generation_paid_to_landlord THEN receipts_generation_amt ELSE 0 END) AS direct_deposit_amount
                         FROM old_receipts
                         WHERE receipts_generation_eff_from IS NOT NULL
                           AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
@@ -4911,7 +4911,7 @@ public function normalManagementReportV2Generate(Request $request)
                         rr.rent_recd_upto,
                         pt.paid_through,
                         COALESCE(ec.tenant_contract_rent, 0) AS rent_per_month,
-                        COALESCE(mc.collection_amount, 0) AS collection_amount,
+                        COALESCE(mc.collection_amount, 0) AS collection_amount, COALESCE(mc.direct_deposit_amount, 0) AS direct_deposit_amount,
                         0 AS income_amount,
                         0 AS outstanding_amount
                     FROM building_units bu
@@ -5805,7 +5805,8 @@ private function nmrIncomingTenantRows($buildingId, $startDate, $endDate)
         SELECT bu.id AS unit_id, up.id AS contract_id, bu.unit_no, bu.unit_type, t.tenant_name,
                up.tenant_contract_start_date AS contract_start, up.tenant_contract_valid_to_date AS contract_end,
                MAX(rg.receipts_generation_eff_to) AS rent_recd_upto,
-               SUM(rg.receipts_generation_amt) AS collection_amount
+               SUM(rg.receipts_generation_amt) AS collection_amount,
+               SUM(CASE WHEN rg.receipts_generation_paid_to_landlord THEN rg.receipts_generation_amt ELSE 0 END) AS direct_deposit_amount
         FROM tenant_contracts up
         JOIN building_units bu ON bu.id = up.unit_id
         JOIN tenant t ON t.id = up.tenant_id
@@ -6116,7 +6117,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                 all_receipts AS (
                     SELECT tc_r.unit_id, tc_r.tenant_id,
                            rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt
+                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt, rg.receipts_generation_paid_to_landlord
                     FROM receipts_generation rg
                     JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
                     JOIN building_units bu ON bu.id = tc_r.unit_id
@@ -6137,7 +6138,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                     ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
                 ),
                 monthly_col AS (
-                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
+                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount, SUM(CASE WHEN receipts_generation_paid_to_landlord THEN receipts_generation_amt ELSE 0 END) AS direct_deposit_amount
                     FROM all_receipts
                     WHERE receipts_generation_eff_from IS NOT NULL
                       AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
@@ -6163,7 +6164,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                     ac.contract_termination_date,
                     rr.rent_recd_upto, pt.paid_through,
                     COALESCE(ac.tenant_contract_rent, 0) AS rent_per_month,
-                    CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.collection_amount, 0) ELSE 0 END AS collection_amount,
+                    CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.collection_amount, 0) ELSE 0 END AS collection_amount, CASE WHEN ac.id IS NOT NULL THEN COALESCE(mc.direct_deposit_amount, 0) ELSE 0 END AS direct_deposit_amount,
                     COALESCE(ac.tenant_contract_rent, 0) AS income_amount,
                     0 AS outstanding_amount,
                     CASE WHEN os.unit_id IS NOT NULL THEN 1 ELSE 0 END AS occupied_at_month_start
@@ -6254,7 +6255,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                 old_receipts AS (
                     SELECT tc_r.unit_id, tc_r.tenant_id,
                            rg.receipts_generation_eff_from, rg.receipts_generation_eff_to,
-                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt
+                           rg.receipts_generation_receipt_date, rg.receipts_generation_amt, rg.receipts_generation_paid_to_landlord
                     FROM receipts_generation rg
                     JOIN tenant_contracts tc_r ON tc_r.id = rg.tenant_contract_id
                     JOIN building_units bu ON bu.id = tc_r.unit_id
@@ -6277,7 +6278,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                     ORDER BY unit_id, tenant_id, receipts_generation_eff_from DESC NULLS LAST
                 ),
                 monthly_col_old AS (
-                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount
+                    SELECT unit_id, tenant_id, SUM(receipts_generation_amt) AS collection_amount, SUM(CASE WHEN receipts_generation_paid_to_landlord THEN receipts_generation_amt ELSE 0 END) AS direct_deposit_amount
                     FROM old_receipts
                     WHERE receipts_generation_eff_from IS NOT NULL
                       AND DATE_TRUNC('month', receipts_generation_receipt_date::date) = DATE_TRUNC('month', ?::date)
@@ -6288,7 +6289,7 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
                     ec.effective_end_date AS contract_end,
                     rr.rent_recd_upto, pt.paid_through,
                     COALESCE(ec.tenant_contract_rent, 0) AS rent_per_month,
-                    COALESCE(mc.collection_amount, 0) AS collection_amount,
+                    COALESCE(mc.collection_amount, 0) AS collection_amount, COALESCE(mc.direct_deposit_amount, 0) AS direct_deposit_amount,
                     0 AS income_amount, 0 AS outstanding_amount
                 FROM building_units bu
                 JOIN expired_contracts ec ON ec.unit_id = bu.id
