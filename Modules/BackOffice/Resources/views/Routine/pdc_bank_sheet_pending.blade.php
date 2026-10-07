@@ -11,7 +11,7 @@
 @php
   $pillClass = [
     'not_found' => 'bsr-pill-off', 'unknown_bank' => 'bsr-pill-off', 'amount_mismatch' => 'bsr-pill-warn',
-    'date_mismatch' => 'bsr-pill-warn', 'skipped' => 'bsr-pill-warn', 'failed' => 'bsr-pill-bad',
+    'date_mismatch' => 'bsr-pill-warn', 'redeposit_needed' => 'bsr-pill-warn', 'skipped' => 'bsr-pill-warn', 'failed' => 'bsr-pill-bad',
   ];
   $label = function ($s) { return \Modules\BackOffice\Services\BankSheetResultRows::rowStatus($s); };
   $fmtDate = function ($d) { return $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : '-'; };

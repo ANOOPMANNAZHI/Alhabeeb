@@ -26,6 +26,7 @@ class BankSheetPdcMatcher
     const REJECTED        = 'rejected';
     const VAT_CHECK       = 'vat_check';
     const ALREADY_POSTED  = 'already_posted'; // set by the controller (BankSheetPostedCheques), never by match()
+    const REDEPOSIT_NEEDED = 'redeposit_needed'; // set by the controller: a bounced cheque deposited again, never by match()
 
     /** Amounts closer than this are equal (OMR has 3 decimals). */
     const AMOUNT_EPSILON = 0.0005;

@@ -731,7 +731,7 @@ class PdcBankSheetController extends Controller
     // ── helpers ────────────────────────────────────────────────────────
 
     /** Row statuses that leave a cheque pending (the audit never stores ambiguous / vat_check: those are 'skipped'). */
-    const PENDING_STATUSES = ['not_found', 'amount_mismatch', 'date_mismatch', 'unknown_bank', 'skipped', 'failed'];
+    const PENDING_STATUSES = ['not_found', 'amount_mismatch', 'date_mismatch', 'unknown_bank', 'redeposit_needed', 'skipped', 'failed'];
 
     private function pendingFilters(Request $request)
     {
@@ -862,6 +862,7 @@ class PdcBankSheetController extends Controller
         $bankMap = $this->bankMap();
         $results = (new BankSheetPdcMatcher($bankMap))->match($rows, $this->candidatePdcs($rows));
         $results = $this->markAlreadyPosted($results, $bankMap);
+        $results = $this->markRedepositNeeded($results, $bankMap);
 
         // Rows the bank rejected (NSF, signature, ...) are kept out of the
         // review: only accepted cheques are shown. They still reach the audit.
@@ -962,6 +963,90 @@ class PdcBankSheetController extends Controller
             ]);
         }
         return $results;
+    }
+
+    /**
+     * A cheque that bounced and was deposited again: PLMS still has only the bounced PDC, so no
+     * open PDC matches and the row would read "Not in PLMS" / "Date mismatch" with other tenants'
+     * cheques of that number. When the bounced PDCs match the row (same rules as open ones) and
+     * the agreement has no open PDC with that number yet, the row becomes REDEPOSIT_NEEDED and
+     * says what to do: Redeposit on the PDC screen, Save, upload again (user, 07/10/2026).
+     */
+    private function markRedepositNeeded(array $results, array $bankMap)
+    {
+        $check = [];
+        foreach ($results as $i => $r) {
+            if (in_array($r['status'], [BankSheetPdcMatcher::NOT_FOUND, BankSheetPdcMatcher::DATE_MISMATCH, BankSheetPdcMatcher::AMOUNT_MISMATCH], true)) {
+                $check[$i] = $r['row'];
+            }
+        }
+        if (count($check) === 0) {
+            return $results;
+        }
+        $bounced = $this->bouncedPdcs(array_values($check));
+        if (count($bounced) === 0) {
+            return $results;
+        }
+        $byRow = [];
+        foreach ((new BankSheetPdcMatcher($bankMap))->match(array_values($check), $bounced) as $m) {
+            if (in_array($m['status'], [BankSheetPdcMatcher::MATCHED, BankSheetPdcMatcher::VAT_CHECK], true) && !empty($m['pdcs'])) {
+                $byRow[$m['row']['row_no']] = $m['pdcs'];
+            }
+        }
+        foreach ($check as $i => $row) {
+            if (!isset($byRow[$row['row_no']])) {
+                continue;
+            }
+            $contracts = [];
+            $related   = []; // one per agreement: Rent + VAT of one cheque would repeat building / tenant
+            foreach ($byRow[$row['row_no']] as $p) {
+                if (!isset($contracts[$p->tenant_contract_id])) {
+                    $contracts[$p->tenant_contract_id] = $p->tenant_contract_no;
+                    $related[] = $p;
+                }
+            }
+            // already redeposited (an open PDC with this number): the mismatch is something else
+            if ($this->hasOpenPdc(array_keys($contracts), $row['cheque_no'])) {
+                continue;
+            }
+            $results[$i] = array_merge($results[$i], [
+                'status'              => BankSheetPdcMatcher::REDEPOSIT_NEEDED,
+                'related'             => $related,
+                'related_kind'        => 'bounced',
+                'redeposit_contracts' => $contracts,
+                'reason'              => 'Bounced cheque deposited again - click Redeposit on '
+                    . implode(', ', array_filter($contracts)) . "'s PDC screen, Save, then upload the sheet again",
+            ]);
+        }
+        return $results;
+    }
+
+    /** Bounced, unposted PDCs whose cheque number appears on the given sheet rows. */
+    private function bouncedPdcs(array $rows)
+    {
+        $q = Pdc::with(['tenantContractInfo.tenant', 'tenantContractInfo.building', 'tenantContractInfo.Unit', 'bankInfo'])
+            ->whereIn('pdc_check_no', $this->chequeNumbers($rows))
+            ->where('pdc_cancel_reason', (string) BankSheetRejectedCheques::BOUNCED)
+            ->where('pdc_is_posted', 0)
+            ->whereNull('pdc_clear_date')
+            ->whereIn('pdc_type', [1, 2, 3, 4])
+            ->orderBy('id');
+        $out = [];
+        foreach ($q->get() as $pdc) {
+            $out[] = $this->pdcObject($pdc);
+        }
+        return $out;
+    }
+
+    /** True when one of the agreements has an open (unposted, not bounced/exchanged) PDC with this cheque number. */
+    private function hasOpenPdc(array $contractIds, $chequeNo)
+    {
+        return Pdc::whereIn('tenant_contract_id', $contractIds)
+            ->whereIn('pdc_check_no', $this->chequeNumbers([['cheque_no' => $chequeNo]]))
+            ->where('pdc_is_posted', 0)
+            ->where('pdc_cancel_reason', '0')
+            ->whereNull('pdc_clear_date')
+            ->exists();
     }
 
     /** Posted PDCs whose cheque number appears on the given sheet rows. */

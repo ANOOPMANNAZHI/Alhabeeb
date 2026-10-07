@@ -118,6 +118,7 @@
     'amount_mismatch' => ['btn-warning', 'Amount mismatch'],
     'date_mismatch'   => ['btn-warning', 'Date mismatch'],
     'unknown_bank'    => ['btn-default', 'Unknown bank'],
+    'redeposit_needed' => ['btn-warning', 'Redeposit needed'],
   ];
   // Pay Account cell: the sheet's account (bank's leading zeros dropped), any different PLMS account under it
   $accCell = function ($r, $pdcs) {
@@ -597,7 +598,13 @@
             </td>
             <td>{!! $accCell($r, $r['related']) !!}</td>
             <td class="bsp-status"><span class="btn-circle {{ $l[0] }} btn-sm m-b-10 status"><b>{{ $l[1] }}</b></span></td>
-            <td>{{ $r['reason'] }}</td>
+            <td>{{ $r['reason'] }}
+              @if(!empty($r['redeposit_contracts']))
+                @foreach($r['redeposit_contracts'] as $contractId => $contractNo)
+                <br><a href="{{ route('pdc.edit', $contractId) }}" target="_blank" rel="noopener">Open PDC screen{{ count($r['redeposit_contracts']) > 1 ? ' - ' . $contractNo : '' }}</a>
+                @endforeach
+              @endif
+            </td>
           </tr>
           @empty
           <tr><td colspan="10" align="center"><p>{{ $filtering['cannot'] ? 'Nothing here fits these filters.' : 'None — every accepted cheque on the sheet was matched.' }}</p></td></tr>

@@ -27,6 +27,7 @@ class BankSheetResultRows
         'amount_mismatch' => 'Amount mismatch',
         'date_mismatch'   => 'Date mismatch',
         'unknown_bank'    => 'Unknown bank',
+        'redeposit_needed' => 'Redeposit needed',
         'already_posted'  => 'Already posted',
     ];
 
