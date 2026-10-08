@@ -1391,11 +1391,33 @@ class TenantRenewalController extends Controller
       // LandlordContract::whereDate('landlord_contract_valid_to_date',$today)
 				  //  ->update(['landlord_contract_status' => 0,'landlord_renewal_termination_status'=>5]);
 				
-      LandlordContract::whereHas('salesEnquiry', function ($query){
-                $query->where('work_flow_processes_code', '=', 204);                     
+      // Landlord contracts whose period has started: active, renewal status 0. Only approved ones
+      // (0, or 5 = renewal approved before its start); contracts under renewal (1-4) and superseded
+      // ones (6) are left alone. It used to set 6 on every current contract, which hid renewed
+      // contracts from Landlord Contracts and Landlord Renewal Due (08/10/2026).
+      $startingLandlord = LandlordContract::whereHas('salesEnquiry', function ($query){
+                $query->where('work_flow_processes_code', '=', 204);
             })->whereDate('landlord_contract_valid_from_date','<=',$today)
 			->whereDate('landlord_contract_valid_to_date','>',$today)
-            ->update(['landlord_contract_status' => 1,'landlord_renewal_termination_status'=>6]); 
+            ->where(function ($query) {
+                $query->whereIn('landlord_renewal_termination_status', [0, 5])->orWhereNull('landlord_renewal_termination_status');
+            })
+            ->where(function ($query) {
+                $query->where('landlord_contract_status', '!=', 1)->orWhere('landlord_renewal_termination_status', '!=', 0)
+                      ->orWhereNull('landlord_renewal_termination_status');
+            })
+            ->pluck('id');
+      if (count($startingLandlord)) {
+        LandlordContract::whereIn('id', $startingLandlord)
+            ->update(['landlord_contract_status' => 1, 'landlord_renewal_termination_status' => 0]);
+        // the contract each one renews is closed, as an approval after the start date does
+        $replacedLandlord = DB::table('renewals')->where('renewal_type', 2)->whereIn('new_contract_id', $startingLandlord)
+            ->whereNotNull('old_contract_id')->pluck('old_contract_id');
+        if (count($replacedLandlord)) {
+          LandlordContract::whereIn('id', $replacedLandlord)->whereNotIn('id', $startingLandlord)
+              ->update(['landlord_contract_status' => 0, 'landlord_renewal_termination_status' => 6]);
+        }
+      }
       $contracts_building = LandlordContract::with('Unit')
                 ->whereHas('salesEnquiry', function ($query){
                   $query->where('work_flow_processes_code', '=', 204);                     
