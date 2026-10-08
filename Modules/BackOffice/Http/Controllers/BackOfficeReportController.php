@@ -579,10 +579,8 @@ public function employeeTenantContractReportPdf(Request $request){
                   ->setPaper('a4', 'landscape');
         return $pdf->download('employee_tenant_contract_report.pdf');
     } else {
-        return response()->view('backoffice::Reports.employee_tenant_contract_report_excel', $data, 200, [
-            'Content-Type' => 'application/vnd.ms-excel',
-            'Content-Disposition' => 'attachment; filename="employee_tenant_contract_report.xlsx"',
-        ]);
+        // a real .xlsx; sending the HTML table with an .xlsx name made Excel refuse the file
+        return \Excel::download(new \Modules\BackOffice\Exports\EmployeeTenantContractReportExport($data), 'employee_tenant_contract_report.xlsx');
     }
 }
  /*
