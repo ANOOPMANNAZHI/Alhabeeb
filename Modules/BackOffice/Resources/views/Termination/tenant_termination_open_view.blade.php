@@ -59,19 +59,6 @@
    </h4>
 </div>
 </div>
-{{-- Outstanding amount at the top (same figure as the other termination screens); a click scrolls to Current And Previous Contracts --}}
-<style>
-  .tos-strip { margin:12px 15px 4px; padding:12px 18px; border-radius:6px; border:1px solid; font-size:20px; font-weight:700; }
-  .tos-strip.tos-due  { background:#fef2f2; border-color:#fecaca; }
-  .tos-strip.tos-none { background:#f0fdf4; border-color:#bbf7d0; }
-  .tos-strip a { text-decoration:none; }
-  .tos-strip.tos-due a  { color:#b91c1c; }
-  .tos-strip.tos-none a { color:#166534; }
-  .tos-strip a:hover, .tos-strip a:focus-visible { text-decoration:underline; outline:none; }
-</style>
-<div class="tos-strip {{ $outstandingOs > 0 ? 'tos-due' : 'tos-none' }}" role="status">
-  <a href="#tos-contracts" class="tos-jump" title="Go to Current And Previous Contracts">Outstanding Amount - {{ numberFormat($outstandingOs) }} OMR</a>
-</div>
 <!--Agreement Section starts -->
 <div class="salesSearchBox">
  <div class="dataSearchBox"> 
@@ -85,6 +72,12 @@
         <div class="col-lg-6 p-t-20"> 
             <div class = "txt-full-width">
                 <h5 class="details"><b>Agreement Date  :  </b><span>{{isset($tenantContract->created_at)?$tenantContract->created_at->format('d/m/Y'):""}}</span></h5>
+            </div>
+        </div>
+        {{-- same figure as the other termination screens; a click scrolls to Current And Previous Contracts --}}
+        <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+                <h5 class="details"><b>Outstanding Amount :  </b><span><a href="#tos-contracts" class="tos-jump" style="color:inherit" title="Go to Current And Previous Contracts">{{ numberFormat($outstandingOs) }} OMR</a></span></h5>
             </div>
         </div>
     </div>
