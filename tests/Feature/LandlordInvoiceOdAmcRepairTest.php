@@ -65,7 +65,7 @@ class LandlordInvoiceOdAmcRepairTest extends TestCase
         $this->assertSame([
             'AMC FOR A/C UNITS'                             => 390.6,
             'REPAIR AND MAINTENANCE CHARGES FOR A/C UNITS'  => 338.1,
-            'AMC FOR F.A.S FOR THE PERIOD'                  => 112.875,
+            'AMC FOR F.A.S'                                 => 112.875,
             'AMC FOR LIFT'                                  => 328.167,
             'REPAIR AND MAINTENANCE CHARGES FOR LIFT'       => 650.003,
         ], $this->lines('2026-08-01', '2026-08-31'));

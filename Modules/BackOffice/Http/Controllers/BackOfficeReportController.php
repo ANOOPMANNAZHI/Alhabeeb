@@ -5697,7 +5697,7 @@ public function landlordAmcRepairLines(\Modules\Masters\Entities\Building $build
     $labels = [
         'ac_amc'      => 'AMC FOR A/C UNITS',
         'ac_repair'   => 'REPAIR AND MAINTENANCE CHARGES FOR A/C UNITS',
-        'fas_amc'     => 'AMC FOR F.A.S FOR THE PERIOD',
+        'fas_amc'     => 'AMC FOR F.A.S',
         'fas_repair'  => 'REPAIR AND MAINTENANCE CHARGES FOR F.A.S',
         'lift_amc'    => 'AMC FOR LIFT',
         'lift_repair' => 'REPAIR AND MAINTENANCE CHARGES FOR LIFT',

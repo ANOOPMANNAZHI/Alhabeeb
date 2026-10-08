@@ -411,9 +411,11 @@ class LandlordInvoiceV2Controller extends Controller
         } else {
             $amounts = $this->calc->landlordOtherDeductionsLineAmounts($building, $fromDate, $toDate);
             $subAmount = $this->calc->landlordSubcontractorRepairMaintenanceAmount($building->id, $fromDate, $toDate);
+            // every line names the month, e.g. "MUN TAX CHARGES FOR AUG'26" (user, 08/10/2026)
+            $forMonth = ' FOR ' . strtoupper(date('M', strtotime($fromDate))) . "'" . date('y', strtotime($fromDate));
             $lines = [
-                ['description' => 'MUN TAX CHARGES', 'amount' => $amounts['mun_tax_charges']],
-                ['description' => 'ELECT. AND WATER CHARGES', 'amount' => $amounts['elect_water_charges']],
+                ['description' => 'MUN TAX CHARGES' . $forMonth, 'amount' => $amounts['mun_tax_charges']],
+                ['description' => 'ELECT. AND WATER CHARGES' . $forMonth, 'amount' => $amounts['elect_water_charges']],
             ];
             // Dewatering is split into this period's bills and late bills for
             // other months (e.g. "FROM MAR'26 TO JUN'26"); the lines sum to
@@ -423,9 +425,10 @@ class LandlordInvoiceV2Controller extends Controller
             }
             // A/C, F.A.S and lift: an AMC line and a Repair & Maintenance line each, non-zero only
             foreach ($this->calc->landlordAmcRepairLines($building, $fromDate, $toDate) as $amcLine) {
+                $amcLine['description'] .= $forMonth;
                 $lines[] = $amcLine;
             }
-            $lines[] = ['description' => 'REPAIR AND MAINTENANCE CHARGES (SUB-CONTRACTOR)', 'amount' => $subAmount];
+            $lines[] = ['description' => 'REPAIR AND MAINTENANCE CHARGES' . $forMonth, 'amount' => $subAmount];
         }
 
         return response()->json(['lines' => $lines]);
