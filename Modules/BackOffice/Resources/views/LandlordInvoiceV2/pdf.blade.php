@@ -6,7 +6,7 @@
   $period = date('F', mktime(0, 0, 0, $invoice->period_month, 1)) . ' ' . $invoice->period_year;
   // lines with no amount add nothing to the invoice; leave them off the print
   $printLines = array_values(array_filter($lines, function ($l) { return round($l['total'], 3) != 0; }));
-  $cols   = 5;
+  $cols   = 6;
   // keep the lines box a fixed height so short invoices still look like a full form
   $filler = max(0, 300 - count($printLines) * 26);
 @endphp
@@ -109,12 +109,13 @@
   </tr>
 </table>
 
-{{-- Lines, totals and amount in words: same five columns on both invoice types (user, 08/10/2026) --}}
+{{-- Lines, totals and amount in words: same six columns on both invoice types (user, 08/10/2026) --}}
 <table class="items">
   <thead>
     <tr>
       <th>Description</th>
-      <th style="width:84px">Unit Price<br>(OMR)</th>
+      <th style="width:62px">Quantity<br>No's</th>
+      <th style="width:80px">Unit Price<br>(OMR)</th>
       <th style="width:84px">Amount<br>(OMR)</th>
       <th style="width:78px">VAT 5%<br>(OMR)</th>
       <th style="width:88px">Total<br>(OMR)</th>
@@ -124,6 +125,7 @@
     @foreach($printLines as $line)
     <tr>
       <td class="l">{{ $line['desc'] }}</td>
+      <td class="c">{{ number_format($line['qty'], 0) }}</td>
       <td>{{ number_format($line['unit_price'], 3) }}</td>
       <td>{{ number_format($line['amount'], 3) }}</td>
       <td>{{ number_format($line['vat'], 3) }}</td>
@@ -135,7 +137,7 @@
     @endif
 
     <tr class="tot due">
-      <td class="k" colspan="2">Total Amount Due (OMR)</td>
+      <td class="k" colspan="3">Total Amount Due (OMR)</td>
       <td>{{ number_format($totalAmount, 3) }}</td>
       <td>{{ number_format($totalVat, 3) }}</td>
       <td>{{ number_format($totalDue, 3) }}</td>
