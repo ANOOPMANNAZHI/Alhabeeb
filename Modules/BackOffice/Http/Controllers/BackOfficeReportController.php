@@ -5632,6 +5632,86 @@ public function landlordDewateringLines(\Modules\Masters\Entities\Building $buil
 }
 
 /**
+ * Other Deductions lines for A/C, F.A.S and lift bills, each split into AMC and
+ * Repair & Maintenance (08/10/2026: Bait Rawan Aug'26 lift AMC was missing and
+ * A/C AMC + repair were one line). Same rows as the report's expenses (maintenance
+ * invoices + GL journals). From NormalManagementConsolidateSheet::AMC_CODES_FROM
+ * the account decides (22307/22308/22309 = AMC); before it AMC and repair bills
+ * sat on one account, so the bill text decides ("AMC" = AMC, else repair).
+ * Only non-zero lines are returned, in a fixed order.
+ */
+public function landlordAmcRepairLines(\Modules\Masters\Entities\Building $building, string $fromDate, string $toDate): array
+{
+    $monthsTouched = $this->monthsTouchedByRange($fromDate, $toDate);
+    $first = $monthsTouched[0];
+    $last  = $monthsTouched[count($monthsTouched) - 1];
+    $rangeFrom = sprintf('%04d-%02d-01', $first['year'], $first['month']);
+    $rangeTo   = date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $last['year'], $last['month'])));
+
+    $heads = [
+        'A C MAINTENANCE' => 'ac', 'CIT - AC MAINTENANCE' => 'ac', 'A C MAINTENANCE - A M C' => 'ac',
+        'FIRE ALARM SYSTEM MAINT.' => 'fas', 'CIT - FIRE ALARAM SYSTEM MAINT.' => 'fas', 'FIRE ALARAM SYSTEM MAINT. - A M C' => 'fas',
+        'LIFT & ESCALATORS MAINT.' => 'lift', 'CIT - LIFT & ESCALATORS MAINT.' => 'lift', 'LIFT & ESCALATORS MAINT. - A M C' => 'lift',
+    ];
+    $in = implode(',', array_fill(0, count($heads), '?'));
+    $names = array_keys($heads);
+
+    $rows = DB::select("
+        SELECT expense_name, acc_code, doc_date, amount, txt FROM (
+            SELECT eh.expense_name, ac.acc_code_val AS acc_code, mi.maintenance_invoice_date AS doc_date,
+                   CAST(mid.debit_amt AS NUMERIC) AS amount,
+                   CONCAT_WS(' ', mi.maintenance_invoice_desc, mid.invoice_desc) AS txt
+            FROM maintenance_invoice_details mid
+            JOIN maintenance_invoices mi ON mi.id = mid.maintenance_invoice_id
+            JOIN acc_codes ac ON ac.id = mid.ac_codes_id
+            JOIN expense_head eh ON eh.acc_codes_id = ac.id
+            WHERE mid.building_id = ? AND eh.expense_name IN ($in)
+              AND mi.maintenance_invoice_date BETWEEN ? AND ?
+              AND mi.maintenance_invoice_status != 2 AND mi.deleted_at IS NULL
+            UNION ALL
+            SELECT eh.expense_name, ac.acc_code_val, gl.doc_date, CAST(gld.debit_amt AS NUMERIC),
+                   CONCAT_WS(' ', gl.general_ledger_desc, gld.description)
+            FROM general_ledger_dim gld
+            JOIN general_ledgers gl ON gl.id = gld.general_ledger_id
+            JOIN acc_codes ac ON ac.id = gld.account_id
+            JOIN expense_head eh ON eh.acc_codes_id = ac.id
+            WHERE gld.building_id = ? AND eh.expense_name IN ($in)
+              AND gl.doc_date BETWEEN ? AND ?
+              AND gl.general_ledger_status != 2 AND gl.deleted_at IS NULL
+        ) src
+    ", array_merge([$building->id], $names, [$rangeFrom, $rangeTo, $building->id], $names, [$rangeFrom, $rangeTo]));
+
+    $sums = [];
+    foreach ($rows as $row) {
+        if (in_array((int) $row->acc_code, NormalManagementConsolidateSheet::AMC_CODES, true)) {
+            $amc = true;
+        } elseif ($row->doc_date >= NormalManagementConsolidateSheet::AMC_CODES_FROM) {
+            $amc = false;
+        } else {
+            $amc = (bool) preg_match('/\bAMC\b/i', (string) $row->txt);
+        }
+        $key = $heads[$row->expense_name] . ($amc ? '_amc' : '_repair');
+        $sums[$key] = ($sums[$key] ?? 0) + (float) $row->amount;
+    }
+
+    $labels = [
+        'ac_amc'      => 'AMC FOR A/C UNITS',
+        'ac_repair'   => 'REPAIR AND MAINTENANCE CHARGES FOR A/C UNITS',
+        'fas_amc'     => 'AMC FOR F.A.S FOR THE PERIOD',
+        'fas_repair'  => 'REPAIR AND MAINTENANCE CHARGES FOR F.A.S',
+        'lift_amc'    => 'AMC FOR LIFT',
+        'lift_repair' => 'REPAIR AND MAINTENANCE CHARGES FOR LIFT',
+    ];
+    $lines = [];
+    foreach ($labels as $key => $label) {
+        if (round($sums[$key] ?? 0, 3) != 0) {
+            $lines[] = ['description' => $label, 'amount' => round($sums[$key], 3)];
+        }
+    }
+    return $lines;
+}
+
+/**
  * 'YYYY-MM' months named in free text such as "for Mar'26", "June'2026",
  * "APRIL'25", "June;2026", "DEC'24 TO JAN'25" or "01.08.25 TO 15.08.25". A month name
  * must be followed by a 2- or 4-digit year so stray words ("may") don't

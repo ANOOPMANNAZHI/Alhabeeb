@@ -421,8 +421,10 @@ class LandlordInvoiceV2Controller extends Controller
             foreach ($this->calc->landlordDewateringLines($building, $fromDate, $toDate) as $dewateringLine) {
                 $lines[] = $dewateringLine;
             }
-            $lines[] = ['description' => 'AMC / REPAIR AND MAINTENANCE CHARGES FOR A/C UNITS', 'amount' => $amounts['ac_amc_repair_charges']];
-            $lines[] = ['description' => 'AMC FOR F.A.S FOR THE PERIOD', 'amount' => $amounts['fas_amc_charges']];
+            // A/C, F.A.S and lift: an AMC line and a Repair & Maintenance line each, non-zero only
+            foreach ($this->calc->landlordAmcRepairLines($building, $fromDate, $toDate) as $amcLine) {
+                $lines[] = $amcLine;
+            }
             $lines[] = ['description' => 'REPAIR AND MAINTENANCE CHARGES (SUB-CONTRACTOR)', 'amount' => $subAmount];
         }
 
