@@ -125,7 +125,7 @@
     @foreach($printLines as $line)
     <tr>
       <td class="l">{{ $line['desc'] }}</td>
-      <td class="c">{{ number_format($line['qty'], 0) }}</td>
+      <td class="c">{{ number_format($line['qty'], 3) }}</td>
       <td>{{ number_format($line['unit_price'], 3) }}</td>
       <td>{{ number_format($line['amount'], 3) }}</td>
       <td>{{ number_format($line['vat'], 3) }}</td>
