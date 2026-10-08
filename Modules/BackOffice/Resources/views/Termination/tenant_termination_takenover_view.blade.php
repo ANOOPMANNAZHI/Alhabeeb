@@ -89,7 +89,7 @@
     <div class="t-head">
       <div>
         <h3 class="t-title">{{ $tc->tenant->tenant_name }}</h3>
-        <div class="t-sub">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</div>
+        <div class="t-sub">@include('backoffice::Termination._tenant_contact', ['tenant' => $tc->tenant])</div>
         <div class="t-os">
           @if($outstandingOs > 0)
             <a href="#" class="t-os-yes tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">Outstanding {{ numberFormat($outstandingOs) }} OMR</a>

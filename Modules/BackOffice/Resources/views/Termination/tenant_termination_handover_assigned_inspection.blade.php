@@ -181,7 +181,7 @@
     <div class="i-head">
       <div>
         <h3 class="i-title">{{ $tc->tenant->tenant_name }}</h3>
-        <div class="i-sub">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</div>
+        <div class="i-sub">@include('backoffice::Termination._tenant_contact', ['tenant' => $tc->tenant])</div>
         <div class="i-os">
           @if($outstandingOs > 0)
             <a href="#" class="i-pill i-pill-warn tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">Outstanding {{ numberFormat($outstandingOs) }} OMR</a>
