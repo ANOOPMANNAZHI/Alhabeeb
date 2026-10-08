@@ -77,7 +77,7 @@
         {{-- same figure as the other termination screens; a click scrolls to Current And Previous Contracts --}}
         <div class="col-lg-6 p-t-20">
             <div class = "txt-full-width">
-                <h5 class="details"><b>Outstanding Amount :  </b><span><a href="#tos-contracts" class="tos-jump" style="color:inherit" title="Go to Current And Previous Contracts">{{ numberFormat($outstandingOs) }} OMR</a></span></h5>
+                <h5 class="details"><b>Outstanding Amount :  </b><span><a href="#tos-contracts" class="tos-jump" style="color:#c00000; font-weight:700" title="Go to Current And Previous Contracts">{{ numberFormat($outstandingOs) }} OMR</a></span></h5>
             </div>
         </div>
     </div>
