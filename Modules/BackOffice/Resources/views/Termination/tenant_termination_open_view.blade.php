@@ -59,6 +59,36 @@
    </h4>
 </div>
 </div>
+{{-- Total outstanding, highlighted at the top; click for the breakup (same figure as the other termination screens) --}}
+@include('backoffice::Termination._tenant_outstanding_modal')
+<style>
+  .tos-strip { display:flex; flex-wrap:wrap; align-items:center; gap:8px 28px; margin:12px 15px 4px; padding:14px 18px; border-radius:6px; border:1px solid; }
+  .tos-strip.tos-due  { background:#fef2f2; border-color:#fecaca; }
+  .tos-strip.tos-none { background:#f0fdf4; border-color:#bbf7d0; }
+  .tos-strip .tos-main { display:flex; flex-direction:column; }
+  .tos-strip .tos-lbl { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#475569; }
+  .tos-strip .tos-amt { font-size:26px; font-weight:700; line-height:1.2; }
+  .tos-strip.tos-due .tos-amt, .tos-strip.tos-due .tos-amt a { color:#b91c1c; }
+  .tos-strip.tos-none .tos-amt { color:#166534; }
+  .tos-strip .tos-part { font-size:13px; color:#475569; }
+  .tos-strip .tos-part b { display:block; font-size:15px; color:#0f172a; }
+  .tos-strip .tos-hint { font-size:12px; color:#64748b; margin-left:auto; }
+</style>
+<div class="tos-strip {{ $outstandingOs > 0 ? 'tos-due' : 'tos-none' }}" role="status">
+  <div class="tos-main">
+    <span class="tos-lbl">Total outstanding</span>
+    @if($outstandingOs > 0)
+      <span class="tos-amt"><a href="#" class="tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">{{ numberFormat($outstandingOs) }} OMR</a></span>
+    @else
+      <span class="tos-amt">No outstanding</span>
+    @endif
+  </div>
+  @if($outstandingOs > 0)
+  <div class="tos-part">This contract<b>{{ numberFormat($tenantOs['current']['outstanding']) }}</b></div>
+  <div class="tos-part">Expired contracts ({{ count($tenantOs['expired']) }})<b>{{ numberFormat($tenantOs['expired_total']) }}</b></div>
+  <div class="tos-hint">Click the amount for the breakup</div>
+  @endif
+</div>
 <!--Agreement Section starts -->
 <div class="salesSearchBox">
  <div class="dataSearchBox"> 
