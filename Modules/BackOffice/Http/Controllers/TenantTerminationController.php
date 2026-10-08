@@ -322,9 +322,13 @@ class TenantTerminationController extends Controller
      $today = strtotime(date('Y-m-d'));
 
      $datediff = $validTo - $today;
-     $remainingDays = $datediff / 86400;    // 24 * 60 * 60 = 86400 seconds 
-		
-     return view('backoffice::Termination.tenant_termination_open_view',compact('tenantContract','remainingInvoices','otherDuesCollections','termination','backHistory','openTerminationDocument','comments','remainingDays'));
+     $remainingDays = $datediff / 86400;    // 24 * 60 * 60 = 86400 seconds
+
+     // total outstanding highlighted at the top, same figure + breakup as the other termination screens
+     $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
+     $outstandingOs = $tenantOs['total'];
+
+     return view('backoffice::Termination.tenant_termination_open_view',compact('tenantContract','remainingInvoices','otherDuesCollections','termination','backHistory','openTerminationDocument','comments','remainingDays','tenantOs','outstandingOs'));
    }
 
     /**
