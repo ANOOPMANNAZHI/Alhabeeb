@@ -488,6 +488,9 @@ $receiptId =  ReceiptsGeneration::create([
 
 			$invoices=Invoice::whereBetween('tenant_invoice_date', [$fromDate, $toDate])
 			->where('tenant_invoice_status',1)
+			->whereHas('tenantContractInfo.building', function ($query) {
+			  $query->where('management_id', 1); // Comprehensive buildings only
+			})
 			->with('tenantContractInfo.unit')
 			->whereHas('tenantContractInfo.unit')
 			->get()
@@ -499,7 +502,11 @@ $receiptId =  ReceiptsGeneration::create([
 			->where('tenant_invoice_status',1)
 			->whereHas('tenantContractInfo', function ($query)use($building_id) {
 			  $query->whereIn('building_id', $building_id);
-			})->with('tenantContractInfo.unit')
+			})
+			->whereHas('tenantContractInfo.building', function ($query) {
+			  $query->where('management_id', 1); // Comprehensive buildings only
+			})
+			->with('tenantContractInfo.unit')
 			->whereHas('tenantContractInfo.unit')
 			->get()
 			->sortBy('tenantContractInfo.unit.unit_code');
@@ -509,7 +516,11 @@ $receiptId =  ReceiptsGeneration::create([
 			$invoices = Invoice::where('tenant_invoice_status',1)
 			->whereHas('tenantContractInfo', function ($query)use($building_id) {
 			  $query->whereIn('building_id', $building_id)->where('tenant_contract_status', 1);
-    	})->with('tenantContractInfo.unit')
+    	})
+			->whereHas('tenantContractInfo.building', function ($query) {
+			  $query->where('management_id', 1); // Comprehensive buildings only
+			})
+			->with('tenantContractInfo.unit')
 			->whereHas('tenantContractInfo.unit')
 			->get()
 			->sortBy('tenantContractInfo.unit.unit_code');
