@@ -27,7 +27,9 @@
     <div style="display:flex;flex-wrap:wrap;gap:8px">
     <button type="button" class="rf-btn rf-filter-btn" id="rf-filter-toggle" aria-controls="rf-filter-card" aria-expanded="false">
       <i class="fa fa-sliders" aria-hidden="true"></i> Filters <span class="rf-filter-count" id="rf-filter-count" hidden></span></button>
+    @if(\Modules\BackOffice\Http\Controllers\ReceivableFollowupController::canSeeResults())
     <a class="rf-btn rf-filter-btn" href="{{ route('receivable-followup.results') }}"><i class="fa fa-bar-chart" aria-hidden="true"></i> Follow-up Results</a>
+    @endif
     </div>
   </div>
   <form id="rf-filter-card" class="rf-filter-card" hidden aria-label="Filters">

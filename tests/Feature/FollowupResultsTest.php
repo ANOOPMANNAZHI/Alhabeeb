@@ -131,4 +131,23 @@ class FollowupResultsTest extends TestCase
             ->assertSee('Amount collected')
             ->assertSee('Part paid');
     }
+
+    /** Admins and managers only (user, 11/10/2026): an ARE gets 403 and no button. */
+    public function test_results_are_for_managers_only()
+    {
+        $are = User::role('are')->get()->first(function ($u) {
+            return !$u->hasAnyRole(['super_admin', 'backoffice_manager', 'ceo', 'md', 'finance_manager']);
+        });
+        if (!$are) {
+            $this->markTestSkipped('no ARE-only user');
+        }
+        $are->givePermissionTo('view_receivable_followup');
+        $this->actingAs($are)->get(route('receivable-followup.results'))->assertStatus(403);
+        $this->actingAs($are)->get(route('receivable-followup.index'))->assertStatus(200)->assertDontSee('Follow-up Results');
+    }
+
+    public function test_admin_sees_the_results_button()
+    {
+        $this->actingAs(User::find(1))->get(route('receivable-followup.index'))->assertStatus(200)->assertSee('Follow-up Results');
+    }
 }

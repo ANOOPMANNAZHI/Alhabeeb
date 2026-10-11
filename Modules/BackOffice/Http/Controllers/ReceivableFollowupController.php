@@ -303,6 +303,10 @@ class ReceivableFollowupController extends Controller
      */
     public function results(Request $request)
     {
+        // admins and managers only (user, 11/10/2026)
+        if (!self::canSeeResults()) {
+            abort(403);
+        }
         $today = Carbon::today()->format('Y-m-d');
         $isDate = function ($v) { return preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $v) === 1; };
         $from = $isDate($request->input('from')) ? $request->from : Carbon::today()->startOfMonth()->format('Y-m-d');
@@ -310,9 +314,8 @@ class ReceivableFollowupController extends Controller
         if ($to < $from) {
             list($from, $to) = [$to, $from];
         }
-        $scope = $this->scopeAreUsers();
         $service = new FollowupResults();
-        $followups = $service->followups($from, $to, $scope, $today);
+        $followups = $service->followups($from, $to, null, $today);
         $summary = FollowupResults::summarise($followups);
 
         $userIds = array_unique(array_merge(array_column($summary, 'user_id'), [(int) $request->input('user')]));
@@ -359,6 +362,12 @@ class ReceivableFollowupController extends Controller
         $windowDays = FollowupResults::WINDOW_DAYS;
         return view('backoffice::ReceivableFollowup.results',
             compact('from', 'to', 'today', 'summary', 'totals', 'user', 'userName', 'detail', 'windowDays'));
+    }
+
+    /** Follow-up Results is for admins and managers only. */
+    public static function canSeeResults()
+    {
+        return \Auth::check() && \Auth::user()->hasAnyRole(self::MANAGER_ROLES);
     }
 
     /** The contract, if it exists and is inside the user's ARE scope; 404 / 403 otherwise. */
