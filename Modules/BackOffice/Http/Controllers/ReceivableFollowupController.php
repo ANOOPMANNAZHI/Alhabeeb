@@ -10,6 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 use Modules\BackOffice\Entities\ReceivableFollowup;
 use Modules\BackOffice\Services\FiguresBusy;
+use Modules\BackOffice\Services\FollowupResults;
 use Modules\BackOffice\Services\ReceivableFigures;
 use Modules\Masters\Entities\Building;
 use Modules\Sales\Entities\TenantContract;
@@ -294,6 +295,79 @@ class ReceivableFollowupController extends Controller
             return response()->json(['busy' => true], 202);
         }
         return response()->json(['computed_at' => $data['computed_at']]);
+    }
+
+    /**
+     * Follow-up results per CA: follow-ups made in a date range and what tenants paid after them
+     * (see FollowupResults for the rules). ?user= lists that CA's follow-ups one by one.
+     */
+    public function results(Request $request)
+    {
+        // admins and managers only (user, 11/10/2026)
+        if (!self::canSeeResults()) {
+            abort(403);
+        }
+        $today = Carbon::today()->format('Y-m-d');
+        $isDate = function ($v) { return preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $v) === 1; };
+        $from = $isDate($request->input('from')) ? $request->from : Carbon::today()->startOfMonth()->format('Y-m-d');
+        $to = $isDate($request->input('to')) ? $request->to : $today;
+        if ($to < $from) {
+            list($from, $to) = [$to, $from];
+        }
+        $service = new FollowupResults();
+        $followups = $service->followups($from, $to, null, $today);
+        $summary = FollowupResults::summarise($followups);
+
+        $userIds = array_unique(array_merge(array_column($summary, 'user_id'), [(int) $request->input('user')]));
+        $names = DB::table('users as u')->leftJoin('employees as e', 'e.id', '=', 'u.user_type_id')->whereIn('u.id', $userIds ?: [0])
+            ->selectRaw('u.id, coalesce(e.employee_name, u.username) as name')->pluck('name', 'id')->all();
+        foreach ($summary as $k => $s) {
+            $summary[$k]['name'] = isset($names[$s['user_id']]) ? $names[$s['user_id']] : 'User ' . $s['user_id'];
+        }
+        usort($summary, function ($a, $b) { return $b['followups'] <=> $a['followups'] ?: strcasecmp($a['name'], $b['name']); });
+        $totals = ['followups' => 0, 'agreements' => 0, 'paid_agreements' => 0, 'paid' => 0.0, 'cleared' => 0, 'pdc' => 0.0, 'open' => 0];
+        foreach ($summary as $s) {
+            foreach ($totals as $k => $v) {
+                $totals[$k] += $s[$k];
+            }
+        }
+
+        // one CA's follow-ups, newest first, with the agreement details
+        $user = (int) $request->input('user');
+        $detail = [];
+        if ($user && isset($names[$user])) {
+            foreach ($followups as $f) {
+                if ($f->user_id === $user) {
+                    $detail[] = $f;
+                }
+            }
+            $detail = array_reverse($detail);
+            $contracts = TenantContract::query()
+                ->join('tenant', 'tenant.id', '=', 'tenant_contracts.tenant_id')
+                ->leftJoin('buildings', 'buildings.id', '=', 'tenant_contracts.building_id')
+                ->leftJoin('units', 'units.id', '=', 'tenant_contracts.unit_id')
+                ->whereIn('tenant_contracts.id', array_unique(array_map(function ($f) { return $f->contract_id; }, $detail)) ?: [0])
+                ->get(['tenant_contracts.id', 'tenant_contracts.tenant_contract_no', 'tenant.tenant_name', 'buildings.building_name', 'units.unit_no'])
+                ->keyBy('id');
+            foreach ($detail as $f) {
+                $c = $contracts->get($f->contract_id);
+                $f->contract_no = $c ? $c->tenant_contract_no : '';
+                $f->tenant = $c ? $c->tenant_name : '';
+                $f->place = $c ? trim($c->building_name . ' / ' . $c->unit_no, ' /') : '';
+            }
+        } else {
+            $user = 0;
+        }
+        $userName = $user ? $names[$user] : null;
+        $windowDays = FollowupResults::WINDOW_DAYS;
+        return view('backoffice::ReceivableFollowup.results',
+            compact('from', 'to', 'today', 'summary', 'totals', 'user', 'userName', 'detail', 'windowDays'));
+    }
+
+    /** Follow-up Results is for admins and managers only. */
+    public static function canSeeResults()
+    {
+        return \Auth::check() && \Auth::user()->hasAnyRole(self::MANAGER_ROLES);
     }
 
     /** The contract, if it exists and is inside the user's ARE scope; 404 / 403 otherwise. */

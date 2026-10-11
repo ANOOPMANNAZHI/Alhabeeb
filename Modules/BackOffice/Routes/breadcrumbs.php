@@ -984,3 +984,8 @@ Breadcrumbs::for('receivable-followup.index', function ($trail) {
     $trail->parent('home');
     $trail->push('Receivables Follow-up', route('receivable-followup.index'));
 });
+
+Breadcrumbs::for('receivable-followup.results', function ($trail) {
+    $trail->parent('receivable-followup.index');
+    $trail->push('Follow-up Results', route('receivable-followup.results'));
+});
