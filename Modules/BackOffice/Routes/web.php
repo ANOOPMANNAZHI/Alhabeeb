@@ -817,6 +817,7 @@ Route::middleware('auth')->group(function () {
 
 	// Receivables follow-up: AREs record calls and promised dates on agreements that owe rent
 	Route::get('receivable-followup', 'ReceivableFollowupController@index')->name('receivable-followup.index');
+	Route::get('receivable-followup/results', 'ReceivableFollowupController@results')->name('receivable-followup.results');
 	Route::get('receivable-followup/rows', 'ReceivableFollowupController@rows')->name('receivable-followup.rows');
 	Route::post('receivable-followup/refresh', 'ReceivableFollowupController@refresh')->middleware('throttle:5,1')->name('receivable-followup.refresh');
 	Route::get('receivable-followup/{contract}/form', 'ReceivableFollowupController@form')->where('contract', '[0-9]+')->name('receivable-followup.form');
