@@ -275,7 +275,9 @@
                 <i class="fa fa-minus" aria-hidden="true"></i> 
               </a>
               @elseif($item->pdc_cancel_reason == 1)
-                @if(in_array($item->id, $redeposited))
+                @if(isset($bounceReceipts[$item->id]))
+                <span class="pdc-redeposited" title="Paid by a receipt against this bounced cheque - no redeposit needed">Receipt {{ $bounceReceipts[$item->id] }}</span>
+                @elseif(in_array($item->id, $redeposited))
                 <span class="pdc-redeposited" title="Already deposited again - see the later row with this cheque no">Redeposited</span>
                 @else
                 <button type="button" class="btn btn-warning pdc-redeposit-btn redepositRow" data-row="{{$key}}" title="Add a new row with this bounced cheque's details, then Save">Redeposit</button>

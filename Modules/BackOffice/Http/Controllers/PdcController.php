@@ -269,6 +269,36 @@ e     */
         return $out;
     }
 
+    /**
+     * Bounced PDCs already paid by a receipt made against the bounce, as [pdc id => receipt no].
+     * Counts any receipt linked to the cheque that is not cancelled (status 2) or rejected (approval 4).
+     * Their Redeposit button is hidden.
+     */
+    public static function bounceReceiptNos($pdcs)
+    {
+        $bounced = [];
+        foreach ($pdcs as $p) {
+            if ((int) $p->pdc_cancel_reason === 1) {
+                $bounced[(int) $p->id] = $p;
+            }
+        }
+        if (!$bounced) {
+            return [];
+        }
+        $out = ReceiptsGeneration::whereIn('receipts_generation_is_pdc_bounce_id', array_keys($bounced))
+            ->where('receipts_generation_status', '!=', 2)
+            ->where('receipts_generation_approval_status', '!=', 4)
+            ->orderBy('id')
+            ->pluck('receipts_generation_receipt_no', 'receipts_generation_is_pdc_bounce_id')
+            ->all();
+        foreach ($bounced as $id => $p) {
+            if (!isset($out[$id]) && (int) $p->pdc_settlement === 2) {
+                $out[$id] = (string) $p->pdc_receipt_no;
+            }
+        }
+        return $out;
+    }
+
     public function show($id)
     {
 
@@ -305,7 +335,8 @@ e     */
                 $pdcTransacNo = $prefix.str_pad(1,4,'0',STR_PAD_LEFT);
 
             $redeposited = self::redepositedIds($tenantPdcInfo);
-            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date','redeposited'));
+            $bounceReceipts = self::bounceReceiptNos($tenantPdcInfo);
+            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date','redeposited','bounceReceipts'));
 
         }
         elseif($tenantContract->work_flow_processes_code >=106 || $salesEnquiry->work_flow_processes_code >=106){
@@ -325,7 +356,8 @@ e     */
                 $pdcTransacNo = $prefix.str_pad(1,4,'0',STR_PAD_LEFT);
 
             $redeposited = self::redepositedIds($tenantPdcInfo);
-            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date','redeposited'));
+            $bounceReceipts = self::bounceReceiptNos($tenantPdcInfo);
+            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date','redeposited','bounceReceipts'));
         }
         else{
            // Contract in-progress
