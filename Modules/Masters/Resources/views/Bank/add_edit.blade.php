@@ -67,9 +67,9 @@
                 <div class="p-relative">
                 <i class="fa fa-font-awesome icn-add" aria-hidden="true"></i>
                 <select class="form-control" id="dim1Value"  name="dim1Value" required>
-                  <option {{(old('bank_chequebook_id', isset($bank)? $bank->dim1Value :'00') == '02') ? 'selected' : '' }} value="02">PLM</option>
+                  <option {{(old('dim1Value', isset($bank)? $bank->dim1Value :'00') == '02') ? 'selected' : '' }} value="02">PLM</option>
                  
-                   <option  {{(old('bank_chequebook_id', isset($bank)?  $bank->dim1Value :'00') == '01') ? 'selected' : '' }} value="01">HO</option>
+                   <option  {{(old('dim1Value', isset($bank)?  $bank->dim1Value :'00') == '01') ? 'selected' : '' }} value="01">HO</option>
                                  
                 </select> 
               </div>
@@ -80,7 +80,7 @@
                 <label for="simpleFormBranch">Accounts <small class="textRed">*</small></label>
                 <div class="p-relative">
                 <i class="fa fa-font-awesome icn-add" aria-hidden="true"></i>
-                <select class="form-control" id="dim1Value"  name="dim1Value" required>
+                <select class="form-control" id="accounts_bank"  name="accounts_bank" required>
                   <option {{(old('accounts_bank', isset($bank)? $bank->accounts_bank :'') == '0') ? 'selected' : '' }} value="0">No</option>
                  
                    <option  {{(old('accounts_bank', isset($bank)?  $bank->accounts_bank :'') == '1') ? 'selected' : '' }} value="1">Yes</option>
