@@ -179,6 +179,20 @@ Route::post('/legalCase/areStageStore', 'LegalController@areStageStore')->name('
 /*****    closed legal cases  starts****/
 Route::get('/closedLegalCases', 'LegalController@closedLegalCases')->name('closedLegalCases');
 Route::get('closedLegalCases/{id}', 'LegalController@closedLegalCasesShow')->name('closedLegalCasesShow');
+Route::get('/handedOverLegalCases', 'LegalController@handedOverCases')->name('handedOverLegalCases');
+/* Legal case page + stage master */
+Route::get('/legal-case/{id}', 'LegalCaseController@show')->name('legal.case');
+Route::post('/legal-case/{id}/stage', 'LegalCaseController@stageStore')->name('legal.case.stage');
+Route::post('/legal-case/{id}/comment', 'LegalCaseController@commentStore')->name('legal.case.comment');
+Route::post('/legal-case/{id}/settlement', 'LegalCaseController@settlementStore')->name('legal.case.settlement');
+Route::post('/legal-case/{id}/settlement/verify', 'LegalCaseController@settlementVerify')->name('legal.case.settlement.verify');
+Route::post('/legal-case/{id}/close', 'LegalCaseController@close')->name('legal.case.close');
+Route::post('/legal-case/{id}/reopen', 'LegalCaseController@reopen')->name('legal.case.reopen');
+Route::get('/legal-stages', 'LegalCaseController@stages')->name('legal.stages');
+Route::post('/legal-stages', 'LegalCaseController@stageMasterStore')->name('legal.stages.store');
+Route::post('/legal-stages/{id}/move', 'LegalCaseController@stageMove')->name('legal.stages.move');
+Route::get('/legal-reports/cases', 'LegalReportController@cases')->name('legal.reports.cases');
+Route::get('/legal-reports/settlements', 'LegalReportController@settlements')->name('legal.reports.settlements');
 
 /*****    closed legal cases ends  ****/
 /*****    referback legal cases  starts****/

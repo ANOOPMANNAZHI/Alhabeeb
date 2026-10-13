@@ -76,6 +76,43 @@
                 <!-- /rwo wnd -->
               </div>
               <!-- end widget -->
+              <!-- my legal cases (plan 2026-10-13, phase 2) -->
+              @php $lcMine = \Modules\Masters\Services\LegalCase::lawyerSummary(\Auth::id()); @endphp
+              <div class="row">
+                <div class="col-lg-5 col-md-12">
+                  <div class="card card-box">
+                    <div class="card-head"><header>My active cases by stage ({{ $lcMine['total'] }})</header></div>
+                    <div class="card-body">
+                      <table class="table table-sm">
+                        @forelse($lcMine['byStage'] as $row)
+                          <tr><td><a href="{{ route('activeCases', ['lc_stage' => $row->id ?: 'none', 'lc_lawyer' => \Auth::id()]) }}">{{ $row->name }}</a></td><td class="text-right"><b>{{ $row->n }}</b></td></tr>
+                        @empty
+                          <tr><td class="text-muted">No active cases assigned to you.</td></tr>
+                        @endforelse
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-7 col-md-12">
+                  <div class="card card-box">
+                    <div class="card-head"><header>Hearings in the next 14 days</header></div>
+                    <div class="card-body">
+                      <table class="table table-sm">
+                        @forelse($lcMine['hearings'] as $h)
+                          <tr>
+                            <td>{{ \Carbon\Carbon::parse($h->next_hearing_date)->format('d/m/Y') }}</td>
+                            <td><a href="{{ route('legal.case', $h->id) }}">{{ $h->tenant_contract_no }}</a> &middot; {{ $h->tenant_name }}</td>
+                            <td>{{ $h->building_name }}</td>
+                            <td>{{ $h->court_case_no }}</td>
+                          </tr>
+                        @empty
+                          <tr><td class="text-muted">No hearings in the next 14 days.</td></tr>
+                        @endforelse
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
               
               
               

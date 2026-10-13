@@ -941,6 +941,26 @@ Breadcrumbs::for('closedLegalCasesShow', function ($trail, $closedLegalCases) {
     $trail->parent('closedLegalCases');
     $trail->push('Closed Legal Cases View', route('closedLegalCases',[$closedLegalCases->id]));
 });
+Breadcrumbs::for('handedOverLegalCases', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Handed-over Legal Cases', route('handedOverLegalCases'));
+});
+Breadcrumbs::for('legal.case', function ($trail, $legal) {
+    $trail->parent('legalActiveCases');
+    $trail->push('Legal Case', route('legal.case', $legal->id));
+});
+Breadcrumbs::for('legal.stages', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Legal Stages', route('legal.stages'));
+});
+Breadcrumbs::for('legal.reports.cases', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Legal Cases Summary', route('legal.reports.cases'));
+});
+Breadcrumbs::for('legal.reports.settlements', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Legal Settlements', route('legal.reports.settlements'));
+});
 /*    **************************************************************************     */
 // Tenancy Details  Index
 Breadcrumbs::for('tenancyDetails.index', function ($trail) {

@@ -16,6 +16,11 @@
 </div>
 
 <div class="row">
+  <div class="col" style="margin-bottom:10px;">
+    <a href="{{ route('legal.case', $activeCase->id) }}" class="btn btn-primary"><i class="fa fa-gavel" aria-hidden="true"></i> Open case page (stages, comments)</a>
+  </div>
+</div>
+<div class="row">
   <div class="col">
     <div class="card card-box salesSearchBox">
       <div class="sub-head">Building Details</div>

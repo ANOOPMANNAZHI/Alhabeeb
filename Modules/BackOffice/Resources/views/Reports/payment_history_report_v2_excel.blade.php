@@ -71,7 +71,7 @@
       <td style="{{ $subStyle }}text-align:right;">{{ $group['subtotal'] }}</td>
     </tr>
     <tr>
-      <td colspan="9" style="{{ $subStyle }}">Due &mdash; {{ $group['contract_no'] }} (Contract Value {{ $group['contract_value'] }} &minus; Rent Collected {{ $group['rent_collected'] }})</td>
+      <td colspan="9" style="{{ $subStyle }}">Due &mdash; {{ $group['contract_no'] }} (Contract Value {{ $group['contract_value'] }} &minus; Rent Collected {{ $group['rent_collected'] }}@if($group['waived'] > 0) &minus; Legal Waiver {{ $group['waived'] }}@endif)</td>
       <td style="{{ $subStyle }}text-align:right;">{{ $group['due'] }}</td>
     </tr>
     {{-- blank row separates one contract block from the next --}}

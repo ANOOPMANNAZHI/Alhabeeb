@@ -193,8 +193,14 @@ class RentOutstanding
             $asOf = $asOf ?: date('Y-m-d');
         }
         $from = $contract->tenant_contract_effective_date ?: $contract->tenant_contract_start_date;
-        $r = self::compute($from, $asOf, $contract->tenant_contract_rent, self::paidForContract($contractId),
+        // a legal settlement waiver is a credit on the contract (legal plan phase 4): it settles rent like a
+        // receipt but is reported apart, so 'paid' stays the money received
+        $paid = self::paidForContract($contractId);
+        $waived = \Modules\Masters\Services\LegalWaiver::forContract($contractId);
+        $r = self::compute($from, $asOf, $contract->tenant_contract_rent, $paid + $waived,
             $contract->tenant_contract_value, $contract->tenant_contract_valid_to_date, $terminated);
+        $r['paid'] = $paid;
+        $r['waived'] = $waived;
         $r['as_of'] = $asOf ? date('Y-m-d', strtotime($asOf)) : null;
         return $r;
     }

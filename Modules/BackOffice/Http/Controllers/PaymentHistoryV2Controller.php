@@ -117,7 +117,8 @@ class PaymentHistoryV2Controller extends Controller
     private function reportRows($buildingId, $unitId, $tenantId)
     {
         return DB::select("
-            SELECT tc.tenant_contract_no,
+            SELECT tc.id AS contract_id,
+                   tc.tenant_contract_no,
                    tc.tenant_contract_start_date,
                    tc.tenant_contract_valid_to_date,
                    tc.tenant_contract_rent,
@@ -187,6 +188,8 @@ class PaymentHistoryV2Controller extends Controller
                     'subtotal'       => 0,
                     'rent_collected' => 0,
                     'due'            => 0,
+                    // legal settlement waiver: a credit on the contract (legal plan phase 4)
+                    'waived'         => \Modules\Masters\Services\LegalWaiver::forContract($row->contract_id),
                 ];
             }
 
@@ -199,7 +202,7 @@ class PaymentHistoryV2Controller extends Controller
         }
 
         foreach ($groups as &$group) {
-            $group['due'] = $group['contract_value'] - $group['rent_collected'];
+            $group['due'] = $group['contract_value'] - $group['rent_collected'] - $group['waived'];
         }
         unset($group);
 

@@ -21,6 +21,7 @@ use Modules\Masters\Entities\VacantVacancyLoss;
 use Modules\Masters\Entities\Bank;
 use Modules\Masters\Entities\Employee;
 use Modules\Masters\Entities\Legal;
+use Modules\Masters\Services\LegalCase;
 use Modules\Sales\Entities\Tenant;
 use Modules\Sales\Entities\TenantContract;
 use Modules\Sales\Entities\TenantDocument;
@@ -1211,26 +1212,10 @@ class TenantContractEditController extends Controller
       TenantContract::where('id',$tenant_contract_id)->update(['status'=>$tenant_contract_status]);
 
       $tenantContract=TenantContract::where('id',$tenant_contract_id)->first();
-	  $isLegal = false;
+	  // One open case per contract; an existing open case is kept as it is
+	  list($legalCase, $created) = LegalCase::open($tenantContract, 'old leagal case moving', \Auth::user()->id);
 
-	  //check contract already moved to leagal
-	   if (Legal::where('tenant_contract_id', '=', $tenant_contract_id)->exists()) {
-		   
-		   $isLegal = true;
-		}
-	  //$isLegal = Legal::where('tenant_contract_id',$tenant_contract_id).a();
-	  
-	  
-	  if($isLegal == false){
-		   $legalCase=Legal::create([ 
-        'building_id' => $tenantContract->building_id,
-        'unit_id' => $tenantContract->unit_id,
-        'tenant_id'=> $tenantContract->tenant_id,
-        'tenant_contract_id' => $tenant_contract_id,
-        'note' => 'old leagal case moving',
-        'work_flow_processes_code' => 801,
-        'created_by' => \Auth::user()->id
-        ]); 
+	  if($created){
 
 
       $next_process_id=801;
@@ -1304,21 +1289,8 @@ class TenantContractEditController extends Controller
       $next_process_id=801;
       $general =  new General;
 
-      $legalCase=Legal::create([ 
-        'building_id' => $tenantContract->building_id,
-        'unit_id' => $tenantContract->unit_id,
-        'tenant_id'=> $tenantContract->tenant_id,
-        'tenant_contract_id' => $tenant_contract_id,
-        'note' => $tenant_contract_comment,
-        'work_flow_processes_code' => 801,
-        'created_by' => \Auth::user()->id
-        ]); 
-      
-    //check contract already moved to leagal
-      if (Legal::where('tenant_contract_id', '=', $tenant_contract_id)->exists()) {
-       
-        $isLegal = true;
-      }
+      // One open case per contract; an existing open case is kept as it is
+      list($legalCase, $isLegal) = LegalCase::open($tenantContract, $tenant_contract_comment, \Auth::user()->id);
 
     if($isLegal != false){
       
@@ -1337,11 +1309,6 @@ class TenantContractEditController extends Controller
         }
         $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
         $legalCase->save();
-      
-    }
-      
-      
-       
 
       }else{
 
@@ -1380,6 +1347,7 @@ class TenantContractEditController extends Controller
 
       // System template legal_case_received
       LegalMessages::toUsers('legal_case_received', $plmusers, $legalCase->tenantContract);
+    }
  }
 
  session()->flash('success', 'Tenant Contract Status Changed Successfully');

@@ -274,6 +274,36 @@ class TerminationDuesService
      * Recompute from live sources and persist the summary columns.
      * @return array the TerminationDuesSettlement::compute() result plus 'sources', 'pending', 'account_map'
      */
+    /**
+     * Legal settlement waivers (legal plan phase 4) as waiver allocations on the rent line, not stored:
+     * cancelling the waiver drops it again. Only waivers approved after the charges were fixed - the
+     * frozen rent figure already nets out earlier ones (RentOutstanding subtracts live waivers).
+     * Capped at the rent line amount.
+     */
+    private function legalWaiverAllocations(TerminationDues $dues, array $lines)
+    {
+        $rent = null;
+        foreach ($lines as $l) {
+            if ($l['category'] === Cat::RENT) {
+                $rent = $l;
+                break;
+            }
+        }
+        if (!$rent || !$dues->tenant_contract_id) {
+            return [];
+        }
+        $q = DB::table('legal_waivers')->where('tenant_contract_id', $dues->tenant_contract_id)->whereNull('cancelled_at');
+        if ($dues->charges_fixed_at) {
+            $q->where('approved_at', '>', $dues->charges_fixed_at);
+        }
+        $waived = round((float) $q->sum('amount'), 3);
+        if ($waived <= 0) {
+            return [];
+        }
+        return [['id' => -1, 'termination_dues_line_id' => $rent['id'], 'source_type' => 'waiver', 'source_id' => null,
+            'amount' => min($waived, round((float) $rent['amount'], 3)), 'remark' => 'Legal settlement waiver']];
+    }
+
     public function refresh(TerminationDues $dues)
     {
         $dues->loadMissing('lines');
@@ -282,6 +312,7 @@ class TerminationDuesService
             return ['id' => $l->id, 'category' => $l->category, 'owner_team' => $l->owner_team, 'description' => $l->description, 'amount' => $l->amount];
         })->all();
         $manual = TerminationDuesAllocation::whereIn('termination_dues_line_id', array_column($lines, 'id'))->orderBy('id')->get()->toArray();
+        $manual = array_merge($manual, $this->legalWaiverAllocations($dues, $lines));
         $src = $sources->forDues($dues);
 
         $result = TerminationDuesSettlement::compute($lines, $src, $manual);
@@ -318,6 +349,8 @@ class TerminationDuesService
         } catch (\Exception $e) {
             Log::warning('TerminationDues refresh failed for contract ' . $contractId . ': ' . $e->getMessage());
         }
+        // legal settlements watch the same receipts (bounced settlement cheque, settlement fully paid)
+        \Modules\Masters\Services\LegalSettlement::touchContract($contractId);
     }
 
     public static function touchReceipt($receiptId)

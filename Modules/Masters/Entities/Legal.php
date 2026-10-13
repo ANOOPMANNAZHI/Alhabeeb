@@ -62,6 +62,10 @@ class Legal extends Model
     *  legalUser
     *
     */
+    public function lawyer() {
+        return $this->belongsTo('App\User', 'lawyer_user_id');
+    }
+
     public function legalUser() {
         
            return $this->hasMany('Modules\Masters\Entities\LegalUser','legal_id');
@@ -238,7 +242,7 @@ public function scopeLawyerReferBack($query,$request){
       $generalSearch = array(); 
      
     
-        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','params','param','md']) as $key => $val){         
+        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','params','param','md','lc_priority','lc_type','lc_stage','lc_lawyer','lc_hearing']) as $key => $val){         
 
            if($key == 'fieldValue' || $key == 'fieldValues' )
               continue;

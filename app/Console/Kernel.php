@@ -22,6 +22,7 @@ class Kernel extends ConsoleKernel
          \Modules\BackOffice\Console\BulkMessagesSend::class,
          \Modules\BackOffice\Console\RefreshReceivableFollowup::class,
          \Modules\BackOffice\Console\PdcConvertVat::class,
+         \Modules\Masters\Console\LegalSettlementCheck::class,
     ];
 
     /**
@@ -43,6 +44,8 @@ class Kernel extends ConsoleKernel
        $schedule->command('bulk-messages:send')->everyMinute()->withoutOverlapping(10);
 
        $schedule->command('receivables:refresh-followup')->everyFifteenMinutes()->withoutOverlapping(30);
+
+       $schedule->command('legal:settlement-check')->dailyAt('07:00');
 
     }
 

@@ -68,6 +68,6 @@ class ReceivableFiguresTest extends TestCase
 
     public function test_cache_key_has_the_cutoff_and_today()
     {
-        $this->assertSame('receivable_followup:v7:2026-08-31:2026-10-02', RF::key('2026-08-31', '2026-10-02'));
+        $this->assertSame('receivable_followup:v8:2026-08-31:2026-10-02', RF::key('2026-08-31', '2026-10-02'));
     }
 }

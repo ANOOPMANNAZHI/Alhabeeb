@@ -36,7 +36,22 @@
    <div class="col-md-12 col-sm-12">
         <div class="card  card-box">
             
-            <div class="card-body ">    
+            <div class="card-body ">
+             @php $LC = \Modules\Masters\Services\LegalCase::class; @endphp
+             <style>.lc-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}.lc-p1{background:#fde8e8;color:#b42318}.lc-p2{background:#fff4e0;color:#a15c07}.lc-p3{background:#e8f3ff;color:#1d5fa8}</style>
+             <form method="GET" action="{{ route('activeCases') }}" class="row" style="margin-bottom:10px;">
+               <div class="col-sm-2"><select name="lc_priority" class="form-control" aria-label="Priority"><option value="">All priorities</option>
+                 @foreach($LC::PRIORITIES as $k => $v)<option value="{{ $k }}" @if((string) request('lc_priority') === (string) $k) selected @endif>{{ $v }}</option>@endforeach</select></div>
+               <div class="col-sm-2"><select name="lc_type" class="form-control" aria-label="Case type"><option value="">All types</option>
+                 @foreach($LC::TYPES as $k => $v)<option value="{{ $k }}" @if((string) request('lc_type') === (string) $k) selected @endif>{{ $v }}</option>@endforeach</select></div>
+               <div class="col-sm-2"><select name="lc_stage" class="form-control" aria-label="Stage"><option value="">All stages</option>
+                 <option value="none" @if(request('lc_stage') === 'none') selected @endif>Stage not set</option>
+                 @foreach($lcStages as $s)<option value="{{ $s->id }}" @if((string) request('lc_stage') === (string) $s->id) selected @endif>{{ $s->name }}</option>@endforeach</select></div>
+               <div class="col-sm-2"><select name="lc_lawyer" class="form-control" aria-label="Lawyer"><option value="">All lawyers</option>
+                 @foreach($lcLawyers as $id => $nm)<option value="{{ $id }}" @if((string) request('lc_lawyer') === (string) $id) selected @endif>{{ $nm }}</option>@endforeach</select></div>
+               <div class="col-sm-2"><label style="margin-top:8px;font-weight:400;"><input type="checkbox" name="lc_hearing" value="7" @if(request('lc_hearing')) checked @endif> Hearing in next 7 days</label></div>
+               <div class="col-sm-2"><button class="btn btn-primary" type="submit">Filter</button> <a class="btn btn-default" href="{{ route('activeCases') }}">Reset</a></div>
+             </form>
              <h4>
              <div id="pagination_info">
                      @include('includes.pagination_info',['paginator' => $activeCases])         
@@ -53,6 +68,9 @@
                         <th>@sortablelink('tenantContract.tenant_contract_valid_to_date','To',[],[ 'class' => 'sort_url'])</th>
                         <th>@sortablelink('tenantContract.tenant_contract_status','Status',[],[ 'class' => 'sort_url'])</th>
                         <th>@sortablelink('tenantContract.tenant_contract_rent','Rent',[],[ 'class' => 'sort_url'])</th>
+                        <th>@sortablelink('priority','Priority',[],[ 'class' => 'sort_url'])</th>
+                        <th>Stage</th>
+                        <th>@sortablelink('next_hearing_date','Next hearing',[],[ 'class' => 'sort_url'])</th>
                         <th>Action</th>
                     </tr>
                     <tr>
@@ -74,7 +92,8 @@
                             </select>
                         </td>
 
-                        <td><input autocomplete="off" type="text" name="tenant_contract_rent" class="search_fields mob" id="tenant_contract_rent"  value="{{old('tenantContract__tenant_contract_rent')}}" ></td> 
+                        <td><input autocomplete="off" type="text" name="tenant_contract_rent" class="search_fields mob" id="tenant_contract_rent"  value="{{old('tenantContract__tenant_contract_rent')}}" ></td>
+                        <td></td><td></td><td></td>
 
                         <td><!-- <input autocomplete="off" type="text" name="payment_method_id" class="search_fields mob" id="payment_method_id"  value="{{old('payment_method_id')}}" > --></td>
                         <input autocomplete="off" type="hidden" name="url_route" id="url_route"  value="{{route('activeCasesSearch')}}" ></td>
