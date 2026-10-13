@@ -234,11 +234,25 @@
   .lg-filters .lg-filters__actions { margin-left: 0; }
 }
 
-/* ---------- advanced search (legal_search.blade.php, rows cloned by legal_search_js) ---------- */
-.lg-adv-search .icn-add { display: none; }
-.lg-adv-search .form-control { min-height: 36px; padding: 6px 10px; font-size: 13px; border: 1px solid var(--lg-border-strong); border-radius: var(--lg-radius-sm); background: #fff; background-image: none; box-shadow: none; }
-.lg-adv-search .form-control:focus { border-color: var(--lg-primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .18); }
-.lg-adv-search label { font-size: 12px; font-weight: 600; color: var(--lg-text); }
-.lg-adv-search .btn { min-height: 36px; border-radius: var(--lg-radius-sm); font-size: 13px; text-transform: none; box-shadow: none; }
-.lg-adv-search .btn-primary { background: var(--lg-primary); border-color: var(--lg-primary); }
-.lg-adv-search .dataSearchBox, .lg-adv-search .panel-body { padding: 0; background: transparent; border: 0; }
+/* ---------- advanced search (legal_search.blade.php; legal_search_js clones .lg-adv__row) ---------- */
+.lg-adv-search .lg-card__body { padding: 0; }
+.lg-adv__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 14px 16px 4px; }
+.lg-adv__title { font-size: 13px; font-weight: 600; color: var(--lg-ink); }
+.lg-adv__rows { padding: 4px 16px 0; }
+.lg .lg-adv__row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 2fr) minmax(0, 1fr) auto; gap: 12px 16px;
+  align-items: end; margin: 0; padding: 12px 0; border-bottom: 1px dashed var(--lg-border); }
+.lg .lg-adv__row::before, .lg .lg-adv__row::after { display: none; }
+.lg .lg-adv__row:last-child { border-bottom: 0; }
+.lg-adv__cell { display: block; margin: 0; min-width: 0; font-weight: 400; }
+.lg-adv__cell .lg-label { margin-bottom: 6px; }
+.lg-adv__cell--btn { display: flex; align-items: flex-end; }
+.lg-adv__cell--btn .lg-btn { min-width: 84px; }
+.lg-adv__foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--lg-border); background: var(--lg-bg);
+  border-radius: 0 0 var(--lg-radius) var(--lg-radius); }
+@media (max-width: 900px) {
+  .lg .lg-adv__row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .lg-adv__cell--btn { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+  .lg .lg-adv__row { grid-template-columns: minmax(0, 1fr); }
+}
