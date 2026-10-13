@@ -47,7 +47,10 @@ class LegalCase
         'reassigned' => 'Lawyer changed',
         'closed' => 'Closed',
         'reopened' => 'Reopened',
+        'type_changed' => 'Case type changed',
     ];
+
+    const APPLIES_TO = [0 => 'Both types', 1 => 'Occupying only', 2 => 'Vacated only'];
 
     /** Default "handled by" for a building, from its ownership type. */
     public static function defaultHandledBy($buildingId)
@@ -158,5 +161,117 @@ class LegalCase
     public static function outstanding(Legal $legal)
     {
         return \Modules\BackOffice\Services\RentOutstanding::amountForContract($legal->tenant_contract_id);
+    }
+
+    /** Stage master rows a case can be put at: active, for its type, not the final "Closed" (closing has its own rules). */
+    public static function stagesFor(Legal $legal)
+    {
+        // the current stage stays listed even when it no longer applies (eviction turns a case into "vacated")
+        return DB::table('legal_stages')->where('is_final', false)
+            ->where(function ($q) use ($legal) {
+                $q->where(function ($w) use ($legal) {
+                    $w->where('status', 1)->whereIn('applies_to', [0, (int) $legal->case_type]);
+                })->orWhere('id', (int) $legal->stage_id);
+            })
+            ->orderBy('sort_order')->orderBy('id')->get();
+    }
+
+    public static function stage($id)
+    {
+        return $id ? DB::table('legal_stages')->where('id', $id)->first() : null;
+    }
+
+    /** Active case worked by our lawyer: approved by the lawyer (803) and still open. */
+    public static function isActive(Legal $legal)
+    {
+        return !$legal->closed_at && (int) $legal->work_flow_processes_code === 803
+            && (int) ($legal->handled_by ?: self::HANDLED_ALHABIB) === self::HANDLED_ALHABIB;
+    }
+
+    /** Why the case cannot go to this stage, or null. A stage can repeat (another hearing) but not go back. */
+    public static function stageError(Legal $legal, $stage)
+    {
+        if (!self::isActive($legal)) {
+            return 'Stages can be updated only on an active case (approved by the lawyer and not closed).';
+        }
+        if (!$stage || !(int) $stage->status || $stage->is_final) {
+            return 'Pick a valid stage.';
+        }
+        if (!in_array((int) $stage->applies_to, [0, (int) $legal->case_type], true)) {
+            return 'Stage "' . $stage->name . '" does not apply to ' . self::TYPES[(int) $legal->case_type] . ' cases.';
+        }
+        $current = self::stage($legal->stage_id);
+        if ($current && (int) $stage->sort_order < (int) $current->sort_order) {
+            return 'The case is at "' . $current->name . '"; it cannot move back to "' . $stage->name . '".';
+        }
+        return null;
+    }
+
+    /** Stage updates: the assigned lawyer (or anyone with the permission who is not only a lawyer). */
+    public static function canUpdateStage($user, Legal $legal)
+    {
+        if (!$user->can('legal_stage_update')) {
+            return false;
+        }
+        if ($user->hasRole(['super_admin', 'md', 'backoffice_manager'])) {
+            return true;
+        }
+        return !$legal->lawyer_user_id || (int) $legal->lawyer_user_id === (int) $user->id;
+    }
+
+    public static function canView($user)
+    {
+        foreach (['active_cases_view', 'plms_approval_view', 'lawyer_approval_view', 'closed_legal_cases_view', 'handed_over_cases_list', 'legal_case_view'] as $p) {
+            if ($user->can($p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Store uploaded files as legal_documents of a timeline row. */
+    public static function storeFiles($legalId, $updateId, $files, $userId)
+    {
+        $now = now();
+        foreach ((array) $files as $file) {
+            if (!$file) {
+                continue;
+            }
+            $path = \Illuminate\Support\Facades\Storage::putFile('public/LegalDocs', $file);
+            DB::table('legal_documents')->insert(['legal_id' => $legalId, 'update_id' => $updateId,
+                'legal_documents_name' => mb_substr($file->getClientOriginalName(), 0, 250), 'legal_documents_file_name' => $path,
+                'created_by' => $userId, 'created_at' => $now, 'updated_at' => $now]);
+        }
+    }
+
+    /** Files of the case grouped by timeline row (key 0 = files with no timeline row). */
+    public static function documentsByUpdate($legalId)
+    {
+        return DB::table('legal_documents')->where('legal_id', $legalId)->orderBy('id')->get()
+            ->groupBy(function ($d) { return (int) $d->update_id; });
+    }
+
+    /**
+     * Lawyer dashboard: their active cases by stage and hearings in the next 14 days.
+     * $userId null = every lawyer (admins / PLM).
+     */
+    public static function lawyerSummary($userId = null)
+    {
+        $base = DB::table('legal as l')->whereNull('l.closed_at')->where('l.work_flow_processes_code', 803)
+            ->where('l.legal_is_closed', 2)
+            ->when($userId, function ($q) use ($userId) { $q->where('l.lawyer_user_id', $userId); });
+
+        $byStage = (clone $base)->leftJoin('legal_stages as s', 's.id', '=', 'l.stage_id')
+            ->groupBy('s.id', 's.name', 's.sort_order')->orderByRaw('s.sort_order nulls first')
+            ->select('s.id', DB::raw("coalesce(s.name, 'Stage not set') as name"), DB::raw('count(*) as n'))->get();
+
+        $hearings = (clone $base)->whereBetween('l.next_hearing_date', [date('Y-m-d'), date('Y-m-d', strtotime('+14 days'))])
+            ->join('tenant_contracts as tc', 'tc.id', '=', 'l.tenant_contract_id')
+            ->leftJoin('tenant as t', 't.id', '=', 'tc.tenant_id')
+            ->leftJoin('buildings as b', 'b.id', '=', 'l.building_id')
+            ->select('l.id', 'l.next_hearing_date', 'l.court_case_no', 'l.court_name', 'tc.tenant_contract_no', 't.tenant_name', 'b.building_name')
+            ->orderBy('l.next_hearing_date')->limit(20)->get();
+
+        return ['total' => (int) $byStage->sum('n'), 'byStage' => $byStage, 'hearings' => $hearings];
     }
 }

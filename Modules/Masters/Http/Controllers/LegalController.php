@@ -1085,8 +1085,18 @@ public function activeCases(Request $request){
   ->where('legal_is_closed',2)
   ->noteStatus($request)
   ->exceptEndStatus($request)
-                      ->legalUsers()              
+                      ->legalUsers()
                       ->where('legal.work_flow_processes_code', '=', 803)
+                      ->whereNull('legal.closed_at')
+                      ->when($request->lc_priority, function ($q) use ($request) { $q->where('legal.priority', (int) $request->lc_priority); })
+                      ->when($request->lc_type, function ($q) use ($request) { $q->where('legal.case_type', (int) $request->lc_type); })
+                      ->when($request->lc_stage, function ($q) use ($request) {
+                        $request->lc_stage === 'none' ? $q->whereNull('legal.stage_id') : $q->where('legal.stage_id', (int) $request->lc_stage);
+                      })
+                      ->when($request->lc_lawyer, function ($q) use ($request) { $q->where('legal.lawyer_user_id', (int) $request->lc_lawyer); })
+                      ->when($request->lc_hearing, function ($q) {
+                        $q->whereBetween('legal.next_hearing_date', [date('Y-m-d'), date('Y-m-d', strtotime('+7 days'))]);
+                      })
                       ->sortable()
                       ->paginate($this->noOfRecord);
 
@@ -1095,7 +1105,9 @@ public function activeCases(Request $request){
   if(isset($request->ajax))
     return view('masters::Legal.active_cases_list_ajax',compact('activeCases','request','route'));
 
-  return view('masters::Legal.active_cases_list',compact('activeCases','request','enquiry_fields','operations','name','quick_url'));
+  $lcStages = DB::table('legal_stages')->where('is_final', false)->orderBy('sort_order')->get();
+  $lcLawyers = LegalCase::lawyers();
+  return view('masters::Legal.active_cases_list',compact('activeCases','request','enquiry_fields','operations','name','quick_url','lcStages','lcLawyers'));
 
 }
 

@@ -23,6 +23,7 @@
     <div class="card card-box salesLeadBox">
      <div class="card-head">
       <h4>
+        <a href="{{ route('legal.case', $plmsApproval->id) }}" class="btn btn-circle btn-default align-right">Case page</a>
         @if(!$plmsApproval->closed_at)
         @can('plms_refer_back')
         @if($plmsApproval->tenantContract->status !=0)

@@ -17,6 +17,7 @@
 <div class="card card-box salesLeadBox">
   <div class="card-head">
     <h4>
+     <a href="{{ route('legal.case', $lawyerApproval->id) }}" class="btn btn-circle btn-default align-right">Case page</a>
      @if(!$lawyerApproval->closed_at)
      @can('lawyer_close')
      <button type="button" class="btn btn-circle btn-danger align-right close_type" title="Close"  data-id="{{$lawyerApproval->id}}" data-flow-id="801">Close</button>

@@ -61,7 +61,7 @@
                 <td>{{ $case->handover_ref }}</td>
                 <td>{{ $case->handover_date ? \Carbon\Carbon::parse($case->handover_date)->format('d/m/Y') : '' }}</td>
                 <td>
-                  <a href="{{ route('plmsApprovalShow', $case->id) }}" title="View" class="btn btn-tbl-view btn-xs"><i class="fa fa-eye"></i></a>
+                  <a href="{{ route('legal.case', $case->id) }}" title="View" class="btn btn-tbl-view btn-xs"><i class="fa fa-eye"></i></a>
                 </td>
               </tr>
               @empty

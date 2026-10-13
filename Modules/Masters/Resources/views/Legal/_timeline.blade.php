@@ -8,8 +8,10 @@
   .lc-timeline .lc-t-head { font-size:13px; color:#1f2d3d; font-weight:600; }
   .lc-timeline .lc-t-meta { font-size:12px; color:#7a8699; font-weight:400; margin-left:6px; }
   .lc-timeline .lc-t-note { font-size:13px; color:#3d4a5c; margin-top:2px; white-space:pre-line; }
+  .lc-timeline .lc-t-files a { display:inline-block; margin:4px 12px 0 0; font-size:12px; }
+  .lc-timeline li.lc-k-stage:before { background:#3b82c4; }
 </style>
-<div class="card-head"><div class="col"><h4>Case Timeline</h4></div></div>
+@if(empty($noTimelineHead))<div class="card-head"><div class="col"><h4>Case Timeline</h4></div></div>@endif
 @if(count($timeline))
 <ul class="lc-timeline">
   @foreach($timeline as $t)
@@ -18,6 +20,13 @@
       <span class="lc-t-meta">{{ $t->username }} &middot; {{ \Carbon\Carbon::parse($t->created_at)->format('d/m/Y h:i A') }}</span>
     </div>
     @if($t->note)<div class="lc-t-note">{{ $t->note }}</div>@endif
+    @if(isset($docs) && isset($docs[$t->id]))
+      <div class="lc-t-files">
+        @foreach($docs[$t->id] as $doc)
+          <a target="_blank" href="{{ asset('storage/app/' . $doc->legal_documents_file_name) }}"><i class="fa fa-paperclip" aria-hidden="true"></i> {{ $doc->legal_documents_name }}</a>
+        @endforeach
+      </div>
+    @endif
   </li>
   @endforeach
 </ul>
