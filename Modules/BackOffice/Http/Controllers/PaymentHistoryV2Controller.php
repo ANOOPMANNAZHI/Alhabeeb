@@ -107,9 +107,11 @@ class PaymentHistoryV2Controller extends Controller
     }
 
     /**
-     * Every posted receipt (rent, deposit and general) for one
-     * building/unit/tenant. status 3 = posted, as the original Jasper report
-     * had it. receipts_generation_type: 0 rent, 1 general, 2 deposit - see
+     * Every live receipt (rent, deposit and general) for one
+     * building/unit/tenant, posted or not. receipts_generation_status:
+     * 0 waiting approval, 1 approved, 2 cancelled (PDC bounce/exchange),
+     * 3 posted. Cancelled ones and rejected ones (approval_status 4) are
+     * left out. receipts_generation_type: 0 rent, 1 general, 2 deposit - see
      * ReceiptsGeneration::getReceiptsGenerationTypeNameAttribute().
      */
     private function reportRows($buildingId, $unitId, $tenantId)
@@ -136,7 +138,12 @@ class PaymentHistoryV2Controller extends Controller
                         WHEN 1 THEN 'Cheque'
                         WHEN 3 THEN 'Bank Transfer'
                         ELSE 'Cash'
-                   END AS payment_method
+                   END AS payment_method,
+                   CASE rg.receipts_generation_status
+                        WHEN 3 THEN 'Posted'
+                        WHEN 1 THEN 'Approved'
+                        ELSE 'Pending'
+                   END AS receipt_status
             FROM buildings b
             LEFT JOIN units u             ON b.id  = u.building_id
             LEFT JOIN tenant_contracts tc ON u.id  = tc.unit_id
@@ -145,7 +152,8 @@ class PaymentHistoryV2Controller extends Controller
             WHERE b.id  = ?
               AND u.id  = ?
               AND t.id  = ?
-              AND rg.receipts_generation_status = '3'
+              AND rg.receipts_generation_status IN (0, 1, 3)
+              AND rg.receipts_generation_approval_status <> 4
               AND rg.deleted_at IS NULL
             ORDER BY tc.tenant_contract_no, rg.receipts_generation_receipt_date, rg.id
         ", [$buildingId, $unitId, $tenantId]);

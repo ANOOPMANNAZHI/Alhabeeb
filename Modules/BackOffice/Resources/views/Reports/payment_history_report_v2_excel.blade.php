@@ -15,9 +15,9 @@
 <table>
   <thead>
     <tr>
-      <td colspan="9" style="font-size:20px;font-weight:bold;color:#1F3864;text-align:center;">Tenant Vouchers</td>
+      <td colspan="10" style="font-size:20px;font-weight:bold;color:#1F3864;text-align:center;">Tenant Vouchers</td>
     </tr>
-    <tr><td colspan="9"></td></tr>
+    <tr><td colspan="10"></td></tr>
     <tr>
       <td style="{{ $lblStyle }}">Building</td>
       <td colspan="3" style="{{ $valStyle }}">{{ $buildingName }}</td>
@@ -27,9 +27,9 @@
       <td style="{{ $valStyle }}">{{ $tenantName }}</td>
     </tr>
     <tr>
-      <td colspan="9" style="font-size:11px;color:#8A94A6;">Generated {{ $generatedAt }} by {{ $user }}</td>
+      <td colspan="10" style="font-size:11px;color:#8A94A6;">Generated {{ $generatedAt }} by {{ $user }}</td>
     </tr>
-    <tr><td colspan="9"></td></tr>
+    <tr><td colspan="10"></td></tr>
     <tr>
       <th style="{{ $thStyle }}">#</th>
       <th style="{{ $thStyle }}">Receipt No</th>
@@ -39,13 +39,14 @@
       <th style="{{ $thStyle }}">Period To</th>
       <th style="{{ $thStyle }}">Payment Method</th>
       <th style="{{ $thStyle }}">Cheque No</th>
+      <th style="{{ $thStyle }}">Status</th>
       <th style="{{ $thStyle }}text-align:right;">Amount</th>
     </tr>
   </thead>
   <tbody>
     @forelse($groups as $group)
     <tr>
-      <td colspan="9" style="{{ $headStyle }}">
+      <td colspan="10" style="{{ $headStyle }}">
         Contract No : {{ $group['contract_no'] }}@if($group['start_date']) &bull; {{ \Carbon\Carbon::parse($group['start_date'])->format('d/m/Y') }} to {{ $group['end_date'] ? \Carbon\Carbon::parse($group['end_date'])->format('d/m/Y') : '' }}@endif &bull; Rent : {{ $group['rent'] }} &bull; Contract Value : {{ $group['contract_value'] }}
       </td>
     </tr>
@@ -60,30 +61,31 @@
       <td style="{{ $rowStyle }}">{{ $row->eff_to ? \Carbon\Carbon::parse($row->eff_to)->format('d/m/Y') : '' }}</td>
       <td style="{{ $rowStyle }}">{{ $row->payment_method }}</td>
       <td style="{{ $rowStyle }}">{{ $row->cheque_no }}</td>
+      <td style="{{ $rowStyle }}">{{ $row->receipt_status }}</td>
       {{-- numeric, not a string, so Excel can sum the column --}}
       <td style="{{ $rowNum }}">{{ $row->amount }}</td>
     </tr>
     @endforeach
     <tr>
-      <td colspan="8" style="{{ $subStyle }}">Subtotal &mdash; {{ $group['contract_no'] }} ({{ $group['count'] }} receipt{{ $group['count'] == 1 ? '' : 's' }})</td>
+      <td colspan="9" style="{{ $subStyle }}">Subtotal &mdash; {{ $group['contract_no'] }} ({{ $group['count'] }} receipt{{ $group['count'] == 1 ? '' : 's' }})</td>
       <td style="{{ $subStyle }}text-align:right;">{{ $group['subtotal'] }}</td>
     </tr>
     <tr>
-      <td colspan="8" style="{{ $subStyle }}">Due &mdash; {{ $group['contract_no'] }} (Contract Value {{ $group['contract_value'] }} &minus; Rent Collected {{ $group['rent_collected'] }})</td>
+      <td colspan="9" style="{{ $subStyle }}">Due &mdash; {{ $group['contract_no'] }} (Contract Value {{ $group['contract_value'] }} &minus; Rent Collected {{ $group['rent_collected'] }})</td>
       <td style="{{ $subStyle }}text-align:right;">{{ $group['due'] }}</td>
     </tr>
     {{-- blank row separates one contract block from the next --}}
-    <tr><td colspan="9"></td></tr>
+    <tr><td colspan="10"></td></tr>
     @empty
-    <tr><td colspan="9" style="font-size:12px;text-align:center;color:#8A94A6;">No records found for this selection.</td></tr>
+    <tr><td colspan="10" style="font-size:12px;text-align:center;color:#8A94A6;">No records found for this selection.</td></tr>
     @endforelse
 
     <tr>
-      <td colspan="8" style="{{ $grandStyle }}">GRAND TOTAL &mdash; {{ $receiptCount }} receipt{{ $receiptCount == 1 ? '' : 's' }} across {{ $contractCount }} contract{{ $contractCount == 1 ? '' : 's' }}</td>
+      <td colspan="9" style="{{ $grandStyle }}">GRAND TOTAL &mdash; {{ $receiptCount }} receipt{{ $receiptCount == 1 ? '' : 's' }} across {{ $contractCount }} contract{{ $contractCount == 1 ? '' : 's' }}</td>
       <td style="{{ $grandStyle }}text-align:right;">{{ $grandTotal }}</td>
     </tr>
     <tr>
-      <td colspan="8" style="{{ $grandStyle }}">TOTAL DUE</td>
+      <td colspan="9" style="{{ $grandStyle }}">TOTAL DUE</td>
       <td style="{{ $grandStyle }}text-align:right;">{{ $grandDue }}</td>
     </tr>
   </tbody>
