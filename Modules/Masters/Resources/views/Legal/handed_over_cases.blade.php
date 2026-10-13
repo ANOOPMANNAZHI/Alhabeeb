@@ -20,7 +20,7 @@
         <form method="GET" action="{{ route('handedOverLegalCases') }}" class="row" style="margin-bottom:12px;">
           <div class="col-sm-3">
             <select name="handled_by" class="form-control" aria-label="Handed over to">
-              <option value="">All (Landlord, Government, MERA)</option>
+              <option value="">All</option>
               @foreach([2, 3, 4] as $k)
                 <option value="{{ $k }}" @if((int) $request->handled_by === $k) selected @endif>{{ $LC::HANDLED_BY[$k] }}</option>
               @endforeach

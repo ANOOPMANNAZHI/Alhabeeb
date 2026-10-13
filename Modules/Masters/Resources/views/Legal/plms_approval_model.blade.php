@@ -40,7 +40,7 @@
                       </select>
                     </div>
                   </div>
-                  <div class="col-sm-6 lc-alhabib">
+                  <div class="col-sm-6 lc-alhabib" @if($handled !== 1) style="display:none" @endif>
                     <div class="form-group">
                       <label for="lc_case_type">Case type</label>
                       <select class="form-control" id="lc_case_type" name="case_type" required>
@@ -50,7 +50,7 @@
                       </select>
                     </div>
                   </div>
-                  <div class="col-sm-6 lc-alhabib">
+                  <div class="col-sm-6 lc-alhabib" @if($handled !== 1) style="display:none" @endif>
                     <div class="form-group">
                       <label for="lc_priority">Priority</label>
                       <select class="form-control" id="lc_priority" name="priority" required>
@@ -61,7 +61,7 @@
                       </select>
                     </div>
                   </div>
-                  <div class="col-sm-6 lc-alhabib">
+                  <div class="col-sm-6 lc-alhabib" @if($handled !== 1) style="display:none" @endif>
                     <div class="form-group">
                       <label for="lc_lawyer">Lawyer</label>
                       <select class="form-control" id="lc_lawyer" name="lawyer_user_id" required>
@@ -73,22 +73,22 @@
                       @if(!count($lawyers))<small class="text-danger">No active user has the legal_advisor role.</small>@endif
                     </div>
                   </div>
-                  <div class="col-sm-12 lc-handover">
+                  <div class="col-sm-12 lc-handover" @if($handled === 1) style="display:none" @endif>
                     <p class="text-muted" style="margin-bottom:8px;">The case is handed over and closed on our side. The contract stays in legal.</p>
                   </div>
-                  <div class="col-sm-6 lc-handover">
+                  <div class="col-sm-6 lc-handover" @if($handled === 1) style="display:none" @endif>
                     <div class="form-group">
                       <label for="lc_handed_to">Handed to (office / lawyer name)</label>
                       <input type="text" class="form-control" id="lc_handed_to" name="handed_to_name" maxlength="150" value="{{ $legal->handed_to_name }}">
                     </div>
                   </div>
-                  <div class="col-sm-3 lc-handover">
+                  <div class="col-sm-3 lc-handover" @if($handled === 1) style="display:none" @endif>
                     <div class="form-group">
                       <label for="lc_handover_ref">Reference / letter no.</label>
                       <input type="text" class="form-control" id="lc_handover_ref" name="handover_ref" maxlength="100" value="{{ $legal->handover_ref }}">
                     </div>
                   </div>
-                  <div class="col-sm-3 lc-handover">
+                  <div class="col-sm-3 lc-handover" @if($handled === 1) style="display:none" @endif>
                     <div class="form-group">
                       <label for="lc_handover_date">Handover date</label>
                       <input type="date" class="form-control" id="lc_handover_date" name="handover_date" max="{{ date('Y-m-d') }}" value="{{ date('Y-m-d') }}">
