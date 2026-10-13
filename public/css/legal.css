@@ -201,6 +201,8 @@
 .lg-file:hover { border-color: var(--lg-primary); }
 
 /* ---------- tabs ---------- */
+/* the ul also carries .nav: Bootstrap 4 tabs look the list up by ".nav, .list-group" */
+.lg .nav.lg-tabs { flex-wrap: nowrap; }
 .lg-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--lg-border); padding: 0 12px; overflow-x: auto; margin: 0; list-style: none; }
 .lg-tabs a { display: inline-block; padding: 10px 12px; font-size: 13px; font-weight: 500; color: var(--lg-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; text-decoration: none; }
 .lg-tabs a:hover { color: var(--lg-ink); }
