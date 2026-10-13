@@ -243,6 +243,8 @@ class LegalCaseController extends Controller
                 . ($fees > 0 ? ' (incl. fees ' . numberFormat($fees) . ')' : '')
                 . ($waiver > 0 ? ', waiver ' . numberFormat($waiver) . ' - ' . $request->waiver_reason : '') . '.', $user->id);
         });
+        // the waiver is a credit on the contract: it leaves every receivable from now on
+        \Modules\Masters\Services\LegalWaiver::record(LegalSettlement::current($legal->id), $legal->tenant_contract_id, $user->id);
         LegalSettlement::notify($legal, 'legal_settlement_verified', ['amount' => numberFormat($total)], 'Settlement verified', true, false);
         LegalSettlement::refresh(LegalSettlement::current($legal->id));
 
@@ -313,10 +315,9 @@ class LegalCaseController extends Controller
             $new->update(['case_type' => $old->case_type, 'handled_by' => $old->handled_by, 'priority' => $old->priority,
                 'lawyer_user_id' => $old->lawyer_user_id, 'court_case_no' => $old->court_case_no, 'court_name' => $old->court_name]);
             LegalCase::log($old->id, 'reopened', 'Reopened as case #' . $new->id . ': ' . $request->reopen_reason, $user->id);
-            if ($request->waiver_no_longer_applies) {
-                DB::table('legal_settlements')->where('legal_id', $old->id)->where('waiver_amount', '>', 0)->whereNull('waiver_cancelled_at')
-                    ->update(['waiver_cancelled_at' => now()]);
-                LegalCase::log($old->id, 'settlement', 'Waiver no longer applies (tenant broke the settlement).', $user->id);
+            if ($request->waiver_no_longer_applies
+                && \Modules\Masters\Services\LegalWaiver::cancel($old->id, null, 'Reopened as case #' . $new->id)) {
+                LegalCase::log($old->id, 'settlement', 'Waiver no longer applies (tenant broke the settlement); the amount is owed again.', $user->id);
             }
             $this->assignPlm($new, $user);
             return $new;

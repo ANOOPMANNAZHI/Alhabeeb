@@ -199,7 +199,7 @@
             <td class="num">{{ numberFormat($group['subtotal']) }}</td>
         </tr>
         <tr class="subtotal">
-            <td colspan="9">Due &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} (Contract Value {{ numberFormat($group['contract_value']) }} &minus; Rent Collected {{ numberFormat($group['rent_collected']) }})</td>
+            <td colspan="9">Due &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} (Contract Value {{ numberFormat($group['contract_value']) }} &minus; Rent Collected {{ numberFormat($group['rent_collected']) }}@if($group['waived'] > 0) &minus; Legal Waiver {{ numberFormat($group['waived']) }}@endif)</td>
             <td class="num">{{ numberFormat($group['due']) }}</td>
         </tr>
         <tr class="spacer"><td colspan="10"></td></tr>

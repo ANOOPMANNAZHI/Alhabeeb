@@ -211,6 +211,10 @@ class LegalSettlement
             if ($worst > self::BROKEN_DAYS) {
                 DB::table('legal_settlements')->where('id', $settlement->id)->update(['status' => self::BROKEN, 'broken_at' => $now, 'updated_at' => $now]);
                 LegalCase::log($legal->id, 'settlement_broken', 'Settlement broken: an installment is ' . $worst . ' days overdue. The case is active again.', 1);
+                // the deal is off: its waiver no longer applies and the amount is owed again
+                if (LegalWaiver::cancel($legal->id, $settlement->id, 'Settlement broken')) {
+                    LegalCase::log($legal->id, 'settlement', 'Waiver of ' . numberFormat($settlement->waiver_amount) . ' cancelled with the broken settlement.', 1);
+                }
                 if ($notify) {
                     self::notify($legal, 'legal_settlement_broken', ['days' => self::BROKEN_DAYS], 'Settlement broken');
                 }

@@ -482,7 +482,8 @@ function getReceivables($fromDate , $validToDate, $nextDays,$tenantContractRent,
 
 	$sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$tenantContractId)->where('receipts_generation_status',3)->sum('receipts_generation_amt');
 
-	$totalRentAmount = $totalRent-$sumOfReceipt;
+	// legal settlement waiver is a credit on the contract (legal plan phase 4)
+	$totalRentAmount = $totalRent-$sumOfReceipt-\Modules\Masters\Services\LegalWaiver::forContract($tenantContractId);
 
 
 	return numberFormat($totalRentAmount); 

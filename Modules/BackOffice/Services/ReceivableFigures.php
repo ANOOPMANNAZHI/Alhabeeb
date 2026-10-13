@@ -42,10 +42,10 @@ class ReceivableFigures
         return ($end->gt($today) ? $today : $end)->format('Y-m-d');
     }
 
-    /** v7: RentLedger figures, payments up to the day they were computed; rent; company buildings and legal out. */
+    /** v8: as v7 (RentLedger figures, payments up to the day computed; rent; company buildings and legal out), balances net of legal waivers. */
     public static function key($asOn, $today = null)
     {
-        return 'receivable_followup:v7:' . $asOn . ':' . Carbon::parse($today ?: Carbon::today())->format('Y-m-d');
+        return 'receivable_followup:v8:' . $asOn . ':' . Carbon::parse($today ?: Carbon::today())->format('Y-m-d');
     }
 
     /**

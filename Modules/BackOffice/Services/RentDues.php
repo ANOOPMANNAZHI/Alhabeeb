@@ -36,7 +36,7 @@ class RentDues
     public function forDate($asOn, $receiptsUpTo, array $filters = [])
     {
         $where = '';
-        $bind = [$receiptsUpTo, $asOn, $asOn];
+        $bind = [$receiptsUpTo, $receiptsUpTo, $asOn, $asOn];   // waivers up to, receipts up to, terminations, effective
         foreach (self::FILTERS as $key => $col) {
             if (isset($filters[$key]) && $filters[$key] !== '') {
                 $where .= " AND $col = ?";
@@ -74,7 +74,10 @@ class RentDues
                    (SELECT sum(rl.receipts_generation_amt) FROM receipts_generation rl
                      WHERE rl.tenant_contract_id = tc.id AND rl.receipts_generation_type = '0' AND rl.deleted_at IS NULL
                        AND rl.receipts_generation_approval_status IN (3, 6) AND rl.receipts_generation_status <> 2
-                       AND rl.receipts_generation_receipt_date::date = r.last_received::date) AS last_amount
+                       AND rl.receipts_generation_receipt_date::date = r.last_received::date) AS last_amount,
+                   (SELECT coalesce(sum(lw.amount), 0) FROM legal_waivers lw
+                     WHERE lw.tenant_contract_id = tc.id AND lw.cancelled_at IS NULL
+                       AND lw.approved_at::date <= ?::date) AS waived
                    $legalCol
               FROM tenant_contracts tc
               JOIN buildings b ON b.id = tc.building_id AND b.building_status = '1'
@@ -102,7 +105,12 @@ class RentDues
 
         $out = [];
         foreach ($rows as $r) {
-            $r->ledger = RentLedger::build($r, $asOn, $r->received);
+            // a legal settlement waiver settles rent like a receipt (oldest lines first) but is kept apart
+            // from 'received' (legal plan phase 4)
+            $r->waived = round((float) $r->waived, 3);
+            $r->ledger = RentLedger::build($r, $asOn, (float) $r->received + $r->waived);
+            $r->ledger['received'] = round((float) $r->received, 3);   // money only; the balance is net of the waiver
+            $r->ledger['waived'] = $r->waived;
             // keep unpaid lines only: consumers age unpaid lines, totals are unaffected
             $r->ledger['lines'] = array_values(array_filter($r->ledger['lines'], function ($l) {
                 return $l['unpaid'] > 0;
