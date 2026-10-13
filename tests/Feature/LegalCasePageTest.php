@@ -106,7 +106,7 @@ class LegalCasePageTest extends TestCase
     public function test_filed_stage_needs_case_no_and_records_court_and_claim()
     {
         $legal = $this->activeCase();
-        $this->stage($this->lawyer, $legal, 'filed')->assertSessionHasErrors('court_case_no');
+        $this->stage($this->lawyer, $legal, 'filed')->assertSessionHasErrorsIn('modal', 'court_case_no');
 
         $this->stage($this->lawyer, $legal, 'filed', ['court_case_no' => 'RDC/2026/551', 'court_name' => 'Rental Dispute Committee',
             'next_hearing_date' => date('Y-m-d', strtotime('+10 days')), 'files' => [UploadedFile::fake()->create('filing.pdf', 100)]])
@@ -131,7 +131,7 @@ class LegalCasePageTest extends TestCase
         $legal = $this->activeCase();
         $this->stage($this->lawyer, $legal, 'hearing');
         $this->stage($this->lawyer, $legal, 'hearing')->assertSessionHasNoErrors();   // another hearing
-        $this->stage($this->lawyer, $legal, 'notice')->assertSessionHas('error');
+        $this->stage($this->lawyer, $legal, 'notice')->assertSessionHas('modal_error');
         $this->assertEquals($this->stageId('hearing'), $legal->fresh()->stage_id);
         $this->assertEquals(2, DB::table('legal_case_updates')->where('legal_id', $legal->id)->where('kind', 'stage')->count());
     }
@@ -139,7 +139,7 @@ class LegalCasePageTest extends TestCase
     public function test_judgment_on_occupying_case_needs_eviction_answer_and_eviction_turns_it_into_recovery()
     {
         $legal = $this->activeCase();
-        $this->stage($this->lawyer, $legal, 'judgment', ['judgment_amount' => 1500])->assertSessionHasErrors('eviction_ordered');
+        $this->stage($this->lawyer, $legal, 'judgment', ['judgment_amount' => 1500])->assertSessionHasErrorsIn('modal', 'eviction_ordered');
         $this->stage($this->lawyer, $legal, 'judgment', ['judgment_amount' => 1500, 'eviction_ordered' => 1]);
         $legal = $legal->fresh();
         $this->assertEquals(1500, (float) $legal->judgment_amount);

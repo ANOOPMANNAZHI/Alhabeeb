@@ -16,6 +16,15 @@
 <div class="lg">
   <div class="lg-crumbs">{{ Breadcrumbs::render('legal.case', $legal) }}</div>
 
+  @php
+    $lgModals = array_keys(array_filter(['lcpStageModal' => $canStage, 'lcsEnterModal' => $canEnterSettlement,
+        'lcsVerifyModal' => $canVerify, 'lcsCloseModal' => $canClose, 'lcsReopenModal' => $canReopen]));
+    $lgOrphanError = old('_modal') && !in_array(old('_modal'), $lgModals, true)
+        && (session('modal_error') || $errors->getBag('modal')->any());
+  @endphp
+  @if($lgOrphanError)
+    <div class="lg-alert lg-alert--danger" role="alert"><div>{{ session('modal_error') ?: implode(' ', $errors->getBag('modal')->all()) }}</div></div>
+  @endif
   <header class="lg-page-head">
     <div>
       <h1 class="lg-page-head__title">{{ $contract->tenant_contract_no ?? '' }} &middot; {{ $contract->tenant->tenant_name ?? '' }}</h1>
@@ -150,6 +159,7 @@
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
+          @include('masters::Legal._modal_errors', ['modalId' => 'lcpStageModal'])
           <div class="lg-form-grid">
             <div class="lg-field span-2">
               <label for="lcp_stage" class="lg-label">Stage</label>

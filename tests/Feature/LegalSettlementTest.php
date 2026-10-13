@@ -109,7 +109,7 @@ class LegalSettlementTest extends TestCase
     public function test_lawyer_enters_out_of_court_settlement_and_installments_must_add_up()
     {
         $legal = $this->activeCase();
-        $this->enter($legal, ['due_amount' => [450, 400]])->assertSessionHas('error');
+        $this->enter($legal, ['due_amount' => [450, 400]])->assertSessionHas('modal_error');
         $this->assertNull($this->settlement($legal));
 
         $this->enter($legal)->assertRedirect(route('legal.case', $legal->id));
@@ -125,7 +125,7 @@ class LegalSettlementTest extends TestCase
     public function test_court_decided_needs_judgment_stage()
     {
         $legal = $this->activeCase();
-        $this->enter($legal, ['settlement_type' => 2])->assertSessionHas('error');
+        $this->enter($legal, ['settlement_type' => 2])->assertSessionHas('modal_error');
         $this->as($this->lawyer)->post(route('legal.case.stage', $legal->id), ['stage_id' => DB::table('legal_stages')->where('code', 'judgment')->value('id'),
             'event_date' => date('Y-m-d'), 'note' => 'Judgment', 'judgment_amount' => 900, 'eviction_ordered' => 0]);
         $this->enter($legal, ['settlement_type' => 2])->assertSessionHasNoErrors();
@@ -137,7 +137,7 @@ class LegalSettlementTest extends TestCase
         $legal = $this->activeCase();
         $this->enter($legal);
         $this->as($this->plm)->post(route('legal.case.settlement.verify', $legal->id), ['decision' => 'sendback', 'sendback_reason' => ''])
-            ->assertSessionHasErrors('sendback_reason');
+            ->assertSessionHasErrorsIn('modal', 'sendback_reason');
         $this->as($this->plm)->post(route('legal.case.settlement.verify', $legal->id), ['decision' => 'sendback', 'sendback_reason' => 'Dates too far'])
             ->assertRedirect(route('legal.case', $legal->id));
         $s = $this->settlement($legal);
@@ -155,8 +155,8 @@ class LegalSettlementTest extends TestCase
     {
         $legal = $this->activeCase();
         $this->enter($legal);
-        $this->verify($legal, ['waiver_amount' => 300])->assertSessionHas('error');                  // waiver needs a reason
-        $this->verify($legal, ['fees_recovered' => 50])->assertSessionHas('error');                   // rows no longer add up
+        $this->verify($legal, ['waiver_amount' => 300])->assertSessionHas('modal_error');                  // waiver needs a reason
+        $this->verify($legal, ['fees_recovered' => 50])->assertSessionHas('modal_error');                   // rows no longer add up
         $this->verify($legal, ['waiver_amount' => 300, 'waiver_reason' => 'Paying quickly', 'fees_recovered' => 50,
             'due_date' => [date('Y-m-d', strtotime('+10 days')), date('Y-m-d', strtotime('+40 days'))], 'due_amount' => [500, 450]])
             ->assertRedirect(route('legal.case', $legal->id));
@@ -175,8 +175,8 @@ class LegalSettlementTest extends TestCase
         $cid = $legal->tenant_contract_id;
 
         // nothing settled yet: paid in full is refused, withdrawn is refused (there is a settlement)
-        $this->as($this->plm)->post(route('legal.case.close', $legal->id), ['close_reason' => 'paid_in_full'])->assertSessionHas('error');
-        $this->as($this->plm)->post(route('legal.case.close', $legal->id), ['close_reason' => 'withdrawn', 'close_note' => 'x'])->assertSessionHas('error');
+        $this->as($this->plm)->post(route('legal.case.close', $legal->id), ['close_reason' => 'paid_in_full'])->assertSessionHas('modal_error');
+        $this->as($this->plm)->post(route('legal.case.close', $legal->id), ['close_reason' => 'withdrawn', 'close_note' => 'x'])->assertSessionHas('modal_error');
 
         $this->receipt($cid, 999, date('Y-m-d', strtotime('-5 days')));   // before the agreement: not counted
         $this->receipt($cid, 600, date('Y-m-d'));
@@ -254,7 +254,7 @@ class LegalSettlementTest extends TestCase
         $this->assertNotNull($this->settlement($legal)->shortfall_alerted_at);
         $this->as($this->plm)->get(route('legal.case', $legal->id))->assertSee('Reopen as new case');
 
-        $this->as($this->plm)->post(route('legal.case.reopen', $legal->id), ['reopen_reason' => ''])->assertSessionHasErrors('reopen_reason');
+        $this->as($this->plm)->post(route('legal.case.reopen', $legal->id), ['reopen_reason' => ''])->assertSessionHasErrorsIn('modal', 'reopen_reason');
         $this->as($this->plm)->post(route('legal.case.reopen', $legal->id), ['reopen_reason' => 'Cheque bounced', 'waiver_no_longer_applies' => 1]);
         $new = Legal::where('tenant_contract_id', $cid)->whereNull('closed_at')->first();
         $this->assertNotNull($new);
@@ -274,7 +274,7 @@ class LegalSettlementTest extends TestCase
         $this->assertNull($legal->fresh()->closed_at);
         $this->assertNotEquals(1, $legal->fresh()->legal_is_closed);
 
-        $this->as($this->plm)->post(route('legal.case.close', $legal->id), ['close_reason' => 'withdrawn'])->assertSessionHas('error');
+        $this->as($this->plm)->post(route('legal.case.close', $legal->id), ['close_reason' => 'withdrawn'])->assertSessionHas('modal_error');
         $this->as($this->lawyer)->post(route('legal.case.close', $legal->id), ['close_reason' => 'withdrawn', 'close_note' => 'x'])->assertStatus(403);
         $this->as($this->plm)->post(route('legal.case.close', $legal->id), ['close_reason' => 'withdrawn', 'close_note' => 'Tenant left, nothing to recover']);
         $this->assertEquals('withdrawn', $legal->fresh()->close_reason);
@@ -308,5 +308,23 @@ class LegalSettlementTest extends TestCase
         $this->verify($legal);
         $this->as($this->lawyer)->get(route('legal.case', $legal->id))->assertSee('Receipts since')->assertSee('450.000');
         $this->assertEquals(450, LegalSettlement::schedule($this->settlement($legal), $cid)['collected']);
+    }
+
+    public function test_verify_errors_show_inside_the_modal_not_behind_it()
+    {
+        $legal = $this->activeCase();
+        $this->enter($legal);
+        $rows = LegalSettlement::installments($this->settlement($legal)->id);
+        $html = $this->as($this->plm)->from(route('legal.case', $legal->id))->followingRedirects()->post(route('legal.case.settlement.verify', $legal->id), [
+            '_modal' => 'lcsVerifyModal', 'decision' => 'verify', 'waiver_amount' => 300, 'fees_recovered' => 0,
+            'due_date' => $rows->pluck('due_date')->all(), 'due_amount' => $rows->pluck('amount')->all()])->getContent();
+
+        $modalAt = strpos($html, 'id="lcsVerifyModal"');
+        $this->assertNotFalse($modalAt);
+        $errorAt = strpos($html, 'Give the reason for the waiver.');
+        $this->assertNotFalse($errorAt, 'error is shown');
+        $this->assertGreaterThan($modalAt, $errorAt, 'error is inside the verify modal');
+        $this->assertSame(1, substr_count($html, 'Give the reason for the waiver.'), 'not also behind the modal');
+        $this->assertContains('"lcsVerifyModal"', $html);   // the script reopens it
     }
 }

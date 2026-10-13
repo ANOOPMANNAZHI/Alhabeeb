@@ -65,6 +65,10 @@ class LegalCaseController extends Controller
         ]);
     }
 
+    /*
+     * The case page actions below post from modals: their errors go to the 'modal' error bag / 'modal_error'
+     * flash so the reopened modal shows them (the layout's page alert reads only the default bag and 'error').
+     */
     public function stageStore(Request $request, $id)
     {
         $legal = Legal::findOrFail($id);
@@ -73,7 +77,7 @@ class LegalCaseController extends Controller
 
         $stage = LegalCase::stage((int) $request->stage_id);
         if ($error = LegalCase::stageError($legal, $stage)) {
-            return redirect()->back()->withInput()->with('error', $error);
+            return redirect()->back()->withInput()->with('modal_error', $error);
         }
         $rules = [
             'event_date' => 'required|date|before_or_equal:today',
@@ -90,7 +94,7 @@ class LegalCaseController extends Controller
                 $rules += ['eviction_ordered' => 'required|in:0,1'];
             }
         }
-        $this->validate($request, $rules, [
+        $this->validateWithBag('modal', $request, $rules, [
             'event_date.before_or_equal' => 'The stage date cannot be in the future.',
             'next_hearing_date.after_or_equal' => 'The next hearing date cannot be in the past.',
         ]);
@@ -165,7 +169,7 @@ class LegalCaseController extends Controller
         if (!$resubmit && !LegalSettlement::canEnter($legal)) {
             return redirect()->route('legal.case', $legal->id)->with('error', 'A settlement is already waiting or running on this case.');
         }
-        $this->validate($request, [
+        $this->validateWithBag('modal', $request, [
             'settlement_type' => 'required|in:1,2',
             'agreed_date' => 'required|date|before_or_equal:today',
             'amount' => 'required|numeric|min:0.001',
@@ -173,12 +177,12 @@ class LegalCaseController extends Controller
             'files.*' => self::FILE_RULE,
         ], ['agreed_date.before_or_equal' => 'The agreement / judgment date cannot be in the future.']);
         if ((int) $request->settlement_type === 2 && !LegalSettlement::judgmentReached($legal)) {
-            return redirect()->back()->withInput()->with('error', 'A court decided settlement needs the case at Judgment (or later). Update the stage first.');
+            return redirect()->back()->withInput()->with('modal_error', 'A court decided settlement needs the case at Judgment (or later). Update the stage first.');
         }
         $amount = round((float) $request->amount, 3);
         list($rows, $error) = LegalSettlement::cleanInstallments($request->due_date, $request->due_amount, $amount);
         if ($error) {
-            return redirect()->back()->withInput()->with('error', $error);
+            return redirect()->back()->withInput()->with('modal_error', $error);
         }
 
         DB::transaction(function () use ($legal, $request, $user, $amount, $rows, $resubmit, $current) {
@@ -215,7 +219,7 @@ class LegalCaseController extends Controller
         }
 
         if ($request->input('decision') === 'sendback') {
-            $this->validate($request, ['sendback_reason' => 'required|max:1000']);
+            $this->validateWithBag('modal', $request, ['sendback_reason' => 'required|max:1000']);
             DB::table('legal_settlements')->where('id', $settlement->id)->update(['status' => LegalSettlement::SENT_BACK,
                 'sendback_reason' => $request->sendback_reason, 'updated_at' => now()]);
             LegalCase::log($legal->id, 'settlement_sent_back', $request->sendback_reason, $user->id);
@@ -223,20 +227,20 @@ class LegalCaseController extends Controller
             return redirect()->route('legal.case', $legal->id)->with('success', 'Settlement sent back to the lawyer.');
         }
 
-        $this->validate($request, [
+        $this->validateWithBag('modal', $request, [
             'waiver_amount' => 'nullable|numeric|min:0',
             'waiver_reason' => 'nullable|max:500',
             'fees_recovered' => 'nullable|numeric|min:0',
         ]);
         $waiver = round((float) $request->waiver_amount, 3);
         if ($waiver > 0 && trim((string) $request->waiver_reason) === '') {
-            return redirect()->back()->withInput()->with('error', 'Give the reason for the waiver.');
+            return redirect()->back()->withInput()->with('modal_error', 'Give the reason for the waiver.');
         }
         $fees = round((float) $request->fees_recovered, 3);
         $total = round((float) $settlement->amount + $fees, 3);
         list($rows, $error) = LegalSettlement::cleanInstallments($request->due_date, $request->due_amount, $total);
         if ($error) {
-            return redirect()->back()->withInput()->with('error', $error);
+            return redirect()->back()->withInput()->with('modal_error', $error);
         }
 
         DB::transaction(function () use ($legal, $settlement, $user, $waiver, $fees, $total, $rows, $request) {
@@ -268,7 +272,7 @@ class LegalCaseController extends Controller
         if (!LegalCase::isActive($legal)) {
             return redirect()->route('legal.case', $legal->id)->with('error', 'Only an active case can be closed here.');
         }
-        $this->validate($request, ['close_reason' => 'required|in:paid_in_full,written_off,withdrawn', 'close_note' => 'nullable|max:1000']);
+        $this->validateWithBag('modal', $request, ['close_reason' => 'required|in:paid_in_full,written_off,withdrawn', 'close_note' => 'nullable|max:1000']);
         $reason = $request->close_reason;
         $settlement = LegalSettlement::current($legal->id);
         $status = $settlement ? (int) $settlement->status : null;
@@ -284,7 +288,7 @@ class LegalCaseController extends Controller
             $error = 'Give the reason for closing.';
         }
         if ($error) {
-            return redirect()->back()->withInput()->with('error', $error);
+            return redirect()->back()->withInput()->with('modal_error', $error);
         }
 
         DB::transaction(function () use ($legal, $reason, $request, $user) {
@@ -311,7 +315,7 @@ class LegalCaseController extends Controller
         if (LegalCase::openCaseFor($old->tenant_contract_id)) {
             return redirect()->route('legal.case', $old->id)->with('error', 'The contract already has an open legal case.');
         }
-        $this->validate($request, ['reopen_reason' => 'required|max:1000']);
+        $this->validateWithBag('modal', $request, ['reopen_reason' => 'required|max:1000']);
         $contract = $old->tenantContract;
 
         $new = DB::transaction(function () use ($old, $contract, $request, $user) {
