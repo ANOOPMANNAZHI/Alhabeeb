@@ -13,8 +13,16 @@
     $prio = $summary['priorities'];
     $n = function ($v) { return $v === null ? '' : numberFormat($v); };
     $d = function ($v) { return $v ? \Carbon\Carbon::parse($v)->format('d/m/Y') : ''; };
+    // on screen (no $pdf) the design-system table classes style the cells; exports keep the inline styles
+    $screen = !isset($pdf);
+    if ($screen) {
+        $th = ''; $thr = 'text-align:right;'; $td = ''; $tdr = 'text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;';
+        $tot = 'font-weight:600;'; $totr = $tot . $tdr;
+        if (isset($cap)) { $cap = 'font-size:15px;font-weight:600;color:#0F172A;padding:16px 0 8px;background:transparent;border:0;'; }
+        if (isset($red)) { $red = 'color:#B91C1C;font-weight:600;'; }
+    }
 @endphp
-<table style="border-collapse:collapse;margin-bottom:6px;">
+<table class="{{ $screen ? 'lg-table' : '' }}" style="border-collapse:collapse;margin-bottom:6px;">
   <tr><td colspan="{{ count($prio) + 2 }}" style="{{ $cap }}">Open cases by stage and priority ({{ $summary['open'] }} open, outstanding {{ numberFormat($summary['outstanding']) }})</td></tr>
   <tr><th style="{{ $th }}">Stage</th>@foreach($prio as $p)<th style="{{ $thr }}">{{ $p }}</th>@endforeach<th style="{{ $thr }}">Total</th></tr>
   @forelse($summary['byStage'] as $stage => $c)
@@ -23,7 +31,7 @@
     <tr><td colspan="{{ count($prio) + 2 }}" style="{{ $td }}">No open cases.</td></tr>
   @endforelse
 </table>
-<table style="border-collapse:collapse;margin-bottom:6px;">
+<table class="{{ $screen ? 'lg-table' : '' }}" style="border-collapse:collapse;margin-bottom:6px;">
   <tr><td colspan="{{ count($prio) + 2 }}" style="{{ $cap }}">Open cases by days in legal and priority</td></tr>
   <tr><th style="{{ $th }}">Days in legal</th>@foreach($prio as $p)<th style="{{ $thr }}">{{ $p }}</th>@endforeach<th style="{{ $thr }}">Total</th></tr>
   @foreach($summary['byAge'] as $age => $c)
@@ -33,7 +41,7 @@
 {{-- dompdf runs out of memory on one table of ~600 rows: the PDF gets page-sized tables --}}
 @php $chunks = !empty($pdf) ? $rows->chunk(22)->values() : collect([$rows]); if (!$chunks->count()) { $chunks = collect([collect()]); } @endphp
 @foreach($chunks as $ci => $chunk)
-<table style="border-collapse:collapse;width:100%;@if(!empty($pdf) && $ci > 0) page-break-before:always;@endif">
+<table class="{{ $screen ? 'lg-table' : '' }}" style="border-collapse:collapse;width:100%;@if(!empty($pdf) && $ci > 0) page-break-before:always;@endif">
   @if($ci === 0)<tr><td colspan="19" style="{{ $cap }}">Cases ({{ count($rows) }})</td></tr>@endif
   <tr>
     <th style="{{ $th }}">Case</th><th style="{{ $th }}">Agreement</th><th style="{{ $th }}">Tenant</th><th style="{{ $th }}">Building</th><th style="{{ $th }}">Unit</th>
