@@ -111,6 +111,7 @@
         <div class="modal-header"><h2 class="modal-title" id="lcsEnterTitle">{{ $sStatus === 4 ? 'Correct settlement' : 'Record settlement' }}</h2>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button></div>
         <div class="modal-body">
+          @include('masters::Legal._modal_errors', ['modalId' => 'lcsEnterModal'])
           <div class="lg-form-grid">
             <div class="lg-field"><label for="lcs_type" class="lg-label">Type</label>
               <select id="lcs_type" name="settlement_type" class="lg-select" required>
@@ -151,6 +152,7 @@
         <div class="modal-header"><h2 class="modal-title" id="lcsVerifyTitle">Verify settlement</h2>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button></div>
         <div class="modal-body">
+          @include('masters::Legal._modal_errors', ['modalId' => 'lcsVerifyModal'])
           <div class="lg-kpis lg-kpis--card">
             <div class="lg-kpi"><div class="lg-kpi__label">{{ $LS::TYPES[$settlement->settlement_type] }}</div><div class="lg-kpi__value lg-kpi__value--sm">{{ $d($settlement->agreed_date) }}</div></div>
             <div class="lg-kpi"><div class="lg-kpi__label">Settlement amount</div><div class="lg-kpi__value lg-kpi__value--sm">{{ numberFormat($settlement->amount) }}</div></div>
@@ -195,6 +197,7 @@
         <div class="modal-header"><h2 class="modal-title" id="lcsCloseTitle">Close case</h2>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button></div>
         <div class="modal-body">
+          @include('masters::Legal._modal_errors', ['modalId' => 'lcsCloseModal'])
           <div class="lg-field"><label for="lcs_close_reason" class="lg-label">Reason</label>
             <select id="lcs_close_reason" name="close_reason" class="lg-select" required>
               <option value="paid_in_full" @if(!$completed) disabled @endif>Settled - paid in full{{ $completed ? '' : ' (settlement not fully collected)' }}</option>
@@ -223,6 +226,7 @@
         <div class="modal-header"><h2 class="modal-title" id="lcsReopenTitle">Reopen as new case</h2>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button></div>
         <div class="modal-body">
+          @include('masters::Legal._modal_errors', ['modalId' => 'lcsReopenModal'])
           <p>A new case is opened for this contract, linked to case #{{ $legal->id }}, and goes to PLM approval. The contract moves back into legal.</p>
           <div class="lg-field"><label for="lcs_reopen_reason" class="lg-label">Reason</label>
             <textarea id="lcs_reopen_reason" name="reopen_reason" class="lg-textarea" rows="3" maxlength="1000" required></textarea>
