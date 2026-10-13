@@ -96,7 +96,7 @@ class LegalCasePageTest extends TestCase
     {
         $legal = $this->activeCase();
         $this->as($this->lawyer)->get(route('legal.case', $legal->id))->assertStatus(200)
-            ->assertSee('Update stage')->assertSee('Case Timeline')->assertSee('Lawyer approved');
+            ->assertSee('Update stage')->assertSee('Case timeline')->assertSee('Lawyer approved');
         $this->as($this->lawyer2)->get(route('legal.case', $legal->id))->assertStatus(200)->assertDontSee('lcpStageModal');
         $this->stage($this->lawyer2, $legal, 'notice')->assertStatus(403);
         $this->stage($this->plm, $legal, 'notice')->assertStatus(403);   // PLM has no stage permission

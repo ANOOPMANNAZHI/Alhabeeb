@@ -1012,3 +1012,7 @@ Breadcrumbs::for('bounce-reason.edit', function ($trail, $reason) {
     $trail->parent('bounce-reason.index');
     $trail->push('Edit Bounce Reason', route('bounce-reason.edit', $reason->id));
 });
+Breadcrumbs::for('referBackCases', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Referred Back Legal Cases', route('referBackCases'));
+});
