@@ -212,7 +212,7 @@ class LegalWorkflowTest extends TestCase
     public function test_approval_screens_render()
     {
         $legal = $this->moveToLegal($this->contract(4));
-        $this->as($this->plm)->get(route('plmsApprovalShow', $legal->id))->assertStatus(200)->assertSee('Case Timeline')->assertSee('Moved to legal');
+        $this->as($this->plm)->get(route('plmsApprovalShow', $legal->id))->assertStatus(200)->assertSee('Case timeline')->assertSee('Moved to legal');
         $this->as($this->plm)->post(route('plmsApproveReferBack'), ['legal_id' => $legal->id, 'process_flow' => 801, 'action_key' => 'APRV', 'are_status' => 0])
             ->assertStatus(200)->assertSee('lc_handled_by')->assertSee('Lg_t_lawyer');
     }

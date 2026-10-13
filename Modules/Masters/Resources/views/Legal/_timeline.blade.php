@@ -1,35 +1,32 @@
-{{-- Legal case timeline (legal_case_updates), newest first. Needs $timeline. --}}
-<style>
-  .lc-timeline { list-style:none; margin:0; padding:6px 20px 16px; }
-  .lc-timeline li { position:relative; padding:10px 0 10px 22px; border-left:2px solid #e3e8ef; margin-left:6px; }
-  .lc-timeline li:before { content:''; position:absolute; left:-7px; top:14px; width:12px; height:12px; border-radius:50%; background:#fff; border:2px solid #3b82c4; }
-  .lc-timeline li.lc-k-lawyer_rejected:before, .lc-timeline li.lc-k-plm_referback:before { border-color:#d9534f; }
-  .lc-timeline li.lc-k-closed:before, .lc-timeline li.lc-k-handed_over:before { border-color:#5b6b7f; background:#5b6b7f; }
-  .lc-timeline .lc-t-head { font-size:13px; color:#1f2d3d; font-weight:600; }
-  .lc-timeline .lc-t-meta { font-size:12px; color:#7a8699; font-weight:400; margin-left:6px; }
-  .lc-timeline .lc-t-note { font-size:13px; color:#3d4a5c; margin-top:2px; white-space:pre-line; }
-  .lc-timeline .lc-t-files a { display:inline-block; margin:4px 12px 0 0; font-size:12px; }
-  .lc-timeline li.lc-k-stage:before { background:#3b82c4; }
-</style>
-@if(empty($noTimelineHead))<div class="card-head"><div class="col"><h4>Case Timeline</h4></div></div>@endif
+{{-- Legal case timeline (legal_case_updates), newest first. Needs $timeline; optional $docs (files by update id). Inside a .lg card. --}}
+@php
+    $LC = \Modules\Masters\Services\LegalCase::class;
+    $tone = ['lawyer_rejected' => 'danger', 'plm_referback' => 'danger', 'settlement_broken' => 'danger', 'settlement_sent_back' => 'danger',
+             'closed' => 'neutral', 'handed_over' => 'neutral', 'settlement_verified' => 'success', 'stage' => 'stage'];
+@endphp
+@if(empty($noTimelineHead))
+<div class="lg-card__head"><h2 class="lg-card__title">Case timeline <span class="lg-count">{{ count($timeline) }}</span></h2></div>
+@endif
 @if(count($timeline))
-<ul class="lc-timeline">
+<ol class="lg-timeline">
   @foreach($timeline as $t)
-  <li class="lc-k-{{ $t->kind }}">
-    <div class="lc-t-head">{{ isset(\Modules\Masters\Services\LegalCase::KINDS[$t->kind]) ? \Modules\Masters\Services\LegalCase::KINDS[$t->kind] : $t->kind }}@if($t->stage_name) &mdash; {{ $t->stage_name }}@endif
-      <span class="lc-t-meta">{{ $t->username }} &middot; {{ \Carbon\Carbon::parse($t->created_at)->format('d/m/Y h:i A') }}</span>
+  <li class="lg-timeline__item lg-timeline__item--{{ $tone[$t->kind] ?? 'default' }}">
+    <span class="lg-timeline__dot" aria-hidden="true"></span>
+    <div class="lg-timeline__head">
+      <span class="lg-timeline__kind">{{ $LC::KINDS[$t->kind] ?? $t->kind }}@if($t->stage_name) &middot; {{ $t->stage_name }}@endif</span>
+      <span class="lg-timeline__meta">{{ $t->username }} &middot; <time datetime="{{ $t->created_at }}">{{ \Carbon\Carbon::parse($t->created_at)->format('d/m/Y h:i A') }}</time></span>
     </div>
-    @if($t->note)<div class="lc-t-note">{{ $t->note }}</div>@endif
+    @if($t->note)<div class="lg-timeline__note">{{ $t->note }}</div>@endif
     @if(isset($docs) && isset($docs[$t->id]))
-      <div class="lc-t-files">
+      <div class="lg-timeline__files">
         @foreach($docs[$t->id] as $doc)
-          <a target="_blank" href="{{ asset('storage/app/' . $doc->legal_documents_file_name) }}"><i class="fa fa-paperclip" aria-hidden="true"></i> {{ $doc->legal_documents_name }}</a>
+          <a class="lg-file" target="_blank" rel="noopener" href="{{ asset('storage/app/' . $doc->legal_documents_file_name) }}"><i class="fa fa-paperclip" aria-hidden="true"></i> {{ $doc->legal_documents_name }}</a>
         @endforeach
       </div>
     @endif
   </li>
   @endforeach
-</ul>
+</ol>
 @else
-<p class="text-muted" style="padding:10px 20px;">No timeline entries yet. Cases moved to legal before October 2026 show their history in the Stage Note table.</p>
+<div class="lg-empty"><div class="lg-empty__title">No timeline entries yet</div>Cases moved to legal before October 2026 keep their history in the stage notes.</div>
 @endif
