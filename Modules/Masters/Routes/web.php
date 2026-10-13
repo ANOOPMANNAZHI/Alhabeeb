@@ -179,6 +179,7 @@ Route::post('/legalCase/areStageStore', 'LegalController@areStageStore')->name('
 /*****    closed legal cases  starts****/
 Route::get('/closedLegalCases', 'LegalController@closedLegalCases')->name('closedLegalCases');
 Route::get('closedLegalCases/{id}', 'LegalController@closedLegalCasesShow')->name('closedLegalCasesShow');
+Route::get('/handedOverLegalCases', 'LegalController@handedOverCases')->name('handedOverLegalCases');
 
 /*****    closed legal cases ends  ****/
 /*****    referback legal cases  starts****/

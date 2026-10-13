@@ -17,18 +17,22 @@
 <div class="card card-box salesLeadBox">
   <div class="card-head">
     <h4>
+     @if(!$lawyerApproval->closed_at)
      @can('lawyer_close')
      <button type="button" class="btn btn-circle btn-danger align-right close_type" title="Close"  data-id="{{$lawyerApproval->id}}" data-flow-id="801">Close</button>
      @endcan
      @can('lawyer_refer_back')
-     <button type="button" class="btn btn-circle btn-warning align-right referback" data-id="{{$lawyerApproval->id}}" title="Refer Back" alt="Refer Back" data-key="RFRBK" data-flow-id="801"  data-status="1" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Refer Back</button>
+     <button type="button" class="btn btn-circle btn-warning align-right referback" data-id="{{$lawyerApproval->id}}" title="Reject and send back to PLM" alt="Reject" data-key="RFRBK" data-flow-id="801"  data-status="1" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Reject</button>
      @endcan
      @can('lawyer_approve')
      <button type="button" class="btn btn-circle btn-primary align-right approve" data-id="{{$lawyerApproval->id}}" title="Approve" alt="Approve" data-key="APRV" data-flow-id="802" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Approve</button>
      @endcan
+     @endif
      <div class="clr"></div>
    </h4>
  </div>
+ @include('masters::Legal._case_summary', ['legal' => $lawyerApproval])
+ @include('masters::Legal._timeline')
  <div class="card-head">
   <div class="col"><h4>Stage Note</h4></div>
 </div>

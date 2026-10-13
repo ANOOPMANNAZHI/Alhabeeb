@@ -23,6 +23,7 @@
     <div class="card card-box salesLeadBox">
      <div class="card-head">
       <h4>
+        @if(!$plmsApproval->closed_at)
         @can('plms_refer_back')
         @if($plmsApproval->tenantContract->status !=0)
         <button type="button" class="btn btn-circle btn-warning align-right referback" data-id="{{$plmsApproval->id}}"  data-key="RFRBK" data-flow-id="801"  data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Refer Back</button>
@@ -35,12 +36,15 @@
         @endcan
         @can('plms_approve')
         @if($plmsApproval->tenantContract->status !=0)
-        <button type="button" class="btn btn-circle btn-primary align-right approve" data-id="{{$plmsApproval->id}}"  data-key="APRV" data-flow-id="801" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Approve</button>
+        <button type="button" class="btn btn-circle btn-primary align-right approve" data-id="{{$plmsApproval->id}}"  data-key="APRV" data-flow-id="801" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">{{ (int) ($plmsApproval->handled_by ?: $defaultHandledBy) === 1 ? 'Approve' : 'Approve / Hand over' }}</button>
         @endif
         @endcan 
+        @endif
         <div class="clr"></div>
       </h4>
     </div>
+    @include('masters::Legal._case_summary', ['legal' => $plmsApproval])
+    @include('masters::Legal._timeline')
     <div class="card-head">
       <div class="col"><h4>Stage Note</h4></div>
       

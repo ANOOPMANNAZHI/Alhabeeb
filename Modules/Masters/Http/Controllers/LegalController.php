@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Mail;
 use Modules\Masters\Events\LegalApprove;
 use Modules\Masters\Events\LegalReferBack;
 use Modules\BackOffice\Services\LegalMessages;
+use Modules\Masters\Services\LegalCase;
 
 class LegalController extends Controller
 {
@@ -393,10 +394,11 @@ $plmsApprovals = Legal::filter($request)
                           })
                          ->where('status','=',1);
                       })                  
-                      ->where('legal.work_flow_processes_code', '=', $status) 
+                      ->whereNull('legal.closed_at')
+                      ->where('legal.work_flow_processes_code', '=', $status)
                       ->sortable()
                       ->paginate($this->noOfRecord);
-                      
+
 /*
 if (in_array('super_admin', $rolesNames) === false) {
   $plmsApproval->whereHas('legalUsers', function ($query) use($roles) {
@@ -486,7 +488,10 @@ public function plmsApprovalShow($id){
   $plmsApproval=Legal::where('id',$id)->first();
   $tenant_contract_id=$plmsApproval->tenant_contract_id;
   $notes=Legal::where('tenant_contract_id',$tenant_contract_id)->get();
-  return view('masters::Legal.plms_approval_view',compact('plmsApproval','notes'));
+  $timeline = LegalCase::timeline($plmsApproval->id);
+  $outstanding = LegalCase::outstanding($plmsApproval);
+  $defaultHandledBy = LegalCase::defaultHandledBy($plmsApproval->building_id);
+  return view('masters::Legal.plms_approval_view',compact('plmsApproval','notes','timeline','outstanding','defaultHandledBy'));
 
 }
 //approve refer back modal
@@ -503,8 +508,15 @@ public function plmsApproveReferBack(Request $request){
 		}
   }
   
-  //dd($action_key);
-  return view('masters::Legal.plms_approval_model',compact('legal_id','process_flow','action_key','are_status'));
+  $legal = Legal::find($legal_id);
+  if (!$legal || $legal->closed_at) {
+    return json_encode('error');
+  }
+  $lawyers = LegalCase::lawyers();
+  $defaultHandledBy = LegalCase::defaultHandledBy($legal->building_id);
+  $outstanding = LegalCase::outstanding($legal);
+
+  return view('masters::Legal.plms_approval_model',compact('legal_id','process_flow','action_key','are_status','legal','lawyers','defaultHandledBy','outstanding'));
 }
 public function plmsApproveReferBackStore(Request $request)
 {
@@ -517,16 +529,45 @@ public function plmsApproveReferBackStore(Request $request)
   
 
   $legal = Legal::where('id',$legal_id)->first();
+  if (!$legal || $legal->closed_at) {
+    session()->flash('error', 'This legal case is already closed.');
+    return redirect()->back();
+  }
+  $this->validate($request, ['legal_note' => 'required|max:1000']);
+  $userId = \Auth::user()->id;
+
+  if ($process_flow == 801 && $action_key == 'APRV') {
+    $handledBy = (int) $request->input('handled_by', $legal->handled_by ?: LegalCase::HANDLED_ALHABIB);
+    if ($handledBy !== LegalCase::HANDLED_ALHABIB) {
+      return $this->handOver($request, $legal, $handledBy);
+    }
+    $lawyers = LegalCase::lawyers();
+    $this->validate($request, [
+      'priority' => 'required|in:' . implode(',', array_keys(LegalCase::PRIORITIES)),
+      'case_type' => 'required|in:' . implode(',', array_keys(LegalCase::TYPES)),
+      'lawyer_user_id' => 'required|in:' . (implode(',', array_keys($lawyers)) ?: '0'),
+    ], ['lawyer_user_id.in' => 'Pick an active lawyer.']);
+    $this->recordHandledBy($legal, $handledBy, $userId);
+    $legal->update(['priority' => (int) $request->priority, 'case_type' => (int) $request->case_type,
+                    'lawyer_user_id' => (int) $request->lawyer_user_id]);
+    LegalCase::log($legal->id, 'plm_approved', 'Priority ' . LegalCase::PRIORITIES[(int) $request->priority]
+      . ', ' . LegalCase::TYPES[(int) $request->case_type] . ', lawyer ' . $lawyers[(int) $request->lawyer_user_id]
+      . '. ' . $legal_note, $userId);
+  } elseif ($process_flow == 801 && $action_key == 'RFRBK' && $are_status == 1) {
+    return $this->lawyerReject($legal, $legal_note, $userId);
+  } elseif ($process_flow == 801 && $action_key == 'RFRBK') {
+    LegalCase::log($legal->id, 'plm_referback', $legal_note, $userId);
+  } elseif ($process_flow == 802 && $action_key == 'APRV') {
+    LegalCase::log($legal->id, 'lawyer_approved', $legal_note, $userId);
+  }
 
   $general =  new General;
   $next_process_id = $general->nextProcessFromAction($process_flow,$action_key);
   /*$work_flow_process=WorkFlowProcess::where('work_flow_processes_code',$next_process_id)->first();
   $work_flow_process_id=$work_flow_process->id;*/
 
-  // current stage update 
-  $stageLegal = Legal::where('work_flow_processes_code',$legal->work_flow_processes_code)->orderBy('id','desc')->limit(1)->first();
-  if(!empty($stageLegal))
-    $stageLegal->legalUser()->update(['status' => 0]);
+  // current stage update (this case's users; it used to pick the newest case with the same code)
+  $legal->legalUser()->update(['status' => 0]);
 
   $processAssign = $general->roleUsersFromProcess($next_process_id,$location_id=null,$pricerange_id=null,$tenant_status=null);
 	
@@ -656,6 +697,112 @@ if($process_flow==801 && $action_key=='APRV'){
 
 
 
+/**
+ * PLM hands a case to the landlord, the government or MERA: who / reference / date are kept,
+ * the case closes on our side and the contract stays in legal (status 5), so it keeps out of
+ * the normal receivables.
+ */
+private function handOver(Request $request, Legal $legal, $handledBy)
+{
+  $this->validate($request, [
+    'handled_by' => 'required|in:2,3,4',
+    'handed_to_name' => 'required|max:150',
+    'handover_ref' => 'nullable|max:100',
+    'handover_date' => 'required|date|before_or_equal:today',
+  ], ['handed_to_name.required' => 'Enter who the case is handed to.',
+      'handover_date.before_or_equal' => 'The handover date cannot be in the future.']);
+  $userId = \Auth::user()->id;
+  $note = $request->legal_note;
+
+  DB::transaction(function () use ($request, $legal, $handledBy, $userId, $note) {
+    $this->recordHandledBy($legal, $handledBy, $userId);
+    $legal->update(['handed_to_name' => $request->handed_to_name, 'handover_ref' => $request->handover_ref,
+                    'handover_date' => $request->handover_date, 'note' => $note]);
+    LegalCase::log($legal->id, 'handed_over', 'Handed over to ' . LegalCase::HANDLED_BY[$handledBy] . ': '
+      . $request->handed_to_name . ($request->handover_ref ? ' (ref ' . $request->handover_ref . ')' : '') . '. ' . $note,
+      $userId, ['event_date' => $request->handover_date]);
+    LegalCase::close($legal, 'handed_over', null, $userId);
+    $legal->legalUser()->update(['status' => 0]);
+  });
+  clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
+
+  LegalMessages::toRoles('legal_case_handed_over', ['are', 'backoffice_manager'], $legal->tenantContract,
+    ['handed_to' => LegalCase::HANDLED_BY[$handledBy] . ' - ' . $request->handed_to_name]);
+
+  session()->flash('success', 'Legal case handed over to ' . LegalCase::HANDLED_BY[$handledBy] . ' and closed.');
+  return redirect()->route('plmsApproval');
+}
+
+private function recordHandledBy(Legal $legal, $handledBy, $userId)
+{
+  $from = (int) ($legal->handled_by ?: LegalCase::HANDLED_ALHABIB);
+  if ($from !== (int) $handledBy) {
+    LegalCase::log($legal->id, 'handled_by', 'Handled by changed from ' . LegalCase::HANDLED_BY[$from]
+      . ' to ' . LegalCase::HANDLED_BY[$handledBy] . '.', $userId);
+    $legal->update(['handled_by' => $handledBy]);
+  }
+}
+
+/**
+ * The lawyer rejects a case: it goes back to PLM approval (801) with the reason, instead of the
+ * old refer back to ARE.
+ */
+private function lawyerReject(Legal $legal, $reason, $userId)
+{
+  $general = new General;
+  DB::transaction(function () use ($legal, $reason, $userId, $general) {
+    $legal->legalUser()->update(['status' => 0]);
+    $legal->update(['work_flow_processes_code' => 801, 'are_status' => 0, 'note' => $reason]);
+
+    $processAssign = $general->roleUsersFromProcess(801, $location_id = null, $pricerange_id = null, $tenant_status = null);
+    if ($processAssign != false) {
+      foreach ($processAssign->assign as $val) {
+        $legal->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
+      }
+    } else {
+      $workFlowProcess = $general->workFlowProcess(801);
+      $legal->legalUsers()->attach($workFlowProcess->default_role, ['user_id' => $workFlowProcess->default_user_id]);
+    }
+    LegalCase::log($legal->id, 'lawyer_rejected', $reason, $userId);
+  });
+  clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
+
+  $plmUsers = array_flatten(User::role(['backoffice_manager'])->get());
+  $legal->href = url('plmsApproval/' . $legal->id);
+  $legal->content = 'Rejected by lawyer';
+  event(new LegalReferBack($legal, $plmUsers));
+  LegalMessages::toUsers('legal_lawyer_rejected', $plmUsers, $legal->tenantContract, ['reason' => $reason]);
+
+  session()->flash('success', 'Legal case rejected and sent back to PLM.');
+  return redirect()->route('lawyerApproval');
+}
+
+/** Cases handed over to the landlord, the government or MERA. */
+public function handedOverCases(Request $request)
+{
+  abort_unless(\Auth::user()->can('handed_over_cases_list'), 403);
+  $cases = Legal::with(['tenantContract.tenant', 'building', 'unit'])
+    ->where('close_reason', 'handed_over')
+    ->when($request->handled_by, function ($q) use ($request) {
+      $q->where('handled_by', (int) $request->handled_by);
+    })
+    ->when(trim((string) $request->search) !== '', function ($q) use ($request) {
+      $term = '%' . trim($request->search) . '%';
+      $q->where(function ($w) use ($term) {
+        $w->where('handed_to_name', 'ilike', $term)->orWhere('handover_ref', 'ilike', $term)
+          ->orWhereHas('tenantContract', function ($c) use ($term) {
+            $c->where('tenant_contract_no', 'ilike', $term)
+              ->orWhereHas('tenant', function ($t) use ($term) { $t->where('tenant_name', 'ilike', $term); });
+          })
+          ->orWhereHas('building', function ($b) use ($term) { $b->where('building_name', 'ilike', $term); });
+      });
+    })
+    ->orderBy('handover_date', 'desc')->orderBy('id', 'desc')
+    ->paginate($this->noOfRecord)->appends($request->only('handled_by', 'search'));
+
+  return view('masters::Legal.handed_over_cases', compact('cases', 'request'));
+}
+
 public function lawyerApproval(Request $request){
 
 
@@ -727,8 +874,15 @@ $lawyerApprovals = Legal::filter($request)
                    ->where('legal_is_closed','!=',2)
                       ->whereHas('tenantContract', function ($query) use($tenantStatus){             
                          $query->where('status','=',5);
-                      })                  
-                      ->where('legal.work_flow_processes_code', '=', 802) 
+                      })
+                      ->whereNull('legal.closed_at')
+                      ->when($user->hasRole('legal_advisor') && !$user->hasRole(['super_admin', 'md', 'backoffice_manager']), function ($query) use ($user_id) {
+                         // a lawyer sees the cases PLM assigned to them (and old cases with no lawyer)
+                         $query->where(function ($q) use ($user_id) {
+                           $q->whereNull('legal.lawyer_user_id')->orWhere('legal.lawyer_user_id', $user_id);
+                         });
+                      })
+                      ->where('legal.work_flow_processes_code', '=', 802)
                       ->sortable()
                       ->paginate($this->noOfRecord);
             
@@ -895,7 +1049,8 @@ if(!empty($currentContract->tenant_contract_last_paid_date)){
 //dd($overDueFrom);
 $tenant =  new Tenant;
  $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
-  return view('masters::Legal.lawyer_approval_view',compact('lawyerApproval','notes','oldContractList','dmy','paidDays','overDueFrom','rentAmount'));
+  $timeline = LegalCase::timeline($lawyerApproval->id);
+  return view('masters::Legal.lawyer_approval_view',compact('lawyerApproval','notes','oldContractList','dmy','paidDays','overDueFrom','rentAmount','timeline'));
 
 }
 public function activeCases(Request $request){
@@ -1098,9 +1253,11 @@ public function legalCaseClose(Request $request){
   $otherUsers = User::role(['are','backoffice_manager'])->get(); 
   $otherUsers = array_flatten($otherUsers);
 
-  $stageLegal = Legal::where('work_flow_processes_code',$legal->work_flow_processes_code)->orderBy('id','desc')->first();
-  if(!empty($stageLegal))
-    $stageLegal->legalUser()->update(['status' => 0]);
+  $legal->legalUser()->update(['status' => 0]);
+  if (!$legal->closed_at) {
+    LegalCase::close($legal, 'withdrawn', $request->legal_note, \Auth::user()->id);
+  }
+  clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
 
   if($process_flow==801){
 

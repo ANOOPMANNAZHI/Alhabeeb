@@ -62,6 +62,10 @@ class Legal extends Model
     *  legalUser
     *
     */
+    public function lawyer() {
+        return $this->belongsTo('App\User', 'lawyer_user_id');
+    }
+
     public function legalUser() {
         
            return $this->hasMany('Modules\Masters\Entities\LegalUser','legal_id');

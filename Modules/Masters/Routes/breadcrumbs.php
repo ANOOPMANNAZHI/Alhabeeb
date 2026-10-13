@@ -941,6 +941,10 @@ Breadcrumbs::for('closedLegalCasesShow', function ($trail, $closedLegalCases) {
     $trail->parent('closedLegalCases');
     $trail->push('Closed Legal Cases View', route('closedLegalCases',[$closedLegalCases->id]));
 });
+Breadcrumbs::for('handedOverLegalCases', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Handed-over Legal Cases', route('handedOverLegalCases'));
+});
 /*    **************************************************************************     */
 // Tenancy Details  Index
 Breadcrumbs::for('tenancyDetails.index', function ($trail) {
