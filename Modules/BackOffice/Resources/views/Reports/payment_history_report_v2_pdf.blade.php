@@ -154,20 +154,21 @@
     <thead>
         <tr>
             <th style="width:4%;">#</th>
-            <th style="width:15%;">Receipt No</th>
+            <th style="width:13%;">Receipt No</th>
             <th style="width:9%;">Type</th>
             <th style="width:11%;">Receipt Date</th>
             <th style="width:11%;">Period From</th>
             <th style="width:11%;">Period To</th>
-            <th style="width:12%;">Payment Method</th>
-            <th style="width:12%;">Cheque No</th>
-            <th class="num" style="width:15%;">Amount</th>
+            <th style="width:10%;">Payment Method</th>
+            <th style="width:10%;">Cheque No</th>
+            <th style="width:8%;">Status</th>
+            <th class="num" style="width:13%;">Amount</th>
         </tr>
     </thead>
     <tbody>
         @forelse($groups as $group)
         <tr class="contract-head">
-            <td colspan="9">
+            <td colspan="10">
                 Contract No : {{ $group['contract_no'] }}
                 <span class="contract-meta">
                     @if($group['start_date'])
@@ -189,28 +190,29 @@
             <td>{{ $row->eff_to ? \Carbon\Carbon::parse($row->eff_to)->format('d/m/Y') : '' }}</td>
             <td>{{ $row->payment_method }}</td>
             <td>{{ $row->cheque_no }}</td>
+            <td>{{ $row->receipt_status }}</td>
             <td class="num">{{ numberFormat($row->amount) }}</td>
         </tr>
         @endforeach
         <tr class="subtotal">
-            <td colspan="8">Subtotal &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} ({{ $group['count'] }} receipt{{ $group['count'] == 1 ? '' : 's' }})</td>
+            <td colspan="9">Subtotal &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} ({{ $group['count'] }} receipt{{ $group['count'] == 1 ? '' : 's' }})</td>
             <td class="num">{{ numberFormat($group['subtotal']) }}</td>
         </tr>
         <tr class="subtotal">
-            <td colspan="8">Due &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} (Contract Value {{ numberFormat($group['contract_value']) }} &minus; Rent Collected {{ numberFormat($group['rent_collected']) }})</td>
+            <td colspan="9">Due &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} (Contract Value {{ numberFormat($group['contract_value']) }} &minus; Rent Collected {{ numberFormat($group['rent_collected']) }})</td>
             <td class="num">{{ numberFormat($group['due']) }}</td>
         </tr>
-        <tr class="spacer"><td colspan="9"></td></tr>
+        <tr class="spacer"><td colspan="10"></td></tr>
         @empty
-        <tr class="empty"><td colspan="9">No records found for this selection.</td></tr>
+        <tr class="empty"><td colspan="10">No records found for this selection.</td></tr>
         @endforelse
 
         <tr class="grand">
-            <td colspan="8">GRAND TOTAL &nbsp;&mdash;&nbsp; {{ $receiptCount }} receipt{{ $receiptCount == 1 ? '' : 's' }} across {{ $contractCount }} contract{{ $contractCount == 1 ? '' : 's' }}</td>
+            <td colspan="9">GRAND TOTAL &nbsp;&mdash;&nbsp; {{ $receiptCount }} receipt{{ $receiptCount == 1 ? '' : 's' }} across {{ $contractCount }} contract{{ $contractCount == 1 ? '' : 's' }}</td>
             <td class="num">{{ numberFormat($grandTotal) }}</td>
         </tr>
         <tr class="grand">
-            <td colspan="8">TOTAL DUE</td>
+            <td colspan="9">TOTAL DUE</td>
             <td class="num">{{ numberFormat($grandDue) }}</td>
         </tr>
     </tbody>
