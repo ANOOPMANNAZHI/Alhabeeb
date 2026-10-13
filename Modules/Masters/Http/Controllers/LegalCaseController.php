@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Modules\BackOffice\Services\LegalMessages;
 use Modules\Masters\Entities\Legal;
 use Modules\Masters\Services\LegalCase;
+use Modules\Masters\Services\LegalSettlement;
+use Modules\General\Http\Controllers\GeneralController as General;
 
 /**
  * Legal case page (plan 2026-10-13, phase 2): summary, amounts, court details, stage stepper and
@@ -30,7 +32,21 @@ class LegalCaseController extends Controller
         clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
 
         $user = \Auth::user();
+        $settlement = LegalSettlement::current($legal->id);
+        $settlementStatus = $settlement ? (int) $settlement->status : null;
         return view('masters::Legal.case_page', [
+            'settlement' => $settlement,
+            'schedule' => $settlement && in_array($settlementStatus, [LegalSettlement::ACTIVE, LegalSettlement::COMPLETED, LegalSettlement::BROKEN], true)
+                ? LegalSettlement::schedule($settlement, $legal->tenant_contract_id) : null,
+            'pendingRows' => $settlement ? LegalSettlement::installments($settlement->id) : collect(),
+            'settlementHistory' => LegalSettlement::all($legal->id)->filter(function ($s) use ($settlement) { return !$settlement || $s->id !== $settlement->id; }),
+            'canEnterSettlement' => $user->can('legal_settlement_enter') && LegalCase::canUpdateStage($user, $legal)
+                && (LegalSettlement::canEnter($legal) || $settlementStatus === LegalSettlement::SENT_BACK),
+            'canVerify' => $user->can('legal_settlement_verify') && !$legal->closed_at && $settlementStatus === LegalSettlement::PENDING,
+            'canClose' => $user->can('legal_case_close') && LegalCase::isActive($legal),
+            'canReopen' => ($user->can('legal_settlement_verify') || $user->can('plms_approve')) && $legal->closed_at
+                && $legal->close_reason !== 'handed_over' && !LegalCase::openCaseFor($legal->tenant_contract_id),
+            'judgmentReached' => LegalSettlement::judgmentReached($legal),
             'legal' => $legal,
             'timeline' => LegalCase::timeline($legal->id),
             'docs' => LegalCase::documentsByUpdate($legal->id),
@@ -128,6 +144,204 @@ class LegalCaseController extends Controller
             LegalCase::storeFiles($legal->id, $updateId, $request->file('files'), $user->id);
         });
         return redirect()->route('legal.case', $legal->id)->with('success', 'Comment added.');
+    }
+
+    /* ---------------- Settlements ---------------- */
+
+    /** Lawyer records a settlement (or corrects one PLM sent back). Installments add up to the amount. */
+    public function settlementStore(Request $request, $id)
+    {
+        $legal = Legal::findOrFail($id);
+        $user = \Auth::user();
+        abort_unless($user->can('legal_settlement_enter') && LegalCase::canUpdateStage($user, $legal), 403);
+
+        $current = LegalSettlement::current($legal->id);
+        $resubmit = $current && (int) $current->status === LegalSettlement::SENT_BACK;
+        if (!$resubmit && !LegalSettlement::canEnter($legal)) {
+            return redirect()->route('legal.case', $legal->id)->with('error', 'A settlement is already waiting or running on this case.');
+        }
+        $this->validate($request, [
+            'settlement_type' => 'required|in:1,2',
+            'agreed_date' => 'required|date|before_or_equal:today',
+            'amount' => 'required|numeric|min:0.001',
+            'note' => 'required|max:2000',
+            'files.*' => self::FILE_RULE,
+        ], ['agreed_date.before_or_equal' => 'The agreement / judgment date cannot be in the future.']);
+        if ((int) $request->settlement_type === 2 && !LegalSettlement::judgmentReached($legal)) {
+            return redirect()->back()->withInput()->with('error', 'A court decided settlement needs the case at Judgment (or later). Update the stage first.');
+        }
+        $amount = round((float) $request->amount, 3);
+        list($rows, $error) = LegalSettlement::cleanInstallments($request->due_date, $request->due_amount, $amount);
+        if ($error) {
+            return redirect()->back()->withInput()->with('error', $error);
+        }
+
+        DB::transaction(function () use ($legal, $request, $user, $amount, $rows, $resubmit, $current) {
+            $data = ['settlement_type' => (int) $request->settlement_type, 'agreed_date' => $request->agreed_date, 'amount' => $amount,
+                'outstanding_at_entry' => round(LegalCase::outstanding($legal), 3), 'settled_total' => $amount, 'note' => $request->note,
+                'status' => LegalSettlement::PENDING, 'updated_at' => now()];
+            if ($resubmit) {
+                DB::table('legal_settlements')->where('id', $current->id)->update($data + ['sendback_reason' => null]);
+                $sid = $current->id;
+            } else {
+                $sid = DB::table('legal_settlements')->insertGetId($data + ['legal_id' => $legal->id, 'entered_by' => $user->id, 'created_at' => now()]);
+            }
+            LegalSettlement::saveInstallments($sid, $rows);
+            $updateId = LegalCase::log($legal->id, 'settlement', ($resubmit ? 'Settlement corrected and resent' : 'Settlement entered') . ': '
+                . LegalSettlement::TYPES[(int) $request->settlement_type] . ', ' . numberFormat($amount) . ' agreed on '
+                . date('d/m/Y', strtotime($request->agreed_date)) . ', ' . count($rows) . ' installment' . (count($rows) === 1 ? '' : 's')
+                . ".\n" . $request->note, $user->id, ['event_date' => $request->agreed_date]);
+            LegalCase::storeFiles($legal->id, $updateId, $request->file('files'), $user->id);
+        });
+        LegalSettlement::notify($legal, 'legal_settlement_entered', ['amount' => numberFormat($amount)], 'Settlement to verify', false, true);
+
+        return redirect()->route('legal.case', $legal->id)->with('success', 'Settlement sent to PLM for verification.');
+    }
+
+    /** PLM verifies (waiver, fees recovered, dates) or sends the settlement back to the lawyer. */
+    public function settlementVerify(Request $request, $id)
+    {
+        $legal = Legal::findOrFail($id);
+        $user = \Auth::user();
+        abort_unless($user->can('legal_settlement_verify'), 403);
+        $settlement = LegalSettlement::current($legal->id);
+        if (!$settlement || (int) $settlement->status !== LegalSettlement::PENDING || $legal->closed_at) {
+            return redirect()->route('legal.case', $legal->id)->with('error', 'There is no settlement waiting for verification.');
+        }
+
+        if ($request->input('decision') === 'sendback') {
+            $this->validate($request, ['sendback_reason' => 'required|max:1000']);
+            DB::table('legal_settlements')->where('id', $settlement->id)->update(['status' => LegalSettlement::SENT_BACK,
+                'sendback_reason' => $request->sendback_reason, 'updated_at' => now()]);
+            LegalCase::log($legal->id, 'settlement_sent_back', $request->sendback_reason, $user->id);
+            LegalSettlement::notify($legal, 'legal_settlement_sent_back', ['reason' => $request->sendback_reason], 'Settlement sent back', true, false);
+            return redirect()->route('legal.case', $legal->id)->with('success', 'Settlement sent back to the lawyer.');
+        }
+
+        $this->validate($request, [
+            'waiver_amount' => 'nullable|numeric|min:0',
+            'waiver_reason' => 'nullable|max:500',
+            'fees_recovered' => 'nullable|numeric|min:0',
+        ]);
+        $waiver = round((float) $request->waiver_amount, 3);
+        if ($waiver > 0 && trim((string) $request->waiver_reason) === '') {
+            return redirect()->back()->withInput()->with('error', 'Give the reason for the waiver.');
+        }
+        $fees = round((float) $request->fees_recovered, 3);
+        $total = round((float) $settlement->amount + $fees, 3);
+        list($rows, $error) = LegalSettlement::cleanInstallments($request->due_date, $request->due_amount, $total);
+        if ($error) {
+            return redirect()->back()->withInput()->with('error', $error);
+        }
+
+        DB::transaction(function () use ($legal, $settlement, $user, $waiver, $fees, $total, $rows, $request) {
+            DB::table('legal_settlements')->where('id', $settlement->id)->update(['status' => LegalSettlement::ACTIVE,
+                'waiver_amount' => $waiver, 'waiver_reason' => $waiver > 0 ? $request->waiver_reason : null, 'fees_recovered' => $fees,
+                'settled_total' => $total, 'verified_by' => $user->id, 'verified_at' => now(), 'updated_at' => now()]);
+            LegalSettlement::saveInstallments($settlement->id, $rows);
+            LegalCase::log($legal->id, 'settlement_verified', 'Verified: collect ' . numberFormat($total)
+                . ($fees > 0 ? ' (incl. fees ' . numberFormat($fees) . ')' : '')
+                . ($waiver > 0 ? ', waiver ' . numberFormat($waiver) . ' - ' . $request->waiver_reason : '') . '.', $user->id);
+        });
+        LegalSettlement::notify($legal, 'legal_settlement_verified', ['amount' => numberFormat($total)], 'Settlement verified', true, false);
+        LegalSettlement::refresh(LegalSettlement::current($legal->id));
+
+        return redirect()->route('legal.case', $legal->id)->with('success', 'Settlement verified.');
+    }
+
+    /**
+     * Close an active case: "paid in full" needs a completed settlement, "balance written off" a verified
+     * one and a reason, "withdrawn" no running settlement and a reason.
+     */
+    public function close(Request $request, $id)
+    {
+        $legal = Legal::findOrFail($id);
+        $user = \Auth::user();
+        abort_unless($user->can('legal_case_close'), 403);
+        if (!LegalCase::isActive($legal)) {
+            return redirect()->route('legal.case', $legal->id)->with('error', 'Only an active case can be closed here.');
+        }
+        $this->validate($request, ['close_reason' => 'required|in:paid_in_full,written_off,withdrawn', 'close_note' => 'nullable|max:1000']);
+        $reason = $request->close_reason;
+        $settlement = LegalSettlement::current($legal->id);
+        $status = $settlement ? (int) $settlement->status : null;
+        $error = null;
+        if ($reason === 'paid_in_full' && $status !== LegalSettlement::COMPLETED) {
+            $error = 'Paid in full needs a verified settlement that is fully collected.';
+        } elseif ($reason === 'written_off' && !in_array($status, [LegalSettlement::ACTIVE, LegalSettlement::BROKEN, LegalSettlement::COMPLETED], true)) {
+            $error = 'Writing off the balance needs a verified settlement.';
+        } elseif ($reason === 'withdrawn' && in_array($status, [LegalSettlement::PENDING, LegalSettlement::ACTIVE, LegalSettlement::COMPLETED], true)) {
+            $error = 'This case has a settlement; close it as paid in full or balance written off.';
+        }
+        if (!$error && $reason !== 'paid_in_full' && trim((string) $request->close_note) === '') {
+            $error = 'Give the reason for closing.';
+        }
+        if ($error) {
+            return redirect()->back()->withInput()->with('error', $error);
+        }
+
+        DB::transaction(function () use ($legal, $reason, $request, $user) {
+            $closedStage = DB::table('legal_stages')->where('is_final', true)->orderBy('sort_order')->value('id');
+            LegalCase::close($legal, $reason, $request->close_note, $user->id);
+            $legal->update(['stage_id' => $closedStage ?: $legal->stage_id, 'legal_is_closed' => 1]);
+            DB::table('tenant_contracts')->where('id', $legal->tenant_contract_id)->update(['status' => 0]);
+            $legal->legalUser()->update(['status' => 0]);
+        });
+        LegalMessages::toRoles('legal_case_closed', ['are'], $legal->tenantContract);
+
+        return redirect()->route('legal.case', $legal->id)->with('success', 'Case closed: ' . LegalCase::reasonLabel($reason) . '.');
+    }
+
+    /** Reopen a closed case as a new case linked to it (e.g. a settlement cheque bounced). */
+    public function reopen(Request $request, $id)
+    {
+        $old = Legal::findOrFail($id);
+        $user = \Auth::user();
+        abort_unless($user->can('legal_settlement_verify') || $user->can('plms_approve'), 403);
+        if (!$old->closed_at || $old->close_reason === 'handed_over') {
+            return redirect()->route('legal.case', $old->id)->with('error', 'Only a case closed on our side can be reopened.');
+        }
+        if (LegalCase::openCaseFor($old->tenant_contract_id)) {
+            return redirect()->route('legal.case', $old->id)->with('error', 'The contract already has an open legal case.');
+        }
+        $this->validate($request, ['reopen_reason' => 'required|max:1000']);
+        $contract = $old->tenantContract;
+
+        $new = DB::transaction(function () use ($old, $contract, $request, $user) {
+            DB::table('tenant_contracts')->where('id', $contract->id)->update(['status' => 5]);
+            list($new) = LegalCase::open($contract->fresh(), 'Reopened: ' . $request->reopen_reason, $user->id);
+            $new->update(['case_type' => $old->case_type, 'handled_by' => $old->handled_by, 'priority' => $old->priority,
+                'lawyer_user_id' => $old->lawyer_user_id, 'court_case_no' => $old->court_case_no, 'court_name' => $old->court_name]);
+            LegalCase::log($old->id, 'reopened', 'Reopened as case #' . $new->id . ': ' . $request->reopen_reason, $user->id);
+            if ($request->waiver_no_longer_applies) {
+                DB::table('legal_settlements')->where('legal_id', $old->id)->where('waiver_amount', '>', 0)->whereNull('waiver_cancelled_at')
+                    ->update(['waiver_cancelled_at' => now()]);
+                LegalCase::log($old->id, 'settlement', 'Waiver no longer applies (tenant broke the settlement).', $user->id);
+            }
+            $this->assignPlm($new, $user);
+            return $new;
+        });
+        LegalMessages::toRoles('legal_case_reopened', ['backoffice_manager'], $contract, ['reason' => $request->reopen_reason]);
+
+        return redirect()->route('legal.case', $new->id)->with('success', 'Case reopened as #' . $new->id . '; it waits for PLM approval.');
+    }
+
+    /** Attach the PLM approval (801) users, the same way Move to Legal does. */
+    private function assignPlm(Legal $legal, $user)
+    {
+        $general = new General;
+        $assign = $general->roleUsersFromProcess(801, $location_id = null, $pricerange_id = null, $tenant_status = null);
+        if ($assign != false) {
+            foreach ($assign->assign as $val) {
+                $legal->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
+            }
+        } else {
+            $process = $general->workFlowProcess(801);
+            if ($process && DB::table('users')->where('id', $process->default_user_id)->exists()) {
+                $legal->legalUsers()->attach($process->default_role, ['user_id' => $process->default_user_id]);
+            }
+        }
+        $legal->legalUsers()->attach($user->default_role, ['user_id' => $user->id]);
     }
 
     /* ---------------- Legal Stages master ---------------- */

@@ -48,6 +48,10 @@ class LegalCase
         'closed' => 'Closed',
         'reopened' => 'Reopened',
         'type_changed' => 'Case type changed',
+        'settlement' => 'Settlement',
+        'settlement_verified' => 'Settlement verified',
+        'settlement_sent_back' => 'Settlement sent back',
+        'settlement_broken' => 'Settlement broken',
     ];
 
     const APPLIES_TO = [0 => 'Both types', 1 => 'Occupying only', 2 => 'Vacated only'];
@@ -201,10 +205,21 @@ class LegalCase
             return 'Stage "' . $stage->name . '" does not apply to ' . self::TYPES[(int) $legal->case_type] . ' cases.';
         }
         $current = self::stage($legal->stage_id);
-        if ($current && (int) $stage->sort_order < (int) $current->sort_order) {
+        if ($current && (int) $stage->sort_order < (int) $current->sort_order && !self::brokenSinceLastStage($legal)) {
             return 'The case is at "' . $current->name . '"; it cannot move back to "' . $stage->name . '".';
         }
         return null;
+    }
+
+    /** A broken settlement lets the lawyer resume the case at any stage (once, until the next stage update). */
+    public static function brokenSinceLastStage(Legal $legal)
+    {
+        $settlement = LegalSettlement::current($legal->id);
+        if (!$settlement || (int) $settlement->status !== LegalSettlement::BROKEN || !$settlement->broken_at) {
+            return false;
+        }
+        $lastStage = DB::table('legal_case_updates')->where('legal_id', $legal->id)->where('kind', 'stage')->max('created_at');
+        return !$lastStage || $lastStage < $settlement->broken_at;
     }
 
     /** Stage updates: the assigned lawyer (or anyone with the permission who is not only a lawyer). */

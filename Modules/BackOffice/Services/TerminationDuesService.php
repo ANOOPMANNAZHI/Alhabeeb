@@ -318,6 +318,8 @@ class TerminationDuesService
         } catch (\Exception $e) {
             Log::warning('TerminationDues refresh failed for contract ' . $contractId . ': ' . $e->getMessage());
         }
+        // legal settlements watch the same receipts (bounced settlement cheque, settlement fully paid)
+        \Modules\Masters\Services\LegalSettlement::touchContract($contractId);
     }
 
     public static function touchReceipt($receiptId)

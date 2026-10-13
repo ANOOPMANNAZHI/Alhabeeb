@@ -184,6 +184,10 @@ Route::get('/handedOverLegalCases', 'LegalController@handedOverCases')->name('ha
 Route::get('/legal-case/{id}', 'LegalCaseController@show')->name('legal.case');
 Route::post('/legal-case/{id}/stage', 'LegalCaseController@stageStore')->name('legal.case.stage');
 Route::post('/legal-case/{id}/comment', 'LegalCaseController@commentStore')->name('legal.case.comment');
+Route::post('/legal-case/{id}/settlement', 'LegalCaseController@settlementStore')->name('legal.case.settlement');
+Route::post('/legal-case/{id}/settlement/verify', 'LegalCaseController@settlementVerify')->name('legal.case.settlement.verify');
+Route::post('/legal-case/{id}/close', 'LegalCaseController@close')->name('legal.case.close');
+Route::post('/legal-case/{id}/reopen', 'LegalCaseController@reopen')->name('legal.case.reopen');
 Route::get('/legal-stages', 'LegalCaseController@stages')->name('legal.stages');
 Route::post('/legal-stages', 'LegalCaseController@stageMasterStore')->name('legal.stages.store');
 Route::post('/legal-stages/{id}/move', 'LegalCaseController@stageMove')->name('legal.stages.move');

@@ -94,6 +94,8 @@
   @endif
 </div>
 
+@include('masters::Legal._settlement')
+
 <div class="row">
   <div class="col-lg-8">
     <div class="card card-box">
@@ -149,7 +151,7 @@
   <div class="modal-dialog" role="document" style="max-width:620px;">
     <div class="modal-content">
       <form method="POST" action="{{ route('legal.case.stage', $legal->id) }}" enctype="multipart/form-data">
-        {{ csrf_field() }}
+        {{ csrf_field() }}<input type="hidden" name="_modal" value="lcpStageModal">
         <div class="modal-header">
           <h4 class="modal-title" id="lcpStageTitle">Update stage</h4>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
@@ -249,9 +251,9 @@
 @endsection
 
 @section('scripts')
-@if($canStage)
 <script>
   (function () {
+    @if($canStage)
     function stageFields() {
       var code = $('#lcp_stage option:selected').data('code') || '';
       $('.lcp-f').addClass('lcp-hidden');
@@ -261,10 +263,36 @@
     }
     $('#lcp_stage').on('change', stageFields);
     stageFields();
-    @if($errors->any() || session('error'))
-      $('#lcpStageModal').modal('show');
     @endif
+
+    // installment editors: add / remove rows, running total against the amount to match
+    function target(box) {
+      if (box.attr('id') === 'lcs_enter_rows') { return parseFloat($('#lcs_amount').val()) || 0; }
+      return {{ isset($settlement) && $settlement ? (float) $settlement->amount : 0 }} + (parseFloat($('#lcs_fees').val()) || 0);
+    }
+    function sum(box) {
+      var t = 0;
+      box.find('.lcs-inst-amount').each(function () { t += parseFloat($(this).val()) || 0; });
+      var want = target(box), ok = Math.abs(t - want) < 0.0005;
+      box.find('.lcs-inst-sum').text('Installments: ' + t.toFixed(3) + ' of ' + want.toFixed(3) + (ok ? '' : ' - must match'))
+        .css('color', ok ? '#1e6b34' : '#b42318');
+      $('#lcs_verify_total_label').text(target($('#lcs_verify_rows')).toFixed(3));
+    }
+    $(document).on('click', '.lcs-inst-add', function () {
+      var box = $(this).closest('.lcs-inst'), row = box.find('tbody tr:first').clone();
+      row.find('input').val('');
+      box.find('tbody').append(row); sum(box);
+    });
+    $(document).on('click', '.lcs-inst-del', function () {
+      var box = $(this).closest('.lcs-inst');
+      if (box.find('tbody tr').length > 1) { $(this).closest('tr').remove(); } else { $(this).closest('tr').find('input').val(''); }
+      sum(box);
+    });
+    $(document).on('input change', '.lcs-inst-amount, #lcs_amount, #lcs_fees', function () { $('.lcs-inst').each(function () { sum($(this)); }); });
+    $('.lcs-inst').each(function () { sum($(this)); });
+
+    var reopen = @json(old('_modal'));
+    if (reopen) { $('#' + reopen).modal('show'); }
   })();
 </script>
-@endif
 @endsection

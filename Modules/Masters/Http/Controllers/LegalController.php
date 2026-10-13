@@ -1387,6 +1387,11 @@ if($process_flow==801){
 public function legalNoteStore(Request $request){
 
   $url = $request['current_url'];
+  // closing now goes through the case page (verified settlement or a withdrawal reason)
+  if ((string) $request->legal_notes_status === '0') {
+    session()->flash('error', 'To close the case use Close case on the case page: it needs a verified settlement or a withdrawal reason.');
+    return redirect()->route('legal.case', $request->legal_id);
+  }
   LegalNotes::create([
     'user_id' => \Auth::user()->id,
     'legal_id' =>$request->legal_id,
