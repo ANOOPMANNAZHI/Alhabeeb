@@ -43,6 +43,7 @@ class LegalCaseController extends Controller
             'schedule' => $settlement && in_array($settlementStatus, [LegalSettlement::ACTIVE, LegalSettlement::COMPLETED, LegalSettlement::BROKEN], true)
                 ? LegalSettlement::schedule($settlement, $legal->tenant_contract_id) : null,
             'pendingRows' => $settlement ? LegalSettlement::installments($settlement->id) : collect(),
+            'settlementReceipts' => $settlement ? LegalSettlement::receipts($settlement, $legal->tenant_contract_id) : collect(),
             'settlementHistory' => LegalSettlement::all($legal->id)->filter(function ($s) use ($settlement) { return !$settlement || $s->id !== $settlement->id; }),
             'canEnterSettlement' => $user->can('legal_settlement_enter') && LegalCase::canUpdateStage($user, $legal)
                 && (LegalSettlement::canEnter($legal) || $settlementStatus === LegalSettlement::SENT_BACK),

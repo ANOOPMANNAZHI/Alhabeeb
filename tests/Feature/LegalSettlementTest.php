@@ -279,4 +279,34 @@ class LegalSettlementTest extends TestCase
         $this->as($this->plm)->post(route('legal.case.close', $legal->id), ['close_reason' => 'withdrawn', 'close_note' => 'Tenant left, nothing to recover']);
         $this->assertEquals('withdrawn', $legal->fresh()->close_reason);
     }
+
+    public function test_receipts_since_the_agreement_are_listed_in_verify_popup_and_card()
+    {
+        $legal = $this->activeCase();
+        $cid = $legal->tenant_contract_id;
+        $this->enter($legal, ['agreed_date' => date('Y-m-d', strtotime('-3 days'))]);
+
+        $this->receipt($cid, 111, date('Y-m-d', strtotime('-10 days')));                 // before the agreement: not listed
+        $approved = $this->receipt($cid, 450, date('Y-m-d', strtotime('-2 days')));
+        $waiting = $this->receipt($cid, 70, date('Y-m-d'));
+        DB::table('receipts_generation')->where('id', $waiting)->update(['receipts_generation_approval_status' => 1, 'receipts_generation_status' => 0]);
+        $bounced = $this->receipt($cid, 90, date('Y-m-d'));
+        DB::table('receipts_generation')->where('id', $bounced)->update(['receipts_generation_status' => 2]);
+
+        $rows = LegalSettlement::receipts($this->settlement($legal), $cid)->keyBy('id');
+        $this->assertCount(3, $rows);
+        $this->assertTrue($rows[$approved]->counts);
+        $this->assertFalse($rows[$waiting]->counts);
+        $this->assertSame('Waiting approval', $rows[$waiting]->state[0]);
+        $this->assertFalse($rows[$bounced]->counts);
+        $this->assertSame('Cancelled', $rows[$bounced]->state[0]);
+
+        // PLM sees them while verifying (pending settlement) ...
+        $this->as($this->plm)->get(route('legal.case', $legal->id))->assertStatus(200)
+            ->assertSee('Receipts since')->assertSee('LGS-T-2')->assertSee('Waiting approval')->assertSee('Cancelled');
+        // ... and on the card once verified, next to the collected figure
+        $this->verify($legal);
+        $this->as($this->lawyer)->get(route('legal.case', $legal->id))->assertSee('Receipts since')->assertSee('450.000');
+        $this->assertEquals(450, LegalSettlement::schedule($this->settlement($legal), $cid)['collected']);
+    }
 }

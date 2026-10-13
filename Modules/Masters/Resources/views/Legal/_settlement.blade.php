@@ -82,6 +82,7 @@
         </tbody>
       </table>
     </div>
+    @include('masters::Legal._settlement_receipts')
     @if($schedule && count($schedule['cheques']))
       <div class="lg-card__foot">Cheques held:
         @foreach($schedule['cheques'] as $c) <span class="tnum">{{ $c->pdc_check_no }} ({{ $d($c->pdc_check_date) }}, {{ numberFormat($c->pdc_amt) }})</span>@if(!$loop->last), @endif @endforeach</div>
@@ -155,6 +156,7 @@
             <div class="lg-kpi"><div class="lg-kpi__label">Settlement amount</div><div class="lg-kpi__value lg-kpi__value--sm">{{ numberFormat($settlement->amount) }}</div></div>
             <div class="lg-kpi"><div class="lg-kpi__label">Outstanding when entered</div><div class="lg-kpi__value lg-kpi__value--sm">{{ numberFormat($settlement->outstanding_at_entry) }}</div></div>
           </div>
+          @include('masters::Legal._settlement_receipts', ['receiptsInModal' => true])
           <div class="lg-form-grid">
             <div class="lg-field"><label for="lcs_waiver" class="lg-label">Waiver amount</label>
               <input type="number" step="0.001" min="0" id="lcs_waiver" name="waiver_amount" class="lg-input tnum" value="{{ old('waiver_amount', $suggestWaiver) }}">
