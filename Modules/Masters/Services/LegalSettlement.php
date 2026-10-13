@@ -86,6 +86,42 @@ class LegalSettlement
             ->sum('receipts_generation_amt'), 3);
     }
 
+    /**
+     * Rent and general receipts on the contract dated from the agreed date, for display: every one of them, with
+     * whether it counts (same rule as collected()) and why not - waiting approval, rejected, cancelled.
+     */
+    public static function receipts($settlement, $contractId)
+    {
+        $rows = DB::table('receipts_generation')
+            ->where('tenant_contract_id', $contractId)
+            ->whereIn('receipts_generation_type', self::RECEIPT_TYPES)
+            ->whereNull('deleted_at')
+            ->whereDate('receipts_generation_receipt_date', '>=', $settlement->agreed_date)
+            ->orderBy('receipts_generation_receipt_date')->orderBy('id')
+            ->get(['id', 'receipts_generation_receipt_no as receipt_no', 'receipts_generation_receipt_date as receipt_date',
+                   'receipts_generation_amt as amount', 'receipts_generation_type as type', 'receipts_generation_payment_method as method',
+                   'receipts_generation_cheque_no as cheque_no', 'receipts_generation_approval_status as approval',
+                   'receipts_generation_status as status']);
+        foreach ($rows as $r) {
+            $cancelled = (int) $r->status === RentOutstanding::STATUS_CANCELLED;
+            $r->counts = !$cancelled && in_array((int) $r->approval, RentOutstanding::COUNTED_APPROVAL, true);
+            if ($cancelled) {
+                $r->state = ['Cancelled', 'danger'];
+            } elseif ((int) $r->approval === 6) {
+                $r->state = ['Posted', 'success'];
+            } elseif ((int) $r->approval === 3) {
+                $r->state = ['Approved', 'success'];
+            } elseif ((int) $r->approval === 4) {
+                $r->state = ['Rejected', 'danger'];
+            } else {
+                $r->state = ['Waiting approval', 'warning'];
+            }
+            $r->type_label = (int) $r->type === 1 ? 'General' : 'Rent';
+            $r->method_label = (int) $r->method === 1 ? 'Cheque' : ((int) $r->method === 3 ? 'Bank transfer' : 'Cash');
+        }
+        return $rows;
+    }
+
     /** Cheques received for the contract, dated from the agreed date, not yet receipted, cancelled or bounced. */
     public static function heldCheques($settlement, $contractId)
     {
