@@ -953,6 +953,14 @@ Breadcrumbs::for('legal.stages', function ($trail) {
     $trail->parent('home');
     $trail->push('Legal Stages', route('legal.stages'));
 });
+Breadcrumbs::for('legal.reports.cases', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Legal Cases Summary', route('legal.reports.cases'));
+});
+Breadcrumbs::for('legal.reports.settlements', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Legal Settlements', route('legal.reports.settlements'));
+});
 /*    **************************************************************************     */
 // Tenancy Details  Index
 Breadcrumbs::for('tenancyDetails.index', function ($trail) {

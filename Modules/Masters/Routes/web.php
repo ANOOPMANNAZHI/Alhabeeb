@@ -191,6 +191,8 @@ Route::post('/legal-case/{id}/reopen', 'LegalCaseController@reopen')->name('lega
 Route::get('/legal-stages', 'LegalCaseController@stages')->name('legal.stages');
 Route::post('/legal-stages', 'LegalCaseController@stageMasterStore')->name('legal.stages.store');
 Route::post('/legal-stages/{id}/move', 'LegalCaseController@stageMove')->name('legal.stages.move');
+Route::get('/legal-reports/cases', 'LegalReportController@cases')->name('legal.reports.cases');
+Route::get('/legal-reports/settlements', 'LegalReportController@settlements')->name('legal.reports.settlements');
 
 /*****    closed legal cases ends  ****/
 /*****    referback legal cases  starts****/
