@@ -20,7 +20,7 @@
       <div class="lg-kpi__hint">months unpaid x rent</div></div>@endif
   </div>
   @endif
-  <ul class="lg-tabs" role="tablist">
+  <ul class="nav lg-tabs" role="tablist">
     <li role="presentation"><a class="active" href="#{{ $tabId }}_contract" data-toggle="tab" role="tab" aria-controls="{{ $tabId }}_contract" aria-selected="true">Contract</a></li>
     <li role="presentation"><a href="#{{ $tabId }}_tenant" data-toggle="tab" role="tab" aria-controls="{{ $tabId }}_tenant" aria-selected="false">Tenant &amp; unit</a></li>
     <li role="presentation"><a href="#{{ $tabId }}_payment" data-toggle="tab" role="tab" aria-controls="{{ $tabId }}_payment" aria-selected="false">Payment</a></li>
