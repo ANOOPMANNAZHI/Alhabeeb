@@ -13,7 +13,7 @@
   </div>
 @endif
 @if($legal->parent_legal_id)
-  <div class="lg-alert lg-alert--info"><div>Reopened from <a href="{{ route('legal.case', $legal->parent_legal_id) }}">case #{{ $legal->parent_legal_id }}</a>.</div></div>
+  <div class="lg-alert lg-alert--info"><div>Reopened from <a href="{{ ($parentCase = \Modules\Masters\Entities\Legal::find($legal->parent_legal_id)) ? $LC::screenUrl($parentCase) : '#' }}">case #{{ $legal->parent_legal_id }}</a>.</div></div>
 @endif
 @if($legal->closed_at)
   <div class="lg-alert lg-alert--info">

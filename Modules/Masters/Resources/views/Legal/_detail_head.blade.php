@@ -20,6 +20,8 @@
   </div>
   <div class="lg-page-head__actions">
     {{ $actions ?? '' }}
+    @if(\Modules\Masters\Services\LegalCase::hasCasePage($legal))
     <a class="lg-btn lg-btn--secondary" href="{{ route('legal.case', $legal->id) }}"><i class="fa fa-gavel" aria-hidden="true"></i> Case page</a>
+    @endif
   </div>
 </header>

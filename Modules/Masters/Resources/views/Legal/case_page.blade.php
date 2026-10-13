@@ -129,7 +129,7 @@
         <div class="lg-card__body">
           @foreach($related as $r)
             <div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;">
-              <a href="{{ route('legal.case', $r->id) }}">Case #{{ $r->id }}</a>
+              <a href="{{ $LC::screenUrl($r) }}">Case #{{ $r->id }}</a>
               <span class="lg-badge lg-badge--{{ $r->closed_at ? 'neutral' : 'info' }}">{{ $r->closed_at ? 'Closed ' . \Carbon\Carbon::parse($r->closed_at)->format('d/m/Y') : 'Open' }}</span>
             </div>
           @endforeach

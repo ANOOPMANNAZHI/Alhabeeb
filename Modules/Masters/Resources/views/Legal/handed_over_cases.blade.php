@@ -34,7 +34,7 @@
         <tbody>
           @forelse($cases as $case)
           <tr>
-            <td><a class="lg-row-link" href="{{ route('legal.case', $case->id) }}">{{ $case->tenantContract->tenant_contract_no ?? '' }}</a><div class="muted" style="font-size:12px;">#{{ $case->id }}</div></td>
+            <td><a class="lg-row-link" href="{{ $LC::screenUrl($case) }}">{{ $case->tenantContract->tenant_contract_no ?? '' }}</a><div class="muted" style="font-size:12px;">#{{ $case->id }}</div></td>
             <td class="strong">{{ $case->tenantContract->tenant->tenant_name ?? '' }}</td>
             <td>{{ $case->building->building_name ?? '' }}</td>
             <td>{{ $case->unit->unit_code ?? '' }}</td>
@@ -42,7 +42,7 @@
             <td>{{ $case->handed_to_name }}</td>
             <td>{{ $case->handover_ref }}</td>
             <td class="tnum">{{ $case->handover_date ? \Carbon\Carbon::parse($case->handover_date)->format('d/m/Y') : '' }}</td>
-            <td class="actions"><a href="{{ route('legal.case', $case->id) }}" class="lg-btn lg-btn--secondary lg-btn--sm">Open</a></td>
+            <td class="actions"><a href="{{ $LC::screenUrl($case) }}" class="lg-btn lg-btn--secondary lg-btn--sm">View</a></td>
           </tr>
           @empty
           <tr><td colspan="9"><div class="lg-empty"><div class="lg-empty__title">No handed-over cases</div>Nothing matches the filters.</div></td></tr>

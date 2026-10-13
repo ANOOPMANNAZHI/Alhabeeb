@@ -211,6 +211,31 @@ class LegalCase
         return null;
     }
 
+    /**
+     * The case page (stages, settlement, comments) exists once the lawyer accepted the case (803); before that
+     * the case is only a request at PLM / lawyer approval, and a case handed over at PLM approval never gets one.
+     */
+    public static function hasCasePage(Legal $legal)
+    {
+        return (int) $legal->work_flow_processes_code === 803;
+    }
+
+    /** Where a case opens: the case page once accepted, otherwise the screen of the step it is at. */
+    public static function screenUrl(Legal $legal)
+    {
+        $code = (int) $legal->work_flow_processes_code;
+        if ($code === 803) {
+            return route('legal.case', $legal->id);
+        }
+        if ($code === 801) {
+            return route('plmsApprovalShow', $legal->id);
+        }
+        if ($code === 802) {
+            return route('lawyerApprovalShow', $legal->id);
+        }
+        return route('legalCase.show', $legal->id);
+    }
+
     /** A broken settlement lets the lawyer resume the case at any stage (once, until the next stage update). */
     public static function brokenSinceLastStage(Legal $legal)
     {
