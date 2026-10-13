@@ -29,6 +29,10 @@ class LegalCaseController extends Controller
     {
         abort_unless(LegalCase::canView(\Auth::user()), 403);
         $legal = Legal::with(['tenantContract.tenant', 'building', 'unit', 'lawyer', 'workFlowProcess'])->findOrFail($id);
+        // no case page before the lawyer accepted the case: open the screen of the step it is at
+        if (!LegalCase::hasCasePage($legal)) {
+            return redirect(LegalCase::screenUrl($legal));
+        }
         clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
 
         $user = \Auth::user();
@@ -324,7 +328,7 @@ class LegalCaseController extends Controller
         });
         LegalMessages::toRoles('legal_case_reopened', ['backoffice_manager'], $contract, ['reason' => $request->reopen_reason]);
 
-        return redirect()->route('legal.case', $new->id)->with('success', 'Case reopened as #' . $new->id . '; it waits for PLM approval.');
+        return redirect(LegalCase::screenUrl($new))->with('success', 'Case reopened as #' . $new->id . '; it waits for PLM approval.');
     }
 
     /** Attach the PLM approval (801) users, the same way Move to Legal does. */

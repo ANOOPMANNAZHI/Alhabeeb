@@ -216,4 +216,26 @@ class LegalWorkflowTest extends TestCase
         $this->as($this->plm)->post(route('plmsApproveReferBack'), ['legal_id' => $legal->id, 'process_flow' => 801, 'action_key' => 'APRV', 'are_status' => 0])
             ->assertStatus(200)->assertSee('lc_handled_by')->assertSee('Lg_t_lawyer');
     }
+
+    public function test_case_page_only_after_the_lawyer_accepts()
+    {
+        $legal = $this->moveToLegal($this->contract(4));
+        $caseUrl = route('legal.case', $legal->id);
+
+        // at PLM approval: no case page links, the case page sends you to the PLM screen
+        $this->as($this->plm)->get(route('plmsApproval', ['ajax' => 1, 'sort' => 'id', 'direction' => 'desc']))
+            ->assertSee(route('plmsApprovalShow', $legal->id))->assertDontSee($caseUrl);
+        $this->as($this->plm)->get(route('plmsApprovalShow', $legal->id))->assertStatus(200)->assertDontSee($caseUrl);
+        $this->as($this->plm)->get($caseUrl)->assertRedirect(route('plmsApprovalShow', $legal->id));
+
+        // at lawyer approval: still none
+        $this->store($this->plm, $legal, ['process_flow' => 801, 'action_key' => 'APRV', 'are_status' => 0, 'handled_by' => 1,
+            'case_type' => 1, 'priority' => 2, 'lawyer_user_id' => $this->lawyer->id, 'legal_note' => 'ok']);
+        $this->as($this->lawyer)->get(route('lawyerApprovalShow', $legal->id))->assertStatus(200)->assertDontSee($caseUrl);
+        $this->as($this->lawyer)->get($caseUrl)->assertRedirect(route('lawyerApprovalShow', $legal->id));
+
+        // accepted: the case page opens
+        $this->store($this->lawyer, $legal, ['process_flow' => 802, 'action_key' => 'APRV', 'are_status' => 0, 'legal_note' => 'go']);
+        $this->as($this->lawyer)->get($caseUrl)->assertStatus(200)->assertSee('Update stage');
+    }
 }

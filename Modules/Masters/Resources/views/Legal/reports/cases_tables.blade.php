@@ -52,7 +52,7 @@
   </tr>
   @forelse($chunk as $r)
   <tr>
-    <td style="{{ $td }}">@if(!isset($pdf))<a href="{{ route('legal.case', $r->id) }}">#{{ $r->id }}</a>@else #{{ $r->id }} @endif</td>
+    <td style="{{ $td }}">@if(!isset($pdf))<a href="{{ (int) $r->work_flow_processes_code === 803 ? route('legal.case', $r->id) : (\Modules\Masters\Services\LegalCase::screenUrl(\Modules\Masters\Entities\Legal::find($r->id))) }}">#{{ $r->id }}</a>@else #{{ $r->id }} @endif</td>
     <td style="{{ $td }}">{{ $r->tenant_contract_no }}</td>
     <td style="{{ $td }}">{{ $r->tenant_name }}</td>
     <td style="{{ $td }}">{{ $r->building_name }}</td>

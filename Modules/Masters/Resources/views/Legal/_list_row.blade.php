@@ -4,9 +4,11 @@
     $LC = \Modules\Masters\Services\LegalCase::class;
     $tc = $c->tenantContract;
     $active = $tc && (int) $tc->tenant_contract_status === 1;
+    $hasCase = $LC::hasCasePage($c);   // the case page exists once the lawyer accepted
+    $openUrl = $hasCase ? route('legal.case', $c->id) : ($viewUrl ?? $LC::screenUrl($c));
 @endphp
 <tr>
-  <td><a class="lg-row-link" href="{{ route('legal.case', $c->id) }}">{{ $tc->tenant_contract_no ?? '' }}</a>
+  <td><a class="lg-row-link" href="{{ $openUrl }}">{{ $tc->tenant_contract_no ?? '' }}</a>
     <div class="muted" style="font-size:12px;">#{{ $c->id }}</div></td>
   <td class="strong">{{ $tc->tenant->tenant_name ?? '' }}</td>
   <td>{{ $c->building->building_name ?? '' }}</td>
@@ -46,9 +48,13 @@
       <button type="button" class="lg-btn lg-btn--ghost lg-btn--icon are_stage" data-id="{{ $c->id }}" data-flow-id="{{ (int) $c->are_status === 1 ? 802 : 801 }}" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false" title="Send for verification" aria-label="Send case {{ $c->id }} for verification"><i class="fa fa-arrow-right" aria-hidden="true"></i></button>
       @endcan
     @endif
-    @if(!empty($viewUrl))
-    <a href="{{ $viewUrl }}" class="lg-btn lg-btn--ghost lg-btn--icon" title="Contract details" aria-label="Contract details for case {{ $c->id }}"><i class="fa fa-file-text-o" aria-hidden="true"></i></a>
+    @if($hasCase)
+      @if(!empty($viewUrl))
+      <a href="{{ $viewUrl }}" class="lg-btn lg-btn--ghost lg-btn--icon" title="Contract details" aria-label="Contract details for case {{ $c->id }}"><i class="fa fa-file-text-o" aria-hidden="true"></i></a>
+      @endif
+      <a href="{{ route('legal.case', $c->id) }}" class="lg-btn lg-btn--secondary lg-btn--sm">Open case</a>
+    @else
+      <a href="{{ $openUrl }}" class="lg-btn lg-btn--secondary lg-btn--sm">View</a>
     @endif
-    <a href="{{ route('legal.case', $c->id) }}" class="lg-btn lg-btn--secondary lg-btn--sm">Open</a>
   </td>
 </tr>
