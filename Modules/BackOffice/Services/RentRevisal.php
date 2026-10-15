@@ -49,6 +49,64 @@ class RentRevisal
         return self::windowQuery($user)->doesntHave('rentRevisal')->count();
     }
 
+    /**
+     * Save the revisal and email the tenant (Reply-To = the first ARE of the building, else the sender).
+     * @return array [TenantRentRevisal|null, string message for the user]
+     */
+    public static function send(TenantContract $c, $user, $rent, $note)
+    {
+        if (!self::canRevise($c, $user)) {
+            return [null, 'This contract cannot be revised: it is outside the 90-120 day window, already revised, or not one of your buildings.'];
+        }
+        $note = trim((string) $note) !== '' ? trim((string) $note) : null;
+        $revisal = \DB::transaction(function () use ($c, $user, $rent, $note) {
+            // lock the contract row so two Sends cannot both pass canRevise
+            TenantContract::where('id', $c->id)->lockForUpdate()->first();
+            if ($c->rentRevisal()->exists()) {
+                return null;
+            }
+            return \Modules\BackOffice\Entities\TenantRentRevisal::create([
+                'tenant_contract_id' => $c->id, 'current_rent' => (float) $c->tenant_contract_rent,
+                'revised_rent' => $rent, 'note' => $note, 'created_by' => $user->id,
+            ]);
+        });
+        if (!$revisal) {
+            return [null, 'This contract has already been revised.'];
+        }
+        $are = self::areUsers($c)->first() ?: $user;
+        $areEmp = $are->employee;
+        $to = ComplaintMessages::tenantRecipient($c->tenant, 'contact');
+        $r = SystemMessenger::send('rent_revision_tenant', $to, self::tenantValues($c, $revisal, $are), [
+            'reply_to' => ['email' => $are->email, 'name' => $areEmp && $areEmp->employee_name ? $areEmp->employee_name : $are->username],
+            'related' => ['contract', $c->id],
+            'blocks' => ['revisal_note' => $revisal->note ? '<p>' . nl2br(e($revisal->note)) . '</p>' : ''],
+        ]);
+        $revisal->update(['email_status' => $r['email'], 'emailed_at' => $r['email'] === \Modules\BackOffice\Entities\MessageLog::SENT ? now() : null]);
+        switch ($r['email']) {
+            case \Modules\BackOffice\Entities\MessageLog::SENT:
+                return [$revisal, 'Revisal saved and emailed to the tenant.'];
+            case \Modules\BackOffice\Entities\MessageLog::SKIPPED_NO_ADDRESS:
+                return [$revisal, 'Revisal saved. No email on file for this tenant - inform the tenant another way.'];
+            case \Modules\BackOffice\Entities\MessageLog::SKIPPED_OFF:
+                return [$revisal, 'Revisal saved. The tenant email is switched off in Mail > Templates.'];
+            default:
+                return [$revisal, 'Revisal saved, but the email could not be sent (see Mail > Sent log).'];
+        }
+    }
+
+    /** Placeholder values for rent_revision_tenant (the note goes in as an HTML block). */
+    public static function tenantValues(TenantContract $c, $revisal, $are)
+    {
+        $emp = $are ? $are->employee : null;
+        return MessageValues::contract($c) + [
+            'current_rent' => number_format((float) $revisal->current_rent, 3),
+            'revised_rent' => number_format((float) $revisal->revised_rent, 3),
+            'are_name'     => $emp && $emp->employee_name ? $emp->employee_name : ($are ? $are->username : ''),
+            'are_email'    => $are ? (string) $are->email : '',
+            'are_mobile'   => $emp ? (string) ($emp->employee_contact_no ?: $emp->employee_secondary_no) : '',
+        ];
+    }
+
     /** Active users currently assigned as ARE of the contract's building. */
     public static function areUsers(TenantContract $c)
     {

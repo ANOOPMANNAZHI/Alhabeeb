@@ -139,4 +139,73 @@ class RentRevisalTest extends TestCase
         $this->assertEquals($before - 1, $svc::dueCount($are));
         $this->assertFalse($svc::canRevise($c->fresh(), $are));
     }
+
+    public function test_are_sends_revisal_and_tenant_gets_email_with_reply_to()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        $this->as($are)->get(route('rentRevisal.index'))->assertStatus(200)->assertSee($c->tenant_contract_no);
+        $this->as($are)->get(route('rentRevisal.form', $c->id))->assertStatus(200);
+        $res = $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '330.500', 'note' => 'Market rate']);
+        $res->assertStatus(200)->assertJson(['ok' => true]);
+        $r = TenantRentRevisal::where('tenant_contract_id', $c->id)->first();
+        $this->assertEquals(330.5, (float) $r->revised_rent);
+        $this->assertEquals((float) $c->tenant_contract_rent, (float) $r->current_rent);
+        $this->assertEquals('sent', $r->email_status);
+        Mail::assertSent(TemplatedMail::class, function ($m) use ($are) {
+            return $m->hasReplyTo($are->email) && strpos($m->bodyHtml, '330.500') !== false && strpos($m->bodyHtml, 'Market rate') !== false;
+        });
+    }
+
+    public function test_second_revisal_is_refused()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '330']);
+        $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '400'])->assertStatus(422);
+        $this->assertEquals(1, TenantRentRevisal::where('tenant_contract_id', $c->id)->count());
+        Mail::assertSent(TemplatedMail::class, 1);
+    }
+
+    public function test_refused_outside_window_and_for_other_are()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $other = $this->makeUser('rr_t_are2', 'are');
+        $c = $this->contractEndingIn(80);
+        $this->assignAre($are, $c->building_id);
+        $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '330'])->assertStatus(422);
+        $c2 = $this->contractEndingIn(100);
+        $this->as($other)->post(route('rentRevisal.store', $c2->id), ['revised_rent' => '330'])->assertStatus(422);
+        $this->assertEquals(0, TenantRentRevisal::whereIn('tenant_contract_id', [$c->id, $c2->id])->count());
+    }
+
+    public function test_rent_with_thousands_separator_saves_and_bad_rent_is_rejected()
+    {
+        $admin = User::find(1);
+        $c = $this->contractEndingIn(100);
+        $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '0'])->assertStatus(422);
+        $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => 'abc'])->assertStatus(422);
+        $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '1,250.500'])->assertStatus(200);
+        $this->assertEquals(1250.5, (float) TenantRentRevisal::where('tenant_contract_id', $c->id)->value('revised_rent'));
+    }
+
+    public function test_tenant_without_email_saves_with_status()
+    {
+        $admin = User::find(1);
+        $c = $this->contractEndingIn(100);
+        DB::table('tenant')->where('id', $c->tenant_id)->update(['tenant_contact_email' => null, 'tenant_personal_email' => null]);
+        $res = $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '330']);
+        $res->assertStatus(200)->assertJsonFragment(['email_status' => 'skipped_no_address']);
+        Mail::assertNothingSent();
+    }
+
+    public function test_user_without_permission_is_refused()
+    {
+        $user = $this->makeUser('rr_t_cc', 'call_center');
+        $c = $this->contractEndingIn(100);
+        $this->as($user)->get(route('rentRevisal.index'))->assertStatus(403);
+        $this->as($user)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '330'])->assertStatus(403);
+    }
 }

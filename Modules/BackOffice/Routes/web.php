@@ -77,6 +77,11 @@ Route::post('tenantContractRenewalTypeStore/{tenant_contract}','TenantRenewalCon
 
 
 
+// Rent revisal before renewal (spec 2026-10-15) - must come before the tenantRenewal resource
+Route::get('tenantRenewal/rentRevisal', 'RentRevisalController@index')->name('rentRevisal.index');
+Route::get('tenantRenewal/rentRevisal/{tenant_contract}/form', 'RentRevisalController@form')->name('rentRevisal.form');
+Route::post('tenantRenewal/rentRevisal/{tenant_contract}', 'RentRevisalController@store')->name('rentRevisal.store');
+
 /*** Renewal Request List ****/
 Route::resource('tenantRenewal', 'TenantRenewalController');
 
