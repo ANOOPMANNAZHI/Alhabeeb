@@ -91,4 +91,15 @@ class RentRevisalTest extends TestCase
         $this->assertTrue(DB::table('message_templates')->where('key', 'rent_revision_tenant')->exists());
         $this->assertTrue(DB::table('permissions')->where('name', 'rent_revisal')->exists());
     }
+
+    public function test_system_messenger_sets_reply_to_only_when_given()
+    {
+        $to = new \Modules\BackOffice\Services\MessageRecipient('Tenant', 'tenant@example.test');
+        $values = ['tenant_name' => 'Tenant', 'contract_no' => 'TAG1', 'building' => 'B', 'unit' => '1', 'contract_end' => '01/01/2027',
+            'revised_rent' => '330.000', 'current_rent' => '300.000', 'revisal_note' => '', 'are_name' => 'Rashid', 'are_mobile' => '9'];
+        SystemMessenger::send('rent_revision_tenant', $to, $values, ['reply_to' => ['email' => 'are@example.test', 'name' => 'Rashid']]);
+        SystemMessenger::send('rent_revision_tenant', $to, $values);
+        Mail::assertSent(TemplatedMail::class, function ($m) { return $m->hasReplyTo('are@example.test'); });
+        Mail::assertSent(TemplatedMail::class, function ($m) { return !$m->hasReplyTo('are@example.test'); });
+    }
 }
