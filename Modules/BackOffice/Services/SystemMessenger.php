@@ -11,6 +11,7 @@ use Modules\BackOffice\Entities\MessageTemplate;
  * Sends a system template to one recipient: email when the template has one
  * and the recipient has an address, SMS only when the template's Send SMS
  * switch is on. Never throws for delivery problems; every attempt is logged.
+ * Option 'reply_to' => ['email' => .., 'name' => ..] sets Reply-To on the email.
  */
 class SystemMessenger
 {
@@ -103,7 +104,11 @@ class SystemMessenger
                     if ($to->cc) {
                         $pending->cc($to->cc);
                     }
-                    $pending->send(new TemplatedMail($out['subject'], $out['html'], isset($options['attachments']) ? $options['attachments'] : []));
+                    $mail = new TemplatedMail($out['subject'], $out['html'], isset($options['attachments']) ? $options['attachments'] : []);
+                    if (!empty($options['reply_to']['email'])) {
+                        $mail->replyTo($options['reply_to']['email'], isset($options['reply_to']['name']) ? $options['reply_to']['name'] : null);
+                    }
+                    $pending->send($mail);
                     $result['email'] = MessageLog::SENT;
                 } catch (\Throwable $e) {
                     $result['email'] = MessageLog::FAILED;

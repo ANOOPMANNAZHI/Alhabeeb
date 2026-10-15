@@ -158,7 +158,23 @@
             </div>
             <!-- /.info-box -->
           </div>
-             
+
+          @can('rent_revisal')
+          <div class="col-xl-4 col-md-4 col-12">
+            <div class="info-box bg-primary">
+            <a href="{{ route('rentRevisal.index', ['revisal' => 'pending']) }}">
+              <span class="info-box-icon push-bottom"><i class="material-icons extra">trending_up</i></span>
+              </a>
+              <div class="info-box-content">
+                <span class="info-box-number">{{ $are['rentRevisalDueCount'] ?? 0 }}</span>
+                <span class="info-box-text">Rent revisal due</span>
+                <div class="progress"><div class="progress-bar width-60"></div></div>
+                <span class="progress-description">Contracts ending in 90-120 days</span>
+              </div>
+            </div>
+          </div>
+          @endcan
+
              <div class="col-xl-4 col-md-4 col-12">
               <div class="info-box bg-danger">
               <a href="{{route('tenant-contract.index',['under_penalty'=>30])}}">

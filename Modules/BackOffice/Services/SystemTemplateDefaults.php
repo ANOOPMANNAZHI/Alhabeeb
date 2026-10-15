@@ -89,7 +89,46 @@ class SystemTemplateDefaults
                 'is_active' => false, 'sms_enabled' => false,
                 'placeholders' => self::tenantPlaceholders() + self::contractPlaceholders() + self::chequePlaceholders(),
             ],
-        ] + self::c2() + self::c3();
+        ] + self::c2() + self::c3() + self::rentRevisal();
+    }
+
+    /** Rent revisal before renewal (spec 2026-10-15). */
+    private static function rentRevisal()
+    {
+        $contract = ['tenant_name' => self::tenantPlaceholders()['tenant_name']] + self::contractPlaceholders();
+        $revisal = [
+            'current_rent' => ['label' => 'Current monthly rent', 'sample' => '300.000'],
+            'revised_rent' => ['label' => 'Revised monthly rent', 'sample' => '330.000'],
+            'revisal_note' => ['label' => 'Note from the ARE', 'sample' => '<p>The revision follows the market rate for the area.</p>', 'block' => true],
+            'are_name'     => ['label' => 'ARE name', 'sample' => 'Rashid Al Balushi'],
+            'are_email'    => ['label' => 'ARE email', 'sample' => 'rashid@alhabib.om'],
+            'are_mobile'   => ['label' => 'ARE mobile', 'sample' => '99123456'],
+        ];
+        return [
+            'rent_revisal_due_are' => [
+                'name' => 'Rent revisal due (ARE)', 'audience' => 'staff', 'stage' => 'RR',
+                'email_subject' => 'Contract expiring soon - start rent revisal if needed - {building} {unit}',
+                'email_body' => '<p>Dear {employee_name},</p>'
+                    . '<p>The contract below ends on <strong>{contract_end}</strong>. If the rent is to be revised on renewal, '
+                    . 'please enter the revised rent in PLMS under Due for Renewal &gt; Rent revisal before it is 90 days from expiry.</p>'
+                    . '<p>Tenant: {tenant_name}<br>Contract: {contract_no}<br>Building: {building}, unit {unit}<br>Current rent: OMR {rent}</p>'
+                    . '<p><a href="{revisal_link}">Open Rent revisal</a></p>' . self::regards(),
+                'sms_body' => null, 'is_active' => true, 'sms_enabled' => false,
+                'placeholders' => self::employeePlaceholders() + $contract
+                    + ['revisal_link' => ['label' => 'Link to the Rent revisal tab', 'sample' => 'https://plms.alhabib.om/tenantRenewal/rentRevisal']],
+            ],
+            'rent_revision_tenant' => [
+                'name' => 'Rent revision notice (tenant)', 'audience' => 'tenant', 'stage' => 'RR',
+                'email_subject' => 'Rent revision on renewal - {building} {unit}',
+                'email_body' => '<p>Dear {tenant_name},</p>'
+                    . '<p>Your tenancy contract {contract_no} for {building}, unit {unit} ends on {contract_end}.</p>'
+                    . '<p>On renewal, the monthly rent will be <strong>OMR {revised_rent}</strong> (currently OMR {current_rent}).</p>'
+                    . '{revisal_note}'
+                    . '<p>For any questions please reply to this email or contact {are_name} on {are_mobile}.</p>' . self::regards(),
+                'sms_body' => null, 'is_active' => true, 'sms_enabled' => false,
+                'placeholders' => $contract + $revisal,
+            ],
+        ];
     }
 
     /** C3: staff messages (complaint assignment, enquiries) and legal alerts. */

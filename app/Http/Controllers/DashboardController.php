@@ -1578,7 +1578,8 @@ return ['count' => $underPenaltyCount ];
 	'underPenaltyCount'=>$underPenaltyCount,
 	'notRegisteredInMunicipalityCount'=>$notRegisteredInMunicipalityCount,
 	'averageReceivables'=>$averageReceivables,
-	'referBackContractsCount'=>$referBackContractsCount
+	'referBackContractsCount'=>$referBackContractsCount,
+	'rentRevisalDueCount'=>\Modules\BackOffice\Services\RentRevisal::dueCount(\Auth::user())
 	];
 
 }

@@ -18,6 +18,7 @@
          {{ Breadcrumbs::render('tenantRenewal.index') }}
     </div>
 </div>
+@include('backoffice::RentRevisal._tabs')
 <a  class=" align-right advSearch" href="#" id="enquiry_div" data-toggle="collapse" data-target="#show">
 <i class="fa fa-search" aria-hidden="true"></i>  <span id="enquirySearch"> Advance Search <i class="fa fa-caret-down" aria-hidden="true"></i></span>
 </a>

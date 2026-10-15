@@ -1036,7 +1036,9 @@ class TenantRenewalController extends Controller
       }else{
 
         $interval = contractDurationCalculation($startDate,$contract_valid_to_date );
-      
+
+        // Rent revisal (spec 2026-10-15): with no renewal form yet, start from the revised rent (shown only, not saved here).
+        $tenantContract->tenant_contract_rent = \Modules\BackOffice\Services\RentRevisal::renewalRent($tenantContract);
         $rent =  $tenantContract->tenant_contract_rent;
         $contract_amount = rentCalcualtionWithDuration($interval, $rent);
       
@@ -2006,7 +2008,11 @@ class TenantRenewalController extends Controller
       if(count($tenantContract->tenantRenewalForm) > 0){
         $form_count = count($tenantContract->tenantRenewalForm);
         $renewal_data = $tenantContract->tenantRenewalForm[$form_count-1];
-      }   
+      }
+      // Rent revisal (spec 2026-10-15): with no renewal form yet, start from the revised rent (shown only, not saved here).
+      if (!$renewal_data) {
+        $tenantContract->tenant_contract_rent = \Modules\BackOffice\Services\RentRevisal::renewalRent($tenantContract);
+      }
 
       $landloard = LandlordContract::where('building_id',$tenantContract->building_id)
                                       ->active()->first();

@@ -23,6 +23,7 @@ class Kernel extends ConsoleKernel
          \Modules\BackOffice\Console\RefreshReceivableFollowup::class,
          \Modules\BackOffice\Console\PdcConvertVat::class,
          \Modules\Masters\Console\LegalSettlementCheck::class,
+         \Modules\BackOffice\Console\RentRevisalNotifyAre::class,
     ];
 
     /**
@@ -46,6 +47,8 @@ class Kernel extends ConsoleKernel
        $schedule->command('receivables:refresh-followup')->everyFifteenMinutes()->withoutOverlapping(30);
 
        $schedule->command('legal:settlement-check')->dailyAt('07:00');
+
+       $schedule->command('rent-revisal:notify-are')->dailyAt('08:00');
 
     }
 
