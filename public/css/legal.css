@@ -145,6 +145,13 @@
 .lg .lg-table tbody tr:hover td { background: #F8FAFF; }
 .lg .lg-table tbody tr:last-child td { border-bottom: 0; }
 .lg .lg-table td.strong, .lg .lg-table .strong { color: var(--lg-ink); font-weight: 500; }
+/* grouped rows: one row per tenant + building + unit, the group's other cases open under it */
+.lg .lg-group-toggle { margin-top: 4px; padding: 1px 8px; border: 1px solid var(--lg-border-strong); border-radius: 999px; background: var(--lg-primary-soft); color: var(--lg-primary-strong); font-size: 12px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+.lg .lg-group-toggle:hover { border-color: var(--lg-primary); }
+.lg .lg-group-toggle:focus-visible { outline: 2px solid var(--lg-primary); outline-offset: 2px; }
+.lg .lg-group-toggle[aria-expanded="true"] { background: var(--lg-primary); border-color: var(--lg-primary); color: #fff; }
+.lg .lg-table tr.lg-group-row td { background: var(--lg-bg); }
+.lg .lg-table tr.lg-group-row td:first-child { box-shadow: inset 3px 0 0 var(--lg-primary); padding-left: 20px; }
 .lg .lg-table .lg-row-link { color: var(--lg-ink); font-weight: 500; text-decoration: none; }
 .lg .lg-table .lg-row-link:hover { color: var(--lg-primary); text-decoration: underline; }
 .lg .lg-table tfoot td { background: var(--lg-subtle); font-weight: 600; color: var(--lg-ink); border-top: 1px solid var(--lg-border-strong); }

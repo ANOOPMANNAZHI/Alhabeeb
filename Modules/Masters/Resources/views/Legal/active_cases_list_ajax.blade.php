@@ -2,7 +2,7 @@
 @php $lcStageNames = \Illuminate\Support\Facades\DB::table('legal_stages')->pluck('name', 'id'); @endphp
 @php Session::put('current', 'activeCase.index'); @endphp
 @forelse ($activeCases as $c)
-  @include('masters::Legal._list_row', ['c' => $c, 'kind' => 'active', 'viewUrl' => route('activeCasesShow', $c->id), 'lgActiveCols' => true])
+  @include('masters::Legal._list_row', ['c' => $c, 'kind' => 'active', 'viewRoute' => 'activeCasesShow', 'lgActiveCols' => true])
 @empty
   <tr><td colspan="12"><div class="lg-empty"><div class="lg-empty__title">No cases</div>Nothing matches the filters.</div></td></tr>
 @endforelse

@@ -1,15 +1,22 @@
-{{-- One row of a legal list. $c = Legal; $kind = plm | lawyer | active | closed | referback | case; $viewUrl = old detail screen;
-     $lgStatusColumn shows the workflow status. Buttons keep the classes / data-* the list scripts bind to. --}}
+{{-- One row of a legal list. $c = Legal; $kind = plm | lawyer | active | closed | referback | case;
+     $viewRoute = route name of the old detail screen; $lgStatusColumn shows the workflow status. Buttons keep the classes /
+     data-* the list scripts bind to. One row per tenant + building + unit (Legal::latestPerGroup);
+     the group's other cases ($c->groupSiblings) follow as hidden rows ($lgGroupOf = id of the row they belong to). --}}
 @php
     $LC = \Modules\Masters\Services\LegalCase::class;
+    $viewUrl = !empty($viewRoute) ? route($viewRoute, $c->id) : null;
+    $lgSiblings = empty($lgGroupOf) && $c->relationLoaded('groupSiblings') ? $c->groupSiblings : collect();
     $tc = $c->tenantContract;
     $active = $tc && (int) $tc->tenant_contract_status === 1;
     $hasCase = $LC::hasCasePage($c);   // the case page exists once the lawyer accepted
     $openUrl = $hasCase ? route('legal.case', $c->id) : ($viewUrl ?? $LC::screenUrl($c));
 @endphp
-<tr>
+<tr @if(!empty($lgGroupOf)) class="lg-group-row" data-group-of="{{ $lgGroupOf }}" hidden @endif>
   <td><a class="lg-row-link" href="{{ $openUrl }}">{{ $tc->tenant_contract_no ?? '' }}</a>
-    <div class="muted" style="font-size:12px;">#{{ $c->id }}</div></td>
+    <div class="muted" style="font-size:12px;">#{{ $c->id }}</div>
+    @if($lgSiblings->count())
+    <button type="button" class="lg-group-toggle" data-group="{{ $c->id }}" aria-expanded="false" title="Other cases of this tenant and unit">+{{ $lgSiblings->count() }} more</button>
+    @endif</td>
   <td class="strong">{{ $tc->tenant->tenant_name ?? '' }}</td>
   <td>{{ $c->building->building_name ?? '' }}</td>
   <td>{{ $c->Unit->unit_code ?? '' }}</td>
@@ -58,3 +65,6 @@
     @endif
   </td>
 </tr>
+@foreach($lgSiblings as $sib)
+  @include('masters::Legal._list_row', ['c' => $sib, 'lgGroupOf' => $c->id])
+@endforeach
