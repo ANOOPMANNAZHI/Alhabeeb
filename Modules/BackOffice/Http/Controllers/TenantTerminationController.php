@@ -3028,9 +3028,6 @@ public function terminationReferBackStore(Request $request)
   $termination_id = $request->termination_id;
   $termination_notes = $request->termination_notes;
   $contractId = $request->contract_id;
-  $stage = 304;
-  $status = 2;
-  $oldId = 0;
   $nowUrl = url()->previous();
   $are = [];
 
@@ -3061,15 +3058,15 @@ public function terminationReferBackStore(Request $request)
 
   $termination = Termination::find($termination_id);
 
-$contractRenewal = new ContractRenewal ; 
-$contractRenewal->tenantRenewalStage($contractId,$stage,$status,$oldId); 
+// Back to Due for Renewal (status 0 = normal; starting the termination set it to 7), not Contract Under Renewal
+TenantContract::where('id',$contractId)->update(['tenant_renewal_termination_status' => 0]);
 
 //Refer back status update
  Renewal::where('old_contract_id',$contractId)->update([
                   'refer_back_status' => 1
                 ]);
 
-$termination->href = url('tenantContractUnderRenewal/'.$contractId);
+$termination->href = route('tenantRenewal.show', $contractId);
 //dd($termination);
 event(new TenantTerminationReferBack($termination,$users)); 
 
