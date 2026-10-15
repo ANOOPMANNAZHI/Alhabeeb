@@ -232,4 +232,36 @@ class RentRevisalTest extends TestCase
         $this->assertFalse(DB::table('tenant_rent_revisal_notices')->where('tenant_contract_id', $c2->id)->exists());
         $this->assertFalse(DB::table('tenant_rent_revisal_notices')->where('tenant_contract_id', $c3->id)->exists());
     }
+
+    public function test_renewal_rent_default_order()
+    {
+        $svc = '\Modules\BackOffice\Services\RentRevisal';
+        $c = $this->contractEndingIn(100);
+        DB::table('tenant_renewal_forms')->where('tenant_contract_id', $c->id)->delete();
+        $this->assertEquals((float) $c->tenant_contract_rent, $svc::renewalRent($c->fresh()));
+        TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => $c->tenant_contract_rent, 'revised_rent' => 777.5, 'created_by' => 1]);
+        $this->assertEquals(777.5, $svc::renewalRent($c->fresh()));
+        DB::table('tenant_renewal_forms')->insert(['tenant_contract_id' => $c->id, 'tenant_contract_rent' => 650, 'tenant_contract_start_date' => '2027-01-01',
+            'tenant_contract_valid_to_date' => '2027-12-31', 'tenant_contract_payment_type' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $this->assertEquals(650.0, $svc::renewalRent($c->fresh()));
+    }
+
+    public function test_renewal_popup_shows_revised_rent()
+    {
+        $c = $this->contractEndingIn(100);
+        DB::table('tenant_renewal_forms')->where('tenant_contract_id', $c->id)->delete();
+        TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => $c->tenant_contract_rent, 'revised_rent' => 777.5, 'created_by' => 1]);
+        $this->as(User::find(1))->post(route('renewalTemplatePdf'), ['tenant_contract_id' => $c->id])->assertStatus(200)->assertSee('777.500');
+    }
+
+    public function test_are_dashboard_has_rent_revisal_due_count()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        $this->actingAs($are);
+        $data = app(\App\Http\Controllers\DashboardController::class)->areDashboard(request(), true);
+        $this->assertEquals(\Modules\BackOffice\Services\RentRevisal::dueCount($are), $data['rentRevisalDueCount']);
+        $this->assertGreaterThanOrEqual(1, $data['rentRevisalDueCount']);
+    }
 }

@@ -107,6 +107,17 @@ class RentRevisal
         ];
     }
 
+    /** Rent the renewal screens start from: latest renewal form sent, else the revisal, else the contract rent. */
+    public static function renewalRent(TenantContract $c)
+    {
+        $form = $c->tenantRenewalForm()->orderBy('id', 'desc')->first();
+        if ($form) {
+            return (float) $form->tenant_contract_rent;
+        }
+        $revisal = $c->rentRevisal;
+        return $revisal ? (float) $revisal->revised_rent : (float) $c->tenant_contract_rent;
+    }
+
     /** Daily: email the ARE(s) of every contract in the window with no revisal and no notice yet. */
     public static function notifyAres()
     {
