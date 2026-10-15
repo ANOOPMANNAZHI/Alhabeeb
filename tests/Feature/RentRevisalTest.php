@@ -208,4 +208,28 @@ class RentRevisalTest extends TestCase
         $this->as($user)->get(route('rentRevisal.index'))->assertStatus(403);
         $this->as($user)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '330'])->assertStatus(403);
     }
+
+    public function test_notify_ares_emails_once_and_skips_revised_and_unassigned()
+    {
+        $svc = '\Modules\BackOffice\Services\RentRevisal';
+        $are = $this->makeUser('rr_t_are', 'are');
+        $c = $this->contractEndingIn(118);
+        $this->assignAre($are, $c->building_id);
+        // only our contract counts: mark every other window contract as already notified
+        foreach ($svc::windowQuery(User::find(1))->where('tenant_contracts.id', '<>', $c->id)->pluck('tenant_contracts.id') as $id) {
+            DB::table('tenant_rent_revisal_notices')->insert(['tenant_contract_id' => $id, 'are_user_id' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $this->assertEquals(1, $svc::notifyAres());
+        $this->assertEquals(0, $svc::notifyAres());
+        Mail::assertSent(TemplatedMail::class, 1);
+        Mail::assertSent(TemplatedMail::class, function ($m) use ($are) { return $m->hasTo($are->email); });
+
+        $c2 = $this->contractEndingIn(110);
+        TenantRentRevisal::create(['tenant_contract_id' => $c2->id, 'current_rent' => 1, 'revised_rent' => 2, 'created_by' => 1]);
+        $c3 = $this->contractEndingIn(105);
+        DB::table('preferred_buildings')->where('building_id', $c3->building_id)->whereNull('assign_to')->update(['assign_to' => now()]);
+        $svc::notifyAres();
+        $this->assertFalse(DB::table('tenant_rent_revisal_notices')->where('tenant_contract_id', $c2->id)->exists());
+        $this->assertFalse(DB::table('tenant_rent_revisal_notices')->where('tenant_contract_id', $c3->id)->exists());
+    }
 }

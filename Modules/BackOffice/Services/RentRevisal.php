@@ -107,6 +107,32 @@ class RentRevisal
         ];
     }
 
+    /** Daily: email the ARE(s) of every contract in the window with no revisal and no notice yet. */
+    public static function notifyAres()
+    {
+        $sent = 0;
+        $admin = User::find(1);   // all buildings: the job runs without a logged-in user
+        $contracts = self::windowQuery($admin)->doesntHave('rentRevisal')
+            ->whereNotIn('tenant_contracts.id', \DB::table('tenant_rent_revisal_notices')->select('tenant_contract_id'))
+            ->with(['tenant', 'building', 'unit'])->get();
+        foreach ($contracts as $c) {
+            $ares = self::areUsers($c);
+            if ($ares->isEmpty()) {
+                continue;   // picked up later if an ARE is assigned while still in the window
+            }
+            $status = null;
+            foreach (StaffMessages::userRecipients($ares) as $pair) {
+                $r = SystemMessenger::send('rent_revisal_due_are', $pair[1], MessageValues::contract($c) + MessageValues::employee($pair[0])
+                    + ['revisal_link' => route('rentRevisal.index')], ['related' => ['contract', $c->id]]);
+                $status = $status === \Modules\BackOffice\Entities\MessageLog::SENT ? $status : $r['email'];
+            }
+            \Modules\BackOffice\Entities\TenantRentRevisalNotice::create(['tenant_contract_id' => $c->id, 'are_user_id' => $ares->first()->id,
+                'email_status' => $status, 'sent_at' => now()]);
+            $sent++;
+        }
+        return $sent;
+    }
+
     /** Active users currently assigned as ARE of the contract's building. */
     public static function areUsers(TenantContract $c)
     {
