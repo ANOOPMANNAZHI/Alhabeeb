@@ -102,4 +102,41 @@ class RentRevisalTest extends TestCase
         Mail::assertSent(TemplatedMail::class, function ($m) { return $m->hasReplyTo('are@example.test'); });
         Mail::assertSent(TemplatedMail::class, function ($m) { return !$m->hasReplyTo('are@example.test'); });
     }
+
+    public function test_window_includes_both_ends_and_excludes_outside()
+    {
+        $admin = User::find(1);
+        foreach ([89 => false, 90 => true, 120 => true, 121 => false] as $days => $in) {
+            $c = $this->contractEndingIn($days);
+            $this->assertSame($in, \Modules\BackOffice\Services\RentRevisal::inWindow($c->fresh()), "day $days");
+            $this->assertSame($in, \Modules\BackOffice\Services\RentRevisal::windowQuery($admin)->where('tenant_contracts.id', $c->id)->exists(), "query day $days");
+        }
+    }
+
+    public function test_window_skips_termination_and_started_renewals()
+    {
+        $c = $this->contractEndingIn(100);
+        foreach ([0 => true, 1 => true, 4 => true, 2 => false, 3 => false, 5 => false, 6 => false, 7 => false, 8 => false, 9 => false] as $status => $in) {
+            DB::table('tenant_contracts')->where('id', $c->id)->update(['tenant_renewal_termination_status' => $status]);
+            $this->assertSame($in, \Modules\BackOffice\Services\RentRevisal::inWindow($c->fresh()), "status $status");
+        }
+    }
+
+    public function test_are_sees_only_own_buildings_and_due_count_skips_revised()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $other = $this->makeUser('rr_t_are2', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        $svc = '\Modules\BackOffice\Services\RentRevisal';
+        $this->assertTrue($svc::windowQuery($are)->where('tenant_contracts.id', $c->id)->exists());
+        $this->assertFalse($svc::windowQuery($other)->where('tenant_contracts.id', $c->id)->exists());
+        $this->assertTrue($svc::canRevise($c->fresh(), $are));
+        $this->assertFalse($svc::canRevise($c->fresh(), $other));
+        $this->assertEquals([$are->id], $svc::areUsers($c->fresh())->pluck('id')->all());
+        $before = $svc::dueCount($are);
+        TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => 1, 'revised_rent' => 2, 'created_by' => $are->id]);
+        $this->assertEquals($before - 1, $svc::dueCount($are));
+        $this->assertFalse($svc::canRevise($c->fresh(), $are));
+    }
 }
