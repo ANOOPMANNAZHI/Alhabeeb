@@ -44,6 +44,12 @@ class RentRevisal
             && self::windowQuery($user)->where('tenant_contracts.id', $c->id)->exists();
     }
 
+    /** Is the contract's building one the user may see (ARE scope only, no window)? */
+    public static function inScope(TenantContract $c, $user)
+    {
+        return self::scope(TenantContract::query(), $user)->where('tenant_contracts.id', $c->id)->exists();
+    }
+
     public static function dueCount($user)
     {
         return self::windowQuery($user)->doesntHave('rentRevisal')->count();

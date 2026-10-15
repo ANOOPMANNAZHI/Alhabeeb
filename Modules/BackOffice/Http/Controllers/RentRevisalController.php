@@ -41,7 +41,7 @@ class RentRevisalController extends Controller
     {
         $user = \Auth::user();
         $revisal = $tenant_contract->rentRevisal;
-        if (!$revisal && !RentRevisal::canRevise($tenant_contract, $user)) {
+        if ($revisal ? !RentRevisal::inScope($tenant_contract, $user) : !RentRevisal::canRevise($tenant_contract, $user)) {
             return response('This contract cannot be revised.', 422);
         }
         return view('backoffice::RentRevisal.form', ['contract' => $tenant_contract, 'revisal' => $revisal]);
@@ -52,6 +52,16 @@ class RentRevisalController extends Controller
         $rent = str_replace(',', '', trim((string) $request->revised_rent));
         if (!is_numeric($rent) || (float) $rent <= 0) {
             return response()->json(['ok' => false, 'message' => 'Enter the new monthly rent as a number above 0.'], 422);
+        }
+        if ((float) $rent >= 100000000000) {
+            return response()->json(['ok' => false, 'message' => 'The rent is too large. Check the amount.'], 422);
+        }
+        // A rent more than double or less than half the current rent is usually a typo: ask once before sending.
+        $current = (float) $tenant_contract->tenant_contract_rent;
+        if ($current > 0 && ((float) $rent > 2 * $current || (float) $rent < $current / 2) && !$request->confirm_large) {
+            return response()->json(['ok' => false, 'needs_confirm' => true,
+                'message' => 'OMR ' . number_format((float) $rent, 3) . ' is very different from the current rent of OMR ' . number_format($current, 3)
+                    . '. Check the amount and press Send again to confirm.'], 422);
         }
         if (mb_strlen((string) $request->note) > 500) {
             return response()->json(['ok' => false, 'message' => 'The note can be at most 500 characters.'], 422);

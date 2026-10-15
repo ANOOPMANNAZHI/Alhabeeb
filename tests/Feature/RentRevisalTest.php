@@ -187,7 +187,7 @@ class RentRevisalTest extends TestCase
         $c = $this->contractEndingIn(100);
         $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '0'])->assertStatus(422);
         $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => 'abc'])->assertStatus(422);
-        $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '1,250.500'])->assertStatus(200);
+        $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => '1,250.500', 'confirm_large' => 1])->assertStatus(200);
         $this->assertEquals(1250.5, (float) TenantRentRevisal::where('tenant_contract_id', $c->id)->value('revised_rent'));
     }
 
@@ -252,6 +252,57 @@ class RentRevisalTest extends TestCase
         DB::table('tenant_renewal_forms')->where('tenant_contract_id', $c->id)->delete();
         TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => $c->tenant_contract_rent, 'revised_rent' => 777.5, 'created_by' => 1]);
         $this->as(User::find(1))->post(route('renewalTemplatePdf'), ['tenant_contract_id' => $c->id])->assertStatus(200)->assertSee('777.500');
+    }
+
+    public function test_large_rent_change_needs_confirmation()
+    {
+        $admin = User::find(1);
+        $c = $this->contractEndingIn(100);
+        $big = number_format((float) $c->tenant_contract_rent * 10 + 1, 3, '.', '');
+        $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => $big])
+            ->assertStatus(422)->assertJson(['needs_confirm' => true]);
+        $this->assertFalse(TenantRentRevisal::where('tenant_contract_id', $c->id)->exists());
+        Mail::assertNothingSent();
+        $this->as($admin)->post(route('rentRevisal.store', $c->id), ['revised_rent' => $big, 'confirm_large' => 1])->assertStatus(200);
+        $this->assertTrue(TenantRentRevisal::where('tenant_contract_id', $c->id)->exists());
+    }
+
+    public function test_rent_above_column_range_is_rejected()
+    {
+        $c = $this->contractEndingIn(100);
+        $this->as(User::find(1))->post(route('rentRevisal.store', $c->id), ['revised_rent' => '1000000000000', 'confirm_large' => 1])
+            ->assertStatus(422);
+        $this->assertFalse(TenantRentRevisal::where('tenant_contract_id', $c->id)->exists());
+    }
+
+    public function test_other_are_cannot_view_a_revisal()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $other = $this->makeUser('rr_t_are2', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => 1, 'revised_rent' => 2, 'created_by' => $are->id]);
+        $this->as($are)->get(route('rentRevisal.form', $c->id))->assertStatus(200);
+        $this->as($other)->get(route('rentRevisal.form', $c->id))->assertStatus(422);
+    }
+
+    public function test_renewal_contract_screen_shows_revised_rent()
+    {
+        $c = $this->contractEndingIn(100);
+        DB::table('tenant_renewal_forms')->where('tenant_contract_id', $c->id)->delete();
+        TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => $c->tenant_contract_rent, 'revised_rent' => 777.5, 'created_by' => 1]);
+        $this->as(User::find(1))->get(route('tenantRenewalNewContract', $c->id))->assertStatus(200)->assertSee('777.500');
+    }
+
+    public function test_renewal_popup_prefers_renewal_form_over_revisal()
+    {
+        $c = $this->contractEndingIn(100);
+        DB::table('tenant_renewal_forms')->where('tenant_contract_id', $c->id)->delete();
+        TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => $c->tenant_contract_rent, 'revised_rent' => 777.5, 'created_by' => 1]);
+        DB::table('tenant_renewal_forms')->insert(['tenant_contract_id' => $c->id, 'tenant_contract_rent' => 654.321, 'tenant_contract_start_date' => '2027-01-01',
+            'tenant_contract_valid_to_date' => '2027-12-31', 'tenant_contract_payment_type' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $res = $this->as(User::find(1))->post(route('renewalTemplatePdf'), ['tenant_contract_id' => $c->id]);
+        $res->assertStatus(200)->assertSee('654.321')->assertDontSee('777.500');
     }
 
     public function test_are_dashboard_has_rent_revisal_due_count()

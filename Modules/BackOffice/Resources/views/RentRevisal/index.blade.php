@@ -68,10 +68,21 @@ $(document).on('submit', '#rrForm', function (e) {
     $f.find('.rr-msg').removeClass('text-danger').addClass('text-success').text(res.message);
     setTimeout(function () { location.reload(); }, 1200);
   }).fail(function (x) {
-    var m = x.responseJSON && x.responseJSON.message ? x.responseJSON.message : 'The revisal could not be saved.';
+    var j = x.responseJSON || {};
+    var m = j.message ? j.message : 'The revisal could not be saved.';
+    if (j.needs_confirm) {
+      // large change: the next press confirms it
+      if (!$f.find('input[name=confirm_large]').length) { $f.append('<input type="hidden" name="confirm_large" value="1">'); }
+      $btn.text('Confirm and send');
+    }
     $f.find('.rr-msg').removeClass('text-success').addClass('text-danger').text(m);
     $btn.prop('disabled', false);
   });
+});
+$(document).on('input', '#rr_rent', function () {
+  // amount changed: ask again if it is still a large change
+  $('#rrForm input[name=confirm_large]').remove();
+  $('#rrForm button[type=submit]').text('Send to tenant');
 });
 $(document).on('input', '#rr_rent, #rr_note', function () {
   $('#rr_prev_rent').text($('#rr_rent').val() || '...');
