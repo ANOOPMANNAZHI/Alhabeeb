@@ -1,7 +1,7 @@
 {{-- Rows of closed_cases_list (redesign: shared _list_row; the search script swaps this tbody). --}}
 @php Session::put('current', 'closedLegalCase.index'); @endphp
 @forelse ($closedLegalCases as $c)
-  @include('masters::Legal._list_row', ['c' => $c, 'kind' => 'closed', 'viewUrl' => route('closedLegalCasesShow', $c->id)])
+  @include('masters::Legal._list_row', ['c' => $c, 'kind' => 'closed', 'viewRoute' => 'closedLegalCasesShow'])
 @empty
   <tr><td colspan="10"><div class="lg-empty"><div class="lg-empty__title">No cases</div>Nothing matches the filters.</div></td></tr>
 @endforelse

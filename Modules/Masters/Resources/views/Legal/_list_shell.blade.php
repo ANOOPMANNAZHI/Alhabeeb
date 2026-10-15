@@ -70,3 +70,14 @@
     </div>
   </section>
 </div>
+<script>
+  // "+N more" on a grouped row shows / hides the other cases of that tenant + unit (rows are swapped by ajax, so delegate).
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.lg-group-toggle') : null;
+    if (!btn) return;
+    var open = btn.getAttribute('aria-expanded') !== 'true';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    var rows = document.querySelectorAll('tr[data-group-of="' + btn.getAttribute('data-group') + '"]');
+    for (var i = 0; i < rows.length; i++) rows[i].hidden = !open;
+  });
+</script>

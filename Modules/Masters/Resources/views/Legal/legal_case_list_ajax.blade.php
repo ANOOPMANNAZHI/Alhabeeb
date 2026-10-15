@@ -1,7 +1,7 @@
 {{-- Rows of legal_case_list (redesign: shared _list_row; the search script swaps this tbody). --}}
 @php Session::put('current', 'legalCase.index'); @endphp
 @forelse ($legalCases as $c)
-  @include('masters::Legal._list_row', ['c' => $c, 'kind' => 'case', 'viewUrl' => route('legalCase.show', $c->id), 'lgStatusColumn' => true])
+  @include('masters::Legal._list_row', ['c' => $c, 'kind' => 'case', 'viewRoute' => 'legalCase.show', 'lgStatusColumn' => true])
 @empty
   <tr><td colspan="11"><div class="lg-empty"><div class="lg-empty__title">No cases</div>Nothing matches the filters.</div></td></tr>
 @endforelse

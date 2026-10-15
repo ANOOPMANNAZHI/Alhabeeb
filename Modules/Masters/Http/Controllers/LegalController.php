@@ -67,13 +67,14 @@ class LegalController extends Controller
       $roles = \Auth::user()->getRoles();
       $rolesNames = \Auth::user()->getRoleNames()->toArray(); 
 
-      $legalCases = Legal::areLegalBuilding()
+      $legalCasesBase = Legal::areLegalBuilding()
                            ->filter($request)
                            ->lawyerReferBack($request)
                            ->whereHas('legalUsers', function ($query) {
                                $query->where('status','=',1);
-                             }) 
-                           ->sortable()->paginate($this->noOfRecord);
+                             });
+      $legalCases = Legal::latestPerGroup($legalCasesBase)->sortable()->paginate($this->noOfRecord);
+      Legal::attachGroupSiblings($legalCases, $legalCasesBase);
 	
 
 /*
@@ -377,7 +378,7 @@ if(isset($request->md)){
    } 
 }
 
-$plmsApprovals = Legal::filter($request)
+$plmsApprovalsBase = Legal::filter($request)
                       ->whereHas('legalUsers', function ($query) use($user,$roles,$user_id) {
                          $query->when( !($user->hasRole('super_admin','md')),function($query)use($user,$roles,$user_id){
                              $query->where(function ($query) use($user,$roles,$user_id){
@@ -395,9 +396,9 @@ $plmsApprovals = Legal::filter($request)
                          ->where('status','=',1);
                       })                  
                       ->whereNull('legal.closed_at')
-                      ->where('legal.work_flow_processes_code', '=', $status)
-                      ->sortable()
-                      ->paginate($this->noOfRecord);
+                      ->where('legal.work_flow_processes_code', '=', $status);
+$plmsApprovals = Legal::latestPerGroup($plmsApprovalsBase)->sortable()->paginate($this->noOfRecord);
+Legal::attachGroupSiblings($plmsApprovals, $plmsApprovalsBase);
 
 /*
 if (in_array('super_admin', $rolesNames) === false) {
@@ -870,7 +871,7 @@ if(isset($request->md)){
 //                         })
 //             ->where('l.work_flow_processes_code', '=', $status);
 $tenantStatus = 5;
-$lawyerApprovals = Legal::filter($request)
+$lawyerApprovalsBase = Legal::filter($request)
                    ->where('legal_is_closed','!=',2)
                       ->whereHas('tenantContract', function ($query) use($tenantStatus){             
                          $query->where('status','=',5);
@@ -882,9 +883,9 @@ $lawyerApprovals = Legal::filter($request)
                            $q->whereNull('legal.lawyer_user_id')->orWhere('legal.lawyer_user_id', $user_id);
                          });
                       })
-                      ->where('legal.work_flow_processes_code', '=', 802)
-                      ->sortable()
-                      ->paginate($this->noOfRecord);
+                      ->where('legal.work_flow_processes_code', '=', 802);
+$lawyerApprovals = Legal::latestPerGroup($lawyerApprovalsBase)->sortable()->paginate($this->noOfRecord);
+Legal::attachGroupSiblings($lawyerApprovals, $lawyerApprovalsBase);
             
 //print_r($plmsLegalStatus);exit();
 
@@ -1081,7 +1082,7 @@ public function activeCases(Request $request){
 
   $request->flash();  
 
-  $activeCases = Legal::filter($request)
+  $activeCasesBase = Legal::filter($request)
   ->where('legal_is_closed',2)
   ->noteStatus($request)
   ->exceptEndStatus($request)
@@ -1096,9 +1097,9 @@ public function activeCases(Request $request){
                       ->when($request->lc_lawyer, function ($q) use ($request) { $q->where('legal.lawyer_user_id', (int) $request->lc_lawyer); })
                       ->when($request->lc_hearing, function ($q) {
                         $q->whereBetween('legal.next_hearing_date', [date('Y-m-d'), date('Y-m-d', strtotime('+7 days'))]);
-                      })
-                      ->sortable()
-                      ->paginate($this->noOfRecord);
+                      });
+  $activeCases = Legal::latestPerGroup($activeCasesBase)->sortable()->paginate($this->noOfRecord);
+  Legal::attachGroupSiblings($activeCases, $activeCasesBase);
 
   $quick_url =    $route   =  route('activeCases');
 
@@ -1480,10 +1481,10 @@ public function referBackCases(Request $request){
 
   $request->flash();  
 
-  $closedLegalCases = Legal::filter($request)                
-                      ->where('legal.work_flow_processes_code', '=', 804)
-                      ->sortable()
-                      ->paginate($this->noOfRecord);
+  $closedLegalCasesBase = Legal::filter($request)                
+                      ->where('legal.work_flow_processes_code', '=', 804);
+  $closedLegalCases = Legal::latestPerGroup($closedLegalCasesBase)->sortable()->paginate($this->noOfRecord);
+  Legal::attachGroupSiblings($closedLegalCases, $closedLegalCasesBase);
   $quick_url =    $route   =  route('referBackCases');
 
   if(isset($request->ajax))
@@ -1520,7 +1521,7 @@ public function closedLegalCases(Request $request){
 
   $request->flash();  
 
-  $closedLegalCases = Legal::filter($request)
+  $closedLegalCasesBase = Legal::filter($request)
   ->where('legal_is_closed',1)
                       // ->whereHas('legalUsers', function ($query) use($roles,$user) {
                       //    $query->when( !($user->hasRole('super_admin')), function($query) use($roles){
@@ -1536,9 +1537,9 @@ public function closedLegalCases(Request $request){
                       //     })
                       //     ->where('status','=',1);
                       //    })                  
-                      ->where('legal.work_flow_processes_code', '=', 803)
-                      ->sortable()
-                      ->paginate($this->noOfRecord);
+                      ->where('legal.work_flow_processes_code', '=', 803);
+  $closedLegalCases = Legal::latestPerGroup($closedLegalCasesBase)->sortable()->paginate($this->noOfRecord);
+  Legal::attachGroupSiblings($closedLegalCases, $closedLegalCasesBase);
   $quick_url =    $route   =  route('closedLegalCases');
 
   if(isset($request->ajax))
