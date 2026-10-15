@@ -49,7 +49,7 @@
                    <button type="button" class="btn btn-tbl-general btn-xs assignLead"  data-toggle="modal" data-target="#myModal" data-id="{{$tenantTermination->work_flow_processes_code}}" datas-id = "{{$tenantTermination->id}}" data_ac_key = "RAS" title="ReAssign" data-backdrop="static" data-keyboard="false">  <i class="fa fa-user" aria-hidden="true"></i></button>
                    @endcan
                   @can('termination_refer_back') 
-                  @if($remainingDays < 0)
+                  @if($remainingDays <= 0)
                    <button type="button" class="btn btn-tbl-violet btn-xs referback"  data-toggle="modal" data-target="#myModal" data-id="{{$tenantTermination->id}}
                    " datas-id="{{$tenantTermination->contract_id}}
                    " title="Refer Back for Renewal" data-backdrop="static" data-keyboard="false">  <i class="fa fa-undo" aria-hidden="true"></i></button>
