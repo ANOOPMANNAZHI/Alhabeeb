@@ -3060,6 +3060,8 @@ public function terminationReferBackStore(Request $request)
 
 // Back to Due for Renewal (status 0 = normal; starting the termination set it to 7), not Contract Under Renewal
 TenantContract::where('id',$contractId)->update(['tenant_renewal_termination_status' => 0]);
+// Starting the termination set the unit to 2 (under termination); the tenant stays, so it is occupied again
+Unit::where('id', TenantContract::where('id',$contractId)->value('unit_id'))->update(['unit_vaccant_status' => 1]);
 
 //Refer back status update
  Renewal::where('old_contract_id',$contractId)->update([
