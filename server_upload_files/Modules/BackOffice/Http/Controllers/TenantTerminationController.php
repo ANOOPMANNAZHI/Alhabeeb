@@ -184,7 +184,7 @@ class TenantTerminationController extends Controller
       //$remainAmt = contractRentCountCalculation($tenantContract->tenant_contract_effective_date,$today, $tenantContract->tenant_contract_rent );
 	  $remainAmt = totalContractRentCountCalculation($contractId,$terminationDate);
       // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt - \Modules\Masters\Services\LegalWaiver::forContract($contractId);   // legal settlement waiver is a credit
+      $osAmount = $remainAmt - $sumOfReceipt;
       $tenant_contract_last_paid_date = $tenantContract->tenant_contract_last_paid_date;
       if(empty($tenant_contract_last_paid_date)){
         $tenant_contract_last_paid_date = $tenantContract->tenant_contract_effective_date;
@@ -306,7 +306,7 @@ class TenantTerminationController extends Controller
     // $remainAmt = contractRentCountCalculation($tenantContract->tenant_contract_effective_date,$today, $tenantContract->tenant_contract_rent );
      $remainAmt = totalContractRentCountCalculation($id,$terminationDate);
 	 // Minus from Rent receipt
-     $osAmount = $remainAmt - $sumOfReceipt - \Modules\Masters\Services\LegalWaiver::forContract($id);   // legal settlement waiver is a credit
+     $osAmount = $remainAmt - $sumOfReceipt;
      TenantContract::where('id',$id)->update(['tenant_contract_os'=>$osAmount]);
 
       // Previous Contracts related to this unit and Tenant
@@ -448,7 +448,7 @@ class TenantTerminationController extends Controller
       $remainAmt = totalContractRentCountCalculation($contractId,$terminationDate);
 
       // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt - \Modules\Masters\Services\LegalWaiver::forContract($contractId);   // legal settlement waiver is a credit
+      $osAmount = $remainAmt - $sumOfReceipt;
       if(isset($osAmount))
         $contractUpdate = TenantContract::where('id',$contractId)->update(['tenant_contract_os'=>$osAmount]);
 
@@ -1059,7 +1059,7 @@ class TenantTerminationController extends Controller
       $sumOfReceipt   = RentOutstanding::paidForContract($termination->contract_id); // approved or posted, not cancelled/deleted
          $remainAmt = totalContractRentCountCalculation($termination->contract_id,$terminationDate);
       // Minus from Rent receipt
-      $osAmount = $remainAmt - $sumOfReceipt - \Modules\Masters\Services\LegalWaiver::forContract($termination->contract_id);   // legal settlement waiver is a credit
+      $osAmount = $remainAmt - $sumOfReceipt;
 
       TenantContract::where('id',$termination->contract_id)->update(['tenant_contract_os'=>$osAmount]);
 
