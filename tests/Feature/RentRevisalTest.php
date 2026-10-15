@@ -1,0 +1,94 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\User;
+use Carbon\Carbon;
+use Tests\TestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Modules\BackOffice\Emails\TemplatedMail;
+use Modules\BackOffice\Entities\TenantRentRevisal;
+use Modules\BackOffice\Services\SystemMessenger;
+use Modules\BackOffice\Services\SystemTemplateDefaults;
+use Modules\Sales\Entities\TenantContract;
+
+/** Rent revisal (spec 2026-10-15): window, popup save + tenant email, ARE email job, renewal rent default. */
+class RentRevisalTest extends TestCase
+{
+    use DatabaseTransactions;
+
+    protected function setUp()
+    {
+        parent::setUp();
+        Mail::fake();
+        SystemMessenger::$smsSender = function () { return true; };
+        app('cache')->forget('spatie.permission.cache');
+    }
+
+    protected function tearDown()
+    {
+        SystemMessenger::$smsSender = 'sendSms';
+        parent::tearDown();
+    }
+
+    private function as($user)
+    {
+        $this->flushSession();
+        return $this->actingAs($user);
+    }
+
+    private function makeUser($username, $role)
+    {
+        $emp = DB::table('employees')->insertGetId(['employee_code' => strtoupper($username), 'employee_name' => ucfirst($username),
+            'employee_contact_address' => 'x', 'employee_contact_no' => '91234567', 'employee_dob' => '1990-01-01', 'designation_id' => 37,
+            'employee_status' => 1, 'created_by' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $roleId = DB::table('roles')->where('name', $role)->value('id');
+        $id = DB::table('users')->insertGetId(['username' => $username, 'email' => $username . '@example.test', 'password' => bcrypt('x'),
+            'user_type' => 'employee', 'user_type_id' => $emp, 'default_role' => $roleId, 'user_type_status' => 1, 'created_by' => 1,
+            'created_at' => now(), 'updated_at' => now()]);
+        DB::table('model_has_roles')->insert(['role_id' => $roleId, 'model_type' => 'App\User', 'model_id' => $id]);
+        return User::find($id);
+    }
+
+    /** Make $user the only ARE of the building (assign_to null = current). */
+    private function assignAre(User $user, $buildingId)
+    {
+        DB::table('preferred_buildings')->where('building_id', $buildingId)->whereNull('assign_to')->update(['assign_to' => now()]);
+        $areId = DB::table('are_buildings')->insertGetId(['user_id' => $user->id, 'building_id' => $buildingId, 'assign_from' => now(),
+            'created_at' => now(), 'updated_at' => now()]);
+        DB::table('preferred_buildings')->insert(['building_id' => $buildingId, 'are_building_id' => $areId, 'assign_from' => now(),
+            'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    private $used = [];
+
+    /** An active contract with a tenant email, moved to end in $days days, normal renewal status. Each call picks a new contract. */
+    private function contractEndingIn($days)
+    {
+        $id = DB::table('tenant_contracts as tc')->join('tenant as t', 't.id', '=', 'tc.tenant_id')
+            ->where('tc.tenant_contract_status', 1)->whereNotNull('t.tenant_contact_email')->where('t.tenant_contact_email', '<>', '')
+            ->whereNotIn('tc.id', $this->used ?: [0])
+            ->orderBy('tc.id', 'desc')->value('tc.id');
+        $this->used[] = $id;
+        DB::table('tenant_contracts')->where('id', $id)->update([
+            'tenant_contract_valid_to_date' => Carbon::today()->addDays($days)->toDateString(),
+            'tenant_renewal_termination_status' => 0,
+        ]);
+        DB::table('tenant_rent_revisals')->where('tenant_contract_id', $id)->delete();
+        DB::table('tenant_rent_revisal_notices')->where('tenant_contract_id', $id)->delete();
+        return TenantContract::find($id);
+    }
+
+    public function test_tables_models_and_templates_exist()
+    {
+        $c = $this->contractEndingIn(100);
+        $r = TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => 300, 'revised_rent' => 330, 'created_by' => 1]);
+        $this->assertEquals($r->id, $c->fresh()->rentRevisal->id);
+        $this->assertNotNull(SystemTemplateDefaults::get('rent_revisal_due_are'));
+        $this->assertNotNull(SystemTemplateDefaults::get('rent_revision_tenant'));
+        $this->assertTrue(DB::table('message_templates')->where('key', 'rent_revision_tenant')->exists());
+        $this->assertTrue(DB::table('permissions')->where('name', 'rent_revisal')->exists());
+    }
+}

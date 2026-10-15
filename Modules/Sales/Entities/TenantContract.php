@@ -165,6 +165,11 @@ class TenantContract extends Model
 
       return $this->hasOne('Modules\BackOffice\Entities\TenantRenewalForm','tenant_contract_id')->latest();
     }
+
+    public function rentRevisal(){
+
+      return $this->hasOne('Modules\BackOffice\Entities\TenantRentRevisal','tenant_contract_id');
+    }
     /*
     *
     *  Tenant Contract Status
