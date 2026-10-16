@@ -14,6 +14,31 @@
 <!-- start widget -->
 <div class="state-overview">
   <div class="row">
+   @can('rent_revisal')
+   <div class="col-xl-4 col-md-4 col-12">
+     <a href="{{ route('rentRevisal.index', ['revisal' => 'pending']) }}" class="rr-card-link" aria-label="Rent revisal due: open the list">
+     <div class="info-box rr-highlight {{ ($are['rentRevisalDueCount'] ?? 0) > 0 ? 'rr-due' : '' }}">
+       <span class="info-box-icon push-bottom"><i class="material-icons extra">trending_up</i></span>
+       <div class="info-box-content">
+         <span class="info-box-number">{{ $are['rentRevisalDueCount'] ?? 0 }} @if(($are['rentRevisalDueCount'] ?? 0) > 0)<span class="rr-badge">Action needed</span>@endif</span>
+         <span class="info-box-text">Rent revisal due</span>
+         <div class="progress"><div class="progress-bar width-60"></div></div>
+         <span class="progress-description">Contracts ending in 90-120 days</span>
+       </div>
+     </div>
+     </a>
+   </div>
+   <style>
+     .rr-card-link,.rr-card-link:hover{text-decoration:none;color:inherit;display:block}
+     .info-box.rr-highlight{background:linear-gradient(135deg,#F26522 0%,#D9480F 100%);color:#fff;border:3px solid #fff;box-shadow:0 0 0 3px #F26522,0 10px 24px rgba(242,101,34,.35)}
+     .info-box.rr-highlight .info-box-number,.info-box.rr-highlight .info-box-text,.info-box.rr-highlight .progress-description{color:#fff}
+     .info-box.rr-highlight .info-box-icon{background:rgba(255,255,255,.22)}
+     .rr-badge{display:inline-block;vertical-align:middle;margin-left:8px;padding:2px 9px;border-radius:999px;background:#fff;color:#C2410C;font-size:12px;font-weight:700;letter-spacing:.02em}
+     .info-box.rr-due{animation:rrPulse 2.2s ease-in-out infinite}
+     @keyframes rrPulse{0%,100%{box-shadow:0 0 0 3px #F26522,0 10px 24px rgba(242,101,34,.35)}50%{box-shadow:0 0 0 6px rgba(242,101,34,.55),0 12px 30px rgba(242,101,34,.5)}}
+     @media (prefers-reduced-motion: reduce){.info-box.rr-due{animation:none}}
+   </style>
+   @endcan
    <div class="col-xl-4 col-md-4 col-12">
      <div class="info-box bg-blue">
        <a class="link" href="">
@@ -159,21 +184,6 @@
             <!-- /.info-box -->
           </div>
 
-          @can('rent_revisal')
-          <div class="col-xl-4 col-md-4 col-12">
-            <div class="info-box bg-primary">
-            <a href="{{ route('rentRevisal.index', ['revisal' => 'pending']) }}">
-              <span class="info-box-icon push-bottom"><i class="material-icons extra">trending_up</i></span>
-              </a>
-              <div class="info-box-content">
-                <span class="info-box-number">{{ $are['rentRevisalDueCount'] ?? 0 }}</span>
-                <span class="info-box-text">Rent revisal due</span>
-                <div class="progress"><div class="progress-bar width-60"></div></div>
-                <span class="progress-description">Contracts ending in 90-120 days</span>
-              </div>
-            </div>
-          </div>
-          @endcan
 
              <div class="col-xl-4 col-md-4 col-12">
               <div class="info-box bg-danger">
