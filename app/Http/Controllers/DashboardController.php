@@ -148,6 +148,12 @@ class DashboardController extends Controller
 		$expiringContractCount =   ['count' => $tenantContracts];
 		return json_encode(array($expiringContractCount));
 	}
+	/*
+	* ARE dashboard "Contracts Expiring": the Due for Renewal rows ending within ?expdays days (the card opens that list).
+	*/
+	public function areDueForRenewalCount(Request $request){
+		return json_encode(array(['count' => \Modules\BackOffice\Services\DueForRenewal::count($request)]));
+	}
 	public function UnregisteredContracts(Request $request){
 		
 		$tenantContracts = TenantContract::filter($request) 

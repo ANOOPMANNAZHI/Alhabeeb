@@ -109,18 +109,10 @@ class TenantRenewalController extends Controller
       $current = Carbon::now(); 
 	    $futureDate = $current->addMonths($config_data)->format('Y-m-d H:i:s');
       
-	  $dueForRenewal = ViewDueRenewal::select('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email')
-            ->groupBy('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email')
-            ->areFilter()->filter($request)->whereDate('tenant_contract_valid_to_date','<',$futureDate)
-                                        ->where('tenant_contract_status',1)
-                                        ->where(function ($query) {
-                                          $query->where('tenant_renewal_termination_status',0)
-                                                ->where('tenant_renewal_termination_status','!=',2)
-                                                ->orWhere('tenant_renewal_termination_status',4)
-                        ->orWhere('tenant_renewal_termination_status',1)
-												->orWhere('tenant_renewal_termination_status',5)
-                        ->orWhere('tenant_renewal_termination_status',6);
-                                        });
+	  // same rows as the ARE dashboard "Contracts Expiring" card (optional ?expdays from the card)
+	  $dueForRenewal = \Modules\BackOffice\Services\DueForRenewal::query($request)
+            ->select('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email')
+            ->groupBy('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email');
 
         $dueForRenewals = $dueForRenewal->sortable()->paginate($this->noOfRecord);
       //dd($dueForRenewals);

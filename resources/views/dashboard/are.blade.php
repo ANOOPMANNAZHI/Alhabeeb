@@ -155,7 +155,6 @@
                      <option selected value="30">30 Days</option> 
                      <option value="60">60 Days</option> 
                      <option value="90">90 Days</option> 
-                     <option value="120">120 Days</option> 
                    </select>
                  </div>
                  <!-- /.info-box-content -->
@@ -324,10 +323,10 @@
        /***********Contracts Expiring starts**************/
        $('#expdays').on('change', function(e) {   
          var expdays = $('#expdays').val();
-         var href1 =   "{{ route('tenant-contract.index')}}";
+         var href1 =   "{{ route('tenantRenewal.index')}}";
          $.ajax({
            type: "GET",
-           url: "{!!URL::route('contractsExpiring')!!}",
+           url: "{!!URL::route('areDueForRenewalCount')!!}",
            data:'expdays='+ $('#expdays').val(),
            success: function(data){
             var result = $.parseJSON(data);
@@ -339,10 +338,10 @@
        });
        /***********Contracts Expiring ends**************/
        var expdays = 30;
-       var href1 =   "{{ route('tenant-contract.index')}}";
+       var href1 =   "{{ route('tenantRenewal.index')}}";
        $.ajax({
          type: "GET",
-         url: "{!!URL::route('contractsExpiring')!!}",
+         url: "{!!URL::route('areDueForRenewalCount')!!}",
          data:'expdays='+ 30,
          success: function(data){
           var result = $.parseJSON(data);
