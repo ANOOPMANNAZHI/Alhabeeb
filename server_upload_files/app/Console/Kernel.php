@@ -21,6 +21,7 @@ class Kernel extends ConsoleKernel
          \Modules\BackOffice\Console\RentOutstandingApplyDayCount::class,
          \Modules\BackOffice\Console\BulkMessagesSend::class,
          \Modules\BackOffice\Console\RefreshReceivableFollowup::class,
+         \Modules\Masters\Console\LegalSettlementCheck::class,
          \Modules\BackOffice\Console\RentRevisalNotifyAre::class,
     ];
 
@@ -43,6 +44,8 @@ class Kernel extends ConsoleKernel
        $schedule->command('bulk-messages:send')->everyMinute()->withoutOverlapping(10);
 
        $schedule->command('receivables:refresh-followup')->everyFifteenMinutes()->withoutOverlapping(30);
+
+       $schedule->command('legal:settlement-check')->dailyAt('07:00');
 
        $schedule->command('rent-revisal:notify-are')->dailyAt('08:00');
 
