@@ -30,8 +30,9 @@ class RentRevisalController extends Controller
         }
         if ($request->revisal === 'pending') {
             $q->doesntHave('rentRevisal');
-        } elseif ($request->revisal === 'done') {
-            $q->has('rentRevisal');
+        } elseif ($request->revisal === 'draft' || $request->revisal === 'done') {
+            $status = $request->revisal === 'draft' ? \Modules\BackOffice\Entities\TenantRentRevisal::DRAFT : \Modules\BackOffice\Entities\TenantRentRevisal::SENT;
+            $q->whereHas('rentRevisal', function ($r) use ($status) { $r->where('status', $status); });
         }
         $contracts = $q->paginate(25)->appends($request->only('search', 'revisal'));
         return view('backoffice::RentRevisal.index', compact('contracts', 'request'));
@@ -41,7 +42,9 @@ class RentRevisalController extends Controller
     {
         $user = \Auth::user();
         $revisal = $tenant_contract->rentRevisal;
-        if ($revisal ? !RentRevisal::inScope($tenant_contract, $user) : !RentRevisal::canRevise($tenant_contract, $user)) {
+        // a sent revisal can be viewed (own buildings); a new one or a draft must still be revisable
+        $sent = $revisal && !$revisal->isDraft();
+        if ($sent ? !RentRevisal::inScope($tenant_contract, $user) : !RentRevisal::canRevise($tenant_contract, $user)) {
             return response('This contract cannot be revised.', 422);
         }
         return view('backoffice::RentRevisal.form', ['contract' => $tenant_contract, 'revisal' => $revisal]);
@@ -61,15 +64,16 @@ class RentRevisalController extends Controller
         if ($current > 0 && ((float) $rent > 2 * $current || (float) $rent < $current / 2) && !$request->confirm_large) {
             return response()->json(['ok' => false, 'needs_confirm' => true,
                 'message' => 'OMR ' . number_format((float) $rent, 3) . ' is very different from the current rent of OMR ' . number_format($current, 3)
-                    . '. Check the amount and press Send again to confirm.'], 422);
+                    . '. Check the amount and press the button again to confirm.'], 422);
         }
         if (mb_strlen((string) $request->note) > 500) {
             return response()->json(['ok' => false, 'message' => 'The note can be at most 500 characters.'], 422);
         }
-        list($revisal, $message) = RentRevisal::send($tenant_contract, \Auth::user(), round((float) $rent, 3), $request->note);
+        $draft = $request->action === 'draft';   // anything else (incl. no action) = Send now
+        list($revisal, $message) = RentRevisal::send($tenant_contract, \Auth::user(), round((float) $rent, 3), $request->note, $draft);
         if (!$revisal) {
             return response()->json(['ok' => false, 'message' => $message], 422);
         }
-        return response()->json(['ok' => true, 'message' => $message, 'email_status' => $revisal->email_status]);
+        return response()->json(['ok' => true, 'message' => $message, 'status' => $revisal->status, 'email_status' => $revisal->email_status]);
     }
 }
