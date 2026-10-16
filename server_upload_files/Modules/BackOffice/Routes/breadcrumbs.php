@@ -5,6 +5,11 @@ Breadcrumbs::for('tenantRenewal.index', function ($trail) {
     $trail->push('Tenant - Due For Renewal', route('tenantRenewal.index'));
 });
 
+Breadcrumbs::for('rentRevisal.index', function ($trail) {
+    $trail->parent('tenantRenewal.index');
+    $trail->push('Rent revisal', route('rentRevisal.index'));
+});
+
 // Renewal Index
 Breadcrumbs::for('tenantContract.underRenewal', function ($trail) {
     $trail->parent('home');
