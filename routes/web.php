@@ -41,6 +41,7 @@ Route::get('receivables/{days?}','DashboardController@receivables')->name('recei
 Route::get('averageReceivableUnit','DashboardController@averageReceivableUnit')->name('averageReceivableUnit');
    Route::get('totalReceivables','DashboardController@totalReceivables')->name('totalReceivables');
    Route::get('contractsExpiring','DashboardController@contractsExpiring')->name('contractsExpiring');
+   Route::get('areDueForRenewalCount','DashboardController@areDueForRenewalCount')->name('areDueForRenewalCount');
    Route::get('expiring/{expdays}','DashboardController@expiring')->name('expiring');
    Route::get('pendingApprovals','DashboardController@pendingApprovals')->name('pendingApprovals');
 

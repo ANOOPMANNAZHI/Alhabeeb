@@ -48,7 +48,7 @@ class ViewDueRenewal extends Model
 
 		// dd($request);
 
-			foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','fc_att','new_contract_no','tenant_contract_old_no','termination_date','referback']) as $key => $val){         
+			foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','fc_att','new_contract_no','tenant_contract_old_no','termination_date','referback','expdays']) as $key => $val){         
 
 				if($key == 'fieldValue' || $key == 'fieldValues' )
 					continue;
