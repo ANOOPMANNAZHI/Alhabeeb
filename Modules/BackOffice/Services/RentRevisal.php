@@ -40,8 +40,14 @@ class RentRevisal
 
     public static function canRevise(TenantContract $c, $user)
     {
-        return self::inWindow($c) && !$c->rentRevisal()->exists()
+        return self::inWindow($c) && !self::sentRevisal($c)
             && self::windowQuery($user)->where('tenant_contracts.id', $c->id)->exists();
+    }
+
+    /** The contract's revisal once it has been sent to the tenant (a draft does not count). */
+    public static function sentRevisal(TenantContract $c)
+    {
+        return $c->rentRevisal()->where('status', \Modules\BackOffice\Entities\TenantRentRevisal::SENT)->first();
     }
 
     /** Is the contract's building one the user may see (ARE scope only, no window)? */
@@ -52,32 +58,43 @@ class RentRevisal
 
     public static function dueCount($user)
     {
-        return self::windowQuery($user)->doesntHave('rentRevisal')->count();
+        // drafts are still due: only a revisal sent to the tenant takes the contract off the count
+        return self::windowQuery($user)->whereDoesntHave('rentRevisal', function ($r) {
+            $r->where('status', \Modules\BackOffice\Entities\TenantRentRevisal::SENT);
+        })->count();
     }
 
     /**
      * Save the revisal and email the tenant (Reply-To = the first ARE of the building, else the sender).
      * @return array [TenantRentRevisal|null, string message for the user]
      */
-    public static function send(TenantContract $c, $user, $rent, $note)
+    public static function send(TenantContract $c, $user, $rent, $note, $draft = false)
     {
         if (!self::canRevise($c, $user)) {
-            return [null, 'This contract cannot be revised: it is outside the 90-120 day window, already revised, or not one of your buildings.'];
+            return [null, 'This contract cannot be revised: it is outside the 90-120 day window, already sent, or not one of your buildings.'];
         }
         $note = trim((string) $note) !== '' ? trim((string) $note) : null;
-        $revisal = \DB::transaction(function () use ($c, $user, $rent, $note) {
-            // lock the contract row so two Sends cannot both pass canRevise
+        $status = $draft ? \Modules\BackOffice\Entities\TenantRentRevisal::DRAFT : \Modules\BackOffice\Entities\TenantRentRevisal::SENT;
+        $revisal = \DB::transaction(function () use ($c, $user, $rent, $note, $status) {
+            // lock the contract row so two saves cannot both pass canRevise
             TenantContract::where('id', $c->id)->lockForUpdate()->first();
-            if ($c->rentRevisal()->exists()) {
+            $existing = $c->rentRevisal()->first();
+            if ($existing && !$existing->isDraft()) {
                 return null;
             }
-            return \Modules\BackOffice\Entities\TenantRentRevisal::create([
-                'tenant_contract_id' => $c->id, 'current_rent' => (float) $c->tenant_contract_rent,
-                'revised_rent' => $rent, 'note' => $note, 'created_by' => $user->id,
-            ]);
+            $fields = ['current_rent' => (float) $c->tenant_contract_rent, 'revised_rent' => $rent, 'note' => $note,
+                       'status' => $status, 'created_by' => $user->id];
+            if ($existing) {
+                $existing->update($fields);
+                return $existing;
+            }
+            return \Modules\BackOffice\Entities\TenantRentRevisal::create($fields + ['tenant_contract_id' => $c->id]);
         });
         if (!$revisal) {
-            return [null, 'This contract has already been revised.'];
+            return [null, 'This revisal has already been sent to the tenant.'];
+        }
+        if ($draft) {
+            return [$revisal, 'Draft saved. Nothing was sent to the tenant.'];
         }
         $are = self::areUsers($c)->first() ?: $user;
         $areEmp = $are->employee;
@@ -120,7 +137,7 @@ class RentRevisal
         if ($form) {
             return (float) $form->tenant_contract_rent;
         }
-        $revisal = $c->rentRevisal;
+        $revisal = self::sentRevisal($c);   // a draft has not been told to the tenant: renewal stays on the current rent
         return $revisal ? (float) $revisal->revised_rent : (float) $c->tenant_contract_rent;
     }
 

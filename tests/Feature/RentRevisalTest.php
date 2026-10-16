@@ -305,6 +305,58 @@ class RentRevisalTest extends TestCase
         $res->assertStatus(200)->assertSee('654.321')->assertDontSee('777.500');
     }
 
+    public function test_save_draft_does_not_email_and_list_shows_draft()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        $rent = number_format((float) $c->tenant_contract_rent + 10, 3, '.', '');
+        $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => $rent, 'action' => 'draft'])
+            ->assertStatus(200)->assertJson(['ok' => true]);
+        $r = TenantRentRevisal::where('tenant_contract_id', $c->id)->first();
+        $this->assertEquals('draft', $r->status);
+        $this->assertNull($r->email_status);
+        Mail::assertNothingSent();
+        $this->as($are)->get(route('rentRevisal.index', ['revisal' => 'draft']))->assertStatus(200)
+            ->assertSee($c->tenant_contract_no)->assertSee('Draft');
+        $this->as($are)->get(route('rentRevisal.form', $c->id))->assertStatus(200)->assertSee($rent)->assertSee('Send now')->assertSee('Save as draft');
+    }
+
+    public function test_draft_can_be_edited_then_sent_then_locked()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        $base = (float) $c->tenant_contract_rent;
+        $first = number_format($base + 5, 3, '.', '');
+        $second = number_format($base + 7, 3, '.', '');
+        $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => $first, 'action' => 'draft'])->assertStatus(200);
+        $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => $second, 'action' => 'draft'])->assertStatus(200);
+        $this->assertEquals(1, TenantRentRevisal::where('tenant_contract_id', $c->id)->count());
+        $this->assertEquals((float) $second, (float) TenantRentRevisal::where('tenant_contract_id', $c->id)->value('revised_rent'));
+        $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => $second, 'action' => 'send'])->assertStatus(200);
+        $r = TenantRentRevisal::where('tenant_contract_id', $c->id)->first();
+        $this->assertEquals('sent', $r->status);
+        $this->assertEquals('sent', $r->email_status);
+        Mail::assertSent(TemplatedMail::class, 1);
+        $this->as($are)->post(route('rentRevisal.store', $c->id), ['revised_rent' => $first, 'action' => 'draft'])->assertStatus(422);
+    }
+
+    public function test_draft_does_not_change_renewal_rent_or_due_count()
+    {
+        $svc = '\Modules\BackOffice\Services\RentRevisal';
+        $are = $this->makeUser('rr_t_are', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        DB::table('tenant_renewal_forms')->where('tenant_contract_id', $c->id)->delete();
+        $before = $svc::dueCount($are);
+        TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => $c->tenant_contract_rent, 'revised_rent' => 777.5,
+            'status' => 'draft', 'created_by' => $are->id]);
+        $this->assertEquals((float) $c->tenant_contract_rent, $svc::renewalRent($c->fresh()));
+        $this->assertEquals($before, $svc::dueCount($are));
+        $this->assertTrue($svc::canRevise($c->fresh(), $are));
+    }
+
     public function test_are_dashboard_has_rent_revisal_due_count()
     {
         $are = $this->makeUser('rr_t_are', 'are');
