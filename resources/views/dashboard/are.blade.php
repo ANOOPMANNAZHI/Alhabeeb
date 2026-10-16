@@ -321,35 +321,33 @@
       });
        /**********Total Receivables ends*********/
        /***********Contracts Expiring starts**************/
-       $('#expdays').on('change', function(e) {   
-         var expdays = $('#expdays').val();
-         var href1 =   "{{ route('tenantRenewal.index')}}";
+       // The link follows the dropdown straight away (and again at click time); the count loads separately,
+       // so clicking before it arrives still opens the days shown. Only the latest count response is used.
+       var href1 =   "{{ route('tenantRenewal.index')}}";
+       var expReq = 0;
+       function expDays($from) {
+         var $sel = $from ? $from.closest('.info-box').find('select[name=expdays]') : $('#expdays');
+         return $sel.val() || 30;
+       }
+       function expRefresh() {
+         var mine = ++expReq, days = expDays();
+         $(".link1").attr('href', href1 + '?expdays=' + days);
          $.ajax({
            type: "GET",
            url: "{!!URL::route('areDueForRenewalCount')!!}",
-           data:'expdays='+ $('#expdays').val(),
+           data: {expdays: days},
            success: function(data){
-            var result = $.parseJSON(data);
-            $('#expiring_contracts').text(result[0].count);
-            href1 = href1+'?expdays='+expdays;
-            $(".link1").attr('href', href1);
-          }
-        });
+             if (mine !== expReq) { return; }   // a newer choice is already loading
+             var result = $.parseJSON(data);
+             $('#expiring_contracts').text(result[0].count);
+           }
+         });
+       }
+       $('#expdays').on('change', expRefresh);
+       $(document).on('click', '.link1', function () {
+         $(this).attr('href', href1 + '?expdays=' + expDays($(this)));
        });
-       /***********Contracts Expiring ends**************/
-       var expdays = 30;
-       var href1 =   "{{ route('tenantRenewal.index')}}";
-       $.ajax({
-         type: "GET",
-         url: "{!!URL::route('areDueForRenewalCount')!!}",
-         data:'expdays='+ 30,
-         success: function(data){
-          var result = $.parseJSON(data);
-          $('#expiring_contracts').text(result[0].count);
-          href1 = href1+'?expdays='+expdays;
-          $(".link1").attr('href', href1);
-        }
-      });
+       expRefresh();
        /***********Contracts Expiring ends**************/      
         /***********Pending approvals from HOD starts**************/
        $('#renewal_days').on('change', function(e) {   
