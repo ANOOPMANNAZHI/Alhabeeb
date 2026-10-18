@@ -63,8 +63,8 @@ class InspectionIssueController extends Controller
         if ($f['overdue']) {
             $q->where('i.status', '<', Inspection::RESOLVED)->where('i.target_date', '<', date('Y-m-d'));
         }
-        $issues = $q->orderByRaw('case when i.status < 3 and i.target_date < current_date then 0 else 1 end')
-            ->orderBy('i.priority')->orderBy('i.target_date')->paginate(50)->appends($request->query());
+        // newest first (user, 18/10/2026)
+        $issues = $q->orderBy('i.created_at', 'desc')->orderBy('i.id', 'desc')->paginate(50)->appends($request->query());
         $names = Inspection::userNames(array_merge($issues->pluck('executive_id')->all(), $issues->pluck('raised_by')->all()));
 
         $counts = Inspection::scope(DB::table('inspection_issues as i'), 'i')
