@@ -2963,8 +2963,9 @@ public function  backofficeManagerDashboard(Request $request,$dashboard = false)
 
 
 
+// open cases the lawyer accepted (legal_is_closed = 2 is "accepted"; 0 counted almost nothing)
 $activeCasesCount = Legal::filter($request)
-->where('legal_is_closed',0)
+->whereNull('legal.closed_at')
 ->legalUsers()              
 ->where('legal.work_flow_processes_code', '=', 803)->get()->count();
 

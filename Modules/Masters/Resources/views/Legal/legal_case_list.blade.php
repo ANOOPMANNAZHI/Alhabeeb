@@ -41,7 +41,17 @@ jQuery('.delete_type').click(function (event) {
 /**********************************************************************************/
 $(document).ready(function() {
 
-    $('.are_stage').on('click', function(e) {        
+    // Close / Drop opens the reason form (user, 18/10/2026)
+    $(document).on('click', '.close_type', function () {
+        $.ajax({
+            method: 'POST',
+            url: "{{ route('legalCloseForm') }}",
+            data: {'legal_id': $(this).attr('data-id'), "_token": "{{ csrf_token() }}"},
+            success: function (response) { $("#myModal").html(response); }
+        });
+    });
+
+    $(document).on('click', '.are_stage', function(e) {        
         var legal_id = $(this).attr('data-id');
         var process_flow = $(this).attr('data-flow-id');
          var are_status = $(this).attr('data-status');

@@ -41,7 +41,7 @@
       <button type="button" class="lg-btn lg-btn--ghost lg-btn--icon referback" data-id="{{ $c->id }}" data-key="RFRBK" data-flow-id="801" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false" title="Refer back" aria-label="Refer back case {{ $c->id }}"><i class="fa fa-reply" aria-hidden="true"></i></button>
       @endcan
       @can('plms_close')
-      <button type="button" class="lg-btn lg-btn--ghost lg-btn--icon close_type" data-id="{{ $c->id }}" data-flow-id="801" title="Close" aria-label="Close case {{ $c->id }}"><i class="fa fa-times-circle" aria-hidden="true"></i></button>
+      <button type="button" class="lg-btn lg-btn--ghost lg-btn--icon close_type" data-id="{{ $c->id }}" data-flow-id="801" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false" title="Close" aria-label="Close case {{ $c->id }}"><i class="fa fa-times-circle" aria-hidden="true"></i></button>
       @endcan
     @elseif($kind === 'lawyer')
       @can('lawyer_approve')
@@ -50,9 +50,10 @@
       @can('lawyer_refer_back')
       <button type="button" class="lg-btn lg-btn--ghost lg-btn--icon referback" data-id="{{ $c->id }}" data-key="RFRBK" data-flow-id="801" data-status="1" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false" title="Reject" aria-label="Reject case {{ $c->id }}"><i class="fa fa-reply" aria-hidden="true"></i></button>
       @endcan
-    @elseif($kind === 'case' && (int) $c->work_flow_processes_code === 804)
+    @elseif($kind === 'case' && (int) $c->work_flow_processes_code === 804 && !$c->closed_at)
       @can('legal_are_stage')
-      <button type="button" class="lg-btn lg-btn--ghost lg-btn--icon are_stage" data-id="{{ $c->id }}" data-flow-id="{{ (int) $c->are_status === 1 ? 802 : 801 }}" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false" title="Send for verification" aria-label="Send case {{ $c->id }} for verification"><i class="fa fa-arrow-right" aria-hidden="true"></i></button>
+      <button type="button" class="lg-btn lg-btn--ghost lg-btn--icon close_type" data-id="{{ $c->id }}" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false" title="Drop case" aria-label="Drop case {{ $c->id }}"><i class="fa fa-times-circle" aria-hidden="true"></i></button>
+      <button type="button" class="lg-btn lg-btn--ghost lg-btn--icon are_stage" data-id="{{ $c->id }}" data-flow-id="801" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false" title="Send for verification" aria-label="Send case {{ $c->id }} for verification"><i class="fa fa-arrow-right" aria-hidden="true"></i></button>
       @endcan
     @endif
     @if($hasCase)

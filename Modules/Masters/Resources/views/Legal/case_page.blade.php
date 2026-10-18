@@ -209,6 +209,9 @@
             <div class="span-all lcp-f lcp-f-eviction lcp-hidden">
               <div class="lg-alert lg-alert--info"><div>The case becomes a recovery case (vacated / terminated). Start the tenant termination for the unit afterwards.</div></div>
             </div>
+            <div class="span-all lcp-f lcp-f-withdrawn lcp-hidden">
+              <div class="lg-alert lg-alert--info"><div>This stage does not close the case. Record the settlement; PLM closes the case when it is collected (Close case: paid in full or balance written off).</div></div>
+            </div>
 
             <div class="lg-field">
               <label for="lcp_next" class="lg-label">Next hearing (optional)</label>

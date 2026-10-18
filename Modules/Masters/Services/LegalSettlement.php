@@ -73,10 +73,21 @@ class LegalSettlement
         return $judgment !== null && $current && (int) $current->sort_order >= (int) $judgment;
     }
 
-    /** Money collected towards a settlement: receipts on the contract from the agreed date. */
+    /**
+     * Money collected towards a settlement: receipts on the contract from the agreed date, less the rent that
+     * fell due after that date - a tenant who keeps paying the running rent does not pay the settlement off
+     * with it; only money above the new rent counts (user, 18/10/2026).
+     */
     public static function collected($settlement, $contractId)
     {
-        return round((float) DB::table('receipts_generation')
+        $d = self::collectedDetail($settlement, $contractId);
+        return $d['collected'];
+    }
+
+    /** @return array receipts (from the agreed date), new_rent (fell due after it), collected (the difference, not below 0) */
+    public static function collectedDetail($settlement, $contractId)
+    {
+        $receipts = round((float) DB::table('receipts_generation')
             ->where('tenant_contract_id', $contractId)
             ->whereIn('receipts_generation_type', self::RECEIPT_TYPES)
             ->whereIn('receipts_generation_approval_status', RentOutstanding::COUNTED_APPROVAL)
@@ -84,6 +95,51 @@ class LegalSettlement
             ->whereNull('deleted_at')
             ->whereDate('receipts_generation_receipt_date', '>=', $settlement->agreed_date)
             ->sum('receipts_generation_amt'), 3);
+        $newRent = self::newRentSince($settlement->agreed_date, $contractId);
+        return ['receipts' => $receipts, 'new_rent' => $newRent, 'collected' => round(max(0, $receipts - $newRent), 3)];
+    }
+
+    /**
+     * Rent that fell due on the contract after $date: rent due up to today (or the termination date, the same
+     * end RentOutstanding uses) less the rent due up to the day before $date.
+     */
+    public static function newRentSince($date, $contractId)
+    {
+        $c = DB::table('tenant_contracts')->where('id', $contractId)
+            ->first(['tenant_contract_effective_date', 'tenant_contract_start_date', 'tenant_contract_rent',
+                     'tenant_contract_value', 'tenant_contract_valid_to_date']);
+        if (!$c) {
+            return 0.0;
+        }
+        $from = $c->tenant_contract_effective_date ?: $c->tenant_contract_start_date;
+        $end = DB::table('termination')->where('contract_id', $contractId)->orderBy('id', 'desc')->value('termination_date');
+        $terminated = (bool) $end;
+        $end = $end ? date('Y-m-d', strtotime($end)) : date('Y-m-d');
+        $before = date('Y-m-d', strtotime(substr($date, 0, 10) . ' -1 day'));
+        if (!$from || $end <= $before) {
+            return 0.0;
+        }
+        $dueToEnd = RentOutstanding::compute($from, $end, $c->tenant_contract_rent, 0, $c->tenant_contract_value,
+            $c->tenant_contract_valid_to_date, $terminated)['rent_due'];
+        $dueBefore = $before < date('Y-m-d', strtotime($from)) ? 0.0 : RentOutstanding::compute($from, $before, $c->tenant_contract_rent, 0,
+            $c->tenant_contract_value, $c->tenant_contract_valid_to_date, false)['rent_due'];
+        return round(max(0, $dueToEnd - $dueBefore), 3);
+    }
+
+    /**
+     * What "balance written off" waives when PLM closes the case: the settlement balance still unpaid (plus the
+     * settlement waiver when the deal broke and it was cancelled), never more than the contract owes today.
+     */
+    public static function writeOffAmount($settlement, Legal $legal)
+    {
+        if (!$settlement) {
+            return 0.0;
+        }
+        $balance = self::schedule($settlement, $legal->tenant_contract_id)['balance'];
+        if ((int) $settlement->status === self::BROKEN && $settlement->waiver_cancelled_at) {
+            $balance += (float) $settlement->waiver_amount;
+        }
+        return round(max(0, min($balance, LegalCase::outstanding($legal))), 3);
     }
 
     /**
@@ -139,7 +195,8 @@ class LegalSettlement
     public static function schedule($settlement, $contractId, $today = null)
     {
         $today = $today ?: date('Y-m-d');
-        $collected = self::collected($settlement, $contractId);
+        $detail = self::collectedDetail($settlement, $contractId);
+        $collected = $detail['collected'];
         $cheques = self::heldCheques($settlement, $contractId);
         $held = round((float) $cheques->sum('pdc_amt'), 3);
         $paidLeft = $collected;
@@ -169,7 +226,8 @@ class LegalSettlement
                 'overdue_alerted_at' => $i->overdue_alerted_at];
         }
         $total = (float) $settlement->settled_total;
-        return ['rows' => $rows, 'collected' => $collected, 'held' => $held, 'cheques' => $cheques,
+        return ['rows' => $rows, 'collected' => $collected, 'receipts' => $detail['receipts'], 'new_rent' => $detail['new_rent'],
+            'held' => $held, 'cheques' => $cheques,
             'total' => $total, 'balance' => round(max(0, $total - $collected), 3)];
     }
 
