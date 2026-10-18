@@ -64,6 +64,7 @@
     <div class="lg-kpis">
       <div class="lg-kpi"><div class="lg-kpi__label">Claim amount</div><div class="lg-kpi__value">{{ $legal->claim_amount !== null ? numberFormat($legal->claim_amount) : '-' }}</div></div>
       <div class="lg-kpi"><div class="lg-kpi__label">Rent outstanding today</div><div class="lg-kpi__value">{{ numberFormat($outstanding) }}</div><div class="lg-kpi__hint">net of receipts and waivers</div></div>
+      @if($owed['dues'])<div class="lg-kpi"><div class="lg-kpi__label">Termination dues</div><div class="lg-kpi__value">{{ numberFormat($owed['dues']['balance']) }}</div><div class="lg-kpi__hint">rent, E&amp;W and charges · <a href="{{ $owed['dues']['url'] }}">details</a></div></div>@endif
       <div class="lg-kpi"><div class="lg-kpi__label">Judgment amount</div><div class="lg-kpi__value">{{ $legal->judgment_amount !== null ? numberFormat($legal->judgment_amount) : '-' }}</div></div>
       <div class="lg-kpi"><div class="lg-kpi__label">Next hearing</div><div class="lg-kpi__value">{{ $fmtDate($legal->next_hearing_date) }}</div>
         @if($legal->next_hearing_date)<div class="lg-kpi__hint">{{ \Carbon\Carbon::parse($legal->next_hearing_date)->diffForHumans() }}</div>@endif</div>
@@ -187,8 +188,8 @@
             </div>
             <div class="lg-field lcp-f lcp-f-filed lcp-hidden">
               <label for="lcp_claim" class="lg-label">Claim amount</label>
-              <input type="number" step="0.001" min="0" id="lcp_claim" name="claim_amount" class="lg-input tnum" value="{{ old('claim_amount', $legal->claim_amount !== null ? $legal->claim_amount : round($outstanding, 3)) }}">
-              <div class="lg-hint">Defaults to today's outstanding.</div>
+              <input type="number" step="0.001" min="0" id="lcp_claim" name="claim_amount" class="lg-input tnum" value="{{ old('claim_amount', $legal->claim_amount !== null ? $legal->claim_amount : $owed['total']) }}">
+              <div class="lg-hint">Defaults to what the contract owes today{{ $owed['dues'] ? ' (termination dues: rent, E&W and charges)' : ' (rent outstanding)' }}.</div>
             </div>
 
             <div class="lg-field lcp-f lcp-f-judgment lcp-hidden">

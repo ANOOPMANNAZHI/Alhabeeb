@@ -20,7 +20,7 @@
     <div>
       <section class="lg-card" aria-label="Overview"><div class="lg-card__head"><h2 class="lg-card__title">Overview</h2></div>
         <div class="lg-card__body">@include('masters::Legal._case_summary', ['legal' => $legalCase])</div></section>
-      @include('masters::Legal._contract_details', ['legal' => $legalCase])
+      @include('masters::Legal._contract_details', ['legal' => $legalCase, 'owed' => $owed])
       @include('masters::Legal._documents', ['legal' => $legalCase])
     </div>
     <aside>

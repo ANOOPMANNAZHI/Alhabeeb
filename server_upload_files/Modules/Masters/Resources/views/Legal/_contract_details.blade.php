@@ -11,13 +11,17 @@
 <section class="lg-card" aria-labelledby="{{ $tabId }}_title">
   <div class="lg-card__head"><h2 class="lg-card__title" id="{{ $tabId }}_title">Contract</h2>
     <span class="muted" style="font-size:13px;">{{ $tc->tenant_contract_no ?? '' }} @if($tc && $tc->created_at)&middot; agreement {{ $tc->created_at->format('d/m/Y') }}@endif</span></div>
-  @if(isset($rentAmount) || isset($paidDays) || isset($dmy))
+  @if(isset($owed) || isset($dmy))
   <div class="lg-kpis" style="border-top:0;border-bottom:1px solid var(--lg-border);">
     @if(isset($dmy))<div class="lg-kpi"><div class="lg-kpi__label">Rented for</div><div class="lg-kpi__value lg-kpi__value--sm">{{ $dmy }}</div></div>@endif
-    @if(isset($paidDays))<div class="lg-kpi lg-kpi--bad"><div class="lg-kpi__label">Overdue period</div><div class="lg-kpi__value lg-kpi__value--sm">{{ $paidDays }} days</div>
-      <div class="lg-kpi__hint">{{ $overDueFrom ? \Carbon\Carbon::parse($overDueFrom)->format('d/m/Y') : '' }} to {{ date('d/m/Y') }}</div></div>@endif
-    @if(isset($rentAmount))<div class="lg-kpi lg-kpi--bad"><div class="lg-kpi__label">Overdue rent (estimate)</div><div class="lg-kpi__value lg-kpi__value--sm">{{ numberFormat($rentAmount) }}</div>
-      <div class="lg-kpi__hint">months unpaid x rent</div></div>@endif
+    @if(isset($owed))
+    <div class="lg-kpi {{ $owed['rent'] > 0 ? 'lg-kpi--bad' : '' }}"><div class="lg-kpi__label">Rent outstanding</div><div class="lg-kpi__value lg-kpi__value--sm">{{ numberFormat($owed['rent']) }}</div>
+      <div class="lg-kpi__hint">rent due less receipts and waivers</div></div>
+    @if($owed['dues'])
+    <div class="lg-kpi {{ $owed['dues']['balance'] > 0 ? 'lg-kpi--bad' : '' }}"><div class="lg-kpi__label">Termination dues</div><div class="lg-kpi__value lg-kpi__value--sm">{{ numberFormat($owed['dues']['balance']) }}</div>
+      <div class="lg-kpi__hint">rent, E&amp;W and charges at termination {{ $owed['dues']['termination_date'] }} · <a href="{{ $owed['dues']['url'] }}">details</a></div></div>
+    @endif
+    @endif
   </div>
   @endif
   <ul class="nav lg-tabs" role="tablist">

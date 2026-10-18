@@ -15,7 +15,7 @@
     <div>
       <section class="lg-card" aria-label="Overview"><div class="lg-card__head"><h2 class="lg-card__title">Overview</h2></div>
         <div class="lg-card__body">@include('masters::Legal._case_summary', ['legal' => $activeCase])</div></section>
-      @include('masters::Legal._contract_details', ['legal' => $activeCase, 'oldContractList' => $oldContractList, 'dmy' => $dmy, 'paidDays' => $paidDays, 'overDueFrom' => $overDueFrom, 'rentAmount' => $rentAmount])
+      @include('masters::Legal._contract_details', ['legal' => $activeCase, 'oldContractList' => $oldContractList, 'dmy' => $dmy, 'owed' => $owed])
       @include('masters::Legal._legal_notes', ['legal' => $activeCase, 'legalNotes' => $legalNotes, 'canAddNote' => !$activeCase->closed_at])
       @include('masters::Legal._documents', ['legal' => $activeCase, 'canUpload' => true])
     </div>

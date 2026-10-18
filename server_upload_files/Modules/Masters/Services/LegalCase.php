@@ -169,6 +169,24 @@ class LegalCase
         return \Modules\BackOffice\Services\RentOutstanding::amountForContract($legal->tenant_contract_id);
     }
 
+    /**
+     * What the contract owes (user, 18/10/2026): rent outstanding from receipts and waivers, and for a terminated
+     * contract the termination dues balance, which already holds the rent plus E&W and checklist charges.
+     * total = the dues balance when there are dues, else the rent outstanding (never both added).
+     * @return array rent, dues (TerminationDuesService::summaryForContract or null), total
+     */
+    public static function owed(Legal $legal)
+    {
+        $rent = round((float) self::outstanding($legal), 3);
+        $dues = null;
+        try {
+            $dues = (new \Modules\BackOffice\Services\TerminationDuesService)->summaryForContract($legal->tenant_contract_id);
+        } catch (\Exception $e) {
+            \Log::warning('Legal owed: termination dues of contract ' . $legal->tenant_contract_id . ' failed: ' . $e->getMessage());
+        }
+        return ['rent' => $rent, 'dues' => $dues, 'total' => $dues ? round((float) $dues['balance'], 3) : $rent];
+    }
+
     /** Stage master rows a case can be put at: active, for its type, not the final "Closed" (closing has its own rules). */
     public static function stagesFor(Legal $legal)
     {
