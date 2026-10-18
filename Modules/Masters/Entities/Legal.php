@@ -575,6 +575,18 @@ public function scopeLegalUsers($query){
   }
 
     /**
+     * Lists open with the most recently moved to legal first (user, 18/10/2026); a column the user
+     * clicks to sort on (?sort=) still wins. The legal row is created when the case is moved.
+     */
+    public static function newestMovedFirst($query)
+    {
+        if (!request()->filled('sort')) {
+            $query->orderBy('legal.created_at', 'desc')->orderBy('legal.id', 'desc');
+        }
+        return $query;
+    }
+
+    /**
      * Legal lists show one row per tenant + building + unit: the case of the latest contract
      * (renewals each get their own case). $base is the list's filtered query; sort + paginate the result.
      */
