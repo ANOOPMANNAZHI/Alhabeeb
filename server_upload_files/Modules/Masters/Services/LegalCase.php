@@ -30,6 +30,7 @@ class LegalCase
         'paid_in_full' => 'Settled - paid in full',
         'written_off' => 'Settled - balance written off',
         'withdrawn' => 'Withdrawn',
+        'dropped' => 'Dropped after refer back',
         'closed' => 'Closed',
         'before_upgrade' => 'Closed (before upgrade)',
     ];
@@ -38,6 +39,7 @@ class LegalCase
         'moved' => 'Moved to legal',
         'plm_approved' => 'PLM approved',
         'plm_referback' => 'PLM referred back',
+        'are_resent' => 'Sent to PLM again by ARE',
         'lawyer_approved' => 'Lawyer approved',
         'lawyer_rejected' => 'Lawyer rejected',
         'handled_by' => 'Handled by changed',

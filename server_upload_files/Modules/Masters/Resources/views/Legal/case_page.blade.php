@@ -209,6 +209,9 @@
             <div class="span-all lcp-f lcp-f-eviction lcp-hidden">
               <div class="lg-alert lg-alert--info"><div>The case becomes a recovery case (vacated / terminated). Start the tenant termination for the unit afterwards.</div></div>
             </div>
+            <div class="span-all lcp-f lcp-f-withdrawn lcp-hidden">
+              <div class="lg-alert lg-alert--info"><div>This stage does not close the case. Record the settlement; PLM closes the case when it is collected (Close case: paid in full or balance written off).</div></div>
+            </div>
 
             <div class="lg-field">
               <label for="lcp_next" class="lg-label">Next hearing (optional)</label>
@@ -266,9 +269,17 @@
         .css('color', ok ? '#1e6b34' : '#b42318');
       $('#lcs_verify_total_label').text(target($('#lcs_verify_rows')).toFixed(3));
     }
+    // a single installment row follows the amount until the user types in it (user, 18/10/2026)
+    function money(v) { return v > 0.0005 ? v.toFixed(3) : ''; }
+    function follow(box) {
+      var rows = box.find('tbody tr');
+      if (rows.length === 1 && !box.data('manual')) { rows.find('.lcs-inst-amount').val(money(target(box))); }
+    }
     $(document).on('click', '.lcs-inst-add', function () {
-      var box = $(this).closest('.lcs-inst'), row = box.find('tbody tr:first').clone();
+      var box = $(this).closest('.lcs-inst'), row = box.find('tbody tr:first').clone(), t = 0;
+      box.find('.lcs-inst-amount').each(function () { t += parseFloat($(this).val()) || 0; });
       row.find('input').val('');
+      row.find('.lcs-inst-amount').val(money(target(box) - t)); // the new row takes what is still left
       box.find('tbody').append(row); sum(box);
     });
     $(document).on('click', '.lcs-inst-del', function () {
@@ -276,8 +287,72 @@
       if (box.find('tbody tr').length > 1) { $(this).closest('tr').remove(); } else { $(this).closest('tr').find('input').val(''); }
       sum(box);
     });
-    $(document).on('input change', '.lcs-inst-amount, #lcs_amount, #lcs_fees', function () { $('.lcs-inst').each(function () { sum($(this)); }); });
-    $('.lcs-inst').each(function () { sum($(this)); });
+    $(document).on('input', '.lcs-inst-amount', function () { $(this).closest('.lcs-inst').data('manual', true); });
+    $(document).on('input change', '.lcs-inst-amount, #lcs_amount, #lcs_fees', function () {
+      $('.lcs-inst').each(function () { if (!$(this).find('.lcs-inst-amount').is(':focus')) { follow($(this)); } sum($(this)); });
+    });
+    $('.lcs-inst').each(function () {
+      var box = $(this), one = box.find('.lcs-inst-amount');
+      // rows brought back from a failed save or an earlier entry stay as they are
+      if (one.length !== 1 || (one.val() !== '' && Math.abs((parseFloat(one.val()) || 0) - target(box)) >= 0.0005)) { box.data('manual', true); }
+      follow(box); sum(box);
+    });
+
+    // Note boxes draft themselves from the details entered; typing in a note keeps it as typed (user, 18/10/2026)
+    function dmy(v) { var p = (v || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; }
+    function omr(v) { return 'OMR ' + (parseFloat(v) || 0).toLocaleString('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3}); }
+    function draft(note, text) {
+      if (note.length && !note.data('manual')) { note.val(text); }
+    }
+    $('#lcp_note, #lcs_note').each(function () { if ($.trim($(this).val()) !== '') { $(this).data('manual', true); } });
+    $(document).on('input', '#lcp_note, #lcs_note', function () { $(this).data('manual', $.trim($(this).val()) !== ''); });
+    @if($canStage)
+    function stageNote() {
+      var opt = $('#lcp_stage option:selected'), code = opt.data('code') || '', d = dmy($('#lcp_event_date').val()),
+          name = $.trim(opt.text().replace(' (current)', '')), court = $.trim($('#lcp_court').val() || ''),
+          caseNo = $.trim($('#lcp_case_no').val() || ''), where = (court ? ' at ' + court : '') + (caseNo ? ', case no. ' + caseNo : ''), t;
+      switch (code) {
+        case 'notice': t = 'Legal notice sent on ' + d + '.'; break;
+        case 'filed': t = 'Case filed on ' + d + where + '.' + ($('#lcp_claim').val() !== '' ? ' Claim ' + omr($('#lcp_claim').val()) + '.' : ''); break;
+        case 'hearing': t = 'Hearing on ' + d + where + '.'; break;
+        case 'judgment':
+          t = 'Judgment on ' + d + where + ': ' + ($('#lcp_judgment').val() !== '' ? omr($('#lcp_judgment').val()) + ' awarded' : 'amount awarded to be entered');
+          if ($('#lcp_eviction').val() === '1') { t += ', eviction ordered'; } else if ($('#lcp_eviction').val() === '0') { t += ', no eviction ordered'; }
+          t += '.'; break;
+        case 'appeal': t = 'Appeal on ' + d + where + '.'; break;
+        case 'execution': t = 'Execution / enforcement on ' + d + where + '.'; break;
+        case 'eviction': t = 'Eviction completed on ' + d + '.'; break;
+        case 'withdrawn': t = 'Case withdrawn on ' + d + ' - settled out of court.'; break;
+        case 'closed': t = 'Case closed on ' + d + '.'; break;
+        default: t = name + ' on ' + d + '.';
+      }
+      if ($('#lcp_next').val()) { t += ' Next hearing ' + dmy($('#lcp_next').val()) + '.'; }
+      draft($('#lcp_note'), t);
+    }
+    $(document).on('input change', '#lcpStageModal :input:not(#lcp_note)', stageNote);
+    stageNote();
+    @endif
+    @if($canEnterSettlement)
+    function settlementNote() {
+      var d = dmy($('#lcs_date').val()), rows = [], t;
+      $('#lcs_enter_rows tbody tr').each(function () {
+        var a = $(this).find('.lcs-inst-amount').val(), dd = $(this).find('input[type=date]').val();
+        if (a !== '') { rows.push(omr(a) + ' on ' + (dd ? dmy(dd) : '(date to be set)')); }
+      });
+      t = $('#lcs_type').val() === '2' ? 'Court decided settlement, judgment dated ' + d + '.' : 'Out of court settlement agreed on ' + d + '.';
+      if ($('#lcs_amount').val() !== '') {
+        t += ' Tenant pays ' + omr($('#lcs_amount').val());
+        if (rows.length === 1) { t += ' in one payment: ' + rows[0] + '.'; }
+        else if (rows.length > 1) { t += ' in ' + rows.length + ' installments: ' + rows.join(', ') + '.'; }
+        else { t += '.'; }
+      }
+      t += ' Rent outstanding today {{ 'OMR ' . number_format((float) ($outstanding ?? 0), 3) }}.';
+      draft($('#lcs_note'), t);
+    }
+    $(document).on('input change', '#lcsEnterModal :input:not(#lcs_note)', settlementNote);
+    $(document).on('click', '#lcsEnterModal .lcs-inst-add, #lcsEnterModal .lcs-inst-del', settlementNote);
+    settlementNote();
+    @endif
 
     var reopen = @json(old('_modal'));
     if (reopen) { $('#' + reopen).modal('show'); }

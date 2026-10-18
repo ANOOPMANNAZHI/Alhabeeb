@@ -1194,8 +1194,8 @@ class TenantContractEditController extends Controller
   public function tenantContractChangeStatus(Request $request){
     $tenant_contract_id = $request->tenant_contract_id;
     $tenantContractInfo = TenantContract::where('id',$tenant_contract_id)->first();
-     // dd($tenant_contract_id);
-    return view('backoffice::TenantContract.tenant_contract_comment_model',compact('tenant_contract_id','tenantContractInfo'));
+    $openLegalCase = LegalCase::openCaseFor($tenant_contract_id);
+    return view('backoffice::TenantContract.tenant_contract_comment_model',compact('tenant_contract_id','tenantContractInfo','openLegalCase'));
   }
     /*
     *
@@ -1270,8 +1270,16 @@ class TenantContractEditController extends Controller
         $tenant_contract_id = $request->tenant_contract_id;
       $tenant_contract_status = $request->tenant_contract_status;
       $tenant_contract_comment = $request->tenant_contract_comment;
-      
-      $tenantContractComment = TenantContractComment::create([ 
+
+      // while a legal case is open the status stays "in legal": the case is closed or dropped on the legal screens
+      // (changing it here left cases nobody could work on - user, 18/10/2026)
+      $openLegalCase = LegalCase::openCaseFor($tenant_contract_id);
+      if ($openLegalCase && (string) $tenant_contract_status !== '5') {
+        session()->flash('error', 'This contract has an open legal case (#' . $openLegalCase->id . '). Close the case first; the status then returns to Normal.');
+        return redirect()->back();
+      }
+
+      $tenantContractComment = TenantContractComment::create([
        'tenant_contract_id' => $tenant_contract_id,
        'status' => $tenant_contract_status,
        'comment' => $tenant_contract_comment,

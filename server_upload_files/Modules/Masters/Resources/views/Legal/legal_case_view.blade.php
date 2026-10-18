@@ -8,9 +8,10 @@
 <div class="lg">
   @component('masters::Legal._detail_head', ['legal' => $legalCase, 'crumb' => 'legalCase.show', 'screen' => 'Legal case'])
     @slot('actions')
-      @if((int) $legalCase->work_flow_processes_code === 804)
+      @if((int) $legalCase->work_flow_processes_code === 804 && !$legalCase->closed_at)
       @can('legal_are_stage')
-      <button type="button" class="lg-btn lg-btn--primary are_stage" data-id="{{ $legalCase->id }}" data-flow-id="{{ (int) $legalCase->are_status === 1 ? 802 : 801 }}" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Send for verification</button>
+      <button type="button" class="lg-btn lg-btn--danger close_type" data-id="{{ $legalCase->id }}" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Drop case</button>
+      <button type="button" class="lg-btn lg-btn--primary are_stage" data-id="{{ $legalCase->id }}" data-flow-id="801" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Send for verification</button>
       @endcan
       @endif
     @endslot
@@ -33,6 +34,16 @@
 @section('scripts')
 <script>
   $(document).ready(function() {
+
+    // Close / Drop opens the reason form (user, 18/10/2026)
+    $(document).on('click', '.close_type', function () {
+        $.ajax({
+            method: 'POST',
+            url: "{{ route('legalCloseForm') }}",
+            data: {'legal_id': $(this).attr('data-id'), "_token": "{{ csrf_token() }}"},
+            success: function (response) { $("#myModal").html(response); }
+        });
+    });
 
     $('.are_stage').on('click', function(e) {        
         var legal_id = $(this).attr('data-id');

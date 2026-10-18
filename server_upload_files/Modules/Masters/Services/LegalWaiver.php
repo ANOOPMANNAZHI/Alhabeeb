@@ -59,6 +59,30 @@ class LegalWaiver
         return $id;
     }
 
+    /**
+     * "Balance written off" on close: the unpaid balance becomes a waiver, so it leaves every receivable like the
+     * settlement waiver does (user, 18/10/2026). Reopening the case can cancel it with the others.
+     */
+    public static function writeOff($settlement, $contractId, $amount, $note, $userId)
+    {
+        if ($amount <= 0) {
+            return null;
+        }
+        $now = now();
+        $id = DB::table('legal_waivers')->insertGetId(['legal_id' => $settlement->legal_id, 'settlement_id' => $settlement->id,
+            'tenant_contract_id' => $contractId, 'amount' => round($amount, 3),
+            'reason' => mb_substr('Balance written off on close' . ($note ? ': ' . $note : ''), 0, 500),
+            'approved_by' => $userId, 'approved_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+        self::touch($contractId);
+        return $id;
+    }
+
+    /** Live (not cancelled) waiver total of a case. */
+    public static function liveForCase($legalId)
+    {
+        return round((float) DB::table('legal_waivers')->where('legal_id', $legalId)->whereNull('cancelled_at')->sum('amount'), 3);
+    }
+
     /** Cancel the live waivers of a settlement (or of every settlement of a case when $settlementId is null). */
     public static function cancel($legalId, $settlementId, $reason)
     {
