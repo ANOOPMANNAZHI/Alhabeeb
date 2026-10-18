@@ -38,7 +38,7 @@ class InspectionVisitController extends Controller
             // my schedule: everything still to do, plus this month's done / cancelled
             $q->where('v.executive_id', $user->id)->where(function ($w) {
                 $w->where('v.status', Inspection::SCHEDULED)->orWhere('v.planned_date', '>=', date('Y-m-01'));
-            })->orderByRaw('case when v.status = 0 then 0 else 1 end')->orderBy('v.planned_date');
+            })->orderBy('v.created_at', 'desc')->orderBy('v.id', 'desc'); // newest first (user, 18/10/2026)
         } else {
             Inspection::scope($q, 'v');
             $q->where('v.visit_month', $month . '-01');
@@ -54,7 +54,7 @@ class InspectionVisitController extends Controller
             if ($f['type']) {
                 $q->where('v.visit_type', $f['type']);
             }
-            $q->orderBy('v.planned_date')->orderBy('b.building_name');
+            $q->orderBy('v.created_at', 'desc')->orderBy('v.id', 'desc');
         }
         $visits = $q->get();
         $names = Inspection::userNames($visits->pluck('executive_id')->all());
