@@ -266,9 +266,17 @@
         .css('color', ok ? '#1e6b34' : '#b42318');
       $('#lcs_verify_total_label').text(target($('#lcs_verify_rows')).toFixed(3));
     }
+    // a single installment row follows the amount until the user types in it (user, 18/10/2026)
+    function money(v) { return v > 0.0005 ? v.toFixed(3) : ''; }
+    function follow(box) {
+      var rows = box.find('tbody tr');
+      if (rows.length === 1 && !box.data('manual')) { rows.find('.lcs-inst-amount').val(money(target(box))); }
+    }
     $(document).on('click', '.lcs-inst-add', function () {
-      var box = $(this).closest('.lcs-inst'), row = box.find('tbody tr:first').clone();
+      var box = $(this).closest('.lcs-inst'), row = box.find('tbody tr:first').clone(), t = 0;
+      box.find('.lcs-inst-amount').each(function () { t += parseFloat($(this).val()) || 0; });
       row.find('input').val('');
+      row.find('.lcs-inst-amount').val(money(target(box) - t)); // the new row takes what is still left
       box.find('tbody').append(row); sum(box);
     });
     $(document).on('click', '.lcs-inst-del', function () {
@@ -276,8 +284,16 @@
       if (box.find('tbody tr').length > 1) { $(this).closest('tr').remove(); } else { $(this).closest('tr').find('input').val(''); }
       sum(box);
     });
-    $(document).on('input change', '.lcs-inst-amount, #lcs_amount, #lcs_fees', function () { $('.lcs-inst').each(function () { sum($(this)); }); });
-    $('.lcs-inst').each(function () { sum($(this)); });
+    $(document).on('input', '.lcs-inst-amount', function () { $(this).closest('.lcs-inst').data('manual', true); });
+    $(document).on('input change', '.lcs-inst-amount, #lcs_amount, #lcs_fees', function () {
+      $('.lcs-inst').each(function () { if (!$(this).find('.lcs-inst-amount').is(':focus')) { follow($(this)); } sum($(this)); });
+    });
+    $('.lcs-inst').each(function () {
+      var box = $(this), one = box.find('.lcs-inst-amount');
+      // rows brought back from a failed save or an earlier entry stay as they are
+      if (one.length !== 1 || (one.val() !== '' && Math.abs((parseFloat(one.val()) || 0) - target(box)) >= 0.0005)) { box.data('manual', true); }
+      follow(box); sum(box);
+    });
 
     var reopen = @json(old('_modal'));
     if (reopen) { $('#' + reopen).modal('show'); }
