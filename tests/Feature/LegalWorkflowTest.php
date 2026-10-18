@@ -198,7 +198,7 @@ class LegalWorkflowTest extends TestCase
     {
         $contractId = $this->contract(4);
         $legal = $this->moveToLegal($contractId);
-        $this->as($this->plm)->post(route('legalCaseClose'), ['process_flow' => 801, 'legal_id' => $legal->id]);
+        $this->as($this->plm)->post(route('legalCaseClose'), ['legal_id' => $legal->id, 'legal_note' => 'Not pursued']);
         $legal = $legal->fresh();
         $this->assertNotNull($legal->closed_at);
         $this->assertEquals(0, DB::table('tenant_contracts')->where('id', $contractId)->value('status'));

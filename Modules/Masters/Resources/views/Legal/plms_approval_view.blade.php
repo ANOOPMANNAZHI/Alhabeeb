@@ -13,7 +13,7 @@
       <button type="button" class="lg-btn lg-btn--warning referback" data-id="{{ $plmsApproval->id }}" data-key="RFRBK" data-flow-id="801" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Refer back</button>
       @endcan
       @can('plms_close')
-      <button type="button" class="lg-btn lg-btn--danger close_type" title="Close" data-id="{{ $plmsApproval->id }}" data-flow-id="801">Close</button>
+      <button type="button" class="lg-btn lg-btn--danger close_type" title="Close" data-id="{{ $plmsApproval->id }}" data-flow-id="801" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">Close</button>
       @endcan
       @can('plms_approve')
       <button type="button" class="lg-btn lg-btn--primary approve" data-id="{{ $plmsApproval->id }}" data-key="APRV" data-flow-id="801" data-status="0" data-toggle="modal" data-target="#myModal" data-backdrop="static" data-keyboard="false">{{ (int) ($plmsApproval->handled_by ?: $defaultHandledBy) === 1 ? 'Approve' : 'Approve / Hand over' }}</button>
@@ -94,13 +94,13 @@
       /* if (confirm('Do you want to Approval Accept?')) {*/
         $.ajax({
             method: 'POST', // Type of response and matches what we said in the route
-            url: "{{route('legalCaseClose')}}", // This is the url we gave in the route
+            url: "{{route('legalCloseForm')}}", // This is the url we gave in the route
             data: {'process_flow':process_flow,'legal_id' : legal_id,"_token": "{{ csrf_token() }}"}, // a JSON object to send back
             success: function(response){ // What to do if we succeed
                // $("#myModal").html(response);
                // alert(response);
                // window.location.href = response;
-               location.reload();
+               $("#myModal").html(response);
              },
            });
         return true;

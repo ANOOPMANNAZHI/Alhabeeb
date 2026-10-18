@@ -210,6 +210,7 @@ Route::post('/plmsApproval/approveReferBack', 'LegalController@plmsApproveReferB
 Route::post('/plmsApproval/approveReferBackStore', 'LegalController@plmsApproveReferBackStore')->name('plmsApproveReferBackStore');
 //plms close
 Route::post('/plmsApproval/legalCaseClose', 'LegalController@legalCaseClose')->name('legalCaseClose');
+Route::post('/plmsApproval/legalCloseForm', 'LegalController@legalCloseForm')->name('legalCloseForm');
 
 
 /* lawyer approval */

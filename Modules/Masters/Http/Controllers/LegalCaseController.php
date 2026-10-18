@@ -10,6 +10,7 @@ use Modules\BackOffice\Services\LegalMessages;
 use Modules\Masters\Entities\Legal;
 use Modules\Masters\Services\LegalCase;
 use Modules\Masters\Services\LegalSettlement;
+use Modules\Masters\Services\LegalWaiver;
 use Modules\General\Http\Controllers\GeneralController as General;
 
 /**
@@ -47,9 +48,12 @@ class LegalCaseController extends Controller
             'settlementHistory' => LegalSettlement::all($legal->id)->filter(function ($s) use ($settlement) { return !$settlement || $s->id !== $settlement->id; }),
             'canEnterSettlement' => $user->can('legal_settlement_enter') && LegalCase::canUpdateStage($user, $legal)
                 && (LegalSettlement::canEnter($legal) || $settlementStatus === LegalSettlement::SENT_BACK),
-            'canVerify' => $user->can('legal_settlement_verify') && !$legal->closed_at && $settlementStatus === LegalSettlement::PENDING,
+            'canVerify' => $user->can('legal_settlement_verify') && !$legal->closed_at && $settlementStatus === LegalSettlement::PENDING
+                && ((int) $settlement->entered_by !== (int) $user->id || $user->hasRole('super_admin')),
             'canClose' => $user->can('legal_case_close') && LegalCase::isActive($legal),
-            'canReopen' => ($user->can('legal_settlement_verify') || $user->can('plms_approve')) && $legal->closed_at
+            'writeOff' => $settlement && in_array($settlementStatus, [LegalSettlement::ACTIVE, LegalSettlement::BROKEN, LegalSettlement::COMPLETED], true)
+                ? LegalSettlement::writeOffAmount($settlement, $legal) : 0.0,
+            'liveWaiver' => LegalWaiver::liveForCase($legal->id),            'canReopen' => ($user->can('legal_settlement_verify') || $user->can('plms_approve')) && $legal->closed_at
                 && $legal->close_reason !== 'handed_over' && !LegalCase::openCaseFor($legal->tenant_contract_id),
             'judgmentReached' => LegalSettlement::judgmentReached($legal),
             'legal' => $legal,
@@ -217,6 +221,10 @@ class LegalCaseController extends Controller
         if (!$settlement || (int) $settlement->status !== LegalSettlement::PENDING || $legal->closed_at) {
             return redirect()->route('legal.case', $legal->id)->with('error', 'There is no settlement waiting for verification.');
         }
+        // the person who recorded a settlement does not verify it (super_admin excepted)
+        if ((int) $settlement->entered_by === (int) $user->id && !$user->hasRole('super_admin')) {
+            return redirect()->route('legal.case', $legal->id)->with('error', 'You recorded this settlement; another PLM user has to verify it.');
+        }
 
         if ($request->input('decision') === 'sendback') {
             $this->validateWithBag('modal', $request, ['sendback_reason' => 'required|max:1000']);
@@ -291,14 +299,24 @@ class LegalCaseController extends Controller
             return redirect()->back()->withInput()->with('modal_error', $error);
         }
 
-        DB::transaction(function () use ($legal, $reason, $request, $user) {
+        $writeOff = $reason === 'written_off' ? LegalSettlement::writeOffAmount($settlement, $legal) : 0.0;
+        DB::transaction(function () use ($legal, $reason, $request, $user, $settlement, $writeOff) {
             $closedStage = DB::table('legal_stages')->where('is_final', true)->orderBy('sort_order')->value('id');
             LegalCase::close($legal, $reason, $request->close_note, $user->id);
+            // the unpaid balance becomes a waiver, so it does not show as owed again (user, 18/10/2026)
+            if ($writeOff > 0) {
+                LegalWaiver::writeOff($settlement, $legal->tenant_contract_id, $writeOff, $request->close_note, $user->id);
+                LegalCase::log($legal->id, 'settlement', 'Balance of ' . numberFormat($writeOff) . ' written off (recorded as a waiver).', $user->id);
+            }
             $legal->update(['stage_id' => $closedStage ?: $legal->stage_id, 'legal_is_closed' => 1]);
             DB::table('tenant_contracts')->where('id', $legal->tenant_contract_id)->update(['status' => 0]);
             $legal->legalUser()->update(['status' => 0]);
         });
-        LegalMessages::toRoles('legal_case_closed', ['are'], $legal->tenantContract);
+        // ARE, PLM and the case's lawyer hear about the close (it used to be ARE only)
+        LegalMessages::toRoles('legal_case_closed', ['are', 'backoffice_manager'], $legal->tenantContract);
+        if ($legal->lawyer_user_id && ($lawyer = User::find($legal->lawyer_user_id))) {
+            LegalMessages::toUsers('legal_case_closed', [$lawyer], $legal->tenantContract);
+        }
 
         return redirect()->route('legal.case', $legal->id)->with('success', 'Case closed: ' . LegalCase::reasonLabel($reason) . '.');
     }

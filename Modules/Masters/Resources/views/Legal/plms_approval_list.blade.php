@@ -97,13 +97,13 @@ $(document).on('click','.close_type', function(e) {
        /* if (confirm('Do you want to Approval Accept?')) {*/
         $.ajax({
             method: 'POST', // Type of response and matches what we said in the route
-            url: "{{route('legalCaseClose')}}", // This is the url we gave in the route
+            url: "{{route('legalCloseForm')}}", // This is the url we gave in the route
             data: {'process_flow':process_flow,'legal_id' : legal_id,"_token": "{{ csrf_token() }}"}, // a JSON object to send back
             success: function(response){ // What to do if we succeed
                // $("#myModal").html(response);
                // alert(response);
                // window.location.href = response;
-               location.reload();
+               $("#myModal").html(response);
             },
         });
         return true;

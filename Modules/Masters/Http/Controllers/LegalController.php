@@ -495,6 +495,65 @@ public function plmsApprovalShow($id){
   return view('masters::Legal.plms_approval_view',compact('plmsApproval','notes','timeline','outstanding','defaultHandledBy'));
 
 }
+/**
+ * Why the approve / refer back / reject / accept action cannot run on this case now, or null (user, 18/10/2026).
+ * The case must still be at the step the form belongs to (a second click or an old tab used to move it again),
+ * and the user must hold the step's permission; at lawyer approval only the assigned lawyer or PLM may act.
+ */
+private function stepError($legal, $processFlow, $actionKey, $areStatus)
+{
+  $user = \Auth::user();
+  if (!$legal) {
+    return 'The legal case was not found.';
+  }
+  if ($legal->closed_at) {
+    return 'This legal case is already closed.';
+  }
+  // [case code the action belongs to, permission, label]
+  if ($processFlow == 801 && $actionKey == 'APRV') {
+    $step = [801, 'plms_approve', 'approve'];
+  } elseif ($processFlow == 801 && $actionKey == 'RFRBK' && $areStatus == 1) {
+    $step = [802, 'lawyer_refer_back', 'reject'];
+  } elseif ($processFlow == 801 && $actionKey == 'RFRBK') {
+    $step = [801, 'plms_refer_back', 'refer back'];
+  } elseif ($processFlow == 802 && $actionKey == 'APRV') {
+    $step = [802, 'lawyer_approve', 'accept'];
+  } else {
+    return 'Unknown action.';
+  }
+  if ((int) $legal->work_flow_processes_code !== $step[0]) {
+    return 'This case is no longer at ' . $this->stepName($step[0]) . '; it is now at ' . $this->stepName($legal->work_flow_processes_code)
+      . '. Refresh the page.';
+  }
+  if (!$user->can($step[1])) {
+    return 'You are not allowed to ' . $step[2] . ' this case.';
+  }
+  if ($step[0] === 802 && !$this->mayActForLawyer($legal, $user)) {
+    return 'This case is assigned to another lawyer.';
+  }
+  return null;
+}
+
+/** At lawyer approval: the assigned lawyer, any lawyer when none is set, or PLM on the lawyer's behalf. */
+private function mayActForLawyer($legal, $user)
+{
+  return !$legal->lawyer_user_id || (int) $legal->lawyer_user_id === (int) $user->id
+    || $user->hasRole(['super_admin', 'md', 'backoffice_manager']);
+}
+
+private function stepName($code)
+{
+  $names = [801 => 'PLM approval', 802 => 'lawyer approval', 803 => 'the case page (active)', 804 => 'referred back to ARE'];
+  return isset($names[(int) $code]) ? $names[(int) $code] : 'step ' . $code;
+}
+
+private function personName($userId)
+{
+  $r = DB::table('users as u')->leftJoin('employees as e', 'e.id', '=', 'u.user_type_id')->where('u.id', $userId)
+    ->select(DB::raw('coalesce(e.employee_name, u.username) as name'))->first();
+  return $r ? $r->name : '';
+}
+
 //approve refer back modal
 public function plmsApproveReferBack(Request $request){
   $legal_id = $request->legal_id;
@@ -502,16 +561,10 @@ public function plmsApproveReferBack(Request $request){
   $action_key = $request->action_key;
   $are_status = $request->are_status;
   
-  $isLawyerApproved = false;
-  if($process_flow==802 && $action_key=='APRV'){
-	    if (Legal::where('id', '=', $request->legal_id)->where('legal_is_closed','=',2)->exists()) {
-		   return json_encode('error');
-		}
-  }
-  
   $legal = Legal::find($legal_id);
-  if (!$legal || $legal->closed_at) {
-    return json_encode('error');
+  $error = $this->stepError($legal, $process_flow, $action_key, $are_status);
+  if ($error) {
+    return view('masters::Legal._modal_message', ['title' => 'Cannot continue', 'message' => $error]);
   }
   $lawyers = LegalCase::lawyers();
   $defaultHandledBy = LegalCase::defaultHandledBy($legal->building_id);
@@ -530,12 +583,18 @@ public function plmsApproveReferBackStore(Request $request)
   
 
   $legal = Legal::where('id',$legal_id)->first();
-  if (!$legal || $legal->closed_at) {
-    session()->flash('error', 'This legal case is already closed.');
+  // the case must still be at the step the form was opened for, and the user allowed to act on it
+  $error = $this->stepError($legal, $process_flow, $action_key, $are_status);
+  if ($error) {
+    session()->flash('error', $error);
     return redirect()->back();
   }
   $this->validate($request, ['legal_note' => 'required|max:1000']);
   $userId = \Auth::user()->id;
+  // PLM accepting / rejecting in the lawyer's place is allowed and shows in the timeline
+  if ((int) $legal->work_flow_processes_code === 802 && $legal->lawyer_user_id && (int) $legal->lawyer_user_id !== (int) $userId) {
+    $legal_note .= ' (by ' . $this->personName($userId) . ' for the lawyer)';
+  }
 
   if ($process_flow == 801 && $action_key == 'APRV') {
     $handledBy = (int) $request->input('handled_by', $legal->handled_by ?: LegalCase::HANDLED_ALHABIB);
@@ -1254,136 +1313,156 @@ public  function oldContracts($tenant_contract_no){
     return $this->datas;
   }
 }
-public function legalCaseClose(Request $request){
-  $process_flow=$request->process_flow;
-  $legal_id=$request->legal_id;
-
-  $legal=Legal::where('id',$legal_id)->first();
-
-  $tenant_contract_id=$legal->tenant_contract_id;
-  TenantContract::where('id',$tenant_contract_id)->update(['status'=>0]);
-
-  $otherUsers = User::role(['are','backoffice_manager'])->get(); 
-  $otherUsers = array_flatten($otherUsers);
-
-  $legal->legalUser()->update(['status' => 0]);
-  if (!$legal->closed_at) {
-    LegalCase::close($legal, 'withdrawn', $request->legal_note, \Auth::user()->id);
+/**
+ * Close form for a case not yet accepted by the lawyer (801 / 802) or drop of a case referred back to ARE (804).
+ * Loaded into #myModal; the save needs a reason (user, 18/10/2026).
+ */
+public function legalCloseForm(Request $request){
+  $legal = Legal::find($request->legal_id);
+  $error = $this->closeError($legal);
+  if ($error) {
+    return view('masters::Legal._modal_message', ['title' => 'Cannot close', 'message' => $error]);
   }
+  $otherOpen = Legal::where('tenant_contract_id', $legal->tenant_contract_id)->where('id', '<>', $legal->id)->whereNull('closed_at')->first();
+  return view('masters::Legal._close_form', compact('legal', 'otherOpen'));
+}
+
+/** Why this user cannot close / drop the case here, or null. Accepted (803) cases close on the case page. */
+private function closeError($legal)
+{
+  $user = \Auth::user();
+  if (!$legal) {
+    return 'The legal case was not found.';
+  }
+  if ($legal->closed_at) {
+    return 'This legal case is already closed.';
+  }
+  $code = (int) $legal->work_flow_processes_code;
+  if ($code === 803) {
+    return 'The lawyer accepted this case; close it from the case page (Close case).';
+  }
+  if ($code === 801 && !$user->can('plms_close')) {
+    return 'You are not allowed to close this case.';
+  }
+  if ($code === 802 && !($user->can('plms_close') || ($user->can('lawyer_close') && $this->mayActForLawyer($legal, $user)))) {
+    return 'You are not allowed to close this case.';
+  }
+  if ($code === 804 && !($user->can('legal_are_stage') || $user->can('plms_close'))) {
+    return 'You are not allowed to drop this case.';
+  }
+  if (!in_array($code, [801, 802, 804], true)) {
+    return 'This case cannot be closed here.';
+  }
+  return null;
+}
+
+public function legalCaseClose(Request $request){
+  $legal = Legal::where('id', $request->legal_id)->first();
+  $error = $this->closeError($legal);
+  if ($error) {
+    session()->flash('error', $error);
+    return redirect()->back();
+  }
+  $this->validate($request, ['legal_note' => 'required|max:1000'], ['legal_note.required' => 'Give the reason for closing.']);
+  $code = (int) $legal->work_flow_processes_code;
+  $userId = \Auth::user()->id;
+  $note = $request->legal_note;
+  if ($code === 802 && $legal->lawyer_user_id && (int) $legal->lawyer_user_id !== (int) $userId) {
+    $note .= ' (by ' . $this->personName($userId) . ' for the lawyer)';
+  }
+
+  DB::transaction(function () use ($legal, $code, $note, $userId) {
+    $legal->legalUser()->update(['status' => 0]);
+    LegalCase::close($legal, $code === 804 ? 'dropped' : 'withdrawn', $note, $userId);
+    $legal->update(['legal_is_closed' => 1]);
+    // the contract leaves legal only when no other case of it is still open
+    if (!Legal::where('tenant_contract_id', $legal->tenant_contract_id)->where('id', '<>', $legal->id)->whereNull('closed_at')->exists()) {
+      TenantContract::where('id', $legal->tenant_contract_id)->update(['status' => 0]);
+    }
+  });
   clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
 
-  if($process_flow==801){
-
-    $are = User::role(['are'])->get(); 
-    $are = array_flatten($are);
-
-
-  // ARE (system template legal_case_closed)
-  LegalMessages::toUsers('legal_case_closed', $are, $legal->tenantContract);
-
-
-   session()->flash('success', 'Legal Case Closed Successfully');
-   return redirect()->route('plmsApproval');
- }else{
-
-  // Back office and ARE (system template legal_advisor_closed)
-  LegalMessages::toUsers('legal_advisor_closed', $otherUsers, $legal->tenantContract);
-
-
-  session()->flash('success', 'Lawyer Closed Legal Case Successfully');
-  return redirect()->route('lawyerApproval');
+  if ($code === 802) {
+    // Back office and ARE (system template legal_advisor_closed)
+    LegalMessages::toUsers('legal_advisor_closed', array_flatten(User::role(['are', 'backoffice_manager'])->get()), $legal->tenantContract);
+    session()->flash('success', 'Legal case closed.');
+    return redirect()->route('lawyerApproval');
+  }
+  // ARE (system template legal_case_closed); a dropped case also tells PLM
+  LegalMessages::toRoles('legal_case_closed', $code === 804 ? ['are', 'backoffice_manager'] : ['are'], $legal->tenantContract);
+  session()->flash('success', $code === 804 ? 'Legal case dropped.' : 'Legal case closed.');
+  return redirect()->route($code === 804 ? 'legalCase.index' : 'plmsApproval');
 }
+
+/** Why ARE cannot send this case again, or null: it must still be referred back (804) and the only open case of the contract. */
+private function resendError($legal)
+{
+  if (!$legal) {
+    return 'The legal case was not found.';
+  }
+  if ($legal->closed_at || (int) $legal->work_flow_processes_code !== 804) {
+    return 'This case is no longer referred back to ARE. Refresh the page.';
+  }
+  if (!\Auth::user()->can('legal_are_stage')) {
+    return 'You are not allowed to send this case.';
+  }
+  $other = Legal::where('tenant_contract_id', $legal->tenant_contract_id)->where('id', '<>', $legal->id)->whereNull('closed_at')->first();
+  if ($other) {
+    return 'The contract already has open case #' . $other->id . '. Drop this one instead of sending it again.';
+  }
+  return null;
 }
+
 public function legalAreStage(Request $request){
-  $legal_id = $request->legal_id;
-  $process_flow = $request->process_flow;
-  $are_status = $request->are_status;
+  $legal = Legal::find($request->legal_id);
+  $error = $this->resendError($legal);
+  if ($error) {
+    return view('masters::Legal._modal_message', ['title' => 'Cannot send', 'message' => $error]);
+  }
+  $legal_id = $legal->id;
+  $process_flow = 801;
+  $are_status = 0;
   return view('masters::Legal.are_stage_model',compact('legal_id','process_flow','are_status'));
 }
+
+/**
+ * ARE sends a referred-back case again: the SAME case goes back to PLM approval (801). It used to create a new
+ * case row and leave this one open, so a case could be sent again and again, and some went straight to the
+ * lawyer (user, 18/10/2026).
+ */
 public function areStageStore(Request $request)
 {
-  $legal_id = $request->legal_id;
-  $process_flow = $request->process_flow;
-  $legal_note = $request->legal_note;
-  $are_status = $request->are_status;
-  $are_note = $request->are_note;
-
-  $legal=Legal::where('id',$legal_id)->first();
-
-  /*$work_flow_process=WorkFlowProcess::where('work_flow_processes_code',$process_flow)->first();
-  $work_flow_process_id=$work_flow_process->id;*/
-
-  $legalCase=Legal::create([ 
-   'building_id' => $legal->building_id,
-   'unit_id' => $legal->unit_id,
-   'tenant_contract_id' => $legal->tenant_contract_id,
-   'note' => $are_note,
-   'work_flow_processes_code' => $process_flow,
-   'created_by' => \Auth::user()->id
-   ]); 
-  $next_process_id=$process_flow;
-  $general =  new General;
-  $processAssign = $general->roleUsersFromProcess($next_process_id,$location_id=null,$pricerange_id=null,$tenant_status=null);
-  if($processAssign != false) {
-
-    foreach($processAssign->assign as $val){
-     $legalCase->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
-     $legalCase->save();
-   }
-   $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
-   $legalCase->save();
-
- }else{
-
-  $previousProcess = $general->getPreviousOrder($next_process_id);
-  if($previousProcess !=0){
-
-    $previousAssign = $general->roleUsersFromProcess($previousProcess,$location_id=0,$pricerange_id=0,$tenant_status); 
-
-    foreach($previousAssign->assign as $val){
-      $legalCase->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
-      $legalCase->save();
-    }
-    $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
-    $legalCase->save();
-
-  }else{
-
-    $workFlowProcess = $general->workFlowProcess($next_process_id);
-    $legalCase->legalUsers()->attach($workFlowProcess->default_role, ['user_id' => $workFlowProcess->default_user_id]);
-    $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]); 
-    $legalCase->save();
-
-
+  $legal = Legal::where('id', $request->legal_id)->first();
+  $error = $this->resendError($legal);
+  if ($error) {
+    session()->flash('error', $error);
+    return redirect()->back();
   }
-}
+  $this->validate($request, ['are_note' => 'required|max:200']);
+  $userId = \Auth::user()->id;
+  $general = new General;
 
- /* $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
- $legalCase->save();*/
+  DB::transaction(function () use ($legal, $request, $userId, $general) {
+    $legal->legalUser()->update(['status' => 0]);
+    $legal->update(['work_flow_processes_code' => 801, 'are_status' => 0, 'note' => $request->are_note]);
+    $assign = $general->roleUsersFromProcess(801, $location_id = null, $pricerange_id = null, $tenant_status = null);
+    if ($assign != false) {
+      foreach ($assign->assign as $val) {
+        $legal->legalUsers()->attach($val->role_id, ['user_id' => $val->user_id]);
+      }
+    } else {
+      $workFlowProcess = $general->workFlowProcess(801);
+      $legal->legalUsers()->attach($workFlowProcess->default_role, ['user_id' => $workFlowProcess->default_user_id]);
+    }
+    $legal->legalUsers()->attach(\Auth::user()->default_role, ['user_id' => $userId]);
+    LegalCase::log($legal->id, 'are_resent', $request->are_note, $userId);
+  });
+  clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
 
- $stageLegal = Legal::where('work_flow_processes_code',$legal->work_flow_processes_code)->orderBy('id','desc')->first();
- if(!empty($stageLegal))
-  $stageLegal->legalUser()->update(['status' => 0]);
-
-/*Notification Of users*/
-$users = User::role(['legal_advisor'])->get(); 
-$users = array_flatten($users); 
-
-$plmusers = User::role(['backoffice_manager'])->get(); 
-$plmusers = array_flatten($plmusers); 
-
-if($process_flow==801){
- $legalCase->href = url('plmsApproval/'.$legalCase->id);
- event(new LegalApprove($legalCase,$plmusers)); 
-
- session()->flash('success', 'Legal Case Moved To PLM Approval');
- return redirect()->route('legalCase.index');
-}else{
-  $legalCase->href = url('lawyerApproval/'.$legalCase->id);
-  event(new LegalApprove($legalCase,$users)); 
-  session()->flash('success', 'Legal Case Moved To Lawyer Approval');
+  $legal->href = url('plmsApproval/' . $legal->id);
+  event(new LegalApprove($legal, array_flatten(User::role(['backoffice_manager'])->get())));
+  session()->flash('success', 'Legal case sent to PLM approval again.');
   return redirect()->route('legalCase.index');
-}
 }
 public function legalNoteStore(Request $request){
 
@@ -1481,7 +1560,9 @@ public function referBackCases(Request $request){
 
   $request->flash();  
 
-  $closedLegalCasesBase = Legal::filter($request)                
+  // open referred-back cases only, of the ARE's own buildings (Legal Cases list rule)
+  $closedLegalCasesBase = Legal::areLegalBuilding()->filter($request)
+                      ->whereNull('legal.closed_at')
                       ->where('legal.work_flow_processes_code', '=', 804);
   $closedLegalCases = Legal::newestMovedFirst(Legal::latestPerGroup($closedLegalCasesBase)->sortable())->paginate($this->noOfRecord);
   Legal::attachGroupSiblings($closedLegalCases, $closedLegalCasesBase);
@@ -1521,8 +1602,11 @@ public function closedLegalCases(Request $request){
 
   $request->flash();  
 
+  // every case closed on our side, whatever step it was at (cases closed before the lawyer accepted used to
+  // show nowhere); handed-over cases have their own list (user, 18/10/2026)
   $closedLegalCasesBase = Legal::filter($request)
-  ->where('legal_is_closed',1)
+  ->whereNotNull('legal.closed_at')
+  ->where(function ($q) { $q->whereNull('legal.close_reason')->orWhere('legal.close_reason', '<>', 'handed_over'); })
                       // ->whereHas('legalUsers', function ($query) use($roles,$user) {
                       //    $query->when( !($user->hasRole('super_admin')), function($query) use($roles){
                       //         $query->where(function ($query) use($roles){
@@ -1537,7 +1621,7 @@ public function closedLegalCases(Request $request){
                       //     })
                       //     ->where('status','=',1);
                       //    })                  
-                      ->where('legal.work_flow_processes_code', '=', 803);
+                      ;
   $closedLegalCases = Legal::newestMovedFirst(Legal::latestPerGroup($closedLegalCasesBase)->sortable())->paginate($this->noOfRecord);
   Legal::attachGroupSiblings($closedLegalCases, $closedLegalCasesBase);
   $quick_url =    $route   =  route('closedLegalCases');

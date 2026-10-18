@@ -57,7 +57,8 @@
     <div class="lg-kpis">
       <div class="lg-kpi"><div class="lg-kpi__label">Total to collect</div><div class="lg-kpi__value">{{ numberFormat($settlement->settled_total) }}</div></div>
       @if($schedule)
-      <div class="lg-kpi lg-kpi--good"><div class="lg-kpi__label">Collected</div><div class="lg-kpi__value">{{ numberFormat($schedule['collected']) }}</div></div>
+      <div class="lg-kpi lg-kpi--good"><div class="lg-kpi__label">Collected</div><div class="lg-kpi__value">{{ numberFormat($schedule['collected']) }}</div>
+        @if($schedule['new_rent'] > 0)<div class="lg-kpi__hint">receipts {{ numberFormat($schedule['receipts']) }} less rent due since the agreement {{ numberFormat($schedule['new_rent']) }}</div>@endif</div>
       <div class="lg-kpi"><div class="lg-kpi__label">Cheques held</div><div class="lg-kpi__value">{{ numberFormat($schedule['held']) }}</div><div class="lg-kpi__hint">paid once the receipt is posted</div></div>
       <div class="lg-kpi {{ $schedule['balance'] > 0 ? '' : 'lg-kpi--good' }}"><div class="lg-kpi__label">Balance</div><div class="lg-kpi__value">{{ numberFormat($schedule['balance']) }}</div></div>
       @endif
@@ -203,7 +204,8 @@
               <option value="paid_in_full" @if(!$completed) disabled @endif>Settled - paid in full{{ $completed ? '' : ' (settlement not fully collected)' }}</option>
               <option value="written_off" @if(!$verified) disabled @endif @if($verified && !$completed) selected @endif>Settled - balance written off{{ $verified ? '' : ' (needs a verified settlement)' }}</option>
               <option value="withdrawn" @if($verified || $sStatus === 0) disabled @endif @if(!$verified && $sStatus !== 0) selected @endif>Withdrawn{{ ($verified || $sStatus === 0) ? ' (case has a settlement)' : '' }}</option>
-            </select></div>
+            </select>
+            @if($writeOff > 0)<div class="lg-hint">Balance written off: <b class="tnum">{{ numberFormat($writeOff) }}</b> is recorded as a waiver and leaves the receivables.</div>@endif</div>
           <div class="lg-field"><label for="lcs_close_note" class="lg-label">Note</label>
             <textarea id="lcs_close_note" name="close_note" class="lg-textarea" rows="3" maxlength="1000"></textarea>
             <div class="lg-hint">Needed unless paid in full.</div></div>
@@ -231,9 +233,9 @@
           <div class="lg-field"><label for="lcs_reopen_reason" class="lg-label">Reason</label>
             <textarea id="lcs_reopen_reason" name="reopen_reason" class="lg-textarea" rows="3" maxlength="1000" required></textarea>
             <div class="lg-hint">For example: settlement cheque 000123 bounced.</div></div>
-          @if($settlement && (float) $settlement->waiver_amount > 0 && !$settlement->waiver_cancelled_at)
+          @if($liveWaiver > 0)
           <label class="lg-check"><input type="checkbox" name="waiver_no_longer_applies" value="1" checked>
-            <span>The waiver of <b class="tnum">{{ numberFormat($settlement->waiver_amount) }}</b> no longer applies (tenant broke the deal); the amount is owed again.</span></label>
+            <span>The waivers of <b class="tnum">{{ numberFormat($liveWaiver) }}</b> (settlement waiver and any balance written off) no longer apply (tenant broke the deal); the amount is owed again.</span></label>
           @endif
         </div>
         <div class="modal-footer"><button type="button" class="lg-btn lg-btn--secondary" data-dismiss="modal">Cancel</button>

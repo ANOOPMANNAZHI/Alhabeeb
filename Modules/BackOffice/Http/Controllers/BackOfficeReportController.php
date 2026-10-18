@@ -4587,7 +4587,9 @@ public function normalManagementReportV2Generate(Request $request)
         $hasLegalTableEntries = DB::table('legal as l')
             ->join('units as u', 'u.id', '=', 'l.unit_id')
             ->where('u.building_id', $building->id)
-            ->where('l.legal_is_closed', '!=', 2)
+            // a case open at some time in the report year (legal_is_closed = 2 means "lawyer accepted", not closed)
+            ->where('l.created_at', '<=', $year . '-12-31 23:59:59')
+            ->where(function ($q) use ($year) { $q->whereNull('l.closed_at')->orWhere('l.closed_at', '>=', $year . '-01-01'); })
             ->whereNotNull('l.tenant_contract_id')
             ->exists();
 
@@ -4596,9 +4598,9 @@ public function normalManagementReportV2Generate(Request $request)
                 SELECT DISTINCT l.tenant_contract_id
                 FROM legal l
                 JOIN units u ON u.id = l.unit_id
-                WHERE u.building_id = ? AND l.legal_is_closed != 2
+                WHERE u.building_id = ? AND l.created_at <= ? AND (l.closed_at IS NULL OR l.closed_at >= ?)
                   AND l.tenant_contract_id IS NOT NULL
-            ", [$building->id]);
+            ", [$building->id, $year . '-12-31 23:59:59', $year . '-01-01']);
         } else {
             $legalRows = DB::select("
                 SELECT DISTINCT tc.id AS tenant_contract_id
@@ -6130,7 +6132,9 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
     $hasLegalTableEntries = DB::table('legal as l')
         ->join('units as u', 'u.id', '=', 'l.unit_id')
         ->where('u.building_id', $building->id)
-        ->where('l.legal_is_closed', '!=', 2)
+        // a case open at some time in the report year (legal_is_closed = 2 means "lawyer accepted", not closed)
+        ->where('l.created_at', '<=', $year . '-12-31 23:59:59')
+        ->where(function ($q) use ($year) { $q->whereNull('l.closed_at')->orWhere('l.closed_at', '>=', $year . '-01-01'); })
         ->whereNotNull('l.tenant_contract_id')
         ->exists();
 
@@ -6139,9 +6143,9 @@ public function buildNormalManagementMonthData(\Modules\Masters\Entities\Buildin
             SELECT DISTINCT l.tenant_contract_id
             FROM legal l
             JOIN units u ON u.id = l.unit_id
-            WHERE u.building_id = ? AND l.legal_is_closed != 2
+            WHERE u.building_id = ? AND l.created_at <= ? AND (l.closed_at IS NULL OR l.closed_at >= ?)
               AND l.tenant_contract_id IS NOT NULL
-        ", [$building->id]);
+        ", [$building->id, $year . '-12-31 23:59:59', $year . '-01-01']);
     } else {
         $legalRows = DB::select("
             SELECT DISTINCT tc.id AS tenant_contract_id
