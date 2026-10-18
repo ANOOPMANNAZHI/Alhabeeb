@@ -295,6 +295,62 @@
       follow(box); sum(box);
     });
 
+    // Note boxes draft themselves from the details entered; typing in a note keeps it as typed (user, 18/10/2026)
+    function dmy(v) { var p = (v || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; }
+    function omr(v) { return 'OMR ' + (parseFloat(v) || 0).toLocaleString('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3}); }
+    function draft(note, text) {
+      if (note.length && !note.data('manual')) { note.val(text); }
+    }
+    $('#lcp_note, #lcs_note').each(function () { if ($.trim($(this).val()) !== '') { $(this).data('manual', true); } });
+    $(document).on('input', '#lcp_note, #lcs_note', function () { $(this).data('manual', $.trim($(this).val()) !== ''); });
+    @if($canStage)
+    function stageNote() {
+      var opt = $('#lcp_stage option:selected'), code = opt.data('code') || '', d = dmy($('#lcp_event_date').val()),
+          name = $.trim(opt.text().replace(' (current)', '')), court = $.trim($('#lcp_court').val() || ''),
+          caseNo = $.trim($('#lcp_case_no').val() || ''), where = (court ? ' at ' + court : '') + (caseNo ? ', case no. ' + caseNo : ''), t;
+      switch (code) {
+        case 'notice': t = 'Legal notice sent on ' + d + '.'; break;
+        case 'filed': t = 'Case filed on ' + d + where + '.' + ($('#lcp_claim').val() !== '' ? ' Claim ' + omr($('#lcp_claim').val()) + '.' : ''); break;
+        case 'hearing': t = 'Hearing on ' + d + where + '.'; break;
+        case 'judgment':
+          t = 'Judgment on ' + d + where + ': ' + ($('#lcp_judgment').val() !== '' ? omr($('#lcp_judgment').val()) + ' awarded' : 'amount awarded to be entered');
+          if ($('#lcp_eviction').val() === '1') { t += ', eviction ordered'; } else if ($('#lcp_eviction').val() === '0') { t += ', no eviction ordered'; }
+          t += '.'; break;
+        case 'appeal': t = 'Appeal on ' + d + where + '.'; break;
+        case 'execution': t = 'Execution / enforcement on ' + d + where + '.'; break;
+        case 'eviction': t = 'Eviction completed on ' + d + '.'; break;
+        case 'withdrawn': t = 'Case withdrawn on ' + d + ' - settled out of court.'; break;
+        case 'closed': t = 'Case closed on ' + d + '.'; break;
+        default: t = name + ' on ' + d + '.';
+      }
+      if ($('#lcp_next').val()) { t += ' Next hearing ' + dmy($('#lcp_next').val()) + '.'; }
+      draft($('#lcp_note'), t);
+    }
+    $(document).on('input change', '#lcpStageModal :input:not(#lcp_note)', stageNote);
+    stageNote();
+    @endif
+    @if($canEnterSettlement)
+    function settlementNote() {
+      var d = dmy($('#lcs_date').val()), rows = [], t;
+      $('#lcs_enter_rows tbody tr').each(function () {
+        var a = $(this).find('.lcs-inst-amount').val(), dd = $(this).find('input[type=date]').val();
+        if (a !== '') { rows.push(omr(a) + ' on ' + (dd ? dmy(dd) : '(date to be set)')); }
+      });
+      t = $('#lcs_type').val() === '2' ? 'Court decided settlement, judgment dated ' + d + '.' : 'Out of court settlement agreed on ' + d + '.';
+      if ($('#lcs_amount').val() !== '') {
+        t += ' Tenant pays ' + omr($('#lcs_amount').val());
+        if (rows.length === 1) { t += ' in one payment: ' + rows[0] + '.'; }
+        else if (rows.length > 1) { t += ' in ' + rows.length + ' installments: ' + rows.join(', ') + '.'; }
+        else { t += '.'; }
+      }
+      t += ' Rent outstanding today {{ 'OMR ' . number_format((float) ($outstanding ?? 0), 3) }}.';
+      draft($('#lcs_note'), t);
+    }
+    $(document).on('input change', '#lcsEnterModal :input:not(#lcs_note)', settlementNote);
+    $(document).on('click', '#lcsEnterModal .lcs-inst-add, #lcsEnterModal .lcs-inst-del', settlementNote);
+    settlementNote();
+    @endif
+
     var reopen = @json(old('_modal'));
     if (reopen) { $('#' + reopen).modal('show'); }
   })();
