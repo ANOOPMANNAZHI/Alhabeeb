@@ -136,6 +136,17 @@ class BuildingInspectionTest extends TestCase
         $this->assertTrue(Inspection::scope(DB::table('inspection_issues as i'), 'i')->where('i.id', $issue->id)->exists());
     }
 
+    /** Dashboard: managers get the overview, others a personal "My inspections" view without other executives. */
+    public function test_dashboard_is_personal_for_non_managers()
+    {
+        $this->visit($this->exec1, $this->b1);
+        $this->visit($this->exec2, $this->b2);
+        $this->as($this->exec1)->get(route('inspection.dashboard'))->assertOk()->assertSee('My inspections')->assertSee('My visit compliance')
+            ->assertSee('Ins_t_exec1')->assertDontSee('Ins_t_exec2');
+        $this->as($this->manager)->get(route('inspection.dashboard'))->assertOk()->assertSee('Inspection overview')
+            ->assertSee('Ins_t_exec1')->assertSee('Ins_t_exec2');
+    }
+
     public function test_manager_schedules_for_an_executive_and_cannot_inspect()
     {
         $v = $this->visit($this->manager, $this->b2);

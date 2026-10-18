@@ -37,7 +37,9 @@ class InspectionReportController extends Controller
             ->where('i.status', '<', Inspection::RESOLVED)->where('i.target_date', '<', $today)
             ->select('i.id', 'i.issue_no', 'i.description', 'i.priority', 'i.target_date', 'b.building_name')
             ->orderBy('i.priority')->orderBy('i.target_date')->limit(6)->get();
-        $awaiting = \Auth::user()->can('inspection_verify')
+        $seesAll = Inspection::seesAll();
+        // managers: issues they can verify; everyone else: their own resolved issues waiting for a manager
+        $awaiting = !$seesAll || \Auth::user()->can('inspection_verify')
             ? Inspection::scope(DB::table('inspection_issues as i'), 'i')->join('buildings as b', 'b.id', '=', 'i.building_id')
                 ->where('i.status', Inspection::RESOLVED)->select('i.id', 'i.issue_no', 'i.description', 'i.priority', 'i.resolved_at', 'b.building_name')
                 ->orderBy('i.resolved_at')->limit(6)->get()
@@ -46,14 +48,14 @@ class InspectionReportController extends Controller
             ->where('v.status', Inspection::SCHEDULED)->where('v.planned_date', '<=', date('Y-m-d', strtotime('+14 days')))
             ->select('v.*', 'b.building_name', 'b.building_code')->orderBy('v.planned_date')->limit(8)->get();
         $names = Inspection::userNames(array_merge(array_keys($compliance['rows']), $upcoming->pluck('executive_id')->all()));
-        $unassigned = Inspection::seesAll()
+        $unassigned = $seesAll
             ? DB::table('buildings as b')->where('b.building_status', 1)
                 ->whereNotExists(function ($q) { $q->select(DB::raw(1))->from('building_executives as be')->whereRaw('be.building_id = b.id')->whereNull('be.assigned_till'); })
                 ->count()
             : 0;
-        $myBuildings = Inspection::seesAll() ? null : count(Inspection::buildingIds());
+        $myBuildings = $seesAll ? null : count(Inspection::buildingIds());
         return view('maintenance::Inspection.dashboard', compact('visits', 'issues', 'compliance', 'attention', 'awaiting', 'upcoming',
-            'names', 'unassigned', 'myBuildings', 'month'));
+            'names', 'unassigned', 'myBuildings', 'month', 'seesAll'));
     }
 
     private function params(Request $request)
