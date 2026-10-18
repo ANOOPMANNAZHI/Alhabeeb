@@ -367,4 +367,18 @@ class RentRevisalTest extends TestCase
         $this->assertEquals(\Modules\BackOffice\Services\RentRevisal::dueCount($are), $data['rentRevisalDueCount']);
         $this->assertGreaterThanOrEqual(1, $data['rentRevisalDueCount']);
     }
+
+    /** The card counts drafts too, so the list it opens must show them (a draft was counted but hidden, 18/10/2026). */
+    public function test_dashboard_card_list_shows_what_the_card_counts_including_drafts()
+    {
+        $are = $this->makeUser('rr_t_are', 'are');
+        $c = $this->contractEndingIn(100);
+        $this->assignAre($are, $c->building_id);
+        TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => $c->tenant_contract_rent, 'revised_rent' => 777.5,
+            'status' => 'draft', 'created_by' => $are->id]);
+        $count = \Modules\BackOffice\Services\RentRevisal::dueCount($are);
+        $page = $this->as($are)->get(route('rentRevisal.index', ['revisal' => 'due']))->assertStatus(200)->assertSee($c->tenant_contract_no);
+        $this->assertEquals($count, $page->viewData('contracts')->total());
+        $this->as($are)->get(route('dashboard'))->assertSee(route('rentRevisal.index', ['revisal' => 'due']), false);
+    }
 }
