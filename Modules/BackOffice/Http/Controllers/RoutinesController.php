@@ -321,6 +321,7 @@ $receiptNo    = $this->receiptGenerateCode('receipt_cheque');
 $configIncKey = 'receipt_cheque';
 
 $indexNo = 0;
+$isOtherCharge = false;
 
 // Rent PDC
 if($pdc_type == 1){
@@ -344,6 +345,7 @@ if($pdc_type == 1){
    }
 }elseif($pdc_type == 3){
 	$pdc_type = 1;
+	$isOtherCharge = true;
   //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($pdcData->pdc_amt);
 	$receipts_generation_remark = 'UNIT NO. '.$contractInfo->Unit->unit_no.','.$contractInfo->building->building_name;	
 	Pdc::where('id',$pdc)->update(['pdc_is_posted'=>1,'pdc_deposit_date'=>$pdc_deposit_date  ,'pdc_posted_date'=>date("Y-m-d"),'pdc_posted_by' => \Auth::user()->id]);
@@ -460,6 +462,22 @@ $receiptId =  ReceiptsGeneration::create([
       'created_by' => \Auth::user()->id,
     ]);
 	}
+	// "Others" charge (E&W ...): one credit line, as the back office books it by hand; AX posting adds the bank debit
+	if($isOtherCharge && $overcontractend==0){
+		$ledger  = self::otherChargeAccount($pdcData->pdc_remark, $contractInfo->building->management_id);
+		$account = AccountCodes::where('acc_code_val', $ledger)->first();
+		ReceiptGenerationDim::create([
+		  'receipts_generation_id' => $receiptId->id,
+		  'account_code' => $ledger,
+		  'description' => $account ? $account->acc_code_desc : '',
+		  'dim_type' => 'LEDGER',
+		  'debit_amount' => 0,
+		  'credit_amount' => $receipts_generation_amt,
+		  'narration' => $pdcData->pdc_remark ?: '',
+		  'ac_codes_id' => $account ? $account->id : 0,
+		  'created_by' => \Auth::user()->id,
+		]);
+	}
 	if($overcontractend==0){
 	Pdc::where('id',$pdc)->update(['pdc_receipt_no'=>$receiptNo ]);
   
@@ -467,6 +485,17 @@ $receiptId =  ReceiptsGeneration::create([
 	$this->incrementSequenceNo($configIncKey);
 	}
         return ['posted' => $overcontractend == 0, 'contract_no' => $contractInfo->tenant_contract_no];
+    }
+
+    /**
+     * Credit account of an "Others" PDC charge: 41105 ELECTRICITY & WATER when its remark says so (as the hand-made
+     * E&W receipts), otherwise the VAT receipt ledger (22301 Normal, 12211 Comprehensive / Commission).
+     */
+    public static function otherChargeAccount($remark, $managementId){
+        if (preg_match('/electric|water|\bE\s*&\s*W\b|\bEW\b/i', (string) $remark)) {
+            return 41105;
+        }
+        return VatReceiptCreator::ledgerAccount($managementId);
     }
 
     public function rentalIncomePosting(){
