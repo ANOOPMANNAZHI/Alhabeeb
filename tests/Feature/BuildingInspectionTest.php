@@ -105,6 +105,37 @@ class BuildingInspectionTest extends TestCase
         $this->as($this->exec2)->get(route('inspection.visits', ['tab' => 'all']))->assertOk()->assertDontSee($v->visit_no);
     }
 
+    /** Only admin / manager roles see everything; the rest only their own visits and issues (user, 18/10/2026). */
+    public function test_only_managers_see_others_work()
+    {
+        // for exec2 in exec1's building: other people's work in his buildings stays hidden
+        $v = $this->visit($this->manager, $this->b1);
+        $this->assertEquals($this->exec2->id, $v->executive_id);
+        $this->as($this->exec1)->get(route('inspection.visits', ['tab' => 'all']))->assertOk()->assertDontSee($v->visit_no);
+        $this->as($this->exec1)->get(route('inspection.visits.show', $v->id))->assertStatus(404);
+
+        $sup = $this->makeUser('ins_t_sup2', 'maintenance_supervisor');
+        $this->assertFalse(Inspection::seesAll($sup), 'supervisor no longer sees everything');
+        $this->as($sup)->get(route('inspection.visits', ['tab' => 'all']))->assertOk()->assertDontSee($v->visit_no);
+
+        $fm = $this->makeUser('ins_t_fm', 'facility_manager');
+        $this->assertTrue(Inspection::seesAll($fm));
+        $this->assertTrue(Inspection::seesAll($this->manager));
+
+        // issues: assigned to him or raised by him
+        $issue = (object) ['id' => DB::table('inspection_issues')->insertGetId(['building_id' => $this->b1, 'work_id' => DB::table('works')->value('id'),
+            'priority' => 3, 'status' => Inspection::OPEN, 'source' => 2, 'executive_id' => $this->exec2->id, 'raised_by' => $sup->id,
+            'raised_at' => now(), 'target_date' => date('Y-m-d'), 'description' => 'x', 'created_at' => now(), 'updated_at' => now()])];
+        $this->actingAs($this->exec1);
+        $this->assertFalse(Inspection::scope(DB::table('inspection_issues as i'), 'i')->where('i.id', $issue->id)->exists());
+        $this->actingAs($this->exec2);
+        $this->assertTrue(Inspection::scope(DB::table('inspection_issues as i'), 'i')->where('i.id', $issue->id)->exists());
+        $this->actingAs($sup);
+        $this->assertTrue(Inspection::scope(DB::table('inspection_issues as i'), 'i')->where('i.id', $issue->id)->exists(), 'raised by him');
+        $this->actingAs($fm);
+        $this->assertTrue(Inspection::scope(DB::table('inspection_issues as i'), 'i')->where('i.id', $issue->id)->exists());
+    }
+
     public function test_manager_schedules_for_an_executive_and_cannot_inspect()
     {
         $v = $this->visit($this->manager, $this->b2);

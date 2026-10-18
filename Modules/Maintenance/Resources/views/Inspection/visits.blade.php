@@ -19,7 +19,7 @@
   @if($canExecute)
   <div class="ins-tabs" role="tablist" style="margin-bottom:16px">
     <a href="{{ route('inspection.visits', ['tab' => 'mine']) }}" class="{{ $tab === 'mine' ? 'active' : '' }}">My schedule</a>
-    <a href="{{ route('inspection.visits', ['tab' => 'all']) }}" class="{{ $tab === 'all' ? 'active' : '' }}">{{ $seesAll ? 'All visits' : 'My buildings' }}</a>
+    <a href="{{ route('inspection.visits', ['tab' => 'all']) }}" class="{{ $tab === 'all' ? 'active' : '' }}">{{ $seesAll ? 'All visits' : 'My visits by month' }}</a>
   </div>
   @endif
 

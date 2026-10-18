@@ -84,7 +84,8 @@ class InspectionReportController extends Controller
     public function reports(Request $request)
     {
         $data = $this->data($request);
-        $data['executives'] = Inspection::executives();
+        // the report holds only the user's own work unless they see everything
+        $data['executives'] = Inspection::seesAll() ? Inspection::executives() : [\Auth::id() => Inspection::userName(\Auth::id())];
         $data['buildings'] = Inspection::buildings();
         $data['months'] = [];
         for ($i = 0; $i < 24; $i++) {
