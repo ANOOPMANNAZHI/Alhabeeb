@@ -134,7 +134,8 @@ class LegalController extends Controller
       readNotification('Modules\Masters\Notifications\LegalNotification',$legalCase->id); 
       $tenant_contract_id=$legalCase->tenant_contract_id;
       $notes=Legal::where('tenant_contract_id',$tenant_contract_id)->get();
-      return view('masters::Legal.legal_case_view',compact('legalCase','notes'));
+      $owed = LegalCase::owed($legalCase);
+      return view('masters::Legal.legal_case_view',compact('legalCase','notes','owed'));
     }
 
     /**
@@ -492,7 +493,8 @@ public function plmsApprovalShow($id){
   $timeline = LegalCase::timeline($plmsApproval->id);
   $outstanding = LegalCase::outstanding($plmsApproval);
   $defaultHandledBy = LegalCase::defaultHandledBy($plmsApproval->building_id);
-  return view('masters::Legal.plms_approval_view',compact('plmsApproval','notes','timeline','outstanding','defaultHandledBy'));
+  $owed = LegalCase::owed($plmsApproval);
+  return view('masters::Legal.plms_approval_view',compact('plmsApproval','notes','timeline','outstanding','defaultHandledBy','owed'));
 
 }
 /**
@@ -1093,24 +1095,11 @@ public function lawyerApprovalShow($id){
  $dmy=$this->dateMonthYear($rentedFrom);
 }
 
-if(!empty($currentContract->tenant_contract_last_paid_date)){
-  $overDueFrom = $currentContract->tenant_contract_last_paid_date;
-  $paidFromDate = strtotime($currentContract->tenant_contract_last_paid_date);
-  $paidToDate = strtotime("now");
-  $paidDatediff = $paidToDate - $paidFromDate; 
-  $paidDays = intval($paidDatediff/86400);
-}else{
-  $overDueFrom = $currentContract->tenant_contract_effective_date;
-  $paidFromDate = strtotime($currentContract->tenant_contract_effective_date);
-  $paidToDate = strtotime("now");
-  $paidDatediff = $paidToDate - $paidFromDate; 
-  $paidDays = intval($paidDatediff/86400);
-}
-//dd($overDueFrom);
-$tenant =  new Tenant;
- $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
+  // what the contract owes from receipts and termination dues; the old 'months since last paid x rent'
+  // estimate ignored receipts and terminations (user, 18/10/2026)
+  $owed = LegalCase::owed($lawyerApproval);
   $timeline = LegalCase::timeline($lawyerApproval->id);
-  return view('masters::Legal.lawyer_approval_view',compact('lawyerApproval','notes','oldContractList','dmy','paidDays','overDueFrom','rentAmount','timeline'));
+  return view('masters::Legal.lawyer_approval_view',compact('lawyerApproval','notes','oldContractList','dmy','owed','timeline'));
 
 }
 public function activeCases(Request $request){
@@ -1264,22 +1253,10 @@ public function activeCasesShow($id){
  $dmy=$this->dateMonthYear($rentedFrom);
 }
 
-if(!empty($currentContract->tenant_contract_last_paid_date)){
-  $overDueFrom = $currentContract->tenant_contract_last_paid_date;
-  $paidFromDate = strtotime($currentContract->tenant_contract_last_paid_date);
-  $paidToDate = strtotime("now");
-  $paidDatediff = $paidToDate - $paidFromDate; 
-  $paidDays = intval($paidDatediff/86400);
-}else{
-  $overDueFrom = $currentContract->tenant_contract_effective_date;
-  $paidFromDate = strtotime($currentContract->tenant_contract_effective_date);
-  $paidToDate = strtotime("now");
-  $paidDatediff = $paidToDate - $paidFromDate; 
-  $paidDays = intval($paidDatediff/86400);
-}
- $tenant =  new Tenant;
- $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
-return view('masters::Legal.active_cases_view',compact('activeCase','notes','legalNotes','oldContractList','dmy','paidDays','overDueFrom','rentAmount'));
+  // what the contract owes from receipts and termination dues; the old 'months since last paid x rent'
+  // estimate ignored receipts and terminations (user, 18/10/2026)
+  $owed = LegalCase::owed($activeCase);
+return view('masters::Legal.active_cases_view',compact('activeCase','notes','legalNotes','oldContractList','dmy','owed'));
 }
 public function dateMonthYear($rentedFrom){
     $years = floor($rentedFrom / 365);
@@ -1670,22 +1647,10 @@ public function closedLegalCasesShow($id){
     $dmy=$this->dateMonthYear($rentedFrom);
     }
 
-    if(!empty($currentContract->tenant_contract_last_paid_date)){
-    $overDueFrom = $currentContract->tenant_contract_last_paid_date;
-    $paidFromDate = strtotime($currentContract->tenant_contract_last_paid_date);
-    $paidToDate = strtotime("now");
-    $paidDatediff = $paidToDate - $paidFromDate;
-    $paidDays = intval($paidDatediff/86400);
-    }else{
-    $overDueFrom = $currentContract->tenant_contract_effective_date;
-    $paidFromDate = strtotime($currentContract->tenant_contract_effective_date);
-    $paidToDate = strtotime("now");
-    $paidDatediff = $paidToDate - $paidFromDate;
-    $paidDays = intval($paidDatediff/86400);
-    }
-    $tenant =  new Tenant;
-    $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
-    return view('masters::Legal.closed_cases_view',compact('closedLegalCase','notes','legalNotes','oldContractList','dmy','paidDays','overDueFrom','rentAmount'));
+  // what the contract owes from receipts and termination dues; the old 'months since last paid x rent'
+  // estimate ignored receipts and terminations (user, 18/10/2026)
+  $owed = LegalCase::owed($closedLegalCase);
+    return view('masters::Legal.closed_cases_view',compact('closedLegalCase','notes','legalNotes','oldContractList','dmy','owed'));
     }
     public function referBackCasesShow($id){
     $closedLegalCase=Legal::where('id',$id)->first();
@@ -1725,22 +1690,10 @@ public function closedLegalCasesShow($id){
     $dmy=$this->dateMonthYear($rentedFrom);
     }
 
-    if(!empty($currentContract->tenant_contract_last_paid_date)){
-    $overDueFrom = $currentContract->tenant_contract_last_paid_date;
-    $paidFromDate = strtotime($currentContract->tenant_contract_last_paid_date);
-    $paidToDate = strtotime("now");
-    $paidDatediff = $paidToDate - $paidFromDate;
-    $paidDays = intval($paidDatediff/86400);
-    }else{
-    $overDueFrom = $currentContract->tenant_contract_effective_date;
-    $paidFromDate = strtotime($currentContract->tenant_contract_effective_date);
-    $paidToDate = strtotime("now");
-    $paidDatediff = $paidToDate - $paidFromDate;
-    $paidDays = intval($paidDatediff/86400);
-    }
-    $tenant =  new Tenant;
-    $rentAmount = $tenant->contractRentCountCalculation($overDueFrom,date('Y/m/d'),$rent);
-    return view('masters::Legal.referback_cases_view',compact('closedLegalCase','notes','legalNotes','oldContractList','dmy','paidDays','overDueFrom','rentAmount'));
+  // what the contract owes from receipts and termination dues; the old 'months since last paid x rent'
+  // estimate ignored receipts and terminations (user, 18/10/2026)
+  $owed = LegalCase::owed($closedLegalCase);
+    return view('masters::Legal.referback_cases_view',compact('closedLegalCase','notes','legalNotes','oldContractList','dmy','owed'));
     }
 }
 

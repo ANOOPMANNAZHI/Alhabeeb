@@ -125,7 +125,7 @@
             <div class="lg-field"><label for="lcs_amount" class="lg-label">Settlement amount (tenant pays)</label>
               <input type="number" step="0.001" min="0.001" id="lcs_amount" name="amount" class="lg-input tnum lcs-total" data-target="lcs_enter" required
                 value="{{ old('amount', $settlement && $sStatus === 4 ? $settlement->amount : ($legal->judgment_amount ?? '')) }}">
-              <div class="lg-hint">Rent outstanding today: <b class="tnum">{{ numberFormat($outstanding) }}</b></div></div>
+              <div class="lg-hint">Rent outstanding today: <b class="tnum">{{ numberFormat($outstanding) }}</b>@if(!empty($owed['dues'])) · termination dues (rent, E&amp;W, charges): <b class="tnum">{{ numberFormat($owed['dues']['balance']) }}</b>@endif</div></div>
             <div class="lg-field span-all"><span class="lg-label">Installments <span class="muted" style="font-weight:400;">(one row for a single payment)</span></span>
               {!! $instEditor('lcs_enter', $fromOld === 'lcsEnterModal' ? $editRows : ($sStatus === 4 ? $pendingRows : collect())) !!}</div>
             <div class="lg-field span-all"><label for="lcs_note" class="lg-label">Note</label>

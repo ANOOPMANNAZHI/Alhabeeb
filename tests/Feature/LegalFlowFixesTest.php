@@ -214,6 +214,24 @@ class LegalFlowFixesTest extends TestCase
         }
     }
 
+    /** Old detail screens show what is owed from receipts and termination dues, not the "months x rent" estimate. */
+    public function test_detail_screens_show_rent_outstanding_and_termination_dues()
+    {
+        $dues = DB::table('termination_dues')->where('balance', '>', 0)->orderBy('id', 'desc')->first();
+        if (!$dues) {
+            $this->markTestSkipped('no termination dues with a balance in this database');
+        }
+        $id = DB::table('legal')->insertGetId(['building_id' => DB::table('tenant_contracts')->where('id', $dues->tenant_contract_id)->value('building_id'),
+            'unit_id' => DB::table('tenant_contracts')->where('id', $dues->tenant_contract_id)->value('unit_id'),
+            'tenant_contract_id' => $dues->tenant_contract_id, 'work_flow_processes_code' => 803, 'legal_is_closed' => 2,
+            'note' => 'x', 'created_by' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $owed = \Modules\Masters\Services\LegalCase::owed(Legal::find($id));
+        $this->assertNotNull($owed['dues']);
+        $this->assertEquals((float) $owed['dues']['balance'], $owed['total'], 'dues already hold the rent: not added twice', 0.001);
+        $this->as(User::find(1))->get(route('activeCasesShow', $id))->assertOk()->assertSee('Termination dues')
+            ->assertSee('Rent outstanding')->assertDontSee('Overdue rent (estimate)');
+    }
+
     public function test_the_person_who_recorded_a_settlement_cannot_verify_it()
     {
         $legal = $this->moveToLegal();

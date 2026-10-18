@@ -60,6 +60,7 @@ class LegalCaseController extends Controller
             'timeline' => LegalCase::timeline($legal->id),
             'docs' => LegalCase::documentsByUpdate($legal->id),
             'outstanding' => LegalCase::outstanding($legal),
+            'owed' => LegalCase::owed($legal),
             'defaultHandledBy' => LegalCase::defaultHandledBy($legal->building_id),
             'stages' => LegalCase::stagesFor($legal),
             'current' => LegalCase::stage($legal->stage_id),
@@ -106,7 +107,7 @@ class LegalCaseController extends Controller
         $details = [];
         $changes = ['stage_id' => $stage->id, 'next_hearing_date' => $request->next_hearing_date ?: null];
         if ($stage->code === 'filed') {
-            $claim = $request->claim_amount !== null && $request->claim_amount !== '' ? round((float) $request->claim_amount, 3) : LegalCase::outstanding($legal);
+            $claim = $request->claim_amount !== null && $request->claim_amount !== '' ? round((float) $request->claim_amount, 3) : LegalCase::owed($legal)['total'];
             $changes += ['court_case_no' => $request->court_case_no, 'court_name' => $request->court_name,
                          'filed_date' => $request->event_date, 'claim_amount' => $claim];
             $details[] = 'Case no. ' . $request->court_case_no . ($request->court_name ? ' at ' . $request->court_name : '')
