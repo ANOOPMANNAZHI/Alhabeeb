@@ -26,6 +26,7 @@
           <input type="text" name="search" id="rr_search" class="form-control" placeholder="Contract, tenant or building" value="{{ $request->search }}">
           <select name="revisal" id="rr_revisal" class="form-control">
             <option value="">All status</option>
+            <option value="due" {{ $request->revisal === 'due' ? 'selected' : '' }}>Not sent yet (not revised + drafts)</option>
             <option value="pending" {{ $request->revisal === 'pending' ? 'selected' : '' }}>Not revised</option>
             <option value="draft" {{ $request->revisal === 'draft' ? 'selected' : '' }}>Draft</option>
             <option value="done" {{ $request->revisal === 'done' ? 'selected' : '' }}>Sent</option>
