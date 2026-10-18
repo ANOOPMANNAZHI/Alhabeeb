@@ -16,7 +16,7 @@
   <div class="row">
    @can('rent_revisal')
    <div class="col-xl-4 col-md-4 col-12">
-     <a href="{{ route('rentRevisal.index', ['revisal' => 'pending']) }}" class="rr-card-link" aria-label="Rent revisal due: open the list">
+     <a href="{{ route('rentRevisal.index', ['revisal' => 'due']) }}" class="rr-card-link" aria-label="Rent revisal due: open the list">
      <div class="info-box rr-highlight {{ ($are['rentRevisalDueCount'] ?? 0) > 0 ? 'rr-due' : '' }}">
        <span class="info-box-icon push-bottom"><i class="material-icons extra">trending_up</i></span>
        <div class="info-box-content">

@@ -28,7 +28,12 @@ class RentRevisalController extends Controller
                   ->orWhereHas('building', function ($b) use ($term) { $b->where('building_name', 'ilike', $term); });
             });
         }
-        if ($request->revisal === 'pending') {
+        if ($request->revisal === 'due') {
+            // what the dashboard card counts: not revised, or only a draft (a draft has not reached the tenant)
+            $q->whereDoesntHave('rentRevisal', function ($r) {
+                $r->where('status', \Modules\BackOffice\Entities\TenantRentRevisal::SENT);
+            });
+        } elseif ($request->revisal === 'pending') {
             $q->doesntHave('rentRevisal');
         } elseif ($request->revisal === 'draft' || $request->revisal === 'done') {
             $status = $request->revisal === 'draft' ? \Modules\BackOffice\Entities\TenantRentRevisal::DRAFT : \Modules\BackOffice\Entities\TenantRentRevisal::SENT;
