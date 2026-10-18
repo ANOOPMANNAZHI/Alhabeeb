@@ -73,7 +73,7 @@ class LegalController extends Controller
                            ->whereHas('legalUsers', function ($query) {
                                $query->where('status','=',1);
                              });
-      $legalCases = Legal::latestPerGroup($legalCasesBase)->sortable()->paginate($this->noOfRecord);
+      $legalCases = Legal::newestMovedFirst(Legal::latestPerGroup($legalCasesBase)->sortable())->paginate($this->noOfRecord);
       Legal::attachGroupSiblings($legalCases, $legalCasesBase);
 	
 
@@ -397,7 +397,7 @@ $plmsApprovalsBase = Legal::filter($request)
                       })                  
                       ->whereNull('legal.closed_at')
                       ->where('legal.work_flow_processes_code', '=', $status);
-$plmsApprovals = Legal::latestPerGroup($plmsApprovalsBase)->sortable()->paginate($this->noOfRecord);
+$plmsApprovals = Legal::newestMovedFirst(Legal::latestPerGroup($plmsApprovalsBase)->sortable())->paginate($this->noOfRecord);
 Legal::attachGroupSiblings($plmsApprovals, $plmsApprovalsBase);
 
 /*
@@ -884,7 +884,7 @@ $lawyerApprovalsBase = Legal::filter($request)
                          });
                       })
                       ->where('legal.work_flow_processes_code', '=', 802);
-$lawyerApprovals = Legal::latestPerGroup($lawyerApprovalsBase)->sortable()->paginate($this->noOfRecord);
+$lawyerApprovals = Legal::newestMovedFirst(Legal::latestPerGroup($lawyerApprovalsBase)->sortable())->paginate($this->noOfRecord);
 Legal::attachGroupSiblings($lawyerApprovals, $lawyerApprovalsBase);
             
 //print_r($plmsLegalStatus);exit();
@@ -1098,7 +1098,7 @@ public function activeCases(Request $request){
                       ->when($request->lc_hearing, function ($q) {
                         $q->whereBetween('legal.next_hearing_date', [date('Y-m-d'), date('Y-m-d', strtotime('+7 days'))]);
                       });
-  $activeCases = Legal::latestPerGroup($activeCasesBase)->sortable()->paginate($this->noOfRecord);
+  $activeCases = Legal::newestMovedFirst(Legal::latestPerGroup($activeCasesBase)->sortable())->paginate($this->noOfRecord);
   Legal::attachGroupSiblings($activeCases, $activeCasesBase);
 
   $quick_url =    $route   =  route('activeCases');
@@ -1483,7 +1483,7 @@ public function referBackCases(Request $request){
 
   $closedLegalCasesBase = Legal::filter($request)                
                       ->where('legal.work_flow_processes_code', '=', 804);
-  $closedLegalCases = Legal::latestPerGroup($closedLegalCasesBase)->sortable()->paginate($this->noOfRecord);
+  $closedLegalCases = Legal::newestMovedFirst(Legal::latestPerGroup($closedLegalCasesBase)->sortable())->paginate($this->noOfRecord);
   Legal::attachGroupSiblings($closedLegalCases, $closedLegalCasesBase);
   $quick_url =    $route   =  route('referBackCases');
 
@@ -1538,7 +1538,7 @@ public function closedLegalCases(Request $request){
                       //     ->where('status','=',1);
                       //    })                  
                       ->where('legal.work_flow_processes_code', '=', 803);
-  $closedLegalCases = Legal::latestPerGroup($closedLegalCasesBase)->sortable()->paginate($this->noOfRecord);
+  $closedLegalCases = Legal::newestMovedFirst(Legal::latestPerGroup($closedLegalCasesBase)->sortable())->paginate($this->noOfRecord);
   Legal::attachGroupSiblings($closedLegalCases, $closedLegalCasesBase);
   $quick_url =    $route   =  route('closedLegalCases');
 
