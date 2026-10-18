@@ -32,13 +32,15 @@ class Inspection
     // given straight to a person while they have a building, a scheduled visit or an open issue (syncAccess)
     const EXECUTIVE_PERMISSIONS = ['inspection_view', 'inspection_visit_create', 'inspection_execute', 'inspection_issue_create', 'inspection_complaint_create'];
     const MANAGER_ROLES = ['super_admin', 'maintenance_manager'];
+    // see every visit, issue and report; everyone else sees only their own (user, 18/10/2026)
+    const VIEW_ALL_ROLES = ['super_admin', 'maintenance_manager', 'facility_manager', 'backoffice_manager'];
     const PHOTO_DIR = 'public/InspectionPhotos';
 
-    /** Sees every building, visit and issue. */
+    /** Sees every building, visit and issue: admin and manager roles only, whatever permissions other roles carry. */
     public static function seesAll($user = null)
     {
         $user = $user ?: \Auth::user();
-        return $user->can('inspection_view_all');
+        return $user->hasAnyRole(self::VIEW_ALL_ROLES);
     }
 
     public static function isManager($user = null)
@@ -58,16 +60,23 @@ class Inspection
             ->pluck('building_id')->map(function ($v) { return (int) $v; })->all();
     }
 
-    /** Limit a query on a table with building_id / executive_id to what the user may see. */
+    /**
+     * Limit a visits / issues query to what the user may see: everything, or only what is assigned to
+     * them (executive_id) - for issues also what they raised (raised_by). Other people's work in their
+     * buildings stays hidden (user, 18/10/2026).
+     */
     public static function scope($query, $alias, $user = null)
     {
         $user = $user ?: \Auth::user();
-        $ids = self::buildingIds($user);
-        if ($ids === null) {
+        if (self::seesAll($user)) {
             return $query;
         }
-        return $query->where(function ($q) use ($alias, $ids, $user) {
-            $q->whereIn($alias . '.building_id', $ids ?: [0])->orWhere($alias . '.executive_id', $user->id);
+        $raised = strpos($query->from, 'inspection_issues') === 0;
+        return $query->where(function ($q) use ($alias, $user, $raised) {
+            $q->where($alias . '.executive_id', $user->id);
+            if ($raised) {
+                $q->orWhere($alias . '.raised_by', $user->id);
+            }
         });
     }
 
