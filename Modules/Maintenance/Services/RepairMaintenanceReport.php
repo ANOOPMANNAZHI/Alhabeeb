@@ -18,9 +18,10 @@ class RepairMaintenanceReport
 
     /**
      * Buildings whose report month does not follow the calendar: building id => first day of the period.
-     * Al Themar Bldg (429): "January" = 22 Jan to 21 Feb (user, 19/10/2026). Both sections follow it.
+     * Al Themar Bldg (429): "January" = 21 Jan to 20 Feb (user, 19/10/2026: closest to the back office's own
+     * workbook). Both sections follow it.
      */
-    const PERIOD_START_DAY = [429 => 22];
+    const PERIOD_START_DAY = [429 => 21];
 
     /** The service report an invoice line bills: by service_report_id, or by the SERV no. its text starts with. */
     const SR_JOIN = "LEFT JOIN LATERAL (
@@ -39,7 +40,7 @@ class RepairMaintenanceReport
 
     /**
      * Months to export for a year: 1..12, or up to the period running today for the current year
-     * (for a 22nd-to-21st building, on 19 Oct that is September).
+     * (for a 21st-to-20th building, on 19 Oct that is September).
      */
     public static function months($year, $startDay = 1)
     {
@@ -50,7 +51,7 @@ class RepairMaintenanceReport
         return $last > 0 ? range(1, $last) : [];
     }
 
-    /** "22.01.2026 to 21.02.2026" for a building with its own period, or null for calendar months. */
+    /** "21.01.2026 to 20.02.2026" for a building with its own period, or null for calendar months. */
     public static function periodLabel($year, $month, $startDay)
     {
         if ((int) $startDay === 1) {
@@ -155,7 +156,7 @@ class RepairMaintenanceReport
 
     /**
      * [first day of the year's first period, first day of the next year's] for half-open date filters:
-     * 1 Jan to 1 Jan, or for a 22nd-to-21st building 22 Jan to 22 Jan.
+     * 1 Jan to 1 Jan, or for a 21st-to-20th building 21 Jan to 21 Jan.
      */
     private static function range($year, $startDay = 1)
     {

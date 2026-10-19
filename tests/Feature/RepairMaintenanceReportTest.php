@@ -14,7 +14,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 /**
  * Repair & Maintenance Report: per building, one sheet per month, In-house (service reports by service report
  * date, charges from the service report) and Sub-contract (vendor invoice lines by invoice date).
- * Al Themar Bldg (429) months run from the 22nd to the 21st (January = 22 Jan - 21 Feb); other buildings use
+ * Al Themar Bldg (429) months run from the 21st to the 20th (January = 21 Jan - 20 Feb); other buildings use
  * calendar months. Expected figures come straight from the service report / invoice tables.
  */
 class RepairMaintenanceReportTest extends TestCase
@@ -23,30 +23,30 @@ class RepairMaintenanceReportTest extends TestCase
 
     const AL_THEMAR = 429;
 
-    public function test_al_themar_january_is_22_jan_to_21_feb()
+    public function test_al_themar_january_is_21_jan_to_20_feb()
     {
         $in  = RepairMaintenanceReport::inHouse(self::AL_THEMAR, 2026);
         $sub = RepairMaintenanceReport::subContract(self::AL_THEMAR, 2026);
 
-        $this->assertSameReports($this->expectedReports(self::AL_THEMAR, '2026-01-22', '2026-02-22'), $in[1]);
-        $this->assertSameLines($this->expectedInvoiceLines(self::AL_THEMAR, '2026-01-22', '2026-02-22'), isset($sub[1]) ? $sub[1] : []);
+        $this->assertSameReports($this->expectedReports(self::AL_THEMAR, '2026-01-21', '2026-02-21'), $in[1]);
+        $this->assertSameLines($this->expectedInvoiceLines(self::AL_THEMAR, '2026-01-21', '2026-02-21'), isset($sub[1]) ? $sub[1] : []);
         foreach ($in[1] as $r) {
-            $this->assertTrue($r->sr_date >= '2026-01-22' && $r->sr_date <= '2026-02-21', $r->sr_date);
+            $this->assertTrue($r->sr_date >= '2026-01-21' && $r->sr_date <= '2026-02-20', $r->sr_date);
         }
-        // 22 Aug - 21 Sep is "August"; 1-21 Jan 2026 belongs to December 2025 and is not in the 2026 workbook
-        $this->assertSameReports($this->expectedReports(self::AL_THEMAR, '2026-08-22', '2026-09-22'), $in[8]);
-        $this->assertSameLines($this->expectedInvoiceLines(self::AL_THEMAR, '2026-08-22', '2026-09-22'), isset($sub[8]) ? $sub[8] : []);
+        // 21 Aug - 20 Sep is "August"; 1-20 Jan 2026 belongs to December 2025 and is not in the 2026 workbook
+        $this->assertSameReports($this->expectedReports(self::AL_THEMAR, '2026-08-21', '2026-09-21'), $in[8]);
+        $this->assertSameLines($this->expectedInvoiceLines(self::AL_THEMAR, '2026-08-21', '2026-09-21'), isset($sub[8]) ? $sub[8] : []);
         $all = 0;
         foreach ($in as $m) { $all += count($m); }
-        $this->assertSame(count($this->expectedReports(self::AL_THEMAR, '2026-01-22', '2027-01-22')), $all);
+        $this->assertSame(count($this->expectedReports(self::AL_THEMAR, '2026-01-21', '2027-01-21')), $all);
 
         $first = $in[1][0];
         $this->assertNotEmpty($first->complaint_no);
         $this->assertNotEmpty($first->technician);
         $this->assertNotEmpty($first->category);
         $this->assertEquals((float) $first->amount, round((float) $first->material + (float) $first->labour, 3));
-        $this->assertSame('22.01.2026 to 21.02.2026', RepairMaintenanceReport::periodLabel(2026, 1, 22));
-        $this->assertSame('22.12.2026 to 21.01.2027', RepairMaintenanceReport::periodLabel(2026, 12, 22));
+        $this->assertSame('21.01.2026 to 20.02.2026', RepairMaintenanceReport::periodLabel(2026, 1, 21));
+        $this->assertSame('21.12.2026 to 20.01.2027', RepairMaintenanceReport::periodLabel(2026, 12, 21));
         $this->assertNull(RepairMaintenanceReport::periodLabel(2026, 1, 1));
     }
 
@@ -58,7 +58,7 @@ class RepairMaintenanceReportTest extends TestCase
         }
         $this->assertNotNull($other);
         $this->assertSame(1, RepairMaintenanceReport::startDay($other));
-        $this->assertSame(22, RepairMaintenanceReport::startDay(self::AL_THEMAR));
+        $this->assertSame(21, RepairMaintenanceReport::startDay(self::AL_THEMAR));
         $in  = RepairMaintenanceReport::inHouse($other, 2026);
         $sub = RepairMaintenanceReport::subContract($other, 2026);
         $this->assertSameReports($this->expectedReports($other, '2026-09-01', '2026-10-01'), $in[9]);
@@ -124,19 +124,19 @@ class RepairMaintenanceReportTest extends TestCase
         $this->assertSame(range(1, (int) date('n')), RepairMaintenanceReport::months((int) date('Y')));
         $this->assertSame([], RepairMaintenanceReport::months((int) date('Y') + 1));
         // 22nd-to-21st: the running period is the one that started on or before today
-        $shifted = strtotime('-21 days', strtotime(date('Y-m-d')));
-        $this->assertSame(range(1, (int) date('n', $shifted)), RepairMaintenanceReport::months((int) date('Y', $shifted), 22));
-        $this->assertSame(range(1, 12), RepairMaintenanceReport::months(2025, 22));
+        $shifted = strtotime('-20 days', strtotime(date('Y-m-d')));
+        $this->assertSame(range(1, (int) date('n', $shifted)), RepairMaintenanceReport::months((int) date('Y', $shifted), 21));
+        $this->assertSame(range(1, 12), RepairMaintenanceReport::months(2025, 21));
         $this->assertSame('Emergency', RepairMaintenanceReport::complaintType(1));
         $this->assertSame('Normal', RepairMaintenanceReport::complaintType(0));
     }
 
     public function test_workbook_has_a_sheet_per_month_with_totals()
     {
-        $months = RepairMaintenanceReport::months(2026, 22);
+        $months = RepairMaintenanceReport::months(2026, 21);
         $in  = RepairMaintenanceReport::inHouse(self::AL_THEMAR, 2026);
         $sub = RepairMaintenanceReport::subContract(self::AL_THEMAR, 2026);
-        $export = new RepairMaintenanceReportExport('Al Themar Bldg', 2026, $months, $in, $sub, 22);
+        $export = new RepairMaintenanceReportExport('Al Themar Bldg', 2026, $months, $in, $sub, 21);
         $path = storage_path('app/temp/rmr_test_' . uniqid() . '.xlsx');
         @mkdir(dirname($path), 0755, true);
         file_put_contents($path, \Excel::raw($export, \Maatwebsite\Excel\Excel::XLSX));
@@ -145,7 +145,7 @@ class RepairMaintenanceReportTest extends TestCase
         $this->assertSame(count($months), $book->getSheetCount());
         $jan = $book->getSheet(0);
         $this->assertSame('Jan 2026', $jan->getTitle());
-        $this->assertStringEndsWith('(22.01.2026 to 21.02.2026)', $jan->getCell('B1')->getValue());
+        $this->assertStringEndsWith('(21.01.2026 to 20.02.2026)', $jan->getCell('B1')->getValue());
         $this->assertSame('Complaint Number', $jan->getCell('B3')->getValue());
         $this->assertSame('Total Amount RO', $jan->getCell('L3')->getValue());
         $this->assertNull($jan->getCell('M3')->getValue());
@@ -170,8 +170,8 @@ class RepairMaintenanceReportTest extends TestCase
         $this->assertSame('Sr No', $jan->getCell('B' . ($inTotal + 2))->getValue());
         $this->assertEquals(41.25, $jan->getRowDimension($inTotal + 2)->getRowHeight());
         $sum = function ($rows, $field) { return round(array_sum(array_map(function ($r) use ($field) { return (float) $r->$field; }, $rows)), 3); };
-        $this->assertEquals($sum($this->expectedReports(self::AL_THEMAR, '2026-01-22', '2026-02-22'), 'total'), round($jan->getCell('L' . $inTotal)->getCalculatedValue(), 3));
-        $this->assertEquals($sum($this->expectedInvoiceLines(self::AL_THEMAR, '2026-01-22', '2026-02-22'), 'amount'), round($jan->getCell('J' . $subTotal)->getCalculatedValue(), 3));
+        $this->assertEquals($sum($this->expectedReports(self::AL_THEMAR, '2026-01-21', '2026-02-21'), 'total'), round($jan->getCell('L' . $inTotal)->getCalculatedValue(), 3));
+        $this->assertEquals($sum($this->expectedInvoiceLines(self::AL_THEMAR, '2026-01-21', '2026-02-21'), 'amount'), round($jan->getCell('J' . $subTotal)->getCalculatedValue(), 3));
         @unlink($path);
     }
 
