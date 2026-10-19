@@ -124,6 +124,7 @@ class RentRevisal
         return MessageValues::contract($c) + [
             'current_rent' => number_format((float) $revisal->current_rent, 3),
             'revised_rent' => number_format((float) $revisal->revised_rent, 3),
+            'renewal_start' => $c->tenant_contract_valid_to_date ? date('d/m/Y', strtotime($c->tenant_contract_valid_to_date . ' +1 day')) : '-',
             'are_name'     => $emp && $emp->employee_name ? $emp->employee_name : ($are ? $are->username : ''),
             'are_email'    => $are ? (string) $are->email : '',
             'are_mobile'   => $emp ? (string) ($emp->employee_contact_no ?: $emp->employee_secondary_no) : '',
