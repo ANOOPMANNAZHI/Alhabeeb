@@ -83,8 +83,13 @@ class RepairMaintenanceReportController extends Controller
         $total = count($buildings);
         foreach ($buildings as $i => $b) {
             $send(['pct' => 5 + (int) floor(85 * $i / $total), 'msg' => 'Building ' . ($i + 1) . ' of ' . $total . ' – ' . $b->building_name]);
-            $export = new RepairMaintenanceReportExport($b->building_name, $year, $months,
-                RepairMaintenanceReport::inHouse($b->id, $year), RepairMaintenanceReport::subContract($b->id, $year));
+            $startDay = RepairMaintenanceReport::startDay($b->id);
+            $bMonths  = RepairMaintenanceReport::months($year, $startDay);
+            if (count($bMonths) === 0) { // its own period has not started yet this year (e.g. 22nd-to-21st on 10 Jan)
+                continue;
+            }
+            $export = new RepairMaintenanceReportExport($b->building_name, $year, $bMonths,
+                RepairMaintenanceReport::inHouse($b->id, $year), RepairMaintenanceReport::subContract($b->id, $year), $startDay);
             $name = self::fileName($b->building_name, $year);
             if (isset($used[$name])) { // two buildings with the same name must not overwrite each other in the zip
                 $name = substr($name, 0, -5) . ' (' . $b->id . ').xlsx';
@@ -95,6 +100,10 @@ class RepairMaintenanceReportController extends Controller
             $files[] = ['path' => $path, 'name' => $name];
         }
 
+        if (count($files) === 0) {
+            $send(['pct' => 100, 'done' => true, 'error' => 'The first report period of ' . $year . ' has not started yet for this building.']);
+            exit;
+        }
         if (count($files) === 1) {
             $out = $files[0];
         } else {

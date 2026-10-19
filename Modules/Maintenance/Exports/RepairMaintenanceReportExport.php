@@ -15,9 +15,11 @@ class RepairMaintenanceReportExport implements WithMultipleSheets
     protected $months;
     protected $inHouse;
     protected $subContract;
+    protected $startDay;
 
-    public function __construct($buildingName, $year, array $months, array $inHouse, array $subContract)
+    public function __construct($buildingName, $year, array $months, array $inHouse, array $subContract, $startDay = 1)
     {
+        $this->startDay     = (int) $startDay;
         $this->buildingName = $buildingName;
         $this->year         = (int) $year;
         $this->months       = $months;
@@ -32,7 +34,8 @@ class RepairMaintenanceReportExport implements WithMultipleSheets
             $sheets[] = new RepairMaintenanceMonthSheet(
                 $this->buildingName, $m, $this->year,
                 isset($this->inHouse[$m]) ? $this->inHouse[$m] : [],
-                isset($this->subContract[$m]) ? $this->subContract[$m] : []
+                isset($this->subContract[$m]) ? $this->subContract[$m] : [],
+                $this->startDay
             );
         }
         return $sheets;

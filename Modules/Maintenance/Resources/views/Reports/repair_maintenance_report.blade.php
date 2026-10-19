@@ -80,7 +80,7 @@
                   <i class="fa fa-calendar icn-add" aria-hidden="true"></i>
                   <input type="number" class="form-control" id="year" name="year" value="{{ date('Y') }}" min="2015" max="{{ date('Y') }}" required>
                 </div>
-                <div class="rmr-help">One sheet per month, by maintenance invoice date. The current year runs to this month.</div>
+                <div class="rmr-help">One sheet per month: service reports by service report date, vendor invoices by invoice date. Al Themar Bldg months run from the 22nd to the 21st.</div>
               </div>
             </div>
 

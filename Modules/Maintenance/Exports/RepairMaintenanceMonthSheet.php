@@ -30,6 +30,7 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
     protected $year;
     protected $inHouse;
     protected $subContract;
+    protected $startDay;
 
     // row numbers filled by array(), used by AfterSheet for styling
     private $inHead;
@@ -39,8 +40,9 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
     private $subFirst;
     private $subTotal;
 
-    public function __construct($buildingName, $month, $year, array $inHouse, array $subContract)
+    public function __construct($buildingName, $month, $year, array $inHouse, array $subContract, $startDay = 1)
     {
+        $this->startDay     = (int) $startDay;
         $this->buildingName = $buildingName;
         $this->month        = (int) $month;
         $this->year         = (int) $year;
@@ -56,7 +58,9 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
     public function array(): array
     {
         $rows   = [];
-        $rows[] = [$this->buildingName . ' - Repair & Maintenance - ' . date('F Y', mktime(0, 0, 0, $this->month, 1, $this->year))];
+        $period = RepairMaintenanceReport::periodLabel($this->year, $this->month, $this->startDay);
+        $rows[] = [$this->buildingName . ' - Repair & Maintenance - ' . date('F Y', mktime(0, 0, 0, $this->month, 1, $this->year))
+            . ($period ? ' (' . $period . ')' : '')];
         $rows[] = [''];
         $rows[] = ['In-house'];
         $rows[] = self::IN_HOUSE_HEAD;
