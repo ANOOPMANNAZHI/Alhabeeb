@@ -145,21 +145,32 @@ class RepairMaintenanceReportTest extends TestCase
         $this->assertSame(count($months), $book->getSheetCount());
         $jan = $book->getSheet(0);
         $this->assertSame('Jan 2026', $jan->getTitle());
-        $this->assertStringEndsWith('(22.01.2026 to 21.02.2026)', $jan->getCell('A1')->getValue());
-        $this->assertSame('Complaint Number', $jan->getCell('A4')->getValue());
-        $this->assertSame('Service Report No', $jan->getCell('B4')->getValue());
-        $this->assertStringStartsWith('SERV', $jan->getCell('B5')->getValue());
+        $this->assertStringEndsWith('(22.01.2026 to 21.02.2026)', $jan->getCell('B1')->getValue());
+        $this->assertSame('Complaint Number', $jan->getCell('B3')->getValue());
+        $this->assertSame('Total Amount RO', $jan->getCell('L3')->getValue());
+        $this->assertSame('Service Report No', $jan->getCell('M3')->getValue());
+        $this->assertStringStartsWith('SERV', $jan->getCell('M4')->getValue());
+
+        // reference layout: widths, heights, yellow header, bold, light orange totals
+        $this->assertEquals(45.14, $jan->getColumnDimension('G')->getWidth());
+        $this->assertEquals(45.75, $jan->getRowDimension(3)->getRowHeight());
+        $this->assertEquals(24.75, $jan->getRowDimension(4)->getRowHeight());
+        $this->assertSame('FFFF00', $jan->getStyle('B3')->getFill()->getStartColor()->getRGB());
+        $this->assertTrue($jan->getStyle('G4')->getFont()->getBold());
 
         $inTotal = $subTotal = null;
         foreach ($jan->getRowIterator() as $row) {
             $r = $row->getRowIndex();
-            if ($jan->getCell('I' . $r)->getValue() === 'Total' || $jan->getCell('H' . $r)->getValue() === 'Total') {
+            if (strpos((string) $jan->getCell('J' . $r)->getValue(), '=SUM(') === 0) {
                 if ($inTotal === null) { $inTotal = $r; } else { $subTotal = $r; }
             }
         }
+        $this->assertSame('FBE5D6', $jan->getStyle('L' . $inTotal)->getFill()->getStartColor()->getRGB());
+        $this->assertSame('Sr No', $jan->getCell('B' . ($inTotal + 2))->getValue());
+        $this->assertEquals(41.25, $jan->getRowDimension($inTotal + 2)->getRowHeight());
         $sum = function ($rows, $field) { return round(array_sum(array_map(function ($r) use ($field) { return (float) $r->$field; }, $rows)), 3); };
         $this->assertEquals($sum($this->expectedReports(self::AL_THEMAR, '2026-01-22', '2026-02-22'), 'total'), round($jan->getCell('L' . $inTotal)->getCalculatedValue(), 3));
-        $this->assertEquals($sum($this->expectedInvoiceLines(self::AL_THEMAR, '2026-01-22', '2026-02-22'), 'amount'), round($jan->getCell('I' . $subTotal)->getCalculatedValue(), 3));
+        $this->assertEquals($sum($this->expectedInvoiceLines(self::AL_THEMAR, '2026-01-22', '2026-02-22'), 'amount'), round($jan->getCell('J' . $subTotal)->getCalculatedValue(), 3));
         @unlink($path);
     }
 

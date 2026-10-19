@@ -13,17 +13,26 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 /**
- * One month of the Repair & Maintenance Report, laid out like the back office's own building workbook:
- * an In-house table (one row per service report dated in the month: complaint, technician, material / labour /
- * total from the service report) and a Sub-contract table (vendor invoice lines dated in the month), each with a
- * SUM total row.
+ * One month of the Repair & Maintenance Report in the back office's own building workbook layout
+ * ("Al Themar Bldg-Repair & Maintenance 2025-2026.xlsx", Sep 2026 sheet): tables from B3, bold Calibri 11,
+ * yellow headers, thin borders, light orange SUM cells, its column widths and row heights.
+ * In-house (B:L, + Service Report No in M): one row per service report dated in the month.
+ * Sub-contract (B:J), one gap row below: vendor invoice lines dated in the month.
  */
 class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, WithStrictNullComparison
 {
-    const IN_HOUSE_HEAD = ['Complaint Number', 'Service Report No', 'Complaint type', 'Date', 'Building Name', 'Location/Unit No',
-        'Description', 'Technician', 'Category', 'Material Charges', 'Labour Charges', 'Total Amount RO'];
+    const IN_HOUSE_HEAD = ['Complaint Number', 'Complaint type', 'Date', 'Building Name', 'Location/Unit No', 'Description',
+        'Technician', 'Category', 'Material Charges', 'Labour Charges', 'Total Amount RO', 'Service Report No'];
     const SUB_HEAD = ['Sr No', 'Complaint type', 'Date', 'Building Name', 'Location/Unit No', 'Description',
         'Sub Contract', 'Category', 'Total Amount RO'];
+
+    const YELLOW = 'FFFF00';
+    const TOTAL_FILL = 'FBE5D6';      // Orange, Accent 2, lighter 80% (theme 5, tint 0.8 in the reference)
+    const WIDTHS = ['A' => 13, 'B' => 13.14, 'C' => 13.86, 'D' => 16.86, 'E' => 20.43, 'F' => 14.57, 'G' => 45.14,
+        'H' => 18.86, 'I' => 14.29, 'J' => 12, 'K' => 13, 'L' => 17, 'M' => 17];
+    const HEAD_HEIGHT = 45.75;
+    const SUB_HEAD_HEIGHT = 41.25;
+    const ROW_HEIGHT = 24.75;
 
     protected $buildingName;
     protected $month;
@@ -34,10 +43,8 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
 
     // row numbers filled by array(), used by AfterSheet for styling
     private $inHead;
-    private $inFirst;
     private $inTotal;
     private $subHead;
-    private $subFirst;
     private $subTotal;
 
     public function __construct($buildingName, $month, $year, array $inHouse, array $subContract, $startDay = 1)
@@ -57,19 +64,19 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
 
     public function array(): array
     {
-        $rows   = [];
         $period = RepairMaintenanceReport::periodLabel($this->year, $this->month, $this->startDay);
-        $rows[] = [$this->buildingName . ' - Repair & Maintenance - ' . date('F Y', mktime(0, 0, 0, $this->month, 1, $this->year))
+        $rows   = [];
+        // row 1: name of the month in B1 (rows 1-2 are blank in the reference); row 2 blank
+        $rows[] = ['', $this->buildingName . ' - Repair & Maintenance - ' . date('F Y', mktime(0, 0, 0, $this->month, 1, $this->year))
             . ($period ? ' (' . $period . ')' : '')];
         $rows[] = [''];
-        $rows[] = ['In-house'];
-        $rows[] = self::IN_HOUSE_HEAD;
-        $this->inHead  = count($rows);
-        $this->inFirst = $this->inHead + 1;
+
+        $rows[] = array_merge([''], self::IN_HOUSE_HEAD);
+        $this->inHead = count($rows);
         foreach ($this->inHouse as $r) {
             $rows[] = [
+                '',
                 $r->complaint_no ?: '',
-                $r->service_report_no,
                 RepairMaintenanceReport::complaintType($r->priority),
                 self::excelDate($r->sr_date),
                 $this->buildingName,
@@ -80,26 +87,24 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
                 (float) $r->material,
                 (float) $r->labour,
                 (float) $r->amount,
+                $r->service_report_no,
             ];
         }
         if (count($this->inHouse) === 0) {
-            $rows[] = ['No service reports this month'];
+            $rows[] = [''];
         }
+        $first  = $this->inHead + 1;
         $last   = count($rows);
-        $rows[] = count($this->inHouse) > 0
-            ? ['', '', '', '', '', '', '', '', 'Total', "=SUM(J{$this->inFirst}:J{$last})", "=SUM(K{$this->inFirst}:K{$last})", "=SUM(L{$this->inFirst}:L{$last})"]
-            : ['', '', '', '', '', '', '', '', 'Total', 0, 0, 0];
+        $rows[] = ['', '', '', '', '', '', '', '', '', "=SUM(J{$first}:J{$last})", "=SUM(K{$first}:K{$last})", "=SUM(L{$first}:L{$last})"];
         $this->inTotal = count($rows);
 
         $rows[] = [''];
-        $rows[] = [''];
-        $rows[] = ['Sub-contract'];
-        $rows[] = self::SUB_HEAD;
-        $this->subHead  = count($rows);
-        $this->subFirst = $this->subHead + 1;
+        $rows[] = array_merge([''], self::SUB_HEAD);
+        $this->subHead = count($rows);
         $n = 0;
         foreach ($this->subContract as $r) {
             $rows[] = [
+                '',
                 ++$n,
                 'Normal',
                 self::excelDate($r->invoice_date),
@@ -112,12 +117,11 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
             ];
         }
         if ($n === 0) {
-            $rows[] = ['No vendor invoices this month'];
+            $rows[] = [''];
         }
+        $first  = $this->subHead + 1;
         $last   = count($rows);
-        $rows[] = $n > 0
-            ? ['', '', '', '', '', '', '', 'Total', "=SUM(I{$this->subFirst}:I{$last})"]
-            : ['', '', '', '', '', '', '', 'Total', 0];
+        $rows[] = ['', '', '', '', '', '', '', '', '', "=SUM(J{$first}:J{$last})"];
         $this->subTotal = count($rows);
 
         return $rows;
@@ -138,41 +142,55 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $s = $event->sheet->getDelegate();
-                $thin = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]];
-                $head = $thin + [
-                    'font'      => ['bold' => true],
-                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFF00']],
-                    'alignment' => ['horizontal' => 'center', 'vertical' => 'center', 'wrapText' => true],
-                ];
+                $thin   = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '000000']]]];
+                $yellow = ['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::YELLOW]]];
+                $orange = ['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => self::TOTAL_FILL]]];
 
-                $s->getStyle('A1')->getFont()->setBold(true)->setSize(13);
-                $s->getStyle('A3')->getFont()->setBold(true);
-                $s->getStyle('A' . ($this->subHead - 1))->getFont()->setBold(true);
+                // whole sheet: bold Calibri 11, as the reference
+                $s->getParent()->getDefaultStyle()->getFont()->setName('Calibri')->setSize(11);
+                $s->getStyle('A1:M' . $this->subTotal)->getFont()->setName('Calibri')->setSize(11)->setBold(true);
 
-                $s->getStyle("A{$this->inHead}:L{$this->inHead}")->applyFromArray($head);
-                $s->getStyle("A{$this->inFirst}:L{$this->inTotal}")->applyFromArray($thin);
-                $s->getStyle("J{$this->inFirst}:L{$this->inTotal}")->getNumberFormat()->setFormatCode('0.000');
-                $s->getStyle("D{$this->inFirst}:D{$this->inTotal}")->getNumberFormat()->setFormatCode('dd.mm.yyyy');
-                $s->getStyle("I{$this->inTotal}:L{$this->inTotal}")->getFont()->setBold(true);
-
-                $s->getStyle("A{$this->subHead}:I{$this->subHead}")->applyFromArray($head);
-                $s->getStyle("A{$this->subFirst}:I{$this->subTotal}")->applyFromArray($thin);
-                $s->getStyle("I{$this->subFirst}:I{$this->subTotal}")->getNumberFormat()->setFormatCode('0.000');
-                $s->getStyle("C{$this->subFirst}:C{$this->subTotal}")->getNumberFormat()->setFormatCode('dd.mm.yyyy');
-                $s->getStyle("H{$this->subTotal}:I{$this->subTotal}")->getFont()->setBold(true);
-
-                $s->getStyle("A{$this->inFirst}:L{$this->subTotal}")->getAlignment()->setVertical('top');
-                $s->getStyle("G{$this->inFirst}:G{$this->inTotal}")->getAlignment()->setWrapText(true);
-                $s->getStyle("F{$this->subFirst}:F{$this->subTotal}")->getAlignment()->setWrapText(true);
-                $s->getStyle("A{$this->inFirst}:A{$this->subTotal}")->getAlignment()->setHorizontal('left');
-
-                $widths = ['A' => 16, 'B' => 16, 'C' => 14, 'D' => 14, 'E' => 22, 'F' => 40, 'G' => 40, 'H' => 22, 'I' => 18, 'J' => 15, 'K' => 15, 'L' => 16];
-                foreach ($widths as $col => $w) {
+                foreach (self::WIDTHS as $col => $w) {
                     $s->getColumnDimension($col)->setWidth($w);
                 }
-                $s->getRowDimension($this->inHead)->setRowHeight(30);
-                $s->getRowDimension($this->subHead)->setRowHeight(30);
-                $s->freezePane('A' . $this->inFirst);
+                for ($r = $this->inHead + 1; $r <= $this->subTotal; $r++) {
+                    $s->getRowDimension($r)->setRowHeight(self::ROW_HEIGHT);
+                }
+                $s->getRowDimension($this->inHead)->setRowHeight(self::HEAD_HEIGHT);
+                $s->getRowDimension($this->subHead)->setRowHeight(self::SUB_HEAD_HEIGHT);
+
+                // In-house: header B:M, rows and total B:M, SUM cells J:L light orange
+                $s->getStyle("B{$this->inHead}:M{$this->inHead}")->applyFromArray($thin + $yellow);
+                $s->getStyle("B{$this->inHead}:M{$this->inHead}")->getAlignment()->setWrapText(true);
+                $s->getStyle('B' . ($this->inHead + 1) . ":M{$this->inTotal}")->applyFromArray($thin);
+                if ($this->inTotal - 1 > $this->inHead) { // data rows are white-filled in the reference
+                    $s->getStyle('B' . ($this->inHead + 1) . ':M' . ($this->inTotal - 1))
+                        ->applyFromArray(['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFFFF']]]);
+                }
+                $s->getStyle("J{$this->inTotal}:L{$this->inTotal}")->applyFromArray($orange);
+                $s->getStyle('J' . ($this->inHead + 1) . ":L{$this->inTotal}")->getNumberFormat()->setFormatCode('0.000');
+                $s->getStyle('D' . ($this->inHead + 1) . ":D{$this->inTotal}")->getNumberFormat()->setFormatCode('dd.mm.yyyy');
+                $s->getStyle('B' . ($this->inHead + 1) . ":M{$this->inTotal}")->getAlignment()->setWrapText(true);
+
+                // Sub-contract: header B:J, rows and total B:J, SUM cell J light orange
+                $s->getStyle("B{$this->subHead}:J{$this->subHead}")->applyFromArray($thin + $yellow);
+                $s->getStyle("B{$this->subHead}:J{$this->subHead}")->getAlignment()->setWrapText(true);
+                $s->getStyle('B' . ($this->subHead + 1) . ":J{$this->subTotal}")->applyFromArray($thin);
+                $s->getStyle("J{$this->subTotal}")->applyFromArray($orange);
+                $s->getStyle('J' . ($this->subHead + 1) . ":J{$this->subTotal}")->getNumberFormat()->setFormatCode('0.000');
+                $s->getStyle('D' . ($this->subHead + 1) . ":D{$this->subTotal}")->getNumberFormat()->setFormatCode('dd.mm.yyyy');
+                $s->getStyle('G' . ($this->subHead + 1) . ":G{$this->subTotal}")->getAlignment()->setWrapText(true);
+
+                // alignment as the reference: number and unit centred, description left; those headers centred
+                foreach ([$this->inHead, $this->subHead] as $h) {
+                    foreach (['B', 'F', 'G'] as $col) {
+                        $s->getStyle($col . $h)->getAlignment()->setHorizontal('center');
+                    }
+                }
+                $s->getStyle('B' . ($this->inHead + 1) . ":B{$this->subTotal}")->getAlignment()->setHorizontal('center');
+                $s->getStyle('F' . ($this->inHead + 1) . ":F{$this->subTotal}")->getAlignment()->setHorizontal('center');
+                $s->getStyle('G' . ($this->inHead + 1) . ":G{$this->inTotal}")->getAlignment()->setHorizontal('left');
+                $s->getStyle('B1')->getAlignment()->setHorizontal('left')->setWrapText(false);
             },
         ];
     }
