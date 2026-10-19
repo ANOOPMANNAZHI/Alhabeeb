@@ -12,9 +12,9 @@ use Modules\Maintenance\Services\RepairMaintenanceReport;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
- * Repair & Maintenance Report: per building, one sheet per month, In-house (service report invoice lines with
- * their complaint) and Sub-contract (other invoice lines). Al Themar Bldg (429), Sept 2026 is the reference:
- * 14 in-house lines = 221.000, 3 sub-contract lines = 871.500.
+ * Repair & Maintenance Report: per building, one sheet per month, In-house (service reports by service report
+ * date, charges from the service report) and Sub-contract (vendor invoice lines by invoice date).
+ * Al Themar Bldg (429), Sept 2026: 16 service reports = 137.600, 3 vendor invoice lines = 871.500.
  */
 class RepairMaintenanceReportTest extends TestCase
 {
@@ -22,13 +22,29 @@ class RepairMaintenanceReportTest extends TestCase
 
     const AL_THEMAR = 429;
 
-    public function test_sections_match_invoices_for_al_themar_september()
+    public function test_in_house_is_service_reports_by_service_report_date()
     {
         $in  = RepairMaintenanceReport::inHouse(self::AL_THEMAR, 2026);
         $sub = RepairMaintenanceReport::subContract(self::AL_THEMAR, 2026);
 
-        $this->assertCount(14, $in[9]);
-        $this->assertEquals(221.0, round(array_sum(array_map(function ($r) { return (float) $r->amount; }, $in[9])), 3));
+        // straight from the service report tables
+        $expected = DB::select("SELECT cs.id, cs.service_report_no, (SELECT COALESCE(SUM(total_charge), 0) FROM complaint_service_report_inv ci
+                WHERE ci.complaint_service_report_id = cs.id) AS total
+            FROM complaint_service_report cs
+            WHERE cs.created_at >= '2026-09-01' AND cs.created_at < '2026-10-01' AND cs.id IN (
+                SELECT csr.complaint_service_report_id FROM complaint_service_report_checklist csr
+                JOIN complaint_checklists cc ON cc.id = csr.checklist_id
+                JOIN complaint_enquiries ce ON ce.id = cc.complaint_enquiries_id WHERE ce.building_id = 429)");
+        $this->assertCount(16, $expected); // 3 of them have no charges (0.000)
+        $this->assertCount(16, $in[9]);
+        $this->assertEquals(137.6, round(array_sum(array_map(function ($r) { return (float) $r->amount; }, $in[9])), 3));
+        $byNo = [];
+        foreach ($expected as $e) { $byNo[$e->service_report_no] = (float) $e->total; }
+        foreach ($in[9] as $r) {
+            $this->assertArrayHasKey($r->service_report_no, $byNo);
+            $this->assertEquals($byNo[$r->service_report_no], (float) $r->amount);
+            $this->assertSame('2026-09', substr($r->sr_date, 0, 7));
+        }
         $this->assertCount(3, $sub[9]);
         $this->assertEquals(871.5, round(array_sum(array_map(function ($r) { return (float) $r->amount; }, $sub[9])), 3));
 
@@ -41,21 +57,16 @@ class RepairMaintenanceReportTest extends TestCase
         $this->assertContains('MUSCAT PEST CONTROL', $vendors);
     }
 
-    public function test_lines_that_lost_their_service_report_link_are_in_house()
+    public function test_invoice_lines_billing_a_service_report_are_not_sub_contract()
     {
-        // VIP2600013 (20/01/2026): SERV41650 roof tank cleaning 200.000, booked without service_report_id
-        $in  = RepairMaintenanceReport::inHouse(self::AL_THEMAR, 2026);
+        // VIP2600013 (20/01/2026) bills SERV41650 etc. under "SUB CONTRACTOR BILLS" without service_report_id
         $sub = RepairMaintenanceReport::subContract(self::AL_THEMAR, 2026);
-        $complaints = array_map(function ($r) { return $r->complaint_no; }, $in[1]);
-        $this->assertContains('CMP44679', $complaints);
-        foreach ($sub[1] as $r) {
-            $this->assertNotSame('SUB CONTRACTOR BILLS', $r->vendor_name);
+        foreach ($sub as $month) {
+            foreach ($month as $r) {
+                $this->assertNotSame('VIP2600013', $r->invoice_no);
+                $this->assertNotSame('SUB CONTRACTOR BILLS', $r->vendor_name);
+            }
         }
-        $total = function ($rows) { return array_sum(array_map(function ($r) { return (float) $r->amount; }, $rows)); };
-        $all = (float) DB::selectOne("SELECT SUM(CAST(NULLIF(TRIM(mid.debit_amt), '') AS numeric)) s FROM maintenance_invoices mi
-            JOIN maintenance_invoice_details mid ON mid.maintenance_invoice_id = mi.id
-            WHERE mi.deleted_at IS NULL AND mid.building_id = ? AND mi.maintenance_invoice_date BETWEEN '2026-01-01' AND '2026-01-31'", [self::AL_THEMAR])->s;
-        $this->assertEquals(round($all, 3), round($total($in[1]) + $total($sub[1]), 3));
     }
 
     public function test_months_stop_at_current_month_for_current_year()
@@ -86,12 +97,14 @@ class RepairMaintenanceReportTest extends TestCase
         $inTotal = $subTotal = null;
         foreach ($sep->getRowIterator() as $row) {
             $r = $row->getRowIndex();
-            if ($sep->getCell('H' . $r)->getValue() === 'Total') {
+            if ($sep->getCell('I' . $r)->getValue() === 'Total' || $sep->getCell('H' . $r)->getValue() === 'Total') {
                 if ($inTotal === null) { $inTotal = $r; } else { $subTotal = $r; }
             }
         }
-        $this->assertEquals(221.0, round($sep->getCell('K' . $inTotal)->getCalculatedValue(), 3));
+        $this->assertEquals(137.6, round($sep->getCell('L' . $inTotal)->getCalculatedValue(), 3));
         $this->assertEquals(871.5, round($sep->getCell('I' . $subTotal)->getCalculatedValue(), 3));
+        $this->assertSame('Service Report No', $sep->getCell('B4')->getValue());
+        $this->assertStringStartsWith('SERV', $sep->getCell('B5')->getValue());
         $this->assertSame('Sr No', $sep->getCell('A' . ($subTotal - 4))->getValue());
         @unlink($path);
     }
