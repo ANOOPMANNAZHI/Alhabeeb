@@ -99,6 +99,7 @@ class SystemTemplateDefaults
         $revisal = [
             'current_rent' => ['label' => 'Current monthly rent', 'sample' => '300.000'],
             'revised_rent' => ['label' => 'Revised monthly rent', 'sample' => '330.000'],
+            'renewal_start' => ['label' => 'Renewal start (day after contract end)', 'sample' => '01/10/2027'],
             'revisal_note' => ['label' => 'Note from the ARE', 'sample' => '<p>The revision follows the market rate for the area.</p>', 'block' => true],
             'are_name'     => ['label' => 'ARE name', 'sample' => 'Rashid Al Balushi'],
             'are_email'    => ['label' => 'ARE email', 'sample' => 'rashid@alhabib.om'],
@@ -120,9 +121,13 @@ class SystemTemplateDefaults
             'rent_revision_tenant' => [
                 'name' => 'Rent revision notice (tenant)', 'audience' => 'tenant', 'stage' => 'RR',
                 'email_subject' => 'Rent revision on renewal - {building} {unit}',
-                'email_body' => '<p>Dear {tenant_name},</p>'
-                    . '<p>Your tenancy contract {contract_no} for {building}, unit {unit} ends on {contract_end}.</p>'
-                    . '<p>On renewal, the monthly rent will be <strong>OMR {revised_rent}</strong> (currently OMR {current_rent}).</p>'
+                'email_body' => '<p>Dear Tenant,</p>'
+                    . '<p>Premises: {building}, unit {unit} (contract {contract_no})</p>'
+                    . '<p>As you are aware, your lease for the above-mentioned premises is due for renewal effective {contract_end}.</p>'
+                    . '<p>Please be informed that the landlord has advised us to revise the rentals in the building in line with the prevailing '
+                    . 'upward market conditions. Accordingly, the lease will be renewed at a revised monthly rent of <strong>OMR {revised_rent}/-</strong> '
+                    . 'effective from {renewal_start}. All other terms and conditions of the existing lease agreement shall remain unchanged.</p>'
+                    . '<p>Kindly treat this mail as advance notice and we look forward to your continued patronage.</p>'
                     . '{revisal_note}'
                     . '<p>For any questions please reply to this email or contact {are_name} on {are_mobile}.</p>' . self::regards(),
                 'sms_body' => null, 'is_active' => true, 'sms_enabled' => false,
