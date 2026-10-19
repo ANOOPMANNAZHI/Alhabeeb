@@ -152,6 +152,16 @@
                        <i class="fa fa-money icn-add" aria-hidden="true"></i>
                        <input type="text" onkeyup="FormatCurrency(this)" class="form-control rent" id="rent" placeholder="Enter Rent (P.M)" name="tenant_contract_rent" value="{{ isset($tenantContract)?  old('tenant_contract_rent', (isset($renewal_data)? numberFormat($renewal_data->tenant_contract_rent): numberFormat($tenantContract->tenant_contract_rent)) ): old('tenant_contract_rent','')}}" required data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values">
                        </div>
+                       @if(!empty($rentRevisal))
+                       <small class="text-info" style="display:block;margin-top:4px;line-height:1.3">
+                         <i class="fa fa-info-circle"></i>
+                         Rent revised: OMR {{ numberFormat($rentRevisal->current_rent) }} &rarr; <strong>OMR {{ numberFormat($rentRevisal->revised_rent) }}</strong>
+                         @if($rentRevisal->emailed_at) (sent to tenant {{ $rentRevisal->emailed_at->format('d/m/Y') }})@endif
+                         @if(isset($renewal_data) && round((float) $renewal_data->tenant_contract_rent, 3) != round((float) $rentRevisal->revised_rent, 3))
+                         <br>This form was saved with OMR {{ numberFormat($renewal_data->tenant_contract_rent) }}.
+                         @endif
+                       </small>
+                       @endif
                     </td>
 					<td class="lft-align"> From Contract Period</td>
                      <td>
