@@ -256,6 +256,10 @@ Breadcrumbs::for('showMaintenanceInvoiceReportV2', function ($trail) {
     $trail->parent('home');
     $trail->push('Maintenance Invoice Report v2', route('showMaintenanceInvoiceReportV2'));
 });
+Breadcrumbs::for('showRepairMaintenanceReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Repair & Maintenance Report', route('showRepairMaintenanceReport'));
+});
 
 // Building Inspection & Maintenance
 Breadcrumbs::for('inspection.dashboard', function ($trail) {

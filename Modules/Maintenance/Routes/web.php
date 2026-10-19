@@ -320,6 +320,9 @@ Route::post('maintenanceInvoiceReportPdfV2', 'MaintenanceReportController@mainte
 Route::post('maintenanceInvoiceServiceReportsZip', 'MaintenanceReportController@maintenanceInvoiceServiceReportsZipDownload')->name('maintenanceInvoiceServiceReportsZip');
 Route::get('maintenanceInvoiceReportV2Stream', 'MaintenanceReportController@maintenanceInvoiceReportV2Stream')->name('maintenanceInvoiceReportV2Stream');
 Route::get('maintenanceInvoiceReportV2Download/{token}', 'MaintenanceReportController@maintenanceInvoiceReportV2Download')->name('maintenanceInvoiceReportV2Download');
+Route::get('showRepairMaintenanceReport', 'RepairMaintenanceReportController@show')->name('showRepairMaintenanceReport');
+Route::get('repairMaintenanceReportStream', 'RepairMaintenanceReportController@stream')->name('repairMaintenanceReportStream');
+Route::get('repairMaintenanceReportDownload/{token}', 'RepairMaintenanceReportController@download')->name('repairMaintenanceReportDownload');
 Route::get('servicecomplaintReportAutocompleteCode', 'MaintenanceReportController@servicecomplaintReportAutocompleteCode')->name('servicecomplaintReportAutocompleteCode');
 Route::get('servicecomplaintReportNoAutocompleteCode', 'MaintenanceReportController@servicecomplaintReportNoAutocompleteCode')->name('servicecomplaintReportNoAutocompleteCode');
 
