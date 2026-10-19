@@ -2005,6 +2005,7 @@ class TenantRenewalController extends Controller
       if (!$renewal_data) {
         $tenantContract->tenant_contract_rent = \Modules\BackOffice\Services\RentRevisal::renewalRent($tenantContract);
       }
+      $rentRevisal = \Modules\BackOffice\Services\RentRevisal::sentRevisal($tenantContract);   // info line under Rent(P.M.)
 
       $landloard = LandlordContract::where('building_id',$tenantContract->building_id)
                                       ->active()->first();
@@ -2021,7 +2022,7 @@ class TenantRenewalController extends Controller
       }                               
        
       //dd($tenantContract->building);
-      return view('backoffice::RenewalOrTermination.renewalTemplatePdfModel',compact('tenantContract','renewal_data','landlord_contract_valid_to_date','start_date','areEmail'));                                  
+      return view('backoffice::RenewalOrTermination.renewalTemplatePdfModel',compact('tenantContract','renewal_data','landlord_contract_valid_to_date','start_date','areEmail','rentRevisal'));                                  
    }
 
 
