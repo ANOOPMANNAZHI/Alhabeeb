@@ -829,6 +829,13 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'created_by' => \Auth::user()->id,
                  ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord, $rentReceiptInfo));   
 
+        // Distribution lines follow the edited amount: bank debit, then deposit ledger credit (order they are added in)
+        $amount = replaceCommaWithDot($request->receipts_generation_amt);
+        $lines  = ReceiptGenerationDim::where('receipts_generation_id', $id)->orderBy('id')->pluck('id');
+        if (count($lines) == 2) {
+            ReceiptGenerationDim::where('id', $lines[0])->update(['debit_amount' => $amount, 'credit_amount' => 0, 'updated_by' => \Auth::user()->id]);
+            ReceiptGenerationDim::where('id', $lines[1])->update(['debit_amount' => 0, 'credit_amount' => $amount, 'updated_by' => \Auth::user()->id]);
+        }
 
         session()->flash('success', 'Update Successfully');
         return redirect()->route('receiptsTabViewListtab','deposit');
