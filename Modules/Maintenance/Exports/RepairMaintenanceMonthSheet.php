@@ -16,20 +16,20 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
  * One month of the Repair & Maintenance Report in the back office's own building workbook layout
  * ("Al Themar Bldg-Repair & Maintenance 2025-2026.xlsx", Sep 2026 sheet): tables from B3, bold Calibri 11,
  * yellow headers, thin borders, light orange SUM cells, its column widths and row heights.
- * In-house (B:L, + Service Report No in M): one row per service report dated in the month.
+ * In-house (B:L): one row per service report dated in the month; complaint number without the CMP prefix.
  * Sub-contract (B:J), one gap row below: vendor invoice lines dated in the month.
  */
 class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, WithStrictNullComparison
 {
     const IN_HOUSE_HEAD = ['Complaint Number', 'Complaint type', 'Date', 'Building Name', 'Location/Unit No', 'Description',
-        'Technician', 'Category', 'Material Charges', 'Labour Charges', 'Total Amount RO', 'Service Report No'];
+        'Technician', 'Category', 'Material Charges', 'Labour Charges', 'Total Amount RO'];
     const SUB_HEAD = ['Sr No', 'Complaint type', 'Date', 'Building Name', 'Location/Unit No', 'Description',
         'Sub Contract', 'Category', 'Total Amount RO'];
 
     const YELLOW = 'FFFF00';
     const TOTAL_FILL = 'FBE5D6';      // Orange, Accent 2, lighter 80% (theme 5, tint 0.8 in the reference)
     const WIDTHS = ['A' => 13, 'B' => 13.14, 'C' => 13.86, 'D' => 16.86, 'E' => 20.43, 'F' => 14.57, 'G' => 45.14,
-        'H' => 18.86, 'I' => 14.29, 'J' => 12, 'K' => 13, 'L' => 17, 'M' => 17];
+        'H' => 18.86, 'I' => 14.29, 'J' => 12, 'K' => 13, 'L' => 17];
     const HEAD_HEIGHT = 45.75;
     const SUB_HEAD_HEIGHT = 41.25;
     const ROW_HEIGHT = 24.75;
@@ -76,7 +76,7 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
         foreach ($this->inHouse as $r) {
             $rows[] = [
                 '',
-                $r->complaint_no ?: '',
+                self::complaintNumber($r->complaint_no),
                 RepairMaintenanceReport::complaintType($r->priority),
                 self::excelDate($r->sr_date),
                 $this->buildingName,
@@ -87,7 +87,6 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
                 (float) $r->material,
                 (float) $r->labour,
                 (float) $r->amount,
-                $r->service_report_no,
             ];
         }
         if (count($this->inHouse) === 0) {
@@ -127,6 +126,16 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
         return $rows;
     }
 
+    /** "CMP44769" -> 44769 (a number, as in the reference); several complaints -> "44769, 44770". */
+    private static function complaintNumber($nos)
+    {
+        if (!$nos) {
+            return '';
+        }
+        $parts = array_map(function ($n) { return preg_replace('/^CMP/i', '', trim($n)); }, explode(',', $nos));
+        return count($parts) === 1 && ctype_digit($parts[0]) ? (int) $parts[0] : implode(', ', $parts);
+    }
+
     /** A calendar date as an Excel date serial (no timezone shift), or '' when empty. */
     private static function excelDate($value)
     {
@@ -148,7 +157,7 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
 
                 // whole sheet: bold Calibri 11, as the reference
                 $s->getParent()->getDefaultStyle()->getFont()->setName('Calibri')->setSize(11);
-                $s->getStyle('A1:M' . $this->subTotal)->getFont()->setName('Calibri')->setSize(11)->setBold(true);
+                $s->getStyle('A1:L' . $this->subTotal)->getFont()->setName('Calibri')->setSize(11)->setBold(true);
 
                 foreach (self::WIDTHS as $col => $w) {
                     $s->getColumnDimension($col)->setWidth($w);
@@ -159,18 +168,18 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
                 $s->getRowDimension($this->inHead)->setRowHeight(self::HEAD_HEIGHT);
                 $s->getRowDimension($this->subHead)->setRowHeight(self::SUB_HEAD_HEIGHT);
 
-                // In-house: header B:M, rows and total B:M, SUM cells J:L light orange
-                $s->getStyle("B{$this->inHead}:M{$this->inHead}")->applyFromArray($thin + $yellow);
-                $s->getStyle("B{$this->inHead}:M{$this->inHead}")->getAlignment()->setWrapText(true);
-                $s->getStyle('B' . ($this->inHead + 1) . ":M{$this->inTotal}")->applyFromArray($thin);
+                // In-house: header, rows and total B:L, SUM cells J:L light orange
+                $s->getStyle("B{$this->inHead}:L{$this->inHead}")->applyFromArray($thin + $yellow);
+                $s->getStyle("B{$this->inHead}:L{$this->inHead}")->getAlignment()->setWrapText(true);
+                $s->getStyle('B' . ($this->inHead + 1) . ":L{$this->inTotal}")->applyFromArray($thin);
                 if ($this->inTotal - 1 > $this->inHead) { // data rows are white-filled in the reference
-                    $s->getStyle('B' . ($this->inHead + 1) . ':M' . ($this->inTotal - 1))
+                    $s->getStyle('B' . ($this->inHead + 1) . ':L' . ($this->inTotal - 1))
                         ->applyFromArray(['fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFFFF']]]);
                 }
                 $s->getStyle("J{$this->inTotal}:L{$this->inTotal}")->applyFromArray($orange);
                 $s->getStyle('J' . ($this->inHead + 1) . ":L{$this->inTotal}")->getNumberFormat()->setFormatCode('0.000');
                 $s->getStyle('D' . ($this->inHead + 1) . ":D{$this->inTotal}")->getNumberFormat()->setFormatCode('dd.mm.yyyy');
-                $s->getStyle('B' . ($this->inHead + 1) . ":M{$this->inTotal}")->getAlignment()->setWrapText(true);
+                $s->getStyle('B' . ($this->inHead + 1) . ":L{$this->inTotal}")->getAlignment()->setWrapText(true);
 
                 // Sub-contract: header B:J, rows and total B:J, SUM cell J light orange
                 $s->getStyle("B{$this->subHead}:J{$this->subHead}")->applyFromArray($thin + $yellow);

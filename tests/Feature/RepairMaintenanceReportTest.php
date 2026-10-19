@@ -148,8 +148,9 @@ class RepairMaintenanceReportTest extends TestCase
         $this->assertStringEndsWith('(22.01.2026 to 21.02.2026)', $jan->getCell('B1')->getValue());
         $this->assertSame('Complaint Number', $jan->getCell('B3')->getValue());
         $this->assertSame('Total Amount RO', $jan->getCell('L3')->getValue());
-        $this->assertSame('Service Report No', $jan->getCell('M3')->getValue());
-        $this->assertStringStartsWith('SERV', $jan->getCell('M4')->getValue());
+        $this->assertNull($jan->getCell('M3')->getValue());
+        $this->assertTrue(is_numeric($jan->getCell('B4')->getValue()));
+        $this->assertSame(substr($in[1][0]->complaint_no, 3), (string) $jan->getCell('B4')->getValue());
 
         // reference layout: widths, heights, yellow header, bold, light orange totals
         $this->assertEquals(45.14, $jan->getColumnDimension('G')->getWidth());
