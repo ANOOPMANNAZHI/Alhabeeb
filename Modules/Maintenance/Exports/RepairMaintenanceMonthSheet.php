@@ -14,13 +14,14 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 /**
  * One month of the Repair & Maintenance Report, laid out like the back office's own building workbook:
- * an In-house table (complaint, technician, material / labour / total) and a Sub-contract table (vendor, total),
- * each with a SUM total row. Amounts are the maintenance invoice line amounts.
+ * an In-house table (one row per service report dated in the month: complaint, technician, material / labour /
+ * total from the service report) and a Sub-contract table (vendor invoice lines dated in the month), each with a
+ * SUM total row.
  */
 class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, WithStrictNullComparison
 {
-    const IN_HOUSE_HEAD = ['Complaint Number', 'Complaint type', 'Date', 'Building Name', 'Location/Unit No', 'Description',
-        'Technician', 'Category', 'Material Charges', 'Labour Charges', 'Total Amount RO'];
+    const IN_HOUSE_HEAD = ['Complaint Number', 'Service Report No', 'Complaint type', 'Date', 'Building Name', 'Location/Unit No',
+        'Description', 'Technician', 'Category', 'Material Charges', 'Labour Charges', 'Total Amount RO'];
     const SUB_HEAD = ['Sr No', 'Complaint type', 'Date', 'Building Name', 'Location/Unit No', 'Description',
         'Sub Contract', 'Category', 'Total Amount RO'];
 
@@ -64,8 +65,9 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
         foreach ($this->inHouse as $r) {
             $rows[] = [
                 $r->complaint_no ?: '',
+                $r->service_report_no,
                 RepairMaintenanceReport::complaintType($r->priority),
-                self::excelDate($r->complaint_date),
+                self::excelDate($r->sr_date),
                 $this->buildingName,
                 $r->unit_no ?: 'Common',
                 $r->description ?: '',
@@ -77,12 +79,12 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
             ];
         }
         if (count($this->inHouse) === 0) {
-            $rows[] = ['No in-house work invoiced this month'];
+            $rows[] = ['No service reports this month'];
         }
         $last   = count($rows);
         $rows[] = count($this->inHouse) > 0
-            ? ['', '', '', '', '', '', '', 'Total', "=SUM(I{$this->inFirst}:I{$last})", "=SUM(J{$this->inFirst}:J{$last})", "=SUM(K{$this->inFirst}:K{$last})"]
-            : ['', '', '', '', '', '', '', 'Total', 0, 0, 0];
+            ? ['', '', '', '', '', '', '', '', 'Total', "=SUM(J{$this->inFirst}:J{$last})", "=SUM(K{$this->inFirst}:K{$last})", "=SUM(L{$this->inFirst}:L{$last})"]
+            : ['', '', '', '', '', '', '', '', 'Total', 0, 0, 0];
         $this->inTotal = count($rows);
 
         $rows[] = [''];
@@ -106,7 +108,7 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
             ];
         }
         if ($n === 0) {
-            $rows[] = ['No sub-contract work invoiced this month'];
+            $rows[] = ['No vendor invoices this month'];
         }
         $last   = count($rows);
         $rows[] = $n > 0
@@ -143,11 +145,11 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
                 $s->getStyle('A3')->getFont()->setBold(true);
                 $s->getStyle('A' . ($this->subHead - 1))->getFont()->setBold(true);
 
-                $s->getStyle("A{$this->inHead}:K{$this->inHead}")->applyFromArray($head);
-                $s->getStyle("A{$this->inFirst}:K{$this->inTotal}")->applyFromArray($thin);
-                $s->getStyle("I{$this->inFirst}:K{$this->inTotal}")->getNumberFormat()->setFormatCode('0.000');
-                $s->getStyle("C{$this->inFirst}:C{$this->inTotal}")->getNumberFormat()->setFormatCode('dd.mm.yyyy');
-                $s->getStyle("H{$this->inTotal}:K{$this->inTotal}")->getFont()->setBold(true);
+                $s->getStyle("A{$this->inHead}:L{$this->inHead}")->applyFromArray($head);
+                $s->getStyle("A{$this->inFirst}:L{$this->inTotal}")->applyFromArray($thin);
+                $s->getStyle("J{$this->inFirst}:L{$this->inTotal}")->getNumberFormat()->setFormatCode('0.000');
+                $s->getStyle("D{$this->inFirst}:D{$this->inTotal}")->getNumberFormat()->setFormatCode('dd.mm.yyyy');
+                $s->getStyle("I{$this->inTotal}:L{$this->inTotal}")->getFont()->setBold(true);
 
                 $s->getStyle("A{$this->subHead}:I{$this->subHead}")->applyFromArray($head);
                 $s->getStyle("A{$this->subFirst}:I{$this->subTotal}")->applyFromArray($thin);
@@ -155,11 +157,12 @@ class RepairMaintenanceMonthSheet implements FromArray, WithEvents, WithTitle, W
                 $s->getStyle("C{$this->subFirst}:C{$this->subTotal}")->getNumberFormat()->setFormatCode('dd.mm.yyyy');
                 $s->getStyle("H{$this->subTotal}:I{$this->subTotal}")->getFont()->setBold(true);
 
-                $s->getStyle("A{$this->inFirst}:K{$this->subTotal}")->getAlignment()->setVertical('top');
-                $s->getStyle("F{$this->inFirst}:F{$this->subTotal}")->getAlignment()->setWrapText(true);
+                $s->getStyle("A{$this->inFirst}:L{$this->subTotal}")->getAlignment()->setVertical('top');
+                $s->getStyle("G{$this->inFirst}:G{$this->inTotal}")->getAlignment()->setWrapText(true);
+                $s->getStyle("F{$this->subFirst}:F{$this->subTotal}")->getAlignment()->setWrapText(true);
                 $s->getStyle("A{$this->inFirst}:A{$this->subTotal}")->getAlignment()->setHorizontal('left');
 
-                $widths = ['A' => 16, 'B' => 14, 'C' => 12, 'D' => 22, 'E' => 16, 'F' => 46, 'G' => 22, 'H' => 18, 'I' => 15, 'J' => 15, 'K' => 16];
+                $widths = ['A' => 16, 'B' => 16, 'C' => 14, 'D' => 14, 'E' => 22, 'F' => 40, 'G' => 40, 'H' => 22, 'I' => 18, 'J' => 15, 'K' => 15, 'L' => 16];
                 foreach ($widths as $col => $w) {
                     $s->getColumnDimension($col)->setWidth($w);
                 }
