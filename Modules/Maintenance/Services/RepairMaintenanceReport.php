@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
  *   labour / total charges entered on the service report (complaint_service_report_inv) and the complaint behind it.
  * - Sub-contract: vendor invoice lines (maintenance invoices) in the month of the invoice date. Invoice lines that
  *   bill a service report (linked by service_report_id, or naming its SERV no.) are left out: that work is In-house.
+ * Months: calendar, or the building's own period (PERIOD_START_DAY). Rows with no charge (0.000) are left out,
+ * as in the back office's own workbook.
  * PHP < 7.4 in production: no arrow functions.
  */
 class RepairMaintenanceReport
@@ -122,6 +124,7 @@ class RepairMaintenanceReport
                     JOIN complaint_enquiries ce ON ce.id = cc.complaint_enquiries_id
                     WHERE ce.building_id = ?)
               AND cs.created_at >= ? AND cs.created_at < ?
+              AND COALESCE(ch.amount, 0) <> 0
             ORDER BY cs.created_at, cs.id",
             [$buildingId, $from, $to]);
         return self::byMonth($rows);
@@ -144,6 +147,7 @@ class RepairMaintenanceReport
             LEFT JOIN units u ON u.id = mid.unit_id
             WHERE mi.deleted_at IS NULL AND sr.id IS NULL AND mid.building_id = ?
               AND mi.maintenance_invoice_date >= ? AND mi.maintenance_invoice_date < ?
+              AND COALESCE(CAST(NULLIF(TRIM(mid.debit_amt), '') AS numeric), 0) <> 0
             ORDER BY mi.maintenance_invoice_date, mid.id",
             array_merge([$buildingId], self::range($year, self::startDay($buildingId))));
         return self::byMonth($rows);

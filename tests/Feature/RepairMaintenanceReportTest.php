@@ -73,7 +73,9 @@ class RepairMaintenanceReportTest extends TestCase
             WHERE cs.created_at >= ? AND cs.created_at < ? AND cs.id IN (
                 SELECT csr.complaint_service_report_id FROM complaint_service_report_checklist csr
                 JOIN complaint_checklists cc ON cc.id = csr.checklist_id
-                JOIN complaint_enquiries ce ON ce.id = cc.complaint_enquiries_id WHERE ce.building_id = ?)", [$from, $to, $buildingId]);
+                JOIN complaint_enquiries ce ON ce.id = cc.complaint_enquiries_id WHERE ce.building_id = ?)
+              AND (SELECT COALESCE(SUM(total_charge), 0) FROM complaint_service_report_inv ci WHERE ci.complaint_service_report_id = cs.id) <> 0",
+            [$from, $to, $buildingId]);
     }
 
     private function expectedInvoiceLines($buildingId, $from, $to)
@@ -83,7 +85,8 @@ class RepairMaintenanceReportTest extends TestCase
             WHERE mi.deleted_at IS NULL AND mid.building_id = ? AND mi.maintenance_invoice_date >= ? AND mi.maintenance_invoice_date < ?
               AND mid.service_report_id IS NULL
               AND NOT EXISTS (SELECT 1 FROM complaint_service_report cs WHERE TRIM(mid.invoice_desc) LIKE 'SERV%'
-                              AND cs.service_report_no = split_part(TRIM(mid.invoice_desc), ' ', 1))", [$buildingId, $from, $to]);
+                              AND cs.service_report_no = split_part(TRIM(mid.invoice_desc), ' ', 1))
+              AND COALESCE(CAST(NULLIF(TRIM(mid.debit_amt), '') AS numeric), 0) <> 0", [$buildingId, $from, $to]);
     }
 
     private function assertSameReports(array $expected, array $rows)
@@ -104,6 +107,20 @@ class RepairMaintenanceReportTest extends TestCase
         foreach ($rows as $r) { $got[(int) $r->line_id] = round((float) $r->amount, 3); }
         ksort($want); ksort($got);
         $this->assertSame($want, $got);
+    }
+
+    public function test_zero_charge_rows_are_left_out()
+    {
+        $nos = [];
+        foreach ([RepairMaintenanceReport::inHouse(self::AL_THEMAR, 2026), RepairMaintenanceReport::subContract(self::AL_THEMAR, 2026)] as $section) {
+            foreach ($section as $rows) {
+                foreach ($rows as $r) {
+                    $this->assertNotEquals(0.0, (float) $r->amount);
+                    if (isset($r->service_report_no)) { $nos[] = $r->service_report_no; }
+                }
+            }
+        }
+        $this->assertNotContains('SERV42296', $nos); // gas leak 22.02.2026, no charges
     }
 
     public function test_invoice_lines_billing_a_service_report_are_not_sub_contract()
