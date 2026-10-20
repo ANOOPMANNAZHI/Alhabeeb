@@ -65,6 +65,8 @@
                        <th>@sortablelink('voucher_no','Voucher No.',[],[ 'class' => 'invoice_sort' ])</th>
                        <th>@sortablelink('jv_refer_no','JV Ref No.',[],[ 'class' => 'invoice_sort' ])</th>
                        <th>@sortablelink('doc_date','Doc Date',[],[ 'class' => 'invoice_sort' ])</th>
+                       <th>Building</th>
+                       <th>Unit</th>
                        <th>@sortablelink('bank.bank_name','Bank',[],[ 'class' => 'invoice_sort' ])</th>
                        <th>@sortablelink('amount','Amount',[],[ 'class' => 'invoice_sort' ])</th>
                       
@@ -93,6 +95,8 @@
                             <td><input autocomplete="off" type="text" name="search_fields[voucher_no]" class="search_fields " id="voucher_no" value="{{old('voucher_no')}}" ></td>
                             <td><input autocomplete="off" type="text" name="search_fields[jv_refer_no]" class="search_fields " id="jv_refer_no" value="{{old('jv_refer_no')}}" ></td>
                             <td><input autocomplete="off" type="date" name="search_fields[doc_date]" class="search_fields" id="doc_date"  value="{{old('doc_date')}}" ></td>                          
+                            <td></td>
+                            <td></td>
                                                    
                             <td><input autocomplete="off" type="text" name="search_fields[bank__bank_name]" class="search_fields" id="bank__bank_name"  value="{{old('bank__bank_name')}}" ></td>                          
                             <td><input autocomplete="off" type="text" name="search_fields[amount]" class="search_fields" id="amount"  value="{{old('amount')}}" ></td> 
@@ -275,7 +279,7 @@ $(document).on('change keyup paste','.search_fields',function(){
             "_token" : $('meta[name="csrf-token"]').attr('content')},        
         beforeSend: function(){
                 // Show image container
-                $('#search').html("<tr><td colspan='11' align='center'><img src='{{url('/')}}/public/img/pre-loader.gif' width='75' height='75'></td></tr>");        
+                $('#search').html("<tr><td colspan='13' align='center'><img src='{{url('/')}}/public/img/pre-loader.gif' width='75' height='75'></td></tr>");        
                },
         success: function(data){  
 

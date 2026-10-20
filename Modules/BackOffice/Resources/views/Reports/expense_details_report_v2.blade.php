@@ -44,7 +44,7 @@
               <label for="building_name">Building Name<small class="textRed">*</small></label>
               <div class="p-relative">
                 <i class="fa fa-codepen icn-add" aria-hidden="true"></i>
-                 <select class="form-control" name="building_name" id="building_name">
+                 <select class="form-control" name="building_name" id="building_name" data-searchable="Search building…">
                     <option value="">All Buildings</option>
                     @foreach($buildings as $building)
                     <option value={{$building->id}}>{{$building->building_name.'('.$building->building_code.')'}}</option>
@@ -126,6 +126,7 @@
 </div>
 @endsection
 @section('scripts')
+@include('backoffice::reports._searchable_select')
 <script>
 $(function(){
   var pdfExcelAction = "{{ route('expenseDetailsReportPdfV2') }}";
