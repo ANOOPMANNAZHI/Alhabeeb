@@ -139,8 +139,10 @@
   .lg .lg-bulk { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--lg-border); background:var(--lg-subtle); font-size:13px; }
   .lg .lg-bulk__count b { font-variant-numeric:tabular-nums; }
   .lg .lg-bulk__menu { margin-left:auto; }
-  .lg .lg-bulk__menu .dropdown-item { font-size:13px; padding:8px 14px; }
-  .lg .lg-bulk__menu .dropdown-item i { width:16px; color:var(--lg-muted); }
+  .lg .lg-bulk__menu .dropdown-menu { width:auto; min-width:250px; right:0; left:auto; padding:6px 0; border:1px solid var(--lg-border); border-radius:8px; box-shadow:0 10px 24px rgba(15,23,42,.12); }
+  .lg .lg-bulk__menu .dropdown-item { display:flex; align-items:center; gap:10px; width:100%; white-space:nowrap; font-size:13px; line-height:1.4; padding:9px 16px; color:var(--lg-ink); background:transparent; }
+  .lg .lg-bulk__menu .dropdown-item:hover, .lg .lg-bulk__menu .dropdown-item:focus { background:var(--lg-subtle); color:var(--lg-ink); text-decoration:none; }
+  .lg .lg-bulk__menu .dropdown-item i { width:16px; text-align:center; color:var(--lg-muted); }
   .lg .lg-table .lg-bulk-col { width:36px; text-align:center; }
   .lg .lg-table .lg-bulk-col input { width:16px; height:16px; cursor:pointer; }
   .lg-modal .lg-bulk__confirm { margin:12px 0 6px; font-size:14px; }
