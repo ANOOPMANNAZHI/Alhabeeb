@@ -83,10 +83,10 @@
   $lastTerm = $tc->terminationContract;
   $fmtDate = function ($d) { return $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : 'NA'; };
   $inspection = \Modules\BackOffice\Entities\Termination::where('contract_id', $tc->id)->whereNotNull('termination_total_amount')->orderBy('id', 'desc')->first();
-  // whole tenancy on this unit (first contract start -> tenancy end), as on the handover inspection
+  // this contract only (start -> valid to), user 20/10/2026
   $duration = null;
-  if (optional($tenancyStartDt)->tenant_contract_start_date && $tc->tenant_contract_valid_to_date) {
-      $d = contractDurationCalculation($tenancyStartDt->tenant_contract_start_date, $tc->tenant_contract_valid_to_date);
+  if ($tc->tenant_contract_start_date && $tc->tenant_contract_valid_to_date) {
+      $d = contractDurationCalculation($tc->tenant_contract_start_date, $tc->tenant_contract_valid_to_date);
       $duration = $d['year'] . ' Year ' . $d['month'] . ' Month ' . $d['day'] . ' Days';
   }
 @endphp
@@ -165,7 +165,7 @@
         </tr>
         <tr>
           <th>Tenancy start</th><td>{{ $fmtDate(optional($tenancyStartDt)->tenant_contract_start_date) }}</td>
-          <th>Total duration</th><td>{{ $duration ?: 'NA' }}</td>
+          <th>Contract duration</th><td>{{ $duration ?: 'NA' }}</td>
         </tr>
         <tr>
           <th>Deposit</th><td>{{ $deposit['has_deposit'] ? numberFormat($deposit['held']) . ' OMR' : 'NA' }}</td>
