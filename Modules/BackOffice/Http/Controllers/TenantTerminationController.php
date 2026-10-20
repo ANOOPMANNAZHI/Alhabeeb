@@ -1691,7 +1691,19 @@ class TenantTerminationController extends Controller
 
      $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $tenantOs['current']['outstanding'] + $totalOutstanding, $totalOutstanding);
 
-     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenantOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
+     // Last paid up to: created rent receipts count, not only posted ones (the contract column moves on posting)
+     $postedTill = $tenantContract->tenant_contract_last_paid_date ? $tenantContract->tenant_contract_last_paid_date->format('Y-m-d') : null;
+     $lastPaidTill = max((string) $tenantOs['paid_till'], (string) $postedTill) ?: null;
+     // usage is kept on the contract and is often blank on renewals: latest filled-in value for the unit
+     $unitUsage = trim((string) $tenantContract->unit_usage);
+     if ($unitUsage === '' || strtolower($unitUsage) === 'null') {
+       $unitUsage = TenantContract::where('unit_id', $tenantContract->unit_id)
+         ->whereRaw("LENGTH(TRIM(unit_usage)) > 0 AND LOWER(unit_usage) <> 'null'")
+         ->orderBy('id', 'desc')->value('unit_usage');
+     }
+     $areName = optional(optional(optional(optional(optional($tenantContract->building)->buildingAssignToAre)->buildingAssignToName)->areUser)->employee)->employee_name;
+
+     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenantOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested','lastPaidTill','postedTill','unitUsage','areName'));
 
    }
 
@@ -1714,7 +1726,7 @@ class TenantTerminationController extends Controller
       // Which months make up the outstanding rent, so the inspector can verify it
       $paidTill = ReceiptsGeneration::where('tenant_contract_id', $tenantContract->id)
         ->where('receipts_generation_type', 0)
-        ->whereIn('receipts_generation_approval_status', RentOutstanding::COUNTED_APPROVAL)
+        ->whereIn('receipts_generation_approval_status', RentOutstanding::CREATED_APPROVAL)
         ->where('receipts_generation_status', '<>', RentOutstanding::STATUS_CANCELLED)
         ->whereNull('deleted_at')
         ->max('receipts_generation_eff_to');

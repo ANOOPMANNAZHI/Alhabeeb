@@ -8,12 +8,13 @@
   .insp .card-box:hover { transform:none; }
 
   /* Identity strip: building / unit / contract — same layout as the taken-over view */
-  .insp .i-id { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
+  .insp .i-id { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
   .insp .i-id-tile { border:1px solid var(--i-line); border-radius:var(--i-radius); padding:16px; background:#fff; min-width:0; }
   .insp .i-id-tile .i-lbl { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--i-muted); margin-bottom:8px; }
   .insp .i-id-tile .i-big { display:block; font-size:20px; line-height:1.3; font-weight:800; color:var(--i-ink); word-break:break-word; }
   .insp .i-id-tile .i-meta { display:block; font-size:13px; color:var(--i-muted); margin-top:4px; word-break:break-word; }
   .insp .i-id-tile.i-id-primary { border-color:var(--i-blue); background:var(--i-blue-soft); }
+  @media (max-width: 1200px) { .insp .i-id { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 900px) { .insp .i-id { grid-template-columns:1fr; } }
 
   /* Details: label/value table, two pairs per row on wide screens */
@@ -157,10 +158,11 @@
   $tc   = $tenantContract;
   $hasInspection = count($tc->terminationChecklist) > 0;
   $fmtDate = function ($d) { return $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : 'NA'; };
+  // whole tenancy on this unit (first contract start -> tenancy end), as on the taken-over view
   $duration = null;
-  if ($tc->tenant_contract_duration_countdown) {
-      $p = explode('-', $tc->tenant_contract_duration_countdown);
-      $duration = (isset($p[0]) ? $p[0] . ' Year ' : '') . (isset($p[1]) ? $p[1] . ' Month ' : '') . (isset($p[2]) ? $p[2] . ' Days' : '');
+  if (optional($tenancyStartDt)->tenant_contract_start_date && $tc->tenant_contract_valid_to_date) {
+      $d = contractDurationCalculation($tenancyStartDt->tenant_contract_start_date, $tc->tenant_contract_valid_to_date);
+      $duration = $d['year'] . ' Year ' . $d['month'] . ' Month ' . $d['day'] . ' Days';
   }
 @endphp
 <div class="page-bar">
@@ -209,12 +211,17 @@
       <div class="i-id-tile">
         <span class="i-lbl">Unit</span>
         <span class="i-big">{{ $tc->unit->unit_no }}</span>
-        <span class="i-meta">{{ optional($tc->unit->unit)->unit_types_name ?? 'Type NA' }}{{ !empty($tc->unit->vacant_status_name) ? ' · ' . $tc->unit->vacant_status_name : '' }}</span>
+        <span class="i-meta">{{ optional($tc->unit->unit)->unit_types_name ?? 'Type NA' }} · {{ $unitUsage ?: 'Usage NA' }}{{ !empty($tc->unit->vacant_status_name) ? ' · ' . $tc->unit->vacant_status_name : '' }}</span>
       </div>
       <div class="i-id-tile">
         <span class="i-lbl">Contract</span>
         <span class="i-big">{{ $tc->tenant_contract_no }}</span>
         <span class="i-meta"><span class="i-pill" style="background:var(--i-line)">{{ $tc->tenant_contract_status_name }}</span></span>
+      </div>
+      <div class="i-id-tile">
+        <span class="i-lbl">CA (ARE)</span>
+        <span class="i-big">{{ $areName ?: 'Not assigned' }}</span>
+        <span class="i-meta">Building assigned to</span>
       </div>
     </div>
 
@@ -230,7 +237,7 @@
           <th>Total duration</th><td>{{ $duration ?: 'NA' }}</td>
         </tr>
         <tr>
-          <th>Last paid up to</th><td>{{ $fmtDate($tc->tenant_contract_last_paid_date) }}</td>
+          <th>Last paid up to</th><td>{{ $fmtDate($lastPaidTill) }}@if($lastPaidTill && $lastPaidTill > (string) $postedTill)<span class="i-auto-hint" style="display:block">Includes receipts not yet posted (posted up to {{ $fmtDate($postedTill) }})</span>@endif</td>
           <th>Deposit cheque no &amp; amount</th><td>{{ !empty($depositeCheque) ? $depositeCheque->pdc_check_no . ' · ' . numberFormat($depositeCheque->pdc_amt) . ' OMR' : 'N/A' }}</td>
         </tr>
       </table>
