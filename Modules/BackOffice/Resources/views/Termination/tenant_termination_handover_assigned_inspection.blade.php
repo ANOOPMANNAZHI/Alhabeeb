@@ -36,6 +36,7 @@
   .insp .i-head { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 18px 6px; }
   .insp .i-head .i-title { font-size:18px; font-weight:800; margin:0; }
   .insp .i-head .i-sub { color:var(--i-muted); font-size:13px; }
+  .insp .i-head .i-sub.i-contact { font-size:16px; line-height:1.6; margin-top:4px; }
   .insp .i-head .i-actions { margin-left:auto; display:flex; gap:8px; }
   .insp details.i-more { border-top:1px solid var(--i-line); margin-top:12px; }
   .insp details.i-more > summary { list-style:none; cursor:pointer; padding:12px 0 4px; font-weight:600; color:var(--i-blue); font-size:13px; display:flex; align-items:center; gap:6px; min-height:var(--i-tap); }
@@ -183,7 +184,7 @@
     <div class="i-head">
       <div>
         <h3 class="i-title">{{ $tc->tenant->tenant_name }}</h3>
-        <div class="i-sub">@include('backoffice::Termination._tenant_contact', ['tenant' => $tc->tenant])</div>
+        <div class="i-sub i-contact">@include('backoffice::Termination._tenant_contact', ['tenant' => $tc->tenant, 'stacked' => true])</div>
         <div class="i-os">
           @if($outstandingOs > 0)
             <a href="#" class="i-pill i-pill-warn tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">Outstanding {{ numberFormat($outstandingOs) }} OMR</a>
