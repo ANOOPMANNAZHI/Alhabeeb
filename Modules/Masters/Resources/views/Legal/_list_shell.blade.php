@@ -29,7 +29,7 @@
       <table class="lg-table" id="dtBasicExample">
         <thead>
           <tr>
-            @if($lgBulkOn)<th scope="col" class="lg-bulk-col"><input type="checkbox" id="lg_bulk_page" aria-label="Select the cases on this page" title="Select the cases on this page"></th>@endif
+            @if($lgBulkOn)<th scope="col" class="lg-bulk-col"><input type="checkbox" id="lg_bulk_page" aria-label="Select all cases matching the filters (all pages)" title="Select all cases matching the filters (all pages)"></th>@endif
             <th scope="col">@sortablelink('tenantContract.tenant_contract_no','Agreement',[],[ 'class' => 'sort_url'])</th>
             <th scope="col">@sortablelink('tenant.tenant_name','Tenant',[],[ 'class' => 'sort_url'])</th>
             <th scope="col">@sortablelink('building.building_name','Building',[],[ 'class' => 'sort_url'])</th>

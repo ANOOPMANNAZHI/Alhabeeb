@@ -5,18 +5,9 @@
      Needs $lgBulk (['assign', 'close', 'handover' => bool]), $bulkCases (id => ['u' => 1 when no lawyer, 'h' => handled by
      the building suggests], for every case matching the filter bar) and $lcLawyers. The selection is kept in JS, so it
      survives paging and the column filters that swap the rows by ajax. --}}
-@php
-  $LC = \Modules\Masters\Services\LegalCase::class;
-  $bulkUnassigned = count(array_filter($bulkCases, function ($c) { return $c['u']; }));
-@endphp
+@php $LC = \Modules\Masters\Services\LegalCase::class; @endphp
 <div class="lg-bulk" id="lg_bulk">
   <span class="lg-bulk__count"><b id="lg_bulk_n">0</b> selected</span>
-  @if(count($bulkCases))
-  <button type="button" class="lg-btn lg-btn--ghost lg-btn--sm" id="lg_bulk_all">Select all {{ count($bulkCases) }} matching</button>
-  @endif
-  @if($lgBulk['assign'] && $bulkUnassigned)
-  <button type="button" class="lg-btn lg-btn--ghost lg-btn--sm" id="lg_bulk_all_un">Select all {{ $bulkUnassigned }} with no lawyer</button>
-  @endif
   <button type="button" class="lg-btn lg-btn--ghost lg-btn--sm" id="lg_bulk_clear" hidden>Clear</button>
   <div class="dropdown lg-bulk__menu">
     <button type="button" class="lg-btn lg-btn--primary lg-btn--sm dropdown-toggle" id="lg_bulk_open" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" disabled>
@@ -169,13 +160,11 @@ document.addEventListener('DOMContentLoaded', function () {
   function el(id) { return document.getElementById(id); }
 
   function sync() {
-    var boxes = document.querySelectorAll('.lg-bulk-chk'), onPage = 0, on = 0;
-    for (var i = 0; i < boxes.length; i++) {
-      boxes[i].checked = picked.hasOwnProperty(boxes[i].value);
-      onPage++; if (boxes[i].checked) on++;
-    }
-    var head = el('lg_bulk_page');
-    if (head) { head.checked = onPage > 0 && on === onPage; head.indeterminate = on > 0 && on < onPage; head.disabled = onPage === 0; }
+    var boxes = document.querySelectorAll('.lg-bulk-chk');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = picked.hasOwnProperty(boxes[i].value);
+    // header box = every case matching the filters, across all pages
+    var head = el('lg_bulk_page'), total = Object.keys(all).length;
+    if (head) { head.checked = total > 0 && n() === total; head.indeterminate = n() > 0 && n() < total; head.disabled = total === 0; }
     el('lg_bulk_n').textContent = n();
     el('lg_bulk_open').disabled = n() === 0;
     el('lg_bulk_clear').hidden = n() === 0;
@@ -189,15 +178,13 @@ document.addEventListener('DOMContentLoaded', function () {
     var t = e.target;
     if (t.classList && t.classList.contains('lg-bulk-chk')) { pick(t, t.checked); sync(); }
     else if (t.id === 'lg_bulk_page') {
-      var boxes = document.querySelectorAll('.lg-bulk-chk');
-      for (var i = 0; i < boxes.length; i++) pick(boxes[i], t.checked);
+      picked = {};
+      if (t.checked) for (var id in all) picked[id] = all[id];
       sync();
     } else if (t.id === 'lg_bulk_lawyer') { assignText(); }
     else if (t.id === 'lg_bulk_handled' || t.id === 'lg_bulk_date') { handoverText(); }
   });
   document.addEventListener('input', function (e) { if (e.target.id === 'lg_bulk_note') closeText(); });
-  if (el('lg_bulk_all')) el('lg_bulk_all').addEventListener('click', function () { for (var id in all) picked[id] = all[id]; sync(); });
-  if (el('lg_bulk_all_un')) el('lg_bulk_all_un').addEventListener('click', function () { for (var id in all) if (all[id].u) picked[id] = all[id]; sync(); });
   el('lg_bulk_clear').addEventListener('click', function () { picked = {}; sync(); });
 
   function assignText() {
