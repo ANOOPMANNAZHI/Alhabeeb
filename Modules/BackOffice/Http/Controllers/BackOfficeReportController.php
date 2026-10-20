@@ -3282,7 +3282,8 @@ public function showExpenseDetailsReportV2(){
       FROM general_ledgers gl
       JOIN general_ledger_dim gld ON gld.general_ledger_id = gl.id
       JOIN acc_codes ac ON ac.id = gld.account_id
-      WHERE gld.debit_amt <> '0' AND gl.deleted_at IS NULL AND ac.acc_code_val::text LIKE '4%'
+      WHERE gld.debit_amt <> '0' AND gl.deleted_at IS NULL
+        AND (ac.acc_code_val::text LIKE '4%' OR ac.acc_code_val IN (" . implode(',', NormalManagementConsolidateSheet::AMC_CODES) . "))
       ORDER BY ac.acc_code_val");
   return view('backoffice::reports.expense_details_report_v2', compact('buildings', 'glHeads'));
 }
@@ -3296,6 +3297,8 @@ public function showExpenseDetailsReportV2(){
  */
 private function expenseDetailsV2Query($date1, $date2, $buildingName, $expenseType = '', $glHead = '')
 {
+  // expense heads: 4xxx plus the AMC accounts (22307/22308/22309, from 04/10/2026), which are not 4xxx
+  $headFilter = "(acc_code_val::text ~~ '4%' OR acc_code_val IN (" . implode(',', NormalManagementConsolidateSheet::AMC_CODES) . "))";
   // "All": maintenance invoices + General Ledger. In-house / Subcontractor: maintenance-invoice
   // rows of that type only. General Ledger ('gl'): GL rows only.
   $expenseTypeFilter = '';
@@ -3342,7 +3345,7 @@ private function expenseDetailsV2Query($date1, $date2, $buildingName, $expenseTy
         INNER JOIN buildings b ON b.id = gld.building_id
         WHERE gld.debit_amt <> '0' AND deleted_at IS NULL
       ) a
-      WHERE acc_code_val::text ~~ '4%' AND (a.maintenance_invoice_date BETWEEN ? AND ?){$expenseTypeFilter}
+      WHERE {$headFilter} AND (a.maintenance_invoice_date BETWEEN ? AND ?){$expenseTypeFilter}
       ORDER BY acc_code_val, maintenance_invoice_no
     ";
     return DB::select($sql, array_merge([$date1, $date2], $params));
@@ -3376,7 +3379,7 @@ private function expenseDetailsV2Query($date1, $date2, $buildingName, $expenseTy
       INNER JOIN buildings b ON b.id = gld.building_id
       WHERE gld.debit_amt <> '0' AND deleted_at IS NULL
     ) a
-    WHERE acc_code_val::text ~~ '4%' AND (a.building_name = ?) AND (a.maintenance_invoice_date BETWEEN ? AND ?){$expenseTypeFilter}
+    WHERE {$headFilter} AND (a.building_name = ?) AND (a.maintenance_invoice_date BETWEEN ? AND ?){$expenseTypeFilter}
     ORDER BY acc_code_val, maintenance_invoice_no
   ";
   return DB::select($sql, array_merge([$buildingName, $date1, $date2], $params));
