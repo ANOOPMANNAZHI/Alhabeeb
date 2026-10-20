@@ -33,7 +33,14 @@
                     <td title="{{ $glUnits->implode(', ') }}">{{ $glUnits->first() }}@if($glUnits->count() > 1) <small style="color:#6b7280;white-space:nowrap">+{{ $glUnits->count() - 1 }} more</small>@endif</td>
                                    
                     <td><a class="no-link" href="{{route($view_url,$generalLedger->id)}}">{{(!empty($generalLedger->bank_id))? $generalLedger->bank->bank_name : '' }}</a></td> 
-                    <td><a class="no-link" href="{{route($view_url,$generalLedger->id)}}">{{numberFormat($generalLedger->amount)}}</a></td>
+                    @php
+                      // journals (and landlord invoices) save Amount as debit - credit, which is 0 when balanced:
+                      // show the journal's total debit; bank payments / receipts keep their own amount
+                      $glAmount = in_array((int) $generalLedger->general_ledger_type, [2, 4], true)
+                        ? $generalLedger->amount
+                        : $generalLedger->generalLedgerDim->sum(function ($d) { return (float) str_replace(',', '', (string) $d->debit_amt); });
+                    @endphp
+                    <td><a class="no-link" href="{{route($view_url,$generalLedger->id)}}">{{numberFormat($glAmount)}}</a></td>
 
                     @if($curr_url != route('generalLedgerApproval'))
 
