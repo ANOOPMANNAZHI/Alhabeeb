@@ -47,6 +47,7 @@ class LegalCase
         'stage' => 'Stage updated',
         'comment' => 'Comment',
         'reassigned' => 'Lawyer changed',
+        'lawyer_assigned' => 'Lawyer assigned',
         'closed' => 'Closed',
         'reopened' => 'Reopened',
         'type_changed' => 'Case type changed',
@@ -61,7 +62,13 @@ class LegalCase
     /** Default "handled by" for a building, from its ownership type. */
     public static function defaultHandledBy($buildingId)
     {
-        $ownership = (int) DB::table('buildings')->where('id', $buildingId)->value('building_ownership_type');
+        return self::handledByForOwnership(DB::table('buildings')->where('id', $buildingId)->value('building_ownership_type'));
+    }
+
+    /** Handled by that a building ownership type suggests: Government / MERA building, else Al Habib. */
+    public static function handledByForOwnership($ownership)
+    {
+        $ownership = (int) $ownership;
         if ($ownership === 2) {
             return self::HANDLED_GOVERNMENT;
         }

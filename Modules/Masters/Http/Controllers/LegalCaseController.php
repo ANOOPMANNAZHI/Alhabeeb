@@ -302,16 +302,12 @@ class LegalCaseController extends Controller
 
         $writeOff = $reason === 'written_off' ? LegalSettlement::writeOffAmount($settlement, $legal) : 0.0;
         DB::transaction(function () use ($legal, $reason, $request, $user, $settlement, $writeOff) {
-            $closedStage = DB::table('legal_stages')->where('is_final', true)->orderBy('sort_order')->value('id');
-            LegalCase::close($legal, $reason, $request->close_note, $user->id);
+            $this->closeRecords($legal, $reason, $request->close_note, $user->id);
             // the unpaid balance becomes a waiver, so it does not show as owed again (user, 18/10/2026)
             if ($writeOff > 0) {
                 LegalWaiver::writeOff($settlement, $legal->tenant_contract_id, $writeOff, $request->close_note, $user->id);
                 LegalCase::log($legal->id, 'settlement', 'Balance of ' . numberFormat($writeOff) . ' written off (recorded as a waiver).', $user->id);
             }
-            $legal->update(['stage_id' => $closedStage ?: $legal->stage_id, 'legal_is_closed' => 1]);
-            DB::table('tenant_contracts')->where('id', $legal->tenant_contract_id)->update(['status' => 0]);
-            $legal->legalUser()->update(['status' => 0]);
         });
         // ARE, PLM and the case's lawyer hear about the close (it used to be ARE only)
         LegalMessages::toRoles('legal_case_closed', ['are', 'backoffice_manager'], $legal->tenantContract);
@@ -320,6 +316,61 @@ class LegalCaseController extends Controller
         }
 
         return redirect()->route('legal.case', $legal->id)->with('success', 'Case closed: ' . LegalCase::reasonLabel($reason) . '.');
+    }
+
+    /** What closing a case changes: close date/reason + timeline, final stage, contract out of legal, process users done. */
+    private function closeRecords(Legal $legal, $reason, $note, $userId)
+    {
+        $closedStage = DB::table('legal_stages')->where('is_final', true)->orderBy('sort_order')->value('id');
+        LegalCase::close($legal, $reason, $note, $userId);
+        $legal->update(['stage_id' => $closedStage ?: $legal->stage_id, 'legal_is_closed' => 1]);
+        DB::table('tenant_contracts')->where('id', $legal->tenant_contract_id)->update(['status' => 0]);
+        $legal->legalUser()->update(['status' => 0]);
+    }
+
+    /**
+     * Bulk close from Active cases (user, 20/10/2026): old cases already finished outside the system.
+     * Reason Closed or Withdrawn with a note; the same rules as a single close otherwise - only active
+     * cases handled by Al Habib, none with a settlement in progress (those close from the case page as
+     * paid in full / written off). No messages are sent.
+     */
+    public function bulkClose(Request $request)
+    {
+        $user = \Auth::user();
+        abort_unless($user->can('legal_case_close'), 403);
+        $this->validate($request, [
+            'close_reason' => 'required|in:closed,withdrawn',
+            'close_note'   => 'required|max:1000',
+            'ids'          => 'required|array|max:5000',
+            'ids.*'        => 'integer',
+        ], ['ids.required' => 'Select at least one case.', 'close_note.required' => 'Give the reason for closing.']);
+
+        $ids = array_values(array_unique(array_map('intval', $request->ids)));
+        $note = trim($request->close_note) . ' (bulk close, Active cases)';
+        $closed = 0;
+        $withSettlement = 0;
+        foreach (Legal::whereIn('id', $ids)->get() as $legal) {
+            if (!LegalCase::isActive($legal)) {
+                continue;
+            }
+            $settlement = LegalSettlement::current($legal->id);
+            if ($settlement && in_array((int) $settlement->status, [LegalSettlement::PENDING, LegalSettlement::ACTIVE, LegalSettlement::COMPLETED], true)) {
+                $withSettlement++;
+                continue;
+            }
+            DB::transaction(function () use ($legal, $request, $note, $user) {
+                $this->closeRecords($legal, $request->close_reason, $note, $user->id);
+            });
+            $closed++;
+        }
+
+        $skipped = count($ids) - $closed;
+        $msg = $closed . ' case' . ($closed == 1 ? '' : 's') . ' closed (' . LegalCase::reasonLabel($request->close_reason) . ').';
+        if ($skipped > 0) {
+            $msg .= ' ' . $skipped . ' skipped' . ($withSettlement ? ' (' . $withSettlement . ' with a settlement - close those from the case page)' : '')
+                . ($skipped > $withSettlement ? ($withSettlement ? ',' : '') . ' (no longer active or not handled by Al Habib)' : '') . '.';
+        }
+        return redirect()->back()->with($closed ? 'success' : 'error', $msg);
     }
 
     /** Reopen a closed case as a new case linked to it (e.g. a settlement cheque bounced). */

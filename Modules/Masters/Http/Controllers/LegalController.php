@@ -777,14 +777,7 @@ private function handOver(Request $request, Legal $legal, $handledBy)
   $note = $request->legal_note;
 
   DB::transaction(function () use ($request, $legal, $handledBy, $userId, $note) {
-    $this->recordHandledBy($legal, $handledBy, $userId);
-    $legal->update(['handed_to_name' => $request->handed_to_name, 'handover_ref' => $request->handover_ref,
-                    'handover_date' => $request->handover_date, 'note' => $note]);
-    LegalCase::log($legal->id, 'handed_over', 'Handed over to ' . LegalCase::HANDLED_BY[$handledBy] . ': '
-      . $request->handed_to_name . ($request->handover_ref ? ' (ref ' . $request->handover_ref . ')' : '') . '. ' . $note,
-      $userId, ['event_date' => $request->handover_date]);
-    LegalCase::close($legal, 'handed_over', null, $userId);
-    $legal->legalUser()->update(['status' => 0]);
+    $this->handOverRecords($legal, $handledBy, $request->handed_to_name, $request->handover_ref, $request->handover_date, $note, $userId);
   });
   clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
 
@@ -793,6 +786,68 @@ private function handOver(Request $request, Legal $legal, $handledBy)
 
   session()->flash('success', 'Legal case handed over to ' . LegalCase::HANDLED_BY[$handledBy] . ' and closed.');
   return redirect()->route('plmsApproval');
+}
+
+/** What handing a case over changes: handled by + handover details + timeline, closed as handed over, process users done. */
+private function handOverRecords(Legal $legal, $handledBy, $name, $ref, $date, $note, $userId)
+{
+  $this->recordHandledBy($legal, $handledBy, $userId);
+  $legal->update(['handed_to_name' => $name, 'handover_ref' => $ref, 'handover_date' => $date, 'note' => $note]);
+  LegalCase::log($legal->id, 'handed_over', 'Handed over to ' . LegalCase::HANDLED_BY[$handledBy] . ': '
+    . $name . ($ref ? ' (ref ' . $ref . ')' : '') . '. ' . $note, $userId, ['event_date' => $date]);
+  LegalCase::close($legal, 'handed_over', null, $userId);
+  $legal->legalUser()->update(['status' => 0]);
+}
+
+/**
+ * Bulk hand over from Active cases (user, 20/10/2026): cases really handled by MERA, the government or
+ * the landlord. Handled by follows the building (MERA / Government ownership); cases in other buildings
+ * get the value picked. Same steps as the PLM hand over; only active cases handled by Al Habib; no messages.
+ */
+public function bulkHandOver(Request $request)
+{
+  $user = \Auth::user();
+  abort_unless($user->can('plms_approve'), 403);
+  $this->validate($request, [
+    'handled_by'     => 'required|in:2,3,4',
+    'handed_to_name' => 'nullable|max:150',
+    'handover_ref'   => 'nullable|max:100',
+    'handover_date'  => 'required|date|before_or_equal:today',
+    'legal_note'     => 'nullable|max:1000',
+    'ids'            => 'required|array|max:5000',
+    'ids.*'          => 'integer',
+  ], ['ids.required' => 'Select at least one case.', 'handover_date.before_or_equal' => 'The handover date cannot be in the future.']);
+
+  $ids = array_values(array_unique(array_map('intval', $request->ids)));
+  $note = trim((string) $request->legal_note);
+  $note = ($note !== '' ? $note . ' ' : '') . '(bulk hand over, Active cases)';
+  $done = [];
+  foreach (Legal::whereIn('id', $ids)->get() as $legal) {
+    if (!LegalCase::isActive($legal)) {
+      continue;
+    }
+    $handledBy = LegalCase::defaultHandledBy($legal->building_id);
+    if ($handledBy === LegalCase::HANDLED_ALHABIB) {
+      $handledBy = (int) $request->handled_by;
+    }
+    $name = trim((string) $request->handed_to_name) !== '' ? trim($request->handed_to_name) : LegalCase::HANDLED_BY[$handledBy];
+    DB::transaction(function () use ($legal, $handledBy, $name, $request, $note, $user) {
+      $this->handOverRecords($legal, $handledBy, $name, $request->handover_ref, $request->handover_date, $note, $user->id);
+    });
+    clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id);
+    $done[LegalCase::HANDLED_BY[$handledBy]] = (isset($done[LegalCase::HANDLED_BY[$handledBy]]) ? $done[LegalCase::HANDLED_BY[$handledBy]] : 0) + 1;
+  }
+
+  $count = array_sum($done);
+  $parts = [];
+  foreach ($done as $to => $k) {
+    $parts[] = $k . ' to ' . $to;
+  }
+  $msg = $count . ' case' . ($count == 1 ? '' : 's') . ' handed over' . ($parts ? ' (' . implode(', ', $parts) . ')' : '') . '.';
+  if (count($ids) > $count) {
+    $msg .= ' ' . (count($ids) - $count) . ' skipped (no longer active or not handled by Al Habib).';
+  }
+  return redirect()->back()->with($count ? 'success' : 'error', $msg);
 }
 
 private function recordHandledBy(Legal $legal, $handledBy, $userId)
@@ -1130,7 +1185,37 @@ public function activeCases(Request $request){
 
   $request->flash();  
 
-  $activeCasesBase = Legal::filter($request)
+  $activeCasesBase = $this->activeCasesQuery($request);
+  $activeCases = Legal::newestMovedFirst(Legal::latestPerGroup($activeCasesBase)->sortable())->paginate($this->noOfRecord);
+  Legal::attachGroupSiblings($activeCases, $activeCasesBase);
+
+  $quick_url =    $route   =  route('activeCases');
+
+  if(isset($request->ajax))
+    return view('masters::Legal.active_cases_list_ajax',compact('activeCases','request','route'));
+
+  $lcStages = DB::table('legal_stages')->where('is_final', false)->orderBy('sort_order')->get();
+  $lcLawyers = LegalCase::lawyers();
+  // bulk actions: Assign lawyer (PLM approvers, cases with no lawyer) and Close (legal_case_close);
+  // "select all" covers every case matching the filter bar, across all pages
+  $lgBulk = ['assign' => $user->can('plms_approve'), 'close' => $user->can('legal_case_close'), 'handover' => $user->can('plms_approve')];
+  $bulkCases = [];   // id => [u: 1 when no lawyer yet, h: handled by the building suggests (1 = Al Habib)]
+  if ($lgBulk['assign'] || $lgBulk['close']) {
+    $rows = (clone $activeCasesBase)->get(['legal.id', 'legal.lawyer_user_id', 'legal.building_id']);
+    $ownership = DB::table('buildings')->whereIn('id', $rows->pluck('building_id')->unique()->all())->pluck('building_ownership_type', 'id');
+    foreach ($rows as $row) {
+      $bulkCases[(int) $row->id] = ['u' => $row->lawyer_user_id ? 0 : 1,
+        'h' => LegalCase::handledByForOwnership(isset($ownership[$row->building_id]) ? $ownership[$row->building_id] : null)];
+    }
+  }
+  return view('masters::Legal.active_cases_list',compact('activeCases','request','enquiry_fields','operations','name','quick_url','lcStages','lcLawyers','lgBulk','bulkCases'));
+
+}
+
+/** Active cases (accepted by the lawyer, open) with the list's filter bar applied. */
+private function activeCasesQuery(Request $request)
+{
+  return Legal::filter($request)
   ->where('legal_is_closed',2)
   ->noteStatus($request)
   ->exceptEndStatus($request)
@@ -1142,22 +1227,57 @@ public function activeCases(Request $request){
                       ->when($request->lc_stage, function ($q) use ($request) {
                         $request->lc_stage === 'none' ? $q->whereNull('legal.stage_id') : $q->where('legal.stage_id', (int) $request->lc_stage);
                       })
-                      ->when($request->lc_lawyer, function ($q) use ($request) { $q->where('legal.lawyer_user_id', (int) $request->lc_lawyer); })
+                      ->when($request->lc_lawyer, function ($q) use ($request) {
+                        $request->lc_lawyer === 'none' ? $q->whereNull('legal.lawyer_user_id') : $q->where('legal.lawyer_user_id', (int) $request->lc_lawyer);
+                      })
+                      // building ownership (MERA / Government / Family / Individual), e.g. to hand over MERA cases in bulk
+                      ->when($request->lc_ownership, function ($q) use ($request) {
+                        $q->whereIn('legal.building_id', function ($b) use ($request) {
+                          $b->select('id')->from('buildings')->where('building_ownership_type', (int) $request->lc_ownership);
+                        });
+                      })
                       ->when($request->lc_hearing, function ($q) {
                         $q->whereBetween('legal.next_hearing_date', [date('Y-m-d'), date('Y-m-d', strtotime('+7 days'))]);
                       });
-  $activeCases = Legal::newestMovedFirst(Legal::latestPerGroup($activeCasesBase)->sortable())->paginate($this->noOfRecord);
-  Legal::attachGroupSiblings($activeCases, $activeCasesBase);
+}
 
-  $quick_url =    $route   =  route('activeCases');
+/**
+ * Bulk assign a lawyer to active cases that have none (user, 20/10/2026). PLM approvers only;
+ * a case that already has a lawyer, or is no longer active, is skipped. Each case gets a timeline
+ * entry; no message is sent to the lawyer.
+ */
+public function bulkAssignLawyer(Request $request)
+{
+  $user = \Auth::user();
+  abort_unless($user->can('plms_approve'), 403);
+  $lawyers = LegalCase::lawyers();
+  $this->validate($request, [
+    'lawyer_user_id' => 'required|in:' . (implode(',', array_keys($lawyers)) ?: '0'),
+    'ids'            => 'required|array|max:5000',
+    'ids.*'          => 'integer',
+  ], ['lawyer_user_id.in' => 'Pick an active lawyer.', 'ids.required' => 'Select at least one case.']);
 
-  if(isset($request->ajax))
-    return view('masters::Legal.active_cases_list_ajax',compact('activeCases','request','route'));
+  $lawyerId = (int) $request->lawyer_user_id;
+  $ids = array_values(array_unique(array_map('intval', $request->ids)));
+  $assigned = DB::transaction(function () use ($ids, $lawyerId, $lawyers, $user) {
+    $cases = Legal::whereIn('id', $ids)->where('legal_is_closed', 2)->where('work_flow_processes_code', 803)
+      ->whereNull('closed_at')->whereNull('lawyer_user_id')->lockForUpdate()->pluck('id');
+    if ($cases->isEmpty()) {
+      return 0;
+    }
+    Legal::whereIn('id', $cases)->update(['lawyer_user_id' => $lawyerId]);
+    foreach ($cases as $id) {
+      LegalCase::log($id, 'lawyer_assigned', 'Lawyer assigned: ' . $lawyers[$lawyerId] . ' (bulk, Active cases)', $user->id);
+    }
+    return $cases->count();
+  });
 
-  $lcStages = DB::table('legal_stages')->where('is_final', false)->orderBy('sort_order')->get();
-  $lcLawyers = LegalCase::lawyers();
-  return view('masters::Legal.active_cases_list',compact('activeCases','request','enquiry_fields','operations','name','quick_url','lcStages','lcLawyers'));
-
+  $skipped = count($ids) - $assigned;
+  $msg = $assigned . ' case' . ($assigned == 1 ? '' : 's') . ' assigned to ' . $lawyers[$lawyerId] . '.';
+  if ($skipped > 0) {
+    $msg .= ' ' . $skipped . ' skipped (already had a lawyer or no longer active).';
+  }
+  return redirect()->back()->with($assigned ? 'success' : 'error', $msg);
 }
 
 public function casesSearch(Request $request,$result = array()){
