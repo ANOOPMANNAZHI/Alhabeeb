@@ -155,6 +155,8 @@
      shared inspection-details partial on this screen only. */
   .insp b, .insp strong, .insp h1, .insp h2, .insp h3, .insp h4, .insp h5, .insp th, .insp label, .insp .btn, .insp .nav-link { font-weight:400; }
   .insp .idet, .insp .idet * { font-weight:400 !important; }
+  /* highlights asked for: tenant name, mobile, email (outstanding is set with .i-os) */
+  .insp .i-head .i-title, .insp .i-head .i-contact b, .insp .i-head .i-contact b a { font-weight:700; }
   .insp .i-alert { border:1px solid #fecaca; background:#fef2f2; color:#991b1b; border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:13px; }
 </style>
 @include('backoffice::Termination._tenant_outstanding_modal')
