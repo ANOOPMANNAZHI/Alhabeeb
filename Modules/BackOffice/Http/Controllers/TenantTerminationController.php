@@ -1691,10 +1691,41 @@ class TenantTerminationController extends Controller
 
      $suggested = $this->inspectionOtherChargeSuggestions($tenantContract, $termination, $tenantOs['current']['outstanding'] + $totalOutstanding, $totalOutstanding);
 
-     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenantOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested'));
+     extract($this->vacatingSummary($tenantContract, $tenantOs));
+
+     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenantOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested','lastPaidTill','postedTill','lastPaidReceipt','unitUsage','areName'));
 
    }
 
+    /**
+     * Shared header data of the vacating-unit screens (handover inspection and taken-over view):
+     * rent paid-up-to (created receipts count), last payment received, unit usage, the building's ARE.
+     *
+     * @return array lastPaidTill, postedTill, lastPaidReceipt, unitUsage, areName
+     */
+    private function vacatingSummary($tenantContract, $tenantOs)
+    {
+      // Last paid up to: created rent receipts count, not only posted ones (the contract column moves on posting)
+      $postedTill = $tenantContract->tenant_contract_last_paid_date ? $tenantContract->tenant_contract_last_paid_date->format('Y-m-d') : null;
+      $lastPaidTill = max((string) $tenantOs['paid_till'], (string) $postedTill) ?: null;
+      // latest rent payment received, shown apart from the paid-up-to date (a late payment can cover an old month)
+      $lastPaidReceipt = ReceiptsGeneration::where('tenant_contract_id', $tenantContract->id)
+        ->where('receipts_generation_type', 0)
+        ->whereIn('receipts_generation_approval_status', RentOutstanding::CREATED_APPROVAL)
+        ->where('receipts_generation_status', '<>', RentOutstanding::STATUS_CANCELLED)
+        ->orderBy('receipts_generation_receipt_date', 'desc')->orderBy('id', 'desc')
+        ->first(['receipts_generation_receipt_no', 'receipts_generation_receipt_date', 'receipts_generation_amt', 'receipts_generation_approval_status']);
+      // usage is kept on the contract and is often blank on renewals: latest filled-in value for the unit
+      $unitUsage = trim((string) $tenantContract->unit_usage);
+      if ($unitUsage === '' || strtolower($unitUsage) === 'null') {
+        $unitUsage = TenantContract::where('unit_id', $tenantContract->unit_id)
+          ->whereRaw("LENGTH(TRIM(unit_usage)) > 0 AND LOWER(unit_usage) <> 'null'")
+          ->orderBy('id', 'desc')->value('unit_usage');
+      }
+      $areName = optional(optional(optional(optional(optional($tenantContract->building)->buildingAssignToAre)->buildingAssignToName)->areUser)->employee)->employee_name;
+
+      return compact('lastPaidTill', 'postedTill', 'lastPaidReceipt', 'unitUsage', 'areName');
+    }
     /**
      * Pre-filled values for the "Other charges" tab of the inspection:
      * rent = outstanding rent as on the termination date (already computed
@@ -1714,7 +1745,7 @@ class TenantTerminationController extends Controller
       // Which months make up the outstanding rent, so the inspector can verify it
       $paidTill = ReceiptsGeneration::where('tenant_contract_id', $tenantContract->id)
         ->where('receipts_generation_type', 0)
-        ->whereIn('receipts_generation_approval_status', RentOutstanding::COUNTED_APPROVAL)
+        ->whereIn('receipts_generation_approval_status', RentOutstanding::CREATED_APPROVAL)
         ->where('receipts_generation_status', '<>', RentOutstanding::STATUS_CANCELLED)
         ->whereNull('deleted_at')
         ->max('receipts_generation_eff_to');
@@ -2329,7 +2360,9 @@ class TenantTerminationController extends Controller
      $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
      $outstandingOs = $tenantOs['total'];
      $deposit = TenantDepositHeld::forContract($termination->contract_id);
-     return view('backoffice::Termination.tenant_termination_takenover_view',compact('tenantContract','termination','groupedWork','terminationDocument','terminationNotes','openTerminationDocument','remainingDays','outstandingOs','tenantOs','deposit'));
+     $tenancyStartDt = TenantContract::where('tenant_id',$tenantContract->tenant_id)->where('unit_id',$tenantContract->unit_id)->where('work_flow_processes_code',108)->select('tenant_contract_start_date')->orderBy('id','asc')->first();
+     extract($this->vacatingSummary($tenantContract, $tenantOs));
+     return view('backoffice::Termination.tenant_termination_takenover_view',compact('tenantContract','termination','groupedWork','terminationDocument','terminationNotes','openTerminationDocument','remainingDays','outstandingOs','tenantOs','deposit','tenancyStartDt','lastPaidTill','postedTill','lastPaidReceipt','unitUsage','areName'));
    }
     /*
     *

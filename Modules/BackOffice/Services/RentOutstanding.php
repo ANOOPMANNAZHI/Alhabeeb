@@ -33,6 +33,8 @@ class RentOutstanding
 
     /** approval statuses that mean money really received */
     const COUNTED_APPROVAL = [3, 6];
+    /** termination screens (user, 20/10/2026): a receipt counts once it is created, i.e. also while waiting for approval (1) */
+    const CREATED_APPROVAL = [1, 3, 6];
     const STATUS_CANCELLED = 2;
 
     /**
@@ -158,13 +160,13 @@ class RentOutstanding
             && $term < $end;
     }
 
-    /** Sum of counted rent receipts on the contract. */
-    public static function paidForContract($contractId)
+    /** Sum of counted rent receipts on the contract ($approvals defaults to COUNTED_APPROVAL). */
+    public static function paidForContract($contractId, $approvals = null)
     {
         return (float) DB::table('receipts_generation')
             ->where('tenant_contract_id', $contractId)
             ->where('receipts_generation_type', 0)
-            ->whereIn('receipts_generation_approval_status', self::COUNTED_APPROVAL)
+            ->whereIn('receipts_generation_approval_status', $approvals ?: self::COUNTED_APPROVAL)
             ->where('receipts_generation_status', '<>', self::STATUS_CANCELLED)
             ->whereNull('deleted_at')
             ->sum('receipts_generation_amt');
@@ -174,9 +176,10 @@ class RentOutstanding
      * Outstanding as on $asOf (default: the contract's latest termination
      * date, else today), from the live contract row and receipts.
      *
+     * @param  array|null $approvals receipt approval statuses counted as paid (default COUNTED_APPROVAL)
      * @return array compute() result plus 'as_of' (Y-m-d)
      */
-    public static function forContract($contractId, $asOf = null)
+    public static function forContract($contractId, $asOf = null, $approvals = null)
     {
         $contract = DB::table('tenant_contracts')->where('id', $contractId)
             ->first(['tenant_contract_effective_date', 'tenant_contract_start_date', 'tenant_contract_rent',
@@ -195,7 +198,7 @@ class RentOutstanding
         $from = $contract->tenant_contract_effective_date ?: $contract->tenant_contract_start_date;
         // a legal settlement waiver is a credit on the contract (legal plan phase 4): it settles rent like a
         // receipt but is reported apart, so 'paid' stays the money received
-        $paid = self::paidForContract($contractId);
+        $paid = self::paidForContract($contractId, $approvals);
         $waived = \Modules\Masters\Services\LegalWaiver::forContract($contractId);
         $r = self::compute($from, $asOf, $contract->tenant_contract_rent, $paid + $waived,
             $contract->tenant_contract_value, $contract->tenant_contract_valid_to_date, $terminated);
