@@ -46,7 +46,7 @@
                  @can('renewal_due_accept')
 
 				  	@if(count($arNotes) < 0)
-					  <button  data-toggle="modal" data-target="#myModalNote" data-backdrop="static" data-keyboard="false"  href="{{route('tenantRenewalStageDue',[$tenantContract->id,304,2,0])}}" class="btn btn-circle btn-primary align-right due-for-renewal" title="Accept">
+					  <button  data-toggle="modal" data-target="#myModalNote" data-backdrop="static" data-keyboard="false"  href="{{route('tenantRenewalStageDue',[$tenantContract->id,304,2,0])}}" data-action="renewing" class="btn btn-circle btn-primary align-right due-for-renewal" title="Accept">
 						Renewing
 					  </button>
 					@elseif(count($arNotes) > 0)
@@ -54,7 +54,7 @@
 						Renewing
 					  </button>
 					 @else
-					 <button  data-toggle="modal" data-target="#myModalNote" data-backdrop="static" data-keyboard="false"  href="{{route('tenantRenewalStageDue',[$tenantContract->id,304,2,0])}}" class="btn btn-circle btn-primary align-right due-for-renewal" title="Accept">
+					 <button  data-toggle="modal" data-target="#myModalNote" data-backdrop="static" data-keyboard="false"  href="{{route('tenantRenewalStageDue',[$tenantContract->id,304,2,0])}}" data-action="renewing" class="btn btn-circle btn-primary align-right due-for-renewal" title="Accept">
 							Renewing
 					</button>
 
@@ -65,7 +65,7 @@
 					    
 
 				  @endcan
-				  <button data-toggle="modal" data-target="#myModalNote" data-backdrop="static" data-keyboard="false" href="{{route('tenantRenewalStageDue',[$tenantContract->id,501,7,0])}}" title="Terminate" class="btn btn-circle btn-danger align-right  due-for-renewal">
+				  <button data-toggle="modal" data-target="#myModalNote" data-backdrop="static" data-keyboard="false" href="{{route('tenantRenewalStageDue',[$tenantContract->id,501,7,0])}}" data-action="vacating" title="Terminate" class="btn btn-circle btn-danger align-right  due-for-renewal">
 					Vacating
 				  </button> 
 				</div>
@@ -526,53 +526,25 @@
 </div>
 
 
+{{-- Renewing / Vacating: a confirmation instead of the old note (the note was not needed, user 20/10/2026) --}}
 <div class="modal" id="myModalNote">
-<div class="modal-dialog assign">
-    <div class="modal-content">  
-    <!-- Modal Header -->
+<div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
     <div class="modal-header">
-      <h4 class="modal-title"> Note</h4>
+      <h4 class="modal-title" id="due_confirm_title">Confirm</h4>
       <button type="button" class="close" data-dismiss="modal">&times;</button>
-    </div>    
-    <!-- Modal body -->
-    <div class="modal-body">
-    
-   <div class="row">
-    <div class="col">
-        <div class="card card-box salesSearchBox">
-        <form action="" autocomplete="off" method="POST" id="due_renewal_note_modal" class="form-horizontal"  data-toggle="validator">
-        {{csrf_field()}}        
-        <div class="dataSearchBox ">            
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                        <label for="simpleFormCode">Note <small class="textRed">*</small></label>
-                        <div class="p-relative">
-                          <i class="fa fa-file-text-o icn-add" aria-hidden="true"></i>
-                          <textarea required class="form-control"  id="renewal_notes"  placeholder="Enter Note" name="renewal_notes"   data-rule-maxlength="200" data-msg-maxlength="Only allows 200 Characters"></textarea>
-                        </div>
-                    </div>
-                  </div>                  
-               <div class="w-100"></div>
-                <div class="col">
-                   <div class="w-100"></div>
-                      <button type="submit" name="submit" value="submit" class="btn btn-primary">Save</button>                      
-                   </div>                   
-              </div>        
-        </div>
-        <div class="col-sm-12 text-right">
-        
     </div>
-        <div class="clearfix"></div>
-        </form>
-            
-        </div>
-    </div>
-</div> 
-
-    </div>   
-  
-
+    <form action="" autocomplete="off" method="POST" id="due_renewal_note_modal">
+      {{csrf_field()}}
+      <div class="modal-body">
+        <p id="due_confirm_text" style="font-size:15px;margin:0 0 8px"></p>
+        <p id="due_confirm_hint" style="font-size:13px;color:#6b7280;margin:0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="due_confirm_submit">Yes</button>
+      </div>
+    </form>
     </div>
 </div>
 </div>
@@ -606,10 +578,23 @@ var type_of_the_contract = 'normal'
 
  	    e.preventDefault();
         var href = $(this).attr('href');
-            
+        var vacating = $(this).data('action') === 'vacating';
+        var contractNo = @json($tenantContract->tenant_contract_no);
+
         $('#due_renewal_note_modal').attr('action',href);
-       // alert($('#due_renewal_note_modal').attr('action'))
-      
+        $('#due_confirm_title').text(vacating ? 'Confirm vacating' : 'Confirm renewing');
+        $('#due_confirm_text').text('Mark contract ' + contractNo + ' as ' + (vacating ? 'Vacating' : 'Renewing') + '?');
+        $('#due_confirm_hint').text(vacating
+          ? 'An Open For Termination request will be created and the unit marked as vacating.'
+          : 'The contract moves to Contract Under Renewal.');
+        $('#due_confirm_submit').prop('disabled', false)
+          .text(vacating ? 'Yes, vacating' : 'Yes, renewing')
+          .toggleClass('btn-danger', vacating).toggleClass('btn-primary', !vacating);
+    })
+
+    // one click only: stop a double submit creating the stage twice
+    $('#due_renewal_note_modal').on('submit', function(){
+        $('#due_confirm_submit').prop('disabled', true).text('Please wait...');
     })
 
     });
