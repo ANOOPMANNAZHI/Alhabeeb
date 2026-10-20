@@ -1694,6 +1694,13 @@ class TenantTerminationController extends Controller
      // Last paid up to: created rent receipts count, not only posted ones (the contract column moves on posting)
      $postedTill = $tenantContract->tenant_contract_last_paid_date ? $tenantContract->tenant_contract_last_paid_date->format('Y-m-d') : null;
      $lastPaidTill = max((string) $tenantOs['paid_till'], (string) $postedTill) ?: null;
+     // the receipt that covers the paid-up-to date, so the inspector sees which receipt and when it was received
+     $lastPaidReceipt = ReceiptsGeneration::where('tenant_contract_id', $tenantContract->id)
+       ->where('receipts_generation_type', 0)
+       ->whereIn('receipts_generation_approval_status', RentOutstanding::CREATED_APPROVAL)
+       ->where('receipts_generation_status', '<>', RentOutstanding::STATUS_CANCELLED)
+       ->orderBy('receipts_generation_eff_to', 'desc')->orderBy('id', 'desc')
+       ->first(['receipts_generation_receipt_no', 'receipts_generation_receipt_date', 'receipts_generation_approval_status']);
      // usage is kept on the contract and is often blank on renewals: latest filled-in value for the unit
      $unitUsage = trim((string) $tenantContract->unit_usage);
      if ($unitUsage === '' || strtolower($unitUsage) === 'null') {
@@ -1703,7 +1710,7 @@ class TenantTerminationController extends Controller
      }
      $areName = optional(optional(optional(optional(optional($tenantContract->building)->buildingAssignToAre)->buildingAssignToName)->areUser)->employee)->employee_name;
 
-     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenantOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested','lastPaidTill','postedTill','unitUsage','areName'));
+     return view('backoffice::Termination.tenant_termination_handover_assigned_inspection',compact('tenantContract','works','termination','terminationDocument','groupedWork','backHistory','openTerminationDocument','outstandingOs','tenantOs','tenancyStartDt','depositeCheque','totalOtherAmt','suggested','lastPaidTill','postedTill','lastPaidReceipt','unitUsage','areName'));
 
    }
 

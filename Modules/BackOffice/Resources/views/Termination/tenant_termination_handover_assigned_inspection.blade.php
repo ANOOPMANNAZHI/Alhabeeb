@@ -237,7 +237,7 @@
           <th>Total duration</th><td>{{ $duration ?: 'NA' }}</td>
         </tr>
         <tr>
-          <th>Last paid up to</th><td>{{ $fmtDate($lastPaidTill) }}@if($lastPaidTill && $lastPaidTill > (string) $postedTill)<span class="i-auto-hint" style="display:block">Includes receipts not yet posted (posted up to {{ $fmtDate($postedTill) }})</span>@endif</td>
+          <th>Last paid up to</th><td>{{ $fmtDate($lastPaidTill) }}@if($lastPaidReceipt)<span class="i-auto-hint" style="display:block">Receipt {{ $lastPaidReceipt->receipts_generation_receipt_no }} · received {{ $fmtDate($lastPaidReceipt->receipts_generation_receipt_date) }}{{ (int) $lastPaidReceipt->receipts_generation_approval_status === 1 ? ' · waiting for approval' : ((int) $lastPaidReceipt->receipts_generation_approval_status === 3 ? ' · not posted' : '') }}</span>@endif @if($lastPaidTill && $lastPaidTill > (string) $postedTill)<span class="i-auto-hint" style="display:block">Includes receipts not yet posted (posted up to {{ $fmtDate($postedTill) }})</span>@endif</td>
           <th>Deposit cheque no &amp; amount</th><td>{{ !empty($depositeCheque) ? $depositeCheque->pdc_check_no . ' · ' . numberFormat($depositeCheque->pdc_amt) . ' OMR' : 'N/A' }}</td>
         </tr>
       </table>
