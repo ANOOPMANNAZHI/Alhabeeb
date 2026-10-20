@@ -1,8 +1,9 @@
 {{-- Shared legal list page (design-system/plms-legal). Keeps the hooks legal_case_search_js / legal_search_js rely on:
      .search_fields inputs and their ids, .sort_url links, #enquiry-search, #pagination, #pagination_info, #url_route, #show.
      Params: $lgTitle, $lgSub, $lgCrumb, $lgPaginator, $lgRows (rows view), $lgSearchRoute; optional $lgStatusColumn (legal status
-     column), $lgActiveCols (stage + next hearing columns), $lgFiltersView (filter bar above the table). --}}
-@php $lgStatusColumn = !empty($lgStatusColumn); $lgActiveCols = !empty($lgActiveCols); @endphp
+     column), $lgActiveCols (stage + lawyer + next hearing columns), $lgFiltersView (filter bar above the table),
+     $lgBulkLawyer (checkbox column + bulk "Assign lawyer" bar, view masters::Legal._bulk_lawyer). --}}
+@php $lgStatusColumn = !empty($lgStatusColumn); $lgActiveCols = !empty($lgActiveCols); $lgBulkLawyer = !empty($lgBulkLawyer); @endphp
 <div class="lg">
   <div class="lg-crumbs">{{ Breadcrumbs::render($lgCrumb) }}</div>
 
@@ -23,10 +24,12 @@
 
   <section class="lg-card" aria-label="{{ $lgTitle }}">
     @if(!empty($lgFiltersView))@include($lgFiltersView)@endif
+    @if($lgBulkLawyer)@include('masters::Legal._bulk_lawyer')@endif
     <div class="lg-table-wrap">
       <table class="lg-table" id="dtBasicExample">
         <thead>
           <tr>
+            @if($lgBulkLawyer)<th scope="col" class="lg-bulk-col"><input type="checkbox" id="lg_bulk_page" aria-label="Select the unassigned cases on this page" title="Select the unassigned cases on this page"></th>@endif
             <th scope="col">@sortablelink('tenantContract.tenant_contract_no','Agreement',[],[ 'class' => 'sort_url'])</th>
             <th scope="col">@sortablelink('tenant.tenant_name','Tenant',[],[ 'class' => 'sort_url'])</th>
             <th scope="col">@sortablelink('building.building_name','Building',[],[ 'class' => 'sort_url'])</th>
@@ -36,10 +39,11 @@
             <th scope="col" class="num">@sortablelink('tenantContract.tenant_contract_rent','Rent',[],[ 'class' => 'sort_url'])</th>
             <th scope="col">@sortablelink('priority','Priority',[],[ 'class' => 'sort_url'])</th>
             @if($lgStatusColumn)<th scope="col">@sortablelink('workFlowProcess.work_flow_processes_name','Legal status',[],[ 'class' => 'sort_url'])</th>@endif
-            @if($lgActiveCols)<th scope="col">Stage</th><th scope="col">@sortablelink('next_hearing_date','Next hearing',[],[ 'class' => 'sort_url'])</th>@endif
+            @if($lgActiveCols)<th scope="col">Stage</th><th scope="col">Lawyer</th><th scope="col">@sortablelink('next_hearing_date','Next hearing',[],[ 'class' => 'sort_url'])</th>@endif
             <th scope="col" class="num"><span class="sr-only">Actions</span></th>
           </tr>
           <tr class="lg-search-row">
+            @if($lgBulkLawyer)<td></td>@endif
             <td><input autocomplete="off" type="text" name="tenant_contract_no" class="search_fields mob" id="tenant_contract_no" aria-label="Filter agreement" placeholder="Filter" value="{{old('tenantContract__tenant_contract_no')}}"></td>
             <td><input autocomplete="off" type="text" name="tenant_id" class="search_fields mob" id="tenant_id" aria-label="Filter tenant" placeholder="Filter" value="{{old('tenantContract__tenant__tenant_name')}}"></td>
             <td><input autocomplete="off" type="text" name="building_id" class="search_fields mob" id="building_id" aria-label="Filter building" placeholder="Filter" value="{{old('building__building_name')}}"></td>
@@ -55,7 +59,7 @@
             <td><input autocomplete="off" type="text" name="tenant_contract_rent" class="search_fields mob" id="tenant_contract_rent" aria-label="Filter rent" placeholder="Filter" value="{{old('tenantContract__tenant_contract_rent')}}"></td>
             <td></td>
             @if($lgStatusColumn)<td><input autocomplete="off" type="text" name="work_flow_processes_id" class="search_fields mob" id="work_flow_processes_id" aria-label="Filter legal status" placeholder="Filter" value="{{old('workFlowProcess__work_flow_processes_name')}}"></td>@endif
-            @if($lgActiveCols)<td></td><td></td>@endif
+            @if($lgActiveCols)<td></td><td></td><td></td>@endif
             <td><input autocomplete="off" type="hidden" name="url_route" id="url_route" value="{{ $lgSearchRoute }}"></td>
           </tr>
         </thead>

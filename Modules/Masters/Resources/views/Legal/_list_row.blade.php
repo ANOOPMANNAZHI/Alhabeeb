@@ -12,6 +12,9 @@
     $openUrl = $hasCase ? route('legal.case', $c->id) : ($viewUrl ?? $LC::screenUrl($c));
 @endphp
 <tr @if(!empty($lgGroupOf)) class="lg-group-row" data-group-of="{{ $lgGroupOf }}" hidden @endif>
+  @if(!empty($lgBulkLawyer))
+  <td class="lg-bulk-col">@if(!$c->lawyer_user_id && !$c->closed_at && (int) $c->work_flow_processes_code === 803)<input type="checkbox" class="lg-bulk-chk" value="{{ $c->id }}" aria-label="Select case {{ $c->id }}">@endif</td>
+  @endif
   <td><a class="lg-row-link" href="{{ $openUrl }}">{{ $tc->tenant_contract_no ?? '' }}</a>
     <div class="muted" style="font-size:12px;">#{{ $c->id }}</div>
     @if($lgSiblings->count())
@@ -30,6 +33,7 @@
   @endif
   @if(!empty($lgActiveCols))
   <td>{{ $c->stage_id && isset($lcStageNames[$c->stage_id]) ? $lcStageNames[$c->stage_id] : '-' }}</td>
+  <td>@if($c->lawyer_user_id){{ optional(optional($c->lawyer)->employee)->employee_name ?: optional($c->lawyer)->username }}@else <span class="muted">Not assigned</span> @endif</td>
   <td class="tnum">{{ $c->next_hearing_date ? \Carbon\Carbon::parse($c->next_hearing_date)->format('d/m/Y') : '' }}</td>
   @endif
   <td class="actions">
@@ -67,5 +71,5 @@
   </td>
 </tr>
 @foreach($lgSiblings as $sib)
-  @include('masters::Legal._list_row', ['c' => $sib, 'lgGroupOf' => $c->id])
+  @include('masters::Legal._list_row', ['c' => $sib, 'lgGroupOf' => $c->id, 'lgBulkLawyer' => !empty($lgBulkLawyer)])
 @endforeach

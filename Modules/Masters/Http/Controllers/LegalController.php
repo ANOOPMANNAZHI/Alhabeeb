@@ -1130,7 +1130,30 @@ public function activeCases(Request $request){
 
   $request->flash();  
 
-  $activeCasesBase = Legal::filter($request)
+  $activeCasesBase = $this->activeCasesQuery($request);
+  $activeCases = Legal::newestMovedFirst(Legal::latestPerGroup($activeCasesBase)->sortable())->paginate($this->noOfRecord);
+  Legal::attachGroupSiblings($activeCases, $activeCasesBase);
+
+  $quick_url =    $route   =  route('activeCases');
+
+  if(isset($request->ajax))
+    return view('masters::Legal.active_cases_list_ajax',compact('activeCases','request','route'));
+
+  $lcStages = DB::table('legal_stages')->where('is_final', false)->orderBy('sort_order')->get();
+  $lcLawyers = LegalCase::lawyers();
+  // bulk "Assign lawyer" (PLM approvers): every case matching the filters that has no lawyer, across all pages
+  $lgBulkLawyer = $user->can('plms_approve');
+  $unassignedIds = $lgBulkLawyer
+    ? (clone $activeCasesBase)->whereNull('legal.lawyer_user_id')->pluck('legal.id')->map(function ($id) { return (int) $id; })->values()->all()
+    : [];
+  return view('masters::Legal.active_cases_list',compact('activeCases','request','enquiry_fields','operations','name','quick_url','lcStages','lcLawyers','lgBulkLawyer','unassignedIds'));
+
+}
+
+/** Active cases (accepted by the lawyer, open) with the list's filter bar applied. */
+private function activeCasesQuery(Request $request)
+{
+  return Legal::filter($request)
   ->where('legal_is_closed',2)
   ->noteStatus($request)
   ->exceptEndStatus($request)
@@ -1142,22 +1165,51 @@ public function activeCases(Request $request){
                       ->when($request->lc_stage, function ($q) use ($request) {
                         $request->lc_stage === 'none' ? $q->whereNull('legal.stage_id') : $q->where('legal.stage_id', (int) $request->lc_stage);
                       })
-                      ->when($request->lc_lawyer, function ($q) use ($request) { $q->where('legal.lawyer_user_id', (int) $request->lc_lawyer); })
+                      ->when($request->lc_lawyer, function ($q) use ($request) {
+                        $request->lc_lawyer === 'none' ? $q->whereNull('legal.lawyer_user_id') : $q->where('legal.lawyer_user_id', (int) $request->lc_lawyer);
+                      })
                       ->when($request->lc_hearing, function ($q) {
                         $q->whereBetween('legal.next_hearing_date', [date('Y-m-d'), date('Y-m-d', strtotime('+7 days'))]);
                       });
-  $activeCases = Legal::newestMovedFirst(Legal::latestPerGroup($activeCasesBase)->sortable())->paginate($this->noOfRecord);
-  Legal::attachGroupSiblings($activeCases, $activeCasesBase);
+}
 
-  $quick_url =    $route   =  route('activeCases');
+/**
+ * Bulk assign a lawyer to active cases that have none (user, 20/10/2026). PLM approvers only;
+ * a case that already has a lawyer, or is no longer active, is skipped. Each case gets a timeline
+ * entry; no message is sent to the lawyer.
+ */
+public function bulkAssignLawyer(Request $request)
+{
+  $user = \Auth::user();
+  abort_unless($user->can('plms_approve'), 403);
+  $lawyers = LegalCase::lawyers();
+  $this->validate($request, [
+    'lawyer_user_id' => 'required|in:' . (implode(',', array_keys($lawyers)) ?: '0'),
+    'ids'            => 'required|array|max:5000',
+    'ids.*'          => 'integer',
+  ], ['lawyer_user_id.in' => 'Pick an active lawyer.', 'ids.required' => 'Select at least one case.']);
 
-  if(isset($request->ajax))
-    return view('masters::Legal.active_cases_list_ajax',compact('activeCases','request','route'));
+  $lawyerId = (int) $request->lawyer_user_id;
+  $ids = array_values(array_unique(array_map('intval', $request->ids)));
+  $assigned = DB::transaction(function () use ($ids, $lawyerId, $lawyers, $user) {
+    $cases = Legal::whereIn('id', $ids)->where('legal_is_closed', 2)->where('work_flow_processes_code', 803)
+      ->whereNull('closed_at')->whereNull('lawyer_user_id')->lockForUpdate()->pluck('id');
+    if ($cases->isEmpty()) {
+      return 0;
+    }
+    Legal::whereIn('id', $cases)->update(['lawyer_user_id' => $lawyerId]);
+    foreach ($cases as $id) {
+      LegalCase::log($id, 'lawyer_assigned', 'Lawyer assigned: ' . $lawyers[$lawyerId] . ' (bulk, Active cases)', $user->id);
+    }
+    return $cases->count();
+  });
 
-  $lcStages = DB::table('legal_stages')->where('is_final', false)->orderBy('sort_order')->get();
-  $lcLawyers = LegalCase::lawyers();
-  return view('masters::Legal.active_cases_list',compact('activeCases','request','enquiry_fields','operations','name','quick_url','lcStages','lcLawyers'));
-
+  $skipped = count($ids) - $assigned;
+  $msg = $assigned . ' case' . ($assigned == 1 ? '' : 's') . ' assigned to ' . $lawyers[$lawyerId] . '.';
+  if ($skipped > 0) {
+    $msg .= ' ' . $skipped . ' skipped (already had a lawyer or no longer active).';
+  }
+  return redirect()->back()->with($assigned ? 'success' : 'error', $msg);
 }
 
 public function casesSearch(Request $request,$result = array()){

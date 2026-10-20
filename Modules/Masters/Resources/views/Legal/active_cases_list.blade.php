@@ -8,7 +8,7 @@
 
 @section('content')
 @include('masters::Legal._list_shell', ['lgTitle' => 'Active cases', 'lgSub' => 'Accepted by the lawyer and running', 'lgCrumb' => 'legalActiveCases', 'lgPaginator' => $activeCases,
-    'lgRows' => 'masters::Legal.active_cases_list_ajax', 'lgSearchRoute' => route('activeCasesSearch'), 'lgActiveCols' => true, 'lgFiltersView' => 'masters::Legal._active_filters'])
+    'lgRows' => 'masters::Legal.active_cases_list_ajax', 'lgSearchRoute' => route('activeCasesSearch'), 'lgActiveCols' => true, 'lgFiltersView' => 'masters::Legal._active_filters', 'lgBulkLawyer' => $lgBulkLawyer])
 <div class="modal lg lg-modal" id="myModal">
 
     </div>

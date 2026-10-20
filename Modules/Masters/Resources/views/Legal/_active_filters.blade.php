@@ -13,6 +13,7 @@
       @foreach($lcStages as $s)<option value="{{ $s->id }}" @if((string) request('lc_stage') === (string) $s->id) selected @endif>{{ $s->name }}</option>@endforeach</select></div>
   <div class="lg-field"><label for="af_lawyer" class="lg-label">Lawyer</label>
     <select id="af_lawyer" name="lc_lawyer" class="lg-select"><option value="">All</option>
+      <option value="none" @if(request('lc_lawyer') === 'none') selected @endif>Not assigned</option>
       @foreach($lcLawyers as $id => $nm)<option value="{{ $id }}" @if((string) request('lc_lawyer') === (string) $id) selected @endif>{{ $nm }}</option>@endforeach</select></div>
   <label class="lg-check"><input type="checkbox" name="lc_hearing" value="7" @if(request('lc_hearing')) checked @endif> Hearing in next 7 days</label>
   <div class="lg-filters__actions">

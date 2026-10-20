@@ -167,6 +167,7 @@ Route::get('tenancy_details/enquiry_filter', 'TenancyDetailsController@enquiryFi
 Route::get('legalCase/plmsApproval', 'LegalController@plmsApproval')->name('plmsApproval');
 Route::get('legalCase/lawyerApproval', 'LegalController@lawyerApproval')->name('lawyerApproval');
 Route::get('legalCase/activeCases', 'LegalController@activeCases')->name('activeCases');
+Route::post('legalCase/activeCases/assignLawyer', 'LegalController@bulkAssignLawyer')->name('activeCasesAssignLawyer');
 Route::resource('legalCase','LegalController');
 //search
 Route::match(['get', 'post'],'legalCaseSearch/legalCase', 'LegalController@legalSearch')->name('legalCaseSearch');

@@ -47,6 +47,7 @@ class LegalCase
         'stage' => 'Stage updated',
         'comment' => 'Comment',
         'reassigned' => 'Lawyer changed',
+        'lawyer_assigned' => 'Lawyer assigned',
         'closed' => 'Closed',
         'reopened' => 'Reopened',
         'type_changed' => 'Case type changed',
