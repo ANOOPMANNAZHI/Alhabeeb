@@ -31,6 +31,7 @@
   }
   .insp .i-head .i-title { font-size:22px; }
   .insp .i-head .i-os { margin-top:8px; font-size:14px; }
+  .insp .i-head .i-os .i-pill { font-size:15px; font-weight:700; }
   .insp .i-pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:400; text-transform:uppercase; letter-spacing:.04em; }
   .insp .i-pill-ok { background:transparent; border:0; color:#166534; padding-left:0; padding-right:0; } .insp .i-pill-warn { background:transparent; border:0; color:#991b1b; padding-left:0; padding-right:0; }
   .insp .i-head { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 18px 6px; }
