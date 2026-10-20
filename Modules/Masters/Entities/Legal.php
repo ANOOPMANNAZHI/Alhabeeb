@@ -243,7 +243,7 @@ public function scopeLawyerReferBack($query,$request){
       $generalSearch = array(); 
      
     
-        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','params','param','md','lc_priority','lc_type','lc_stage','lc_lawyer','lc_hearing']) as $key => $val){         
+        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','params','param','md','lc_priority','lc_type','lc_stage','lc_lawyer','lc_hearing','lc_ownership']) as $key => $val){         
 
            if($key == 'fieldValue' || $key == 'fieldValues' )
               continue;

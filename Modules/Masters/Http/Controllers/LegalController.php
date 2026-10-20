@@ -1230,6 +1230,12 @@ private function activeCasesQuery(Request $request)
                       ->when($request->lc_lawyer, function ($q) use ($request) {
                         $request->lc_lawyer === 'none' ? $q->whereNull('legal.lawyer_user_id') : $q->where('legal.lawyer_user_id', (int) $request->lc_lawyer);
                       })
+                      // building ownership (MERA / Government / Family / Individual), e.g. to hand over MERA cases in bulk
+                      ->when($request->lc_ownership, function ($q) use ($request) {
+                        $q->whereIn('legal.building_id', function ($b) use ($request) {
+                          $b->select('id')->from('buildings')->where('building_ownership_type', (int) $request->lc_ownership);
+                        });
+                      })
                       ->when($request->lc_hearing, function ($q) {
                         $q->whereBetween('legal.next_hearing_date', [date('Y-m-d'), date('Y-m-d', strtotime('+7 days'))]);
                       });
