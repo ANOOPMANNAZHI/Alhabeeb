@@ -24,6 +24,13 @@
                     <td><a class="no-link" href="{{route($view_url,$generalLedger->id)}}">{{$generalLedger->jv_refer_no}} </a></td>
                   
                     <td><a class="no-link" href="{{route($view_url,$generalLedger->id)}}"> {{$generalLedger->doc_date->format('d/m/Y')}}</a></td>
+                    @php
+                      // a ledger has one line per building / unit: show the first and "+N" (all on hover) when there are several
+                      $glBuildings = $generalLedger->generalLedgerDim->pluck('building.building_name')->filter()->unique()->values();
+                      $glUnits = $generalLedger->generalLedgerDim->pluck('unit.unit_code')->filter()->unique()->values();
+                    @endphp
+                    <td title="{{ $glBuildings->implode(', ') }}">{{ $glBuildings->first() }}@if($glBuildings->count() > 1) <small style="color:#6b7280;white-space:nowrap">+{{ $glBuildings->count() - 1 }} more</small>@endif</td>
+                    <td title="{{ $glUnits->implode(', ') }}">{{ $glUnits->first() }}@if($glUnits->count() > 1) <small style="color:#6b7280;white-space:nowrap">+{{ $glUnits->count() - 1 }} more</small>@endif</td>
                                    
                     <td><a class="no-link" href="{{route($view_url,$generalLedger->id)}}">{{(!empty($generalLedger->bank_id))? $generalLedger->bank->bank_name : '' }}</a></td> 
                     <td><a class="no-link" href="{{route($view_url,$generalLedger->id)}}">{{numberFormat($generalLedger->amount)}}</a></td>
@@ -121,7 +128,7 @@
 
                  @empty 
                  <tr>
-                 	<td colspan="{{(url()->current() == route('generalLedgerApproval'))? '9':'10'}}" align="center">
+                 	<td colspan="{{(url()->current() == route('generalLedgerApproval'))? '11':'12'}}" align="center">
                  		<p>No Record</p>
                  	</td>
                  </tr>

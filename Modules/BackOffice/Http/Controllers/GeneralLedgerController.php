@@ -35,6 +35,7 @@ class GeneralLedgerController extends Controller
     public function index(Request $request)
     {
         $generalLedgers = GeneralLedger::filter($request)
+                                        ->with(['generalLedgerDim.building:id,building_name', 'generalLedgerDim.unit:id,unit_code'])   // Building / Unit columns
                                         ->sortable()
                                         ->paginate($this->noOfRecord);
       $ledger_types = [1 => 'General Ledger', 2 => 'Bank Payment' , 3 => 'Landlord Invoice', 4 => 'Bank Receipt'];
@@ -579,6 +580,7 @@ class GeneralLedgerController extends Controller
         $request->flash();
 
         $generalLedgers = GeneralLedger::approval()->filter($request)
+                                         ->with(['generalLedgerDim.building:id,building_name', 'generalLedgerDim.unit:id,unit_code'])   // Building / Unit columns
                                          ->sortable()->latest() 
                                          ->paginate($this->noOfRecord);
 
