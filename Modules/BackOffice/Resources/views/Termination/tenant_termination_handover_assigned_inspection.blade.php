@@ -215,7 +215,7 @@
       <div class="i-id-tile i-id-primary">
         <span class="i-lbl">Building</span>
         <span class="i-big">{{ $tc->building->building_name }}</span>
-        <span class="i-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_no) ? ' · Bldg No ' . $tc->building->building_no : '' }}{{ !empty($tc->building->building_address) ? ' · Way ' . $tc->building->building_address : '' }}</span>
+        <span class="i-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_no) ? ' · Bldg No ' . $tc->building->building_no : '' }}{{ !empty($tc->building->building_pc) ? ' · Way No ' . $tc->building->building_pc : '' }}{{ !empty($tc->building->block_number) ? ' · Block No ' . $tc->building->block_number : '' }}</span>
       </div>
       <div class="i-id-tile">
         <span class="i-lbl">Unit</span>

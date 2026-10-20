@@ -133,7 +133,7 @@
       <div class="t-id-tile t-id-primary">
         <span class="t-lbl">Building</span>
         <span class="t-big">{{ $tc->building->building_name }}</span>
-        <span class="t-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_address) ? ' · Way ' . $tc->building->building_address : '' }}</span>
+        <span class="t-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_pc) ? ' · Way No ' . $tc->building->building_pc : '' }}{{ !empty($tc->building->block_number) ? ' · Block No ' . $tc->building->block_number : '' }}</span>
       </div>
       <div class="t-id-tile">
         <span class="t-lbl">Unit</span>
