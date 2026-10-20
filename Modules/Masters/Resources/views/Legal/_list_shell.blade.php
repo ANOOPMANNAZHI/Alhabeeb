@@ -2,8 +2,8 @@
      .search_fields inputs and their ids, .sort_url links, #enquiry-search, #pagination, #pagination_info, #url_route, #show.
      Params: $lgTitle, $lgSub, $lgCrumb, $lgPaginator, $lgRows (rows view), $lgSearchRoute; optional $lgStatusColumn (legal status
      column), $lgActiveCols (stage + lawyer + next hearing columns), $lgFiltersView (filter bar above the table),
-     $lgBulkLawyer (checkbox column + bulk "Assign lawyer" bar, view masters::Legal._bulk_lawyer). --}}
-@php $lgStatusColumn = !empty($lgStatusColumn); $lgActiveCols = !empty($lgActiveCols); $lgBulkLawyer = !empty($lgBulkLawyer); @endphp
+     $lgBulk (['assign' => bool, 'close' => bool, 'handover' => bool]: checkbox column + Bulk actions bar, view masters::Legal._bulk_actions). --}}
+@php $lgStatusColumn = !empty($lgStatusColumn); $lgActiveCols = !empty($lgActiveCols); $lgBulkOn = !empty($lgBulk) && (!empty($lgBulk['assign']) || !empty($lgBulk['close'])); @endphp
 <div class="lg">
   <div class="lg-crumbs">{{ Breadcrumbs::render($lgCrumb) }}</div>
 
@@ -24,12 +24,12 @@
 
   <section class="lg-card" aria-label="{{ $lgTitle }}">
     @if(!empty($lgFiltersView))@include($lgFiltersView)@endif
-    @if($lgBulkLawyer)@include('masters::Legal._bulk_lawyer')@endif
+    @if($lgBulkOn)@include('masters::Legal._bulk_actions')@endif
     <div class="lg-table-wrap">
       <table class="lg-table" id="dtBasicExample">
         <thead>
           <tr>
-            @if($lgBulkLawyer)<th scope="col" class="lg-bulk-col"><input type="checkbox" id="lg_bulk_page" aria-label="Select the unassigned cases on this page" title="Select the unassigned cases on this page"></th>@endif
+            @if($lgBulkOn)<th scope="col" class="lg-bulk-col"><input type="checkbox" id="lg_bulk_page" aria-label="Select the cases on this page" title="Select the cases on this page"></th>@endif
             <th scope="col">@sortablelink('tenantContract.tenant_contract_no','Agreement',[],[ 'class' => 'sort_url'])</th>
             <th scope="col">@sortablelink('tenant.tenant_name','Tenant',[],[ 'class' => 'sort_url'])</th>
             <th scope="col">@sortablelink('building.building_name','Building',[],[ 'class' => 'sort_url'])</th>
@@ -43,7 +43,7 @@
             <th scope="col" class="num"><span class="sr-only">Actions</span></th>
           </tr>
           <tr class="lg-search-row">
-            @if($lgBulkLawyer)<td></td>@endif
+            @if($lgBulkOn)<td></td>@endif
             <td><input autocomplete="off" type="text" name="tenant_contract_no" class="search_fields mob" id="tenant_contract_no" aria-label="Filter agreement" placeholder="Filter" value="{{old('tenantContract__tenant_contract_no')}}"></td>
             <td><input autocomplete="off" type="text" name="tenant_id" class="search_fields mob" id="tenant_id" aria-label="Filter tenant" placeholder="Filter" value="{{old('tenantContract__tenant__tenant_name')}}"></td>
             <td><input autocomplete="off" type="text" name="building_id" class="search_fields mob" id="building_id" aria-label="Filter building" placeholder="Filter" value="{{old('building__building_name')}}"></td>

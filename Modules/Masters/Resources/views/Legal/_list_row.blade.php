@@ -12,8 +12,8 @@
     $openUrl = $hasCase ? route('legal.case', $c->id) : ($viewUrl ?? $LC::screenUrl($c));
 @endphp
 <tr @if(!empty($lgGroupOf)) class="lg-group-row" data-group-of="{{ $lgGroupOf }}" hidden @endif>
-  @if(!empty($lgBulkLawyer))
-  <td class="lg-bulk-col">@if(!$c->lawyer_user_id && !$c->closed_at && (int) $c->work_flow_processes_code === 803)<input type="checkbox" class="lg-bulk-chk" value="{{ $c->id }}" aria-label="Select case {{ $c->id }}">@endif</td>
+  @if(!empty($lgBulk))
+  <td class="lg-bulk-col">@if(!$c->closed_at && (int) $c->work_flow_processes_code === 803)<input type="checkbox" class="lg-bulk-chk" value="{{ $c->id }}" data-unassigned="{{ $c->lawyer_user_id ? 0 : 1 }}" data-handled="{{ $LC::handledByForOwnership(optional($c->building)->building_ownership_type) }}" aria-label="Select case {{ $c->id }}">@endif</td>
   @endif
   <td><a class="lg-row-link" href="{{ $openUrl }}">{{ $tc->tenant_contract_no ?? '' }}</a>
     <div class="muted" style="font-size:12px;">#{{ $c->id }}</div>
@@ -71,5 +71,5 @@
   </td>
 </tr>
 @foreach($lgSiblings as $sib)
-  @include('masters::Legal._list_row', ['c' => $sib, 'lgGroupOf' => $c->id, 'lgBulkLawyer' => !empty($lgBulkLawyer)])
+  @include('masters::Legal._list_row', ['c' => $sib, 'lgGroupOf' => $c->id, 'lgBulk' => !empty($lgBulk)])
 @endforeach
