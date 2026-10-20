@@ -89,6 +89,12 @@
       $d = contractDurationCalculation($tc->tenant_contract_start_date, $tc->tenant_contract_valid_to_date);
       $duration = $d['year'] . ' Year ' . $d['month'] . ' Month ' . $d['day'] . ' Days';
   }
+  // whole tenancy on this unit (first contract start -> this contract's end), as on the handover inspection
+  $totalTenancy = null;
+  if (optional($tenancyStartDt)->tenant_contract_start_date && $tc->tenant_contract_valid_to_date) {
+      $d = contractDurationCalculation($tenancyStartDt->tenant_contract_start_date, $tc->tenant_contract_valid_to_date);
+      $totalTenancy = $d['year'] . ' Year ' . $d['month'] . ' Month ' . $d['day'] . ' Days';
+  }
 @endphp
 <div class="page-bar">
   <div class="page-title-breadcrumb">
@@ -164,12 +170,12 @@
           <th>Municipality registration</th><td>{{ $tc->tenant_contract_is_reg_municipality == null ? 'No' : 'Yes' }}</td>
         </tr>
         <tr>
-          <th>Tenancy start</th><td>{{ $fmtDate(optional($tenancyStartDt)->tenant_contract_start_date) }}</td>
           <th>Contract duration</th><td>{{ $duration ?: 'NA' }}</td>
+          <th>Deposit</th><td>{{ $deposit['has_deposit'] ? numberFormat($deposit['held']) . ' OMR' : 'NA' }}</td>
         </tr>
         <tr>
-          <th>Deposit</th><td>{{ $deposit['has_deposit'] ? numberFormat($deposit['held']) . ' OMR' : 'NA' }}</td>
-          <th></th><td></td>
+          <th>Tenancy start</th><td>{{ $fmtDate(optional($tenancyStartDt)->tenant_contract_start_date) }}</td>
+          <th>Total tenancy</th><td>{{ $totalTenancy ?: 'NA' }}</td>
         </tr>
       </table>
 
