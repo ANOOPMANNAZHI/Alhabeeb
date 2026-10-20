@@ -238,12 +238,11 @@
           <th>Total duration</th><td>{{ $duration ?: 'NA' }}</td>
         </tr>
         <tr>
-          <th>Rent paid up to</th><td>{{ $fmtDate($lastPaidTill) }}@if($lastPaidTill && $lastPaidTill > (string) $postedTill)<span class="i-auto-hint" style="display:block">Includes receipts not yet posted (posted up to {{ $fmtDate($postedTill) }})</span>@endif</td>
+          <th>Last payment received</th><td>@if($lastPaidReceipt){{ $fmtDate($lastPaidReceipt->receipts_generation_receipt_date) }} · {{ numberFormat($lastPaidReceipt->receipts_generation_amt) }} OMR<span class="i-auto-hint" style="display:block">Receipt {{ $lastPaidReceipt->receipts_generation_receipt_no }}{{ (int) $lastPaidReceipt->receipts_generation_approval_status === 1 ? ' · waiting for approval' : ((int) $lastPaidReceipt->receipts_generation_approval_status === 3 ? ' · not posted' : '') }}</span>@else NA @endif</td>
           <th>Deposit cheque no &amp; amount</th><td>{{ !empty($depositeCheque) ? $depositeCheque->pdc_check_no . ' · ' . numberFormat($depositeCheque->pdc_amt) . ' OMR' : 'N/A' }}</td>
         </tr>
         <tr>
-          <th>Last payment received</th><td>@if($lastPaidReceipt){{ $fmtDate($lastPaidReceipt->receipts_generation_receipt_date) }} · {{ numberFormat($lastPaidReceipt->receipts_generation_amt) }} OMR<span class="i-auto-hint" style="display:block">Receipt {{ $lastPaidReceipt->receipts_generation_receipt_no }}{{ (int) $lastPaidReceipt->receipts_generation_approval_status === 1 ? ' · waiting for approval' : ((int) $lastPaidReceipt->receipts_generation_approval_status === 3 ? ' · not posted' : '') }}</span>@else NA @endif</td>
-          <th>Unpaid rent</th><td>@if($tenantOs['current']['outstanding'] > 0){{ $fmtDate($lastPaidTill ? date('Y-m-d', strtotime($lastPaidTill . ' +1 day')) : $tenantOs['current']['from']) }} – {{ $fmtDate($tenantOs['current']['to']) }} · {{ numberFormat($tenantOs['current']['outstanding']) }} OMR @else None @endif</td>
+          <th>Unpaid rent</th><td colspan="3">@if($tenantOs['current']['outstanding'] > 0){{ $fmtDate($lastPaidTill ? date('Y-m-d', strtotime($lastPaidTill . ' +1 day')) : $tenantOs['current']['from']) }} – {{ $fmtDate($tenantOs['current']['to']) }} · {{ numberFormat($tenantOs['current']['outstanding']) }} OMR @else None @endif</td>
         </tr>
       </table>
 
