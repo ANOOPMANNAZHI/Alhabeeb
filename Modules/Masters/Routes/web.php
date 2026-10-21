@@ -170,6 +170,8 @@ Route::get('legalCase/activeCases', 'LegalController@activeCases')->name('active
 Route::post('legalCase/activeCases/assignLawyer', 'LegalController@bulkAssignLawyer')->name('activeCasesAssignLawyer');
 Route::post('legalCase/activeCases/close', 'LegalCaseController@bulkClose')->name('activeCasesClose');
 Route::post('legalCase/activeCases/handOver', 'LegalController@bulkHandOver')->name('activeCasesHandOver');
+Route::post('legalCase/activeCases/settle', 'LegalCaseController@bulkSettle')->name('activeCasesSettle');
+Route::post('legalCase/activeCases/remove', 'LegalCaseController@bulkRemove')->name('activeCasesRemove');
 Route::resource('legalCase','LegalController');
 //search
 Route::match(['get', 'post'],'legalCaseSearch/legalCase', 'LegalController@legalSearch')->name('legalCaseSearch');

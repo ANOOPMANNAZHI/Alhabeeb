@@ -1,7 +1,7 @@
 {{-- Rows of active_cases_list (redesign: shared _list_row; the search script swaps this tbody). --}}
 @php $lcStageNames = \Illuminate\Support\Facades\DB::table('legal_stages')->pluck('name', 'id'); @endphp
 @php Session::put('current', 'activeCase.index'); @endphp
-@php $lgBulk = \Auth::user()->can('plms_approve') || \Auth::user()->can('legal_case_close'); @endphp
+@php $lgBulk = \Auth::user()->can('plms_approve') || \Auth::user()->can('legal_case_close') || \Auth::user()->can('legal_settlement_verify'); @endphp
 @forelse ($activeCases as $c)
   @include('masters::Legal._list_row', ['c' => $c, 'kind' => 'active', 'viewRoute' => 'activeCasesShow', 'lgActiveCols' => true, 'lgBulk' => $lgBulk])
 @empty

@@ -1,8 +1,10 @@
 {{-- Bulk actions on Active cases (user, 20/10/2026), grouped in one menu:
        Assign lawyer (plms_approve) - only cases with no lawyer change, others are skipped;
        Close cases (legal_case_close) - old cases finished outside the system (Closed / Withdrawn + note);
-       Hand over (plms_approve) - handled by MERA / Government (from the building) or the picked value, closed as handed over.
-     Needs $lgBulk (['assign', 'close', 'handover' => bool]), $bulkCases (id => ['u' => 1 when no lawyer, 'h' => handled by
+       Hand over (plms_approve) - handled by MERA / Government (from the building) or the picked value, closed as handed over;
+       Close as settled (legal_settlement_verify, 21/10/2026) - settled outside PLMS, rent outstanding written off as a waiver;
+       Remove from legal (plms_approve, 21/10/2026) - moved by mistake: the case is deleted, contract back to Normal.
+     Needs $lgBulk (['assign', 'close', 'handover', 'settle', 'remove' => bool]), $bulkCases (id => ['u' => 1 when no lawyer, 'h' => handled by
      the building suggests], for every case matching the filter bar) and $lcLawyers. The selection is kept in JS, so it
      survives paging and the column filters that swap the rows by ajax. --}}
 @php $LC = \Modules\Masters\Services\LegalCase::class; @endphp
@@ -21,6 +23,12 @@
       @endif
       @if($lgBulk['close'])
       <a class="dropdown-item" href="#" data-toggle="modal" data-target="#lg_bulk_close_modal"><i class="fa fa-times-circle" aria-hidden="true"></i> Close cases</a>
+      @endif
+      @if(!empty($lgBulk['settle']))
+      <a class="dropdown-item" href="#" data-toggle="modal" data-target="#lg_bulk_settle_modal"><i class="fa fa-check-circle" aria-hidden="true"></i> Close as settled (write off balance)</a>
+      @endif
+      @if(!empty($lgBulk['remove']))
+      <a class="dropdown-item" href="#" data-toggle="modal" data-target="#lg_bulk_remove_modal"><i class="fa fa-undo" aria-hidden="true"></i> Remove from legal (moved by mistake)</a>
       @endif
     </div>
   </div>
@@ -122,13 +130,75 @@
           <textarea id="lg_bulk_note" name="close_note" class="lg-textarea" rows="3" maxlength="1000" required placeholder="e.g. Finished outside the system before PLMS"></textarea>
         </div>
         <p class="lg-bulk__confirm" id="lg_bulk_close_text"></p>
-        <p class="muted lg-bulk__hint">Each case is closed the same way as from its case page: final stage, timeline entry, contract leaves legal.
-          Cases with a settlement in progress, or handled by someone other than Al Habib, are skipped. No message is sent.</p>
+        <p class="muted lg-bulk__hint">Each case is closed the same way as from its case page: final stage, timeline entry, contract status back to Normal.
+          Amounts are not changed: what the tenant still owes keeps showing in Legal Receivable (use "Close as settled" to write it off). Cases with a settlement in progress, or handled by someone other than Al Habib, are skipped. No message is sent.</p>
         <div class="lg-bulk-ids"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="lg-btn lg-btn--ghost" data-dismiss="modal">Cancel</button>
         <button type="submit" class="lg-btn lg-btn--danger" id="lg_bulk_close_submit" disabled>Close cases</button>
+      </div>
+    </form>
+  </div>
+</div>
+@endif
+
+@if(!empty($lgBulk['settle']))
+<div class="modal lg-modal" id="lg_bulk_settle_modal" tabindex="-1" role="dialog" aria-labelledby="lg_bulk_settle_title">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <form class="modal-content lg-bulk-form" method="POST" action="{{ route('activeCasesSettle') }}">
+      {{ csrf_field() }}
+      <div class="modal-header">
+        <h4 class="modal-title" id="lg_bulk_settle_title">Close as settled (write off balance)</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="lg-field">
+          <label for="lg_bulk_sdate" class="lg-label">Settled on</label>
+          <input type="date" id="lg_bulk_sdate" name="settled_date" class="lg-input" required max="{{ date('Y-m-d') }}" value="{{ date('Y-m-d') }}">
+        </div>
+        <div class="lg-field" style="margin-top:10px">
+          <label for="lg_bulk_snote" class="lg-label">Note</label>
+          <textarea id="lg_bulk_snote" name="close_note" class="lg-textarea" rows="3" maxlength="1000" required placeholder="e.g. Settled with the tenant outside PLMS, no receipts"></textarea>
+        </div>
+        <p class="lg-bulk__confirm" id="lg_bulk_settle_text"></p>
+        <p class="muted lg-bulk__hint">For cases settled outside PLMS. Each case closes as "Settled - balance written off": the rent outstanding shown on
+          the case page is recorded as a waiver, so it leaves Legal Receivable and the other receivables. A case that owes nothing closes as paid in full.
+          Cases with a settlement in progress, or handled by someone other than Al Habib, are skipped. No message is sent.</p>
+        <div class="lg-bulk-ids"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="lg-btn lg-btn--ghost" data-dismiss="modal">Cancel</button>
+        <button type="submit" class="lg-btn lg-btn--danger" id="lg_bulk_settle_submit" disabled>Close as settled</button>
+      </div>
+    </form>
+  </div>
+</div>
+@endif
+
+@if(!empty($lgBulk['remove']))
+<div class="modal lg-modal" id="lg_bulk_remove_modal" tabindex="-1" role="dialog" aria-labelledby="lg_bulk_remove_title">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <form class="modal-content lg-bulk-form" method="POST" action="{{ route('activeCasesRemove') }}">
+      {{ csrf_field() }}
+      <div class="modal-header">
+        <h4 class="modal-title" id="lg_bulk_remove_title">Remove from legal (moved by mistake)</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="lg-field">
+          <label for="lg_bulk_rnote" class="lg-label">Reason</label>
+          <textarea id="lg_bulk_rnote" name="remove_note" class="lg-textarea" rows="3" maxlength="1000" required placeholder="e.g. Moved to legal by mistake"></textarea>
+        </div>
+        <p class="lg-bulk__confirm" id="lg_bulk_remove_text"></p>
+        <p class="muted lg-bulk__hint">The legal case is deleted with its timeline, and the contract goes back to Normal (the reason is saved as a
+          contract comment). The tenant's dues show in the normal receivables again, not in Legal Receivable. Cases with legal work
+          (a settlement, stage update, comment or file) are skipped; close those instead. No message is sent.</p>
+        <div class="lg-bulk-ids"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="lg-btn lg-btn--ghost" data-dismiss="modal">Cancel</button>
+        <button type="submit" class="lg-btn lg-btn--danger" id="lg_bulk_remove_submit" disabled>Remove from legal</button>
       </div>
     </form>
   </div>
@@ -186,7 +256,11 @@ document.addEventListener('DOMContentLoaded', function () {
     } else if (t.id === 'lg_bulk_lawyer') { assignText(); }
     else if (t.id === 'lg_bulk_handled' || t.id === 'lg_bulk_date') { handoverText(); }
   });
-  document.addEventListener('input', function (e) { if (e.target.id === 'lg_bulk_note') closeText(); });
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'lg_bulk_note') closeText();
+    else if (e.target.id === 'lg_bulk_snote' || e.target.id === 'lg_bulk_sdate') settleText();
+    else if (e.target.id === 'lg_bulk_rnote') removeText();
+  });
   el('lg_bulk_clear').addEventListener('click', function () { picked = {}; sync(); });
 
   function assignText() {
@@ -214,6 +288,18 @@ document.addEventListener('DOMContentLoaded', function () {
   $('#lg_bulk_handover_modal').on('show.bs.modal', handoverText);
   $('#lg_bulk_assign_modal').on('show.bs.modal', assignText);
   $('#lg_bulk_close_modal').on('show.bs.modal', closeText);
+  function settleText() {
+    var note = el('lg_bulk_snote'); if (!note) return;
+    el('lg_bulk_settle_text').textContent = 'Close ' + plural(n()) + ' as settled and write off what they still owe?';
+    el('lg_bulk_settle_submit').disabled = n() === 0 || note.value.trim() === '' || !el('lg_bulk_sdate').value;
+  }
+  function removeText() {
+    var note = el('lg_bulk_rnote'); if (!note) return;
+    el('lg_bulk_remove_text').textContent = 'Remove ' + plural(n()) + ' from legal? The cases are deleted; this cannot be undone.';
+    el('lg_bulk_remove_submit').disabled = n() === 0 || note.value.trim() === '';
+  }
+  $('#lg_bulk_settle_modal').on('show.bs.modal', settleText);
+  $('#lg_bulk_remove_modal').on('show.bs.modal', removeText);
 
   var forms = document.querySelectorAll('.lg-bulk-form');
   for (var f = 0; f < forms.length; f++) forms[f].addEventListener('submit', function (e) {

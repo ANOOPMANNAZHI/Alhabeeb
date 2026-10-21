@@ -3,7 +3,7 @@
      Params: $lgTitle, $lgSub, $lgCrumb, $lgPaginator, $lgRows (rows view), $lgSearchRoute; optional $lgStatusColumn (legal status
      column), $lgActiveCols (stage + lawyer + next hearing columns), $lgFiltersView (filter bar above the table),
      $lgBulk (['assign' => bool, 'close' => bool, 'handover' => bool]: checkbox column + Bulk actions bar, view masters::Legal._bulk_actions). --}}
-@php $lgStatusColumn = !empty($lgStatusColumn); $lgActiveCols = !empty($lgActiveCols); $lgBulkOn = !empty($lgBulk) && (!empty($lgBulk['assign']) || !empty($lgBulk['close'])); @endphp
+@php $lgStatusColumn = !empty($lgStatusColumn); $lgActiveCols = !empty($lgActiveCols); $lgBulkOn = !empty($lgBulk) && in_array(true, (array) $lgBulk, true); @endphp
 <div class="lg">
   <div class="lg-crumbs">{{ Breadcrumbs::render($lgCrumb) }}</div>
 
