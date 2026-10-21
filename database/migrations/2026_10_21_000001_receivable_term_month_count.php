@@ -38,24 +38,37 @@ class ReceivableTermMonthCount extends Migration
 
     public function up()
     {
-        foreach ($this->functions as $fn) {
-            DB::unprepared($this->patch($fn, self::OLD, self::NEW));
-        }
+        $this->apply(self::OLD, self::NEW);
     }
 
     public function down()
     {
+        $this->apply(self::NEW, self::OLD);
+    }
+
+    /** Patch every function first, then run them, so a miss leaves the database unchanged. */
+    private function apply($old, $new)
+    {
+        $patched = [];
         foreach ($this->functions as $fn) {
-            DB::unprepared($this->patch($fn, self::NEW, self::OLD));
+            $patched[] = $this->patch($fn, $old, $new);
+        }
+        foreach ($patched as $sql) {
+            DB::unprepared($sql);
         }
     }
 
     private function patch($fn, $old, $new)
     {
         $sql = DB::selectOne("SELECT pg_get_functiondef('public.$fn'::regprocedure) AS d")->d;
-        if (substr_count($sql, $old) !== 1) {
-            throw new \RuntimeException("public.$fn: expected the termination month count exactly once");
+        // the live definitions differ from local ones in spacing, line breaks and case (Date2/date2)
+        $chars = preg_split('//u', preg_replace('/\s+/', '', $old), -1, PREG_SPLIT_NO_EMPTY);
+        $pattern = '/' . implode('\s*', array_map(function ($c) { return preg_quote($c, '/'); }, $chars)) . '/iu';
+        if (preg_match_all($pattern, $sql) !== 1) {
+            $file = storage_path('logs/' . preg_replace('/\W.*/', '', $fn) . '_definition.sql');
+            file_put_contents($file, $sql);
+            throw new \RuntimeException("public.$fn: expected the termination month count exactly once; definition saved to $file");
         }
-        return str_replace($old, $new, $sql);
+        return preg_replace_callback($pattern, function () use ($new) { return $new; }, $sql);
     }
 }
