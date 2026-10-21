@@ -10,6 +10,7 @@ use Modules\Masters\Entities\Building;
 use Modules\Masters\Entities\Unit;
 use Modules\Sales\Entities\Tenant;
 use Modules\BackOffice\Exports\PaymentHistoryV2Export;
+use Modules\BackOffice\Services\RentOutstanding;
 
 /**
  * Tenant Vouchers. PLM Module -> Reports.
@@ -120,9 +121,12 @@ class PaymentHistoryV2Controller extends Controller
             SELECT tc.id AS contract_id,
                    tc.tenant_contract_no,
                    tc.tenant_contract_start_date,
+                   tc.tenant_contract_effective_date,
                    tc.tenant_contract_valid_to_date,
                    tc.tenant_contract_rent,
                    tc.tenant_contract_duration,
+                   tc.tenant_contract_value,
+                   ter.termination_date,
                    rg.receipts_generation_type         AS receipt_type_code,
                    CASE rg.receipts_generation_type
                         WHEN 1 THEN 'General'
@@ -150,6 +154,9 @@ class PaymentHistoryV2Controller extends Controller
             LEFT JOIN tenant_contracts tc ON u.id  = tc.unit_id
             LEFT JOIN receipts_generation rg ON tc.id = rg.tenant_contract_id
             LEFT JOIN tenant t            ON t.id  = tc.tenant_id
+            LEFT JOIN (SELECT contract_id, MAX(termination_date) AS termination_date
+                       FROM termination WHERE work_flow_processes_code = '505'
+                       GROUP BY contract_id) ter ON ter.contract_id = tc.id
             WHERE b.id  = ?
               AND u.id  = ?
               AND t.id  = ?
@@ -168,6 +175,12 @@ class PaymentHistoryV2Controller extends Controller
      * receipt listed, but due = contract_value minus rent receipts only
      * (rent_collected) - deposit and general receipts do not pay down the
      * rent. Same rule as TenantTerminationController::outstandingOsAmount().
+     *
+     * Premature termination (approved termination before the contract end):
+     * no rent is owed for the months after it. Rent receipts reaching the
+     * termination date (paid_till) mean nothing is due; otherwise due = rent
+     * up to the termination date (rent_due, RentOutstanding's rule, as on the
+     * termination screens) minus rent collected.
      */
     private function groupByContract(array $rows)
     {
@@ -183,6 +196,10 @@ class PaymentHistoryV2Controller extends Controller
                     'end_date'    => $row->tenant_contract_valid_to_date,
                     'rent'           => $row->tenant_contract_rent,
                     'contract_value' => (float) $row->tenant_contract_duration * (float) $row->tenant_contract_rent,
+                    'termination_date' => null,
+                    'rent_due'       => 0,
+                    'paid_till'      => null,
+                    'paid_to_termination' => false,
                     'rows'           => [],
                     'count'          => 0,
                     'subtotal'       => 0,
@@ -191,6 +208,17 @@ class PaymentHistoryV2Controller extends Controller
                     // legal settlement waiver: a credit on the contract (legal plan phase 4)
                     'waived'         => \Modules\Masters\Services\LegalWaiver::forContract($row->contract_id),
                 ];
+                $groups[$key]['rent_due'] = $groups[$key]['contract_value'];
+
+                $term = $row->termination_date ? substr($row->termination_date, 0, 10) : null;
+                $end  = $row->tenant_contract_valid_to_date ? substr($row->tenant_contract_valid_to_date, 0, 10) : null;
+                if ($term && $end && $term < $end) {
+                    $from = $row->tenant_contract_effective_date ?: $row->tenant_contract_start_date;
+                    $rent = RentOutstanding::compute($from, $term, $row->tenant_contract_rent, 0,
+                        $row->tenant_contract_value, $end, true);
+                    $groups[$key]['termination_date'] = $term;
+                    $groups[$key]['rent_due'] = $rent['rent_due'];
+                }
             }
 
             $groups[$key]['rows'][] = $row;
@@ -198,11 +226,19 @@ class PaymentHistoryV2Controller extends Controller
             $groups[$key]['subtotal'] += (float) $row->amount;
             if ((int) $row->receipt_type_code === 0) {
                 $groups[$key]['rent_collected'] += (float) $row->amount;
+                $till = $row->eff_to ? substr($row->eff_to, 0, 10) : null;
+                if ($till && $till > (string) $groups[$key]['paid_till']) {
+                    $groups[$key]['paid_till'] = $till;
+                }
             }
         }
 
         foreach ($groups as &$group) {
-            $group['due'] = $group['contract_value'] - $group['rent_collected'] - $group['waived'];
+            $group['paid_to_termination'] = $group['termination_date'] && $group['paid_till']
+                && $group['paid_till'] >= $group['termination_date'];
+            $group['due'] = $group['paid_to_termination']
+                ? 0
+                : $group['rent_due'] - $group['rent_collected'] - $group['waived'];
         }
         unset($group);
 

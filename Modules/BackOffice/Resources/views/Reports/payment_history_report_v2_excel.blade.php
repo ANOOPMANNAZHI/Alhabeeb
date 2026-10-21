@@ -47,7 +47,7 @@
     @forelse($groups as $group)
     <tr>
       <td colspan="10" style="{{ $headStyle }}">
-        Contract No : {{ $group['contract_no'] }}@if($group['start_date']) &bull; {{ \Carbon\Carbon::parse($group['start_date'])->format('d/m/Y') }} to {{ $group['end_date'] ? \Carbon\Carbon::parse($group['end_date'])->format('d/m/Y') : '' }}@endif &bull; Rent : {{ $group['rent'] }} &bull; Contract Value : {{ $group['contract_value'] }}
+        Contract No : {{ $group['contract_no'] }}@if($group['start_date']) &bull; {{ \Carbon\Carbon::parse($group['start_date'])->format('d/m/Y') }} to {{ $group['end_date'] ? \Carbon\Carbon::parse($group['end_date'])->format('d/m/Y') : '' }}@endif &bull; Rent : {{ $group['rent'] }} &bull; Contract Value : {{ $group['contract_value'] }}@if($group['termination_date']) &bull; Terminated : {{ \Carbon\Carbon::parse($group['termination_date'])->format('d/m/Y') }}@endif
       </td>
     </tr>
     @foreach($group['rows'] as $i => $row)
@@ -71,7 +71,7 @@
       <td style="{{ $subStyle }}text-align:right;">{{ $group['subtotal'] }}</td>
     </tr>
     <tr>
-      <td colspan="9" style="{{ $subStyle }}">Due &mdash; {{ $group['contract_no'] }} (Contract Value {{ $group['contract_value'] }} &minus; Rent Collected {{ $group['rent_collected'] }}@if($group['waived'] > 0) &minus; Legal Waiver {{ $group['waived'] }}@endif)</td>
+      <td colspan="9" style="{{ $subStyle }}">Due &mdash; {{ $group['contract_no'] }} @if($group['paid_to_termination'])(Terminated {{ \Carbon\Carbon::parse($group['termination_date'])->format('d/m/Y') }}, rent paid till termination)@else{{ '(' }}@if($group['termination_date'])Rent till termination {{ \Carbon\Carbon::parse($group['termination_date'])->format('d/m/Y') }} {{ $group['rent_due'] }}@else Contract Value {{ $group['contract_value'] }}@endif &minus; Rent Collected {{ $group['rent_collected'] }}@if($group['waived'] > 0) &minus; Legal Waiver {{ $group['waived'] }}@endif)@endif</td>
       <td style="{{ $subStyle }}text-align:right;">{{ $group['due'] }}</td>
     </tr>
     {{-- blank row separates one contract block from the next --}}
