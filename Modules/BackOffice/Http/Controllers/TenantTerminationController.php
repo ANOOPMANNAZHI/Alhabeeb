@@ -327,8 +327,11 @@ class TenantTerminationController extends Controller
      // total outstanding highlighted at the top, same figure + breakup as the other termination screens
      $tenantOs = $this->terminationOutstanding($tenantContract, $termination);
      $outstandingOs = $tenantOs['total'];
+     // deposit really held for the tenancy (same as the taken-over view) and the building's ARE
+     $deposit = TenantDepositHeld::forContract($termination->contract_id);
+     $areName = $this->areName($tenantContract);
 
-     return view('backoffice::Termination.tenant_termination_open_view',compact('tenantContract','remainingInvoices','otherDuesCollections','termination','backHistory','openTerminationDocument','comments','remainingDays','tenantOs','outstandingOs'));
+     return view('backoffice::Termination.tenant_termination_open_view',compact('tenantContract','remainingInvoices','otherDuesCollections','termination','backHistory','openTerminationDocument','comments','remainingDays','tenantOs','outstandingOs','deposit','areName'));
    }
 
     /**
@@ -1722,9 +1725,15 @@ class TenantTerminationController extends Controller
           ->whereRaw("LENGTH(TRIM(unit_usage)) > 0 AND LOWER(unit_usage) <> 'null'")
           ->orderBy('id', 'desc')->value('unit_usage');
       }
-      $areName = optional(optional(optional(optional(optional($tenantContract->building)->buildingAssignToAre)->buildingAssignToName)->areUser)->employee)->employee_name;
+      $areName = $this->areName($tenantContract);
 
       return compact('lastPaidTill', 'postedTill', 'lastPaidReceipt', 'unitUsage', 'areName');
+    }
+
+    /** ARE the contract's building is assigned to, or null. */
+    private function areName($tenantContract)
+    {
+      return optional(optional(optional(optional(optional($tenantContract->building)->buildingAssignToAre)->buildingAssignToName)->areUser)->employee)->employee_name;
     }
     /**
      * Pre-filled values for the "Other charges" tab of the inspection:

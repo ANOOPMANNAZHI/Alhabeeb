@@ -80,6 +80,12 @@
                 <h5 class="details"><b>Outstanding Amount :  </b><span><a href="#tos-contracts" class="tos-jump" style="color:#c00000; font-weight:700" title="Go to Current And Previous Contracts">{{ numberFormat($outstandingOs) }} OMR</a></span></h5>
             </div>
         </div>
+        {{-- deposit still held for the tenancy (all contracts of this tenant on this unit), same as the taken-over view --}}
+        <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+                <h5 class="details"><b>Deposit Amount :  </b><span>{{ $deposit['has_deposit'] ? numberFormat($deposit['held']) . ' OMR' : 'NA' }}</span></h5>
+            </div>
+        </div>
     </div>
 </div>
 <div class="sub-head">Building Details</div>
@@ -94,6 +100,11 @@
         <div class="col-lg-6 p-t-20"> 
             <div class = "txt-full-width">
                 <h5 class="details"><b>Building Code :  </b><span>{{$tenantContract->building->building_code}}</span></h5>
+            </div>
+        </div>
+        <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+                <h5 class="details"><b>ARE Name :  </b><span>{{ $areName ?: 'Not assigned' }}</span></h5>
             </div>
         </div>
         <div class="col-lg-6 p-t-20"> 
