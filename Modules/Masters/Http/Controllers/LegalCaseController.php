@@ -373,6 +373,130 @@ class LegalCaseController extends Controller
         return redirect()->back()->with($closed ? 'success' : 'error', $msg);
     }
 
+    /**
+     * Bulk "close as settled" from Active cases (user, 21/10/2026): cases settled outside PLMS with no receipts.
+     * Each case gets a completed settlement record (agreed amount 0, settled outside PLMS), the rent outstanding
+     * the case page shows is written off as a waiver - the same as closing with "balance written off" - so it
+     * leaves Legal Receivable and every other receivable; nothing owed closes as paid in full. Cases with a
+     * settlement in progress are skipped (they close from the case page). No messages are sent.
+     */
+    public function bulkSettle(Request $request)
+    {
+        $user = \Auth::user();
+        abort_unless($user->can('legal_settlement_verify'), 403);
+        $this->validate($request, [
+            'settled_date' => 'required|date|before_or_equal:today',
+            'close_note'   => 'required|max:1000',
+            'ids'          => 'required|array|max:5000',
+            'ids.*'        => 'integer',
+        ], ['ids.required' => 'Select at least one case.', 'close_note.required' => 'Give the reason for closing.',
+            'settled_date.before_or_equal' => 'The settled date cannot be in the future.']);
+
+        $ids = array_values(array_unique(array_map('intval', $request->ids)));
+        $note = trim($request->close_note) . ' (bulk close as settled, Active cases)';
+        $closed = 0;
+        $withSettlement = 0;
+        $writtenOff = 0.0;
+        foreach (Legal::whereIn('id', $ids)->get() as $legal) {
+            if (!LegalCase::isActive($legal)) {
+                continue;
+            }
+            $current = LegalSettlement::current($legal->id);
+            if ($current && in_array((int) $current->status, [LegalSettlement::PENDING, LegalSettlement::ACTIVE, LegalSettlement::COMPLETED], true)) {
+                $withSettlement++;
+                continue;
+            }
+            $amount = round(max(0, (float) LegalCase::outstanding($legal)), 3);
+            DB::transaction(function () use ($legal, $request, $note, $user, $amount) {
+                $now = now();
+                $sid = DB::table('legal_settlements')->insertGetId(['legal_id' => $legal->id, 'settlement_type' => 1,
+                    'agreed_date' => $request->settled_date, 'amount' => 0, 'outstanding_at_entry' => $amount, 'waiver_amount' => 0,
+                    'fees_recovered' => 0, 'settled_total' => 0, 'status' => LegalSettlement::COMPLETED, 'note' => 'Settled outside PLMS. ' . $note,
+                    'entered_by' => $user->id, 'verified_by' => $user->id, 'verified_at' => $now, 'completed_at' => $now,
+                    'created_at' => $now, 'updated_at' => $now]);
+                LegalCase::log($legal->id, 'settlement', 'Settled outside PLMS on ' . date('d/m/Y', strtotime($request->settled_date))
+                    . ".\n" . $note, $user->id, ['event_date' => $request->settled_date]);
+                $this->closeRecords($legal, $amount > 0 ? 'written_off' : 'paid_in_full', $note, $user->id);
+                if ($amount > 0) {
+                    LegalWaiver::writeOff(DB::table('legal_settlements')->where('id', $sid)->first(), $legal->tenant_contract_id, $amount, $note, $user->id);
+                    LegalCase::log($legal->id, 'settlement', 'Balance of ' . numberFormat($amount) . ' written off (recorded as a waiver).', $user->id);
+                }
+            });
+            $closed++;
+            $writtenOff += $amount;
+        }
+
+        $skipped = count($ids) - $closed;
+        $msg = $closed . ' case' . ($closed == 1 ? '' : 's') . ' closed as settled; ' . numberFormat($writtenOff) . ' written off.';
+        if ($skipped > 0) {
+            $msg .= ' ' . $skipped . ' skipped' . ($withSettlement ? ' (' . $withSettlement . ' with a settlement - close those from the case page)' : '')
+                . ($skipped > $withSettlement ? ($withSettlement ? ',' : '') . ' (no longer active or not handled by Al Habib)' : '') . '.';
+        }
+        return redirect()->back()->with($closed ? 'success' : 'error', $msg);
+    }
+
+    /**
+     * Bulk "remove from legal" (user, 21/10/2026): contracts moved to legal by mistake. The open case is deleted
+     * with its timeline and users, so the contract is as if it was never moved this time: status back to Normal
+     * (a contract comment records why) and the tenant's dues are in the normal receivables again - unless the
+     * contract had an earlier legal case. Only cases with no legal work are removed: no settlement or waiver,
+     * no stage update, comment, note or file, and no later case linked to it. No messages are sent.
+     */
+    public function bulkRemove(Request $request)
+    {
+        $user = \Auth::user();
+        abort_unless($user->can('plms_approve'), 403);
+        $this->validate($request, [
+            'remove_note' => 'required|max:1000',
+            'ids'         => 'required|array|max:5000',
+            'ids.*'       => 'integer',
+        ], ['ids.required' => 'Select at least one case.', 'remove_note.required' => 'Give the reason for removing.']);
+
+        $ids = array_values(array_unique(array_map('intval', $request->ids)));
+        $note = 'Removed from legal (moved by mistake): ' . trim($request->remove_note);
+        $removed = 0;
+        $withWork = 0;
+        foreach (Legal::whereIn('id', $ids)->whereNull('closed_at')->get() as $legal) {
+            if (self::hasLegalWork($legal->id)) {
+                $withWork++;
+                continue;
+            }
+            DB::transaction(function () use ($legal, $note, $user) {
+                foreach (['legal_case_updates', 'legal_users', 'legal_notes', 'legal_documents'] as $table) {
+                    DB::table($table)->where('legal_id', $legal->id)->delete();
+                }
+                DB::table('legal')->where('id', $legal->id)->delete();
+                // an earlier (closed) case keeps the contract in legal for the reports, but its status is Normal again
+                DB::table('tenant_contracts')->where('id', $legal->tenant_contract_id)->update(['status' => 0]);
+                \Modules\BackOffice\Entities\TenantContractComment::create(['tenant_contract_id' => $legal->tenant_contract_id,
+                    'status' => 0, 'comment' => mb_substr($note . ' (legal case #' . $legal->id . ')', 0, 1000), 'created_by' => $user->id]);
+            });
+            clearNotification('Modules\Masters\Notifications\LegalNotification', $legal->id, true);
+            $removed++;
+        }
+
+        $skipped = count($ids) - $removed;
+        $msg = $removed . ' case' . ($removed == 1 ? '' : 's') . ' removed from legal.';
+        if ($skipped > 0) {
+            $msg .= ' ' . $skipped . ' skipped' . ($withWork ? ' (' . $withWork . ' with legal work - settlement, stage, comment or file - close those instead)' : '')
+                . ($skipped > $withWork ? ($withWork ? ',' : '') . ' (already closed)' : '') . '.';
+        }
+        return redirect()->back()->with($removed ? 'success' : 'error', $msg);
+    }
+
+    /** Anything done on the case beyond moving, approving and assigning it. */
+    private static function hasLegalWork($legalId)
+    {
+        $system = ['moved', 'reopened', 'plm_approved', 'plm_referback', 'are_resent', 'lawyer_assigned', 'lawyer_approved',
+            'lawyer_rejected', 'handled_by', 'type_changed'];
+        return DB::table('legal_settlements')->where('legal_id', $legalId)->exists()
+            || DB::table('legal_waivers')->where('legal_id', $legalId)->exists()
+            || DB::table('legal_documents')->where('legal_id', $legalId)->exists()
+            || DB::table('legal_notes')->where('legal_id', $legalId)->exists()
+            || DB::table('legal_case_updates')->where('legal_id', $legalId)->whereNotIn('kind', $system)->exists()
+            || DB::table('legal')->where('parent_legal_id', $legalId)->exists();
+    }
+
     /** Reopen a closed case as a new case linked to it (e.g. a settlement cheque bounced). */
     public function reopen(Request $request, $id)
     {

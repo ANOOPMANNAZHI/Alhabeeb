@@ -1198,9 +1198,10 @@ public function activeCases(Request $request){
   $lcLawyers = LegalCase::lawyers();
   // bulk actions: Assign lawyer (PLM approvers, cases with no lawyer) and Close (legal_case_close);
   // "select all" covers every case matching the filter bar, across all pages
-  $lgBulk = ['assign' => $user->can('plms_approve'), 'close' => $user->can('legal_case_close'), 'handover' => $user->can('plms_approve')];
+  $lgBulk = ['assign' => $user->can('plms_approve'), 'close' => $user->can('legal_case_close'), 'handover' => $user->can('plms_approve'),
+    'settle' => $user->can('legal_settlement_verify'), 'remove' => $user->can('plms_approve')];
   $bulkCases = [];   // id => [u: 1 when no lawyer yet, h: handled by the building suggests (1 = Al Habib)]
-  if ($lgBulk['assign'] || $lgBulk['close']) {
+  if (in_array(true, $lgBulk, true)) {
     $rows = (clone $activeCasesBase)->get(['legal.id', 'legal.lawyer_user_id', 'legal.building_id']);
     $ownership = DB::table('buildings')->whereIn('id', $rows->pluck('building_id')->unique()->all())->pluck('building_ownership_type', 'id');
     foreach ($rows as $row) {
