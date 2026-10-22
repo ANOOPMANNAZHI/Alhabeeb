@@ -590,7 +590,8 @@
 			}
 	 });
 	 jQuery.validator.addMethod("customRegMob", function(value, element) {
-			return this.optional(element) || /^\d{13}$/i.test(value);
+			// an existing tenant's mobile is shown read-only (often 8 digits): only a new entry must be 00968 + 8 digits
+			return this.optional(element) || $(element).prop('readonly') || /^\d{13}$/i.test(value);
 	 }, "Please Enter 13 Digit Number");
 	/*****************************************************************************************/ 
     $("#tenant_contact_no").keyup(function(){
