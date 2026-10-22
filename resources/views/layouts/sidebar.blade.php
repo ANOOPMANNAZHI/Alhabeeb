@@ -150,6 +150,11 @@
                             	$path[0] = 'tenant-contract';
                    				$search_key = $path[0];
                             }
+                            // renewal contract view (opened from Contract Renewal) keeps that menu open
+                            if($path[0]=='previousContractViewAndAction' ){
+                            	$path[0] = 'contract';
+                   				$search_key = $path[0];
+                            }
                             if($path[0]=='invoice' ){
                             	$path[0] = 'tenant-contract';
                    				$search_key = $path[0];
