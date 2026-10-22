@@ -5,7 +5,7 @@ namespace Modules\BackOffice\Console;
 use Illuminate\Console\Command;
 use Modules\BackOffice\Services\RentRevisal;
 
-/** Emails each ARE once when a contract enters the 90-120 day rent revisal window (spec 2026-10-15). */
+/** Emails each ARE once when a contract enters the 90-150 day rent revisal window (spec 2026-10-15). */
 class RentRevisalNotifyAre extends Command
 {
     protected $signature = 'rent-revisal:notify-are';

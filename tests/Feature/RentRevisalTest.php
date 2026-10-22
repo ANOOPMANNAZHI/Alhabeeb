@@ -106,7 +106,7 @@ class RentRevisalTest extends TestCase
     public function test_window_includes_both_ends_and_excludes_outside()
     {
         $admin = User::find(1);
-        foreach ([89 => false, 90 => true, 120 => true, 121 => false] as $days => $in) {
+        foreach ([89 => false, 90 => true, 150 => true, 151 => false] as $days => $in) {
             $c = $this->contractEndingIn($days);
             $this->assertSame($in, \Modules\BackOffice\Services\RentRevisal::inWindow($c->fresh()), "day $days");
             $this->assertSame($in, \Modules\BackOffice\Services\RentRevisal::windowQuery($admin)->where('tenant_contracts.id', $c->id)->exists(), "query day $days");
@@ -216,7 +216,8 @@ class RentRevisalTest extends TestCase
         $c = $this->contractEndingIn(118);
         $this->assignAre($are, $c->building_id);
         // only our contract counts: mark every other window contract as already notified
-        foreach ($svc::windowQuery(User::find(1))->where('tenant_contracts.id', '<>', $c->id)->pluck('tenant_contracts.id') as $id) {
+        $notified = DB::table('tenant_rent_revisal_notices')->pluck('tenant_contract_id')->all();
+        foreach ($svc::windowQuery(User::find(1))->where('tenant_contracts.id', '<>', $c->id)->pluck('tenant_contracts.id')->unique()->diff($notified) as $id) {
             DB::table('tenant_rent_revisal_notices')->insert(['tenant_contract_id' => $id, 'are_user_id' => 1, 'created_at' => now(), 'updated_at' => now()]);
         }
         $this->assertEquals(1, $svc::notifyAres());
