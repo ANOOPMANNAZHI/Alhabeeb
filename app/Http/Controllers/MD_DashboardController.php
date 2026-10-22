@@ -361,13 +361,13 @@ and (termination.termination_date <= '".$endDate->endOfMonth()."')");
       }
 
     //get Bounced Cheques MTD
-	public function getBouncedChequesMTD(){
-	    $pdc= Pdc::areFilter()
+	public function getBouncedChequesMTD(Request $request){
+	    $query = Pdc::areFilter()
 	    ->bouncedCheques()
 	    ->whereDate('pdc_check_date','>=', Carbon::today()->firstOfMonth())
-		->whereDate('pdc_check_date','<=',Carbon::today())
-	    ->get();
-	    return view('backoffice::Pdc.bounced_cheque_list',compact('pdc'));
+		->whereDate('pdc_check_date','<=',Carbon::today());
+	    return \Modules\BackOffice\Http\Controllers\PdcController::bouncedListView($query, $request, 'Bounced this month',
+	        'Cheques dated this month that bounced, settled or not');
 	}
 
 	public function caseStatusAccordingToLawyer(Request $request){

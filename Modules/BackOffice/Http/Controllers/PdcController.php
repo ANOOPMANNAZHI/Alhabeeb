@@ -625,9 +625,67 @@ public function getPdcExchangeDetails(Request $request){
   return view('backoffice::Pdc.pdc_exchange_view',compact('pdc','nowUrl','banks'));
 }
 //get Bounced Cheques
-public function getBouncedCheques(){
-    $pdc= Pdc::areFilter()->openBounces()->get();
-    return view('backoffice::Pdc.bounced_cheque_list',compact('pdc'));
+public function getBouncedCheques(Request $request){
+    return self::bouncedListView(Pdc::areFilter()->openBounces(), $request, 'Bounced cheques',
+        'Open bounces on active contracts: not settled, no bounce receipt, not redeposited');
+}
+
+/**
+ * Bounced cheques list (ARE / back office manager card, MD month-to-date): summary, filters
+ * (search, building, ARE, age since the cheque date) and one row per cheque, oldest first.
+ */
+public static function bouncedListView($query, Request $request, $title, $subtitle){
+    $all = $query->with(['tenantContractInfo.building', 'tenantContractInfo.Unit', 'tenantContractInfo.tenant', 'bankInfo'])
+        ->orderBy('pdc_check_date')->orderBy('id')->get();
+
+    $buildingIds = $all->pluck('tenantContractInfo.building_id')->filter()->unique()->values()->all();
+    $areNames = [];
+    if ($buildingIds) {
+        $rows = DB::table('preferred_buildings as pb')
+            ->join('are_buildings as ab', 'ab.id', '=', 'pb.are_building_id')
+            ->join('users as u', 'u.id', '=', 'ab.user_id')
+            ->join('employees as e', 'e.id', '=', 'u.user_type_id')
+            ->whereNull('pb.assign_to')->whereIn('pb.building_id', $buildingIds)
+            ->select('pb.building_id', 'e.employee_name')->distinct()->orderBy('e.employee_name')->get();
+        foreach ($rows as $r) {
+            $areNames[$r->building_id][] = $r->employee_name;
+        }
+    }
+
+    $today = Carbon::today();
+    $ages = ['0-7' => [0, 7], '8-30' => [8, 30], '31-90' => [31, 90], '90+' => [91, PHP_INT_MAX]];
+    $search = trim((string) $request->search);
+    $pdc = $all->filter(function ($p) use ($request, $search, $areNames, $ages, $today) {
+        $c = $p->tenantContractInfo;
+        if ($request->building && (int) $c->building_id !== (int) $request->building) {
+            return false;
+        }
+        if ($request->are && !in_array($request->are, isset($areNames[$c->building_id]) ? $areNames[$c->building_id] : [], true)) {
+            return false;
+        }
+        if ($request->age && isset($ages[$request->age])) {
+            $d = $p->pdc_check_date ? Carbon::parse($p->pdc_check_date)->diffInDays($today, false) : 0;
+            if ($d < $ages[$request->age][0] || $d > $ages[$request->age][1]) {
+                return false;
+            }
+        }
+        if ($search !== '') {
+            $hay = implode(' ', [$c->tenant->tenant_name ?? '', $c->tenant->tenant_contact_no ?? '', $c->tenant->gsm_no ?? '',
+                $c->building->building_name ?? '', $c->Unit->unit_no ?? '', $c->tenant_contract_no, $p->pdc_check_no]);
+            if (stripos($hay, $search) === false) {
+                return false;
+            }
+        }
+        return true;
+    })->values();
+
+    $buildings = $all->pluck('tenantContractInfo.building')->filter()->unique('id')->sortBy('building_name')->values();
+    $ares = collect($areNames)->flatten()->unique()->sort()->values();
+    $showAre = !(count(\Auth::user()->roles) == 1 && \Auth::user()->hasRole('are'));
+    $isFiltered = $request->search || $request->building || $request->are || $request->age;
+
+    return view('backoffice::Pdc.bounced_cheque_list', compact('pdc', 'all', 'areNames', 'buildings', 'ares', 'ages',
+        'showAre', 'isFiltered', 'title', 'subtitle', 'request', 'today'));
 }
 
 
