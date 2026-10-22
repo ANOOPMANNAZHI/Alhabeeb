@@ -8,6 +8,7 @@
   .lg .bc-tenant { min-width: 190px; }
   .lg .bc-wrap { min-width: 150px; }
   .lg .bc-reason { min-width: 130px; max-width: 200px; white-space: normal; }
+  .lg .lg-table tbody tr[data-href] { cursor: pointer; }
 </style>
 @endsection
 
@@ -19,6 +20,7 @@
   $contracts = $pdc->pluck('tenant_contract_id')->unique()->count();
   $over30 = $pdc->filter(function ($p) use ($ageOf) { return $ageOf($p) > 30; })->count();
   $cols = $showAre ? 10 : 9;
+  $canOpenPdc = \Auth::user()->can('pdc_generation');
 @endphp
 <div class="lg">
   <div class="lg-crumbs">{{ Breadcrumbs::render('tenantPdcBounce') }}</div>
@@ -86,12 +88,13 @@
             $mobile = trim((string) ($t->tenant_contact_no ?? '')) ?: trim((string) ($t->gsm_no ?? ''));
             $age = $ageOf($p);
             $tone = $age === null || $age < 0 ? 'neutral' : ($age > 30 ? 'danger' : ($age > 7 ? 'warning' : 'neutral'));
+            $pdcUrl = $canOpenPdc ? route('pdc.edit', $c->id) : null;
           @endphp
-          <tr>
+          <tr @if($pdcUrl) data-href="{{ $pdcUrl }}" title="Open the PDC screen of {{ $c->tenant_contract_no }}" @endif>
             <td class="strong bc-tenant">{{ $t->tenant_name ?? '' }}
               <span class="bc-sub2">@if($mobile)<a href="tel:{{ preg_replace('/\s+/', '', $mobile) }}">{{ $mobile }}</a>@else N/A @endif</span></td>
             <td class="bc-wrap">{{ $c->building->building_name ?? '' }}<span class="bc-sub2">Unit {{ $c->Unit->unit_no ?? '' }}</span></td>
-            <td class="tnum">{{ $c->tenant_contract_no }}
+            <td class="tnum">@if($pdcUrl)<a class="lg-row-link" href="{{ $pdcUrl }}">{{ $c->tenant_contract_no }}</a>@else{{ $c->tenant_contract_no }}@endif
               <span class="bc-sub2">{{ $fmtDate($c->tenant_contract_effective_date) }} – {{ $fmtDate($c->tenant_contract_valid_to_date) }}</span></td>
             <td class="tnum">{{ $p->pdc_check_no }}<span class="bc-sub2">{{ $p->bankInfo->bank_name ?? '' }}</span></td>
             <td class="tnum">{{ $fmtDate($p->pdc_check_date) }}
@@ -124,4 +127,14 @@
     </div>
   </section>
 </div>
+@endsection
+@section('scripts')
+<script>
+  // whole row opens the PDC screen; links inside the row (contract no, phone) keep their own action
+  $(document).on('click', '.lg-table tbody tr[data-href]', function (e) {
+    if ($(e.target).closest('a, button, input, select').length || window.getSelection().toString()) return;
+    if (e.ctrlKey || e.metaKey) { window.open($(this).data('href'), '_blank'); return; }
+    window.location.href = $(this).data('href');
+  });
+</script>
 @endsection
