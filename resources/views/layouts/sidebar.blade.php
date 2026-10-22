@@ -155,6 +155,11 @@
                             	$path[0] = 'contract';
                    				$search_key = $path[0];
                             }
+                            // Rent revisal is a tab of Due for Renewal
+                            if($path[0]=='rentRevisal' ){
+                            	$path[0] = 'tenantRenewal';
+                   				$search_key = $path[0];
+                            }
                             if($path[0]=='invoice' ){
                             	$path[0] = 'tenant-contract';
                    				$search_key = $path[0];
