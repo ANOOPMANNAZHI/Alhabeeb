@@ -147,6 +147,39 @@ public function scopeBouncedCheques($query){
 }
 
 /**
+ * SQL condition, true when contract $tc (tenant $t) is the tenant's first contract: no earlier
+ * contract for the tenant, nor for another tenant record with the same resident ID or mobile
+ * (duplicate tenant records). Renewals always have an earlier contract, so they are never first.
+ */
+public static function firstContractSql($tc = 'tc', $t = 't'){
+    return "not exists (select 1 from tenant_contracts o join tenant t2 on t2.id = o.tenant_id
+        where o.id <> {$tc}.id and o.tenant_contract_effective_date < {$tc}.tenant_contract_effective_date
+        and (o.tenant_id = {$tc}.tenant_id
+          or (nullif(trim(t2.resident_id), '') is not null and trim(t2.resident_id) = trim({$t}.resident_id))
+          or (nullif(trim(t2.tenant_contact_no), '') is not null and trim(t2.tenant_contact_no) = trim({$t}.tenant_contact_no))))";
+}
+
+/** Cheques of a contract that is the tenant's first contract (a new tenant). */
+public function scopeOnNewTenantContract($query){
+    return $query->whereExists(function ($q) {
+        $q->select(DB::raw(1))->from('tenant_contracts as nt_tc')
+          ->join('tenant as nt_t', 'nt_t.id', '=', 'nt_tc.tenant_id')
+          ->whereColumn('nt_tc.id', 'pdc.tenant_contract_id')
+          ->whereRaw(self::firstContractSql('nt_tc', 'nt_t'));
+    });
+}
+
+/** Cheques of contracts whose sales enquiry was handled by the given user (the sales person). */
+public function scopeSoldBy($query, $userId){
+    return $query->whereExists(function ($q) use ($userId) {
+        $q->select(DB::raw(1))->from('tenant_contracts as sb_tc')
+          ->join('sales_enquiries as sb_se', 'sb_se.id', '=', 'sb_tc.sale_enquiry_id')
+          ->whereColumn('sb_tc.id', 'pdc.tenant_contract_id')
+          ->where('sb_se.assigned_person', $userId);
+    });
+}
+
+/**
  * Bounces still to be followed up (ARE / back office manager dashboard card and list):
  * bounced, contract active, not settled (pdc_settlement 2), no bounce receipt that is not
  * cancelled/rejected, and not deposited again (later open PDC with the same cheque no, bank,

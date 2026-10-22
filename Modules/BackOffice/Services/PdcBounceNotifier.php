@@ -69,4 +69,45 @@ class PdcBounceNotifier
 
         return ['ares' => $ares->count(), 'tenant' => $tenantResult['email']];
     }
+
+    /**
+     * A new tenant's cheque bounced (first contract): the sales person who handled the contract's
+     * sales enquiry gets pdc_bounce_sales and an in-app alert. Nothing for renewals or older tenants.
+     * Failures are logged only, so the bounce itself never fails.
+     *
+     * @return bool whether a sales person was notified
+     */
+    public static function notifySalesPerson($pdcId)
+    {
+        try {
+            $pdc = Pdc::with('tenantContractInfo.tenant', 'tenantContractInfo.building', 'tenantContractInfo.Unit')->find($pdcId);
+            $contract = $pdc ? $pdc->tenantContractInfo : null;
+            if (!$contract || !$contract->sale_enquiry_id || !Pdc::where('id', $pdc->id)->onNewTenantContract()->exists()) {
+                return false;
+            }
+            $userId = \DB::table('sales_enquiries')->where('id', $contract->sale_enquiry_id)->value('assigned_person');
+            $user = $userId ? \App\User::where('id', $userId)->where('user_type_status', 1)->first() : null;
+            if (!$user) {
+                return false;
+            }
+
+            $values = MessageValues::contract($contract) + MessageValues::cheque($pdc) + MessageValues::employee($user)
+                + ['bounce_list_link' => route('getBouncedCheques')];
+            foreach (StaffMessages::userRecipients([$user]) as $pair) {
+                SystemMessenger::send('pdc_bounce_sales', $pair[1], $values, ['related' => ['pdc', $pdc->id]]);
+            }
+
+            $alert = clone $pdc;
+            $alert->text = 'New tenant cheque bounced - ' . $pdc->pdc_check_no . ' of ' . ($contract->tenant->tenant_name ?? '')
+                . ' (' . $contract->tenant_contract_no . ')' . ($pdc->pdc_cancel_reason_name ? '. Reason: ' . $pdc->pdc_cancel_reason_name : '');
+            $alert->href = route('getBouncedCheques');
+            $alert->icon = 'fa-exclamation-circle';
+            $alert->icon_color = 'red-bgcolor';
+            \Illuminate\Support\Facades\Notification::send(collect([$user]), new \Modules\BackOffice\Notifications\ChequeBounceNotification($alert));
+            return true;
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('New tenant bounce alert to sales person failed for PDC #' . $pdcId . ': ' . $e->getMessage());
+            return false;
+        }
+    }
 }

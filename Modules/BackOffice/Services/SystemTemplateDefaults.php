@@ -76,6 +76,21 @@ class SystemTemplateDefaults
                 'is_active' => true, 'sms_enabled' => false,
                 'placeholders' => self::employeePlaceholders() + self::tenantPlaceholders() + self::contractPlaceholders() + self::chequePlaceholders(),
             ],
+            'pdc_bounce_sales' => [
+                'name' => 'New tenant cheque bounced (to sales person)', 'audience' => 'staff', 'stage' => 'C1',
+                'email_subject' => 'New tenant cheque bounced - {tenant_name} ({cheque_no})',
+                'email_body' => '<p>Dear {employee_name},</p>'
+                    . '<p>A cheque of a new tenant you brought in has bounced. This is their first contract with us.</p>'
+                    . '<p>Tenant: {tenant_name} ({mobile})<br>Contract: {contract_no}<br>Building: {building}, unit {unit}</p>'
+                    . '<p>Cheque <strong>{cheque_no}</strong> for OMR {amount} dated {cheque_date}<br>Bounce reason: {bounce_reason}</p>'
+                    . '<p>Please follow up with the tenant together with the ARE.</p>'
+                    . '<p><a href="{bounce_list_link}">Open new tenant bounces</a></p>'
+                    . '<p>Regards,<br>Al Habib Team</p>',
+                'sms_body' => null,
+                'is_active' => true, 'sms_enabled' => false,
+                'placeholders' => self::employeePlaceholders() + self::tenantPlaceholders() + self::contractPlaceholders() + self::chequePlaceholders()
+                    + ['bounce_list_link' => ['label' => 'Link to the new tenant bounces list', 'sample' => 'https://plms.alhabib.om/pdc/getBouncedCheques']],
+            ],
             'pdc_bounce_tenant' => [
                 'name' => 'Cheque bounced (to tenant)', 'audience' => 'tenant', 'stage' => 'C1',
                 'email_subject' => 'Your cheque {cheque_no} has been returned by the bank',

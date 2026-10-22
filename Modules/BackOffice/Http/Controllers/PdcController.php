@@ -160,6 +160,7 @@ e     */
 
                         $this->notifyTenantBounce($pdcData);
                         $this->notifyBounceCopies($pdcData);
+                        PdcBounceNotifier::notifySalesPerson($pdcData->id);
 
                         /*-----------Are Email Starts--------------------*/
                         if(count($pdcData->tenantContractInfo->building->buildingAssignTo) > 0)
@@ -481,6 +482,7 @@ e     */
 
             $this->notifyTenantBounce($isPosted);
             $this->notifyBounceCopies($isPosted);
+            PdcBounceNotifier::notifySalesPerson($isPosted->id);
             /*-----------Are Email Starts--------------------*/
             if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
                 foreach($isPosted->tenantContractInfo->building->buildingAssignTo as $assign)
@@ -509,6 +511,7 @@ e     */
 
             $this->notifyTenantBounce($isPosted);
             $this->notifyBounceCopies($isPosted);
+            PdcBounceNotifier::notifySalesPerson($isPosted->id);
      
             /*-----------Are Email Starts--------------------*/
             if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
@@ -626,8 +629,30 @@ public function getPdcExchangeDetails(Request $request){
 }
 //get Bounced Cheques
 public function getBouncedCheques(Request $request){
-    return self::bouncedListView(Pdc::areFilter()->openBounces(), $request, 'Bounced cheques',
+    $user = \Auth::user();
+    // Sales staff see only new tenants' bounces (first contract): a sales person their own, the sales head all.
+    if (self::salesBounceView($user)) {
+        $query = Pdc::openBounces()->onNewTenantContract();
+        if (!$user->hasRole('sales_head')) {
+            $query->soldBy($user->id);
+        }
+        return self::bouncedListView($query, $request, 'New tenant bounces',
+            $user->hasRole('sales_head') ? 'Open bounces on the first contract of new tenants'
+                : 'Open bounces on the first contract of tenants you brought in');
+    }
+    $query = Pdc::areFilter()->openBounces();
+    if ($request->new) {
+        return self::bouncedListView($query->onNewTenantContract(), $request, 'New tenant bounces',
+            'Open bounces on the first contract of new tenants');
+    }
+    return self::bouncedListView($query, $request, 'Bounced cheques',
         'Open bounces on active contracts: not settled, no bounce receipt, not redeposited');
+}
+
+/** True for sales person / sales head users with no ARE, back office or management role. */
+public static function salesBounceView($user){
+    return $user->hasAnyRole(['sales_person', 'sales_head'])
+        && !$user->hasAnyRole(['super_admin', 'ceo', 'md', 'are', 'are_team_lead', 'backoffice_manager', 'backoffice_executive', 'finance_manager']);
 }
 
 /**
@@ -683,10 +708,20 @@ public static function bouncedListView($query, Request $request, $title, $subtit
     $ares = collect($areNames)->flatten()->unique()->sort()->values();
     $showAre = !(count(\Auth::user()->roles) == 1 && \Auth::user()->hasRole('are'));
     $isFiltered = $request->search || $request->building || $request->are || $request->age;
+    $salesView = self::salesBounceView(\Auth::user());
+    // a sales person's own list needs no sales column; everyone else sees who brought the tenant in
+    $showSales = !($salesView && !\Auth::user()->hasRole('sales_head'));
+    $salesNames = DB::table('tenant_contracts as tc')
+        ->join('sales_enquiries as se', 'se.id', '=', 'tc.sale_enquiry_id')
+        ->join('users as u', 'u.id', '=', 'se.assigned_person')
+        ->leftJoin('employees as e', 'e.id', '=', 'u.user_type_id')
+        ->whereIn('tc.id', $all->pluck('tenant_contract_id')->unique()->values()->all() ?: [0])
+        ->select('tc.id', DB::raw("coalesce(nullif(e.employee_name, ''), u.username) as sales_name"))
+        ->pluck('sales_name', 'id')->all();
     $newTenantContracts = self::firstContractIds($all->pluck('tenant_contract_id')->unique()->values()->all());
 
     return view('backoffice::Pdc.bounced_cheque_list', compact('pdc', 'all', 'areNames', 'buildings', 'ares', 'ages',
-        'showAre', 'isFiltered', 'title', 'subtitle', 'request', 'today', 'newTenantContracts'));
+        'showAre', 'isFiltered', 'title', 'subtitle', 'request', 'today', 'newTenantContracts', 'salesNames', 'showSales', 'salesView'));
 }
 
 /**
@@ -701,17 +736,7 @@ public static function firstContractIds(array $contractIds){
     $rows = DB::table('tenant_contracts as tc')
         ->join('tenant as t', 't.id', '=', 'tc.tenant_id')
         ->whereIn('tc.id', $contractIds)
-        ->whereNotExists(function ($q) {
-            $q->select(DB::raw(1))->from('tenant_contracts as o')
-              ->join('tenant as t2', 't2.id', '=', 'o.tenant_id')
-              ->whereColumn('o.id', '<>', 'tc.id')
-              ->whereColumn('o.tenant_contract_effective_date', '<', 'tc.tenant_contract_effective_date')
-              ->where(function ($w) {
-                  $w->whereColumn('o.tenant_id', 'tc.tenant_id')
-                    ->orWhereRaw("(nullif(trim(t2.resident_id), '') is not null and trim(t2.resident_id) = trim(t.resident_id))")
-                    ->orWhereRaw("(nullif(trim(t2.tenant_contact_no), '') is not null and trim(t2.tenant_contact_no) = trim(t.tenant_contact_no))");
-              });
-        })
+        ->whereRaw(Pdc::firstContractSql('tc', 't'))
         ->pluck('tc.id')->all();
     return array_fill_keys($rows, true);
 }

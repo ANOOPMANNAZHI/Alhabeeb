@@ -20,6 +20,20 @@
                       
           <div class="state-overview">
             <div class="row">
+                  {{-- new tenant bounced cheques (first contract), highlighted when there are any --}}
+                  <div class="col-xl-4 col-md-6 col-12">
+                    <a href="{{ route('getBouncedCheques', ['new' => 1]) }}" title="Open bounced cheques of new tenants">
+                    <div class="info-box {{ $salesHead['newTenantBounceCount'] > 0 ? 'bg-danger' : 'bg-success' }}">
+                      <span class="info-box-icon push-bottom"><i class="material-icons">money_off</i></span>
+                      <div class="info-box-content">
+                        <span class="info-box-number">{{ $salesHead['newTenantBounceCount'] }}</span>
+                        <span class="info-box-text">New Tenant Bounces</span>
+                        <div class="progress"><div class="progress-bar width-60"></div></div>
+                        <span class="progress-description">{{ $salesHead['newTenantBounceCount'] > 0 ? 'Cheques bounced on a first contract' : 'No open bounces' }}</span>
+                      </div>
+                    </div>
+                    </a>
+                  </div>
                   <div class="col-xl-4 col-md-6 col-12">
                     <div class="info-box bg-blue">
                       <a class="wonLastDays_href" href="{{route('wonList').'?count_by_day=30'}}" >   
