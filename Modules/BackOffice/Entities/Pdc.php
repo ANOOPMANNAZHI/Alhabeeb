@@ -146,4 +146,37 @@ public function scopeBouncedCheques($query){
     return $query;
 }
 
+/**
+ * Bounces still to be followed up (ARE / back office manager dashboard card and list):
+ * bounced, contract active, not settled (pdc_settlement 2), no bounce receipt that is not
+ * cancelled/rejected, and not deposited again (later open PDC with the same cheque no, bank,
+ * date and amount - same rules as PdcController::bounceReceiptNos / redepositedIds).
+ */
+public function scopeOpenBounces($query){
+    return $query->where('pdc.pdc_cancel_reason', 1)
+        ->where(function ($q) {
+            $q->whereNull('pdc.pdc_settlement')->orWhere('pdc.pdc_settlement', '<>', 2);
+        })
+        ->whereHas('tenantContractInfo', function ($q) {
+            $q->where('tenant_contract_status', 1);
+        })
+        ->whereNotExists(function ($q) {
+            $q->select(\DB::raw(1))->from('receipts_generation as rg')
+              ->whereColumn('rg.receipts_generation_is_pdc_bounce_id', 'pdc.id')
+              ->where('rg.receipts_generation_status', '!=', 2)
+              ->where('rg.receipts_generation_approval_status', '!=', 4)
+              ->whereNull('rg.deleted_at');
+        })
+        ->whereNotExists(function ($q) {
+            $q->select(\DB::raw(1))->from('pdc as rd')
+              ->whereColumn('rd.tenant_contract_id', 'pdc.tenant_contract_id')
+              ->whereColumn('rd.id', '>', 'pdc.id')
+              ->where('rd.pdc_cancel_reason', 0)
+              ->whereRaw("ltrim(rd.pdc_check_no::text, '0') = ltrim(pdc.pdc_check_no::text, '0')")
+              ->whereRaw('coalesce(rd.bank_id, 0) = coalesce(pdc.bank_id, 0)')
+              ->whereRaw('rd.pdc_check_date::date = pdc.pdc_check_date::date')
+              ->whereRaw('round(rd.pdc_amt::numeric, 3) = round(pdc.pdc_amt::numeric, 3)');
+        });
+}
+
 }

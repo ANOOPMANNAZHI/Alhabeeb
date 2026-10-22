@@ -1425,7 +1425,7 @@ public function  areDashboard(Request $request,$dashboard = false){
 
 
 
-		$bouncedChequeCount = Pdc::areFilter()->bouncedCheques()->count();
+		$bouncedChequeCount = Pdc::areFilter()->openBounces()->count();
 
 
 		if(!$dashboard)
@@ -3103,7 +3103,7 @@ return ['count' => $unregisteredContractsCount];
 
 
 
-		$bouncedChequeCount = Pdc::areFilter()->bouncedCheques()->count();
+		$bouncedChequeCount = Pdc::areFilter()->openBounces()->count();
 
 		if(!$dashboard)
 			return ['count' => $bouncedChequeCount ];

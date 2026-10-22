@@ -626,7 +626,7 @@ public function getPdcExchangeDetails(Request $request){
 }
 //get Bounced Cheques
 public function getBouncedCheques(){
-    $pdc= Pdc::areFilter()->bouncedCheques()->get();
+    $pdc= Pdc::areFilter()->openBounces()->get();
     return view('backoffice::Pdc.bounced_cheque_list',compact('pdc'));
 }
 
