@@ -2241,6 +2241,85 @@ class TenantRenewalController extends Controller
    /**
      * Before Renew Contract create to view Previous Contract.
      */
+    /**
+     * Tenant decided to vacate after the renewal was accepted (Contract Under Renewal 304 or
+     * Contract Renewal 301) but before a renewal contract was made. Closes the renewal steps
+     * (kept as history, with the reason as a stage note) and starts the termination exactly
+     * like Vacating on Due for Renewal: 501 dated on the contract end, unit under termination.
+     */
+    public function renewalVacate(Request $request, $contractId)
+    {
+        $user = \Auth::user();
+        $allowed = $user->hasRole('super_admin');
+        foreach (['renewal_contract_add', 'under_renewal_normal_renewal', 'under_renewal_send_for_approval', 'renewal_due_accept'] as $perm) {
+            $allowed = $allowed || $user->can($perm);
+        }
+        if (!$allowed) {
+            abort(403);
+        }
+        $this->validate($request, ['renewal_notes' => 'nullable|max:200']);
+
+        $error = null;
+        $response = DB::transaction(function () use ($request, $contractId, $user, &$error) {
+            // lock the contract row so a double click cannot start two terminations
+            $contract = TenantContract::where('id', $contractId)->lockForUpdate()->first();
+            list($stage, $error) = self::renewalVacateCheck($contract);
+            if ($error) {
+                return null;
+            }
+
+            Renewal::where('old_contract_id', $contractId)->update(['status' => 0]);
+            $note = trim((string) $request->renewal_notes);
+            $closed = new Renewal;
+            $closed->old_contract_id = $contractId;
+            $closed->renewal_type = 1;
+            $closed->work_flow_processes_code = $stage;
+            $closed->renewal_notes = 'Tenant vacating, renewal stopped' . ($note !== '' ? ': ' . $note : '');
+            $closed->status = 0;
+            $closed->created_by = $user->id;
+            $closed->save();
+
+            activity('Tenant Renewal Vacating')
+              ->performedOn($contract)
+              ->causedBy($user->id)
+              ->withProperties(['stage' => $stage, 'note' => $note])
+              ->log('Renewal stopped at stage ' . $stage . ', tenant vacating. By: ' . $user->username);
+
+            // same as Vacating on Due for Renewal
+            return $this->tenantRenewalStage($contractId, 501, 7, 0);
+        });
+
+        if ($error) {
+            session()->flash('error', $error);
+            return redirect()->back();
+        }
+        return $response;
+    }
+
+    /**
+     * [renewal stage (301/304), error message or null] for Tenant Vacating; also decides whether
+     * the button shows. A termination counts as open when the contract's latest termination row
+     * was not referred back (Refer Back for Renewal flags only that row, the older 501/502 stay).
+     */
+    public static function renewalVacateCheck($contract)
+    {
+        $current = $contract ? Renewal::where('old_contract_id', $contract->id)->where('renewal_type', 1)
+            ->where('status', 1)->orderBy('id', 'desc')->first() : null;
+        $stage = $current ? (int) $current->work_flow_processes_code : null;
+
+        if (!$contract || (int) $contract->tenant_contract_status !== 1 || !in_array($stage, [301, 304])) {
+            return [$stage, 'This contract is not under renewal any more.'];
+        }
+        if (Renewal::where('old_contract_id', $contract->id)->whereNotNull('new_contract_id')->exists()) {
+            return [$stage, 'A renewal contract has already been created. Reject or cancel it before marking the tenant as vacating.'];
+        }
+        $lastTermination = Termination::where('contract_id', $contract->id)->orderBy('id', 'desc')->first();
+        if ($lastTermination && !$lastTermination->termination_refer_back) {
+            return [$stage, 'A termination has already been started for this contract.'];
+        }
+        return [$stage, null];
+    }
+
     public function previousContractViewAndAction($id)
     {
       $tenantContract = TenantContract::where('id',$id)->first();

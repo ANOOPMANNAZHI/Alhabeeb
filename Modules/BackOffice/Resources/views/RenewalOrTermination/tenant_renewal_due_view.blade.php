@@ -39,6 +39,7 @@
 				</button>
 			  @endcan	
 
+			  @include('backoffice::RenewalOrTermination.partials.renewal_vacate')
              </div> 
 			@else
 
@@ -549,6 +550,7 @@
 </div>
 </div>
 
+@stack('renewal_vacate_modal')
 @endsection
 @section('scripts')
 <script> 

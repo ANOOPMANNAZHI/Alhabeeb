@@ -55,6 +55,7 @@ Route::get('tenantRenewal/renewalCron', 'TenantRenewalController@cronRenewalCont
 Route::get('/tenantRenewal/stage/{contractId}/{stage}/{status}/{oldId}', 'TenantRenewalController@tenantRenewalStage')->name('tenantRenewalStage');
 
 Route::post('/tenantRenewalStageDue/stage/{contractId}/{stage}/{status}/{oldId}', 'TenantRenewalController@tenantRenewalStageDue')->name('tenantRenewalStageDue');
+Route::post('/tenantRenewal/vacate/{contractId}', 'TenantRenewalController@renewalVacate')->name('tenantRenewalVacate');
 /***  Sent for approval in renewal stage ****/
 Route::get('/sendApprovalFromRenewal/{contractId}/{stage}/{status}/{oldId}', 'TenantRenewalController@sendApprovalFromRenewal')->name('sendApprovalFromRenewal');
 //List Grid
