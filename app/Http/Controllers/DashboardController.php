@@ -764,6 +764,8 @@ return [
 'vacantUnits' => $vacantUnits,	           
 'partial_pdc' => $partial_pdc,	
 'handoverAssignedCount'=>$handoverAssignedCount,           
+// open bounces on the first contract of tenants this sales person brought in
+'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()->soldBy(\Auth::user()->id)->count(),
 ];
 
 }
@@ -2696,7 +2698,9 @@ if(!$dashboard)
 	'pendingApproval'=>$pendingApproval,
 	'vacantUnits'=>$vacantUnits,
 	'sales_person_list'=>$sale,
-	'averageResponseTime'=>round($averageResponseTime)
+	'averageResponseTime'=>round($averageResponseTime),
+	// open bounces on the first contract of new tenants (all sales persons)
+	'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()->count(),
 	];
 
 }
