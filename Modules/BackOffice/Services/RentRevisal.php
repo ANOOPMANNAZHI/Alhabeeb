@@ -8,14 +8,14 @@ use Modules\Sales\Entities\TenantContract;
 
 /**
  * Rent revisal before renewal (spec 2026-10-15). A contract can be revised when it is active, ends in
- * 90-120 days (both inclusive) and its renewal has not started (tenant_renewal_termination_status 0/1/4).
+ * 90-150 days (both inclusive) and its renewal has not started (tenant_renewal_termination_status 0/1/4).
  * ARE scope follows Due for Renewal's areFilter: an ARE sees the buildings assigned to them, an ARE team
  * lead (as only role) their team's buildings, everyone else all buildings.
  */
 class RentRevisal
 {
     const MIN_DAYS = 90;
-    const MAX_DAYS = 120;
+    const MAX_DAYS = 150;
     const OPEN_STATUSES = [0, 1, 4];
 
     public static function windowQuery($user)
@@ -71,7 +71,7 @@ class RentRevisal
     public static function send(TenantContract $c, $user, $rent, $note, $draft = false)
     {
         if (!self::canRevise($c, $user)) {
-            return [null, 'This contract cannot be revised: it is outside the 90-120 day window, already sent, or not one of your buildings.'];
+            return [null, 'This contract cannot be revised: it is outside the 90-150 day window, already sent, or not one of your buildings.'];
         }
         $note = trim((string) $note) !== '' ? trim((string) $note) : null;
         $status = $draft ? \Modules\BackOffice\Entities\TenantRentRevisal::DRAFT : \Modules\BackOffice\Entities\TenantRentRevisal::SENT;

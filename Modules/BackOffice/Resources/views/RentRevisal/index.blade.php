@@ -21,7 +21,7 @@
           <div id="pagination_info">@include('includes.pagination_info', ['paginator' => $contracts])</div>
           <div class="clr"></div>
         </h4>
-        <p class="text-muted">Contracts ending in 90 to 120 days. Save the revised rent as a draft, or send it to the tenant now.</p>
+        <p class="text-muted">Contracts ending in 90 to 150 days. Save the revised rent as a draft, or send it to the tenant now.</p>
         <form method="GET" class="form-inline" style="gap:8px;margin-bottom:12px">
           <input type="text" name="search" id="rr_search" class="form-control" placeholder="Contract, tenant or building" value="{{ $request->search }}">
           <select name="revisal" id="rr_revisal" class="form-control">
@@ -80,7 +80,7 @@
               </td>
             </tr>
           @empty
-            <tr><td colspan="10" class="text-center text-muted">No contracts end in 90 to 120 days.</td></tr>
+            <tr><td colspan="10" class="text-center text-muted">No contracts end in 90 to 150 days.</td></tr>
           @endforelse
           </tbody>
         </table>

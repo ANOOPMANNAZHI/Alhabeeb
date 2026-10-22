@@ -23,7 +23,7 @@
          <span class="info-box-number">{{ $are['rentRevisalDueCount'] ?? 0 }} @if(($are['rentRevisalDueCount'] ?? 0) > 0)<span class="rr-badge">Action needed</span>@endif</span>
          <span class="info-box-text">Rent revisal due</span>
          <div class="progress"><div class="progress-bar width-60"></div></div>
-         <span class="progress-description">Contracts ending in 90-120 days</span>
+         <span class="progress-description">Contracts ending in 90-150 days</span>
        </div>
      </div>
      </a>
