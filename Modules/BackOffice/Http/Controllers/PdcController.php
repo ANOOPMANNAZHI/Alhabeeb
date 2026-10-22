@@ -683,9 +683,37 @@ public static function bouncedListView($query, Request $request, $title, $subtit
     $ares = collect($areNames)->flatten()->unique()->sort()->values();
     $showAre = !(count(\Auth::user()->roles) == 1 && \Auth::user()->hasRole('are'));
     $isFiltered = $request->search || $request->building || $request->are || $request->age;
+    $newTenantContracts = self::firstContractIds($all->pluck('tenant_contract_id')->unique()->values()->all());
 
     return view('backoffice::Pdc.bounced_cheque_list', compact('pdc', 'all', 'areNames', 'buildings', 'ares', 'ages',
-        'showAre', 'isFiltered', 'title', 'subtitle', 'request', 'today'));
+        'showAre', 'isFiltered', 'title', 'subtitle', 'request', 'today', 'newTenantContracts'));
+}
+
+/**
+ * Contracts (of the given ids) that are the tenant's first contract: no earlier contract for the
+ * tenant, nor for another tenant record with the same resident ID or mobile (duplicate tenant
+ * records). Renewals always have an earlier contract, so they are never first. Returns [id => true].
+ */
+public static function firstContractIds(array $contractIds){
+    if (!$contractIds) {
+        return [];
+    }
+    $rows = DB::table('tenant_contracts as tc')
+        ->join('tenant as t', 't.id', '=', 'tc.tenant_id')
+        ->whereIn('tc.id', $contractIds)
+        ->whereNotExists(function ($q) {
+            $q->select(DB::raw(1))->from('tenant_contracts as o')
+              ->join('tenant as t2', 't2.id', '=', 'o.tenant_id')
+              ->whereColumn('o.id', '<>', 'tc.id')
+              ->whereColumn('o.tenant_contract_effective_date', '<', 'tc.tenant_contract_effective_date')
+              ->where(function ($w) {
+                  $w->whereColumn('o.tenant_id', 'tc.tenant_id')
+                    ->orWhereRaw("(nullif(trim(t2.resident_id), '') is not null and trim(t2.resident_id) = trim(t.resident_id))")
+                    ->orWhereRaw("(nullif(trim(t2.tenant_contact_no), '') is not null and trim(t2.tenant_contact_no) = trim(t.tenant_contact_no))");
+              });
+        })
+        ->pluck('tc.id')->all();
+    return array_fill_keys($rows, true);
 }
 
 

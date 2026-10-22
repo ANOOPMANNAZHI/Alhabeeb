@@ -9,6 +9,9 @@
   .lg .bc-wrap { min-width: 150px; }
   .lg .bc-reason { min-width: 130px; max-width: 200px; white-space: normal; }
   .lg .lg-table tbody tr[data-href] { cursor: pointer; }
+  .lg .lg-table tbody tr.bc-new td { background: #E6EFFE; }
+  .lg .lg-table tbody tr.bc-new:hover td { background: #D6E4FD; }
+  .lg .bc-new-badge { display: inline-block; margin: 4px 0 2px; padding: 2px 8px; border-radius: 999px; background: var(--lg-info); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
 </style>
 @endsection
 
@@ -19,6 +22,7 @@
   $total = $pdc->sum(function ($p) { return (float) $p->pdc_amt; });
   $contracts = $pdc->pluck('tenant_contract_id')->unique()->count();
   $over30 = $pdc->filter(function ($p) use ($ageOf) { return $ageOf($p) > 30; })->count();
+  $newCount = $pdc->filter(function ($p) use ($newTenantContracts) { return isset($newTenantContracts[$p->tenant_contract_id]); })->count();
   $cols = $showAre ? 10 : 9;
   $canOpenPdc = \Auth::user()->can('pdc_generation');
 @endphp
@@ -36,6 +40,8 @@
     <div class="lg-kpi"><div class="lg-kpi__label">Cheques</div><div class="lg-kpi__value">{{ $pdc->count() }}</div></div>
     <div class="lg-kpi {{ $total > 0 ? 'lg-kpi--bad' : '' }}"><div class="lg-kpi__label">Amount (OMR)</div><div class="lg-kpi__value">{{ numberFormat($total) }}</div></div>
     <div class="lg-kpi"><div class="lg-kpi__label">Contracts</div><div class="lg-kpi__value">{{ $contracts }}</div></div>
+    <div class="lg-kpi"><div class="lg-kpi__label">New tenants</div><div class="lg-kpi__value">{{ $newCount }}</div>
+      <div class="lg-kpi__hint">cheques on a first contract</div></div>
     <div class="lg-kpi {{ $over30 ? 'lg-kpi--bad' : '' }}"><div class="lg-kpi__label">Over 30 days</div><div class="lg-kpi__value">{{ $over30 }}</div>
       <div class="lg-kpi__hint">since the cheque date</div></div>
   </div>
@@ -89,9 +95,11 @@
             $age = $ageOf($p);
             $tone = $age === null || $age < 0 ? 'neutral' : ($age > 30 ? 'danger' : ($age > 7 ? 'warning' : 'neutral'));
             $pdcUrl = $canOpenPdc ? route('pdc.edit', $c->id) : null;
+            $isNew = isset($newTenantContracts[$c->id]);
           @endphp
-          <tr @if($pdcUrl) data-href="{{ $pdcUrl }}" title="Open the PDC screen of {{ $c->tenant_contract_no }}" @endif>
+          <tr @if($isNew) class="bc-new" @endif @if($pdcUrl) data-href="{{ $pdcUrl }}" title="Open the PDC screen of {{ $c->tenant_contract_no }}" @endif>
             <td class="strong bc-tenant">{{ $t->tenant_name ?? '' }}
+              @if($isNew)<br><span class="bc-new-badge" title="First contract of this tenant: no earlier contract">New tenant</span>@endif
               <span class="bc-sub2">@if($mobile)<a href="tel:{{ preg_replace('/\s+/', '', $mobile) }}">{{ $mobile }}</a>@else N/A @endif</span></td>
             <td class="bc-wrap">{{ $c->building->building_name ?? '' }}<span class="bc-sub2">Unit {{ $c->Unit->unit_no ?? '' }}</span></td>
             <td class="tnum">@if($pdcUrl)<a class="lg-row-link" href="{{ $pdcUrl }}">{{ $c->tenant_contract_no }}</a>@else{{ $c->tenant_contract_no }}@endif
