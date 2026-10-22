@@ -18,7 +18,7 @@
   $total = $pdc->sum(function ($p) { return (float) $p->pdc_amt; });
   $contracts = $pdc->pluck('tenant_contract_id')->unique()->count();
   $over30 = $pdc->filter(function ($p) use ($ageOf) { return $ageOf($p) > 30; })->count();
-  $cols = $showAre ? 11 : 10;
+  $cols = $showAre ? 10 : 9;
 @endphp
 <div class="lg">
   <div class="lg-crumbs">{{ Breadcrumbs::render('tenantPdcBounce') }}</div>
@@ -75,7 +75,6 @@
             <th scope="col">Reason</th>
             <th scope="col" class="num">Amount</th>
             <th scope="col" class="num">Rent pm</th>
-            <th scope="col">Rent paid to</th>
             @if($showAre)<th scope="col">ARE</th>@endif
           </tr>
         </thead>
@@ -101,7 +100,6 @@
             <td class="bc-reason">{{ $p->pdc_cancel_reason_name }}</td>
             <td class="num strong">{{ numberFormat($p->pdc_amt) }}@if((int) $p->pdc_type !== 1)<span class="bc-sub2">{{ $p->pdc_type_name }}</span>@endif</td>
             <td class="num">{{ numberFormat($c->tenant_contract_rent) }}</td>
-            <td class="tnum">{{ $fmtDate($c->tenant_contract_last_paid_date) }}</td>
             @if($showAre)<td class="bc-wrap">{{ implode(', ', $areNames[$c->building_id] ?? []) }}</td>@endif
           </tr>
           @empty
