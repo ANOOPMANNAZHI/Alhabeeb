@@ -152,11 +152,14 @@ public function scopeBouncedCheques($query){
  * (duplicate tenant records). Renewals always have an earlier contract, so they are never first.
  */
 public static function firstContractSql($tc = 'tc', $t = 't'){
-    return "not exists (select 1 from tenant_contracts o join tenant t2 on t2.id = o.tenant_id
-        where o.id <> {$tc}.id and o.tenant_contract_effective_date < {$tc}.tenant_contract_effective_date
-        and (o.tenant_id = {$tc}.tenant_id
-          or (nullif(trim(t2.resident_id), '') is not null and trim(t2.resident_id) = trim({$t}.resident_id))
-          or (nullif(trim(t2.tenant_contact_no), '') is not null and trim(t2.tenant_contact_no) = trim({$t}.tenant_contact_no))))";
+    // three separate checks instead of one OR, so Postgres can hash them (the OR scanned every
+    // contract per row); a blank resident ID / mobile is null after nullif and never matches
+    $earlier = "o.id <> {$tc}.id and o.tenant_contract_effective_date < {$tc}.tenant_contract_effective_date";
+    return "not exists (select 1 from tenant_contracts o where o.tenant_id = {$tc}.tenant_id and {$earlier})
+        and not exists (select 1 from tenant_contracts o join tenant t2 on t2.id = o.tenant_id
+          where trim(t2.resident_id) = nullif(trim({$t}.resident_id), '') and {$earlier})
+        and not exists (select 1 from tenant_contracts o join tenant t2 on t2.id = o.tenant_id
+          where trim(t2.tenant_contact_no) = nullif(trim({$t}.tenant_contact_no), '') and {$earlier})";
 }
 
 /** Cheques of a contract that is the tenant's first contract (a new tenant). */
