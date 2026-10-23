@@ -2562,31 +2562,33 @@ public function  salesHeadDashboard(Request $request,$dashboard = false){
 		}
 	}
 	//dd($sales_person_user_list);
+	// counts for all sales persons in two grouped queries (was 4 row-fetching queries per person)
+	$stageBase = function () {
+		return DB::table('sales')
+		->join('sales_users', 'sales_users.sales_id', '=', 'sales.id')
+		->join('sales_enquiries', 'sales_enquiries.id', '=', 'sales.sales_enquiry_id')
+		->where('sales.sales_type','=',1)->where('sales_enquiry_direct_contract','=',1);
+	};
+	$stageCounts = [];
+	foreach ($stageBase()->whereIn('sales.work_flow_processes_code',[102,103,104])
+		->groupBy('sales_users.user_id','sales.work_flow_processes_code')
+		->select('sales_users.user_id as uid','sales.work_flow_processes_code as code',DB::raw('count(*) as cnt'))->get() as $row) {
+		$stageCounts[$row->code][$row->uid] = (int) $row->cnt;
+	}
+	foreach ($stageBase()->where('sales.work_flow_processes_code','=',106)
+		->groupBy('sales_enquiries.assigned_person')
+		->select('sales_enquiries.assigned_person as uid',DB::raw('count(*) as cnt'))->get() as $row) {
+		$stageCounts[106][$row->uid] = (int) $row->cnt;
+	}
 	foreach($sales_person_user_list as $key=>$list){
 
-		if($list->employee->id) 
+		if($list->employee->id)
 			$userList[] = $list->employee->employee_name;
-		
-		$userstageList['assigned'][$key] = $units = DB::table('sales')
-		->join('sales_users', 'sales_users.sales_id', '=', 'sales.id')
-		->join('sales_enquiries', 'sales_enquiries.id', '=', 'sales.sales_enquiry_id')
-		->where('sales.sales_type','=',1)->where('sales.work_flow_processes_code','=',102)->where('sales_enquiry_direct_contract','=',1)->where('user_id','=',$list->id)
-		->get()->count();
-		$userstageList['inprogess'][$key] = $units = DB::table('sales')
-		->join('sales_users', 'sales_users.sales_id', '=', 'sales.id')
-		->join('sales_enquiries', 'sales_enquiries.id', '=', 'sales.sales_enquiry_id')
-		->where('sales.sales_type','=',1)->where('sales.work_flow_processes_code','=',103)->where('sales_enquiry_direct_contract','=',1)->where('user_id','=',$list->id)
-		->get()->count();
-		$userstageList['prel_doc'][$key] = $units = DB::table('sales')
-		->join('sales_users', 'sales_users.sales_id', '=', 'sales.id')
-		->join('sales_enquiries', 'sales_enquiries.id', '=', 'sales.sales_enquiry_id')
-		->where('sales.sales_type','=',1)->where('sales.work_flow_processes_code','=',104)->where('sales_enquiry_direct_contract','=',1)->where('user_id','=',$list->id)
-		->get()->count();
-		$userstageList['final_doc'][$key] = $units = DB::table('sales')
-		->join('sales_users', 'sales_users.sales_id', '=', 'sales.id')
-		->join('sales_enquiries', 'sales_enquiries.id', '=', 'sales.sales_enquiry_id')
-		->where('sales.sales_type','=',1)->where('sales.work_flow_processes_code','=',106)->where('sales_enquiry_direct_contract','=',1)->where('assigned_person','=',$list->id)
-		->get()->count();	
+
+		$userstageList['assigned'][$key] = isset($stageCounts[102][$list->id]) ? $stageCounts[102][$list->id] : 0;
+		$userstageList['inprogess'][$key] = isset($stageCounts[103][$list->id]) ? $stageCounts[103][$list->id] : 0;
+		$userstageList['prel_doc'][$key] = isset($stageCounts[104][$list->id]) ? $stageCounts[104][$list->id] : 0;
+		$userstageList['final_doc'][$key] = isset($stageCounts[106][$list->id]) ? $stageCounts[106][$list->id] : 0;
 	}
 
 	$sale['name']= $userList;
@@ -2665,26 +2667,16 @@ public function  salesHeadDashboard(Request $request,$dashboard = false){
 
 	if($count_type == 'averageResponseTime' || $dashboard == true){ 
 		$averageResponseTime = 0 ;
-		$SalesEnquiries = SalesEnquiry::where('sales_type',1)->whereHas('salesFirstCall')->get();
-		$TotalEnquiries = $SalesEnquiries->count();
-		$totalTime = 0;
-		foreach ($SalesEnquiries as $key=>$SalesEnquiry) {
-			$SalesEnquiryId = $SalesEnquiry->id;
-			$Sales = Sales::where('sales_enquiry_id',$SalesEnquiryId)->where('work_flow_processes_code',102)->first();
-			$firstCallTime = $Sales->created_at;
-			$SalesEnquiryTime = $SalesEnquiry->created_at;
-			$timeDifference = strtotime($firstCallTime) - strtotime($SalesEnquiryTime);
-
-			$totalTime+= $timeDifference;
-			$sumOfTotalTime=$totalTime;
-			$time[] = $SalesEnquiry->created_at.'-'.$Sales->created_at.'---'.$sumOfTotalTime;
-			
-		
-		}
-		if(isset($sumOfTotalTime)){
-			$hrs = $sumOfTotalTime/3600;
-			$averageResponseTime = $hrs/$TotalEnquiries;
-	
+		// one query instead of one per enquiry: hours from enquiry to its first call (earliest 102 row)
+		$firstCalls = Sales::where('work_flow_processes_code',102)
+			->groupBy('sales_enquiry_id')
+			->select('sales_enquiry_id', DB::raw('min(created_at) as first_call_at'));
+		$response = SalesEnquiry::where('sales_type',1)
+			->joinSub($firstCalls, 'fc', 'fc.sales_enquiry_id', '=', 'sales_enquiries.id')
+			->selectRaw('count(*) as total, sum(extract(epoch from fc.first_call_at - sales_enquiries.created_at)) as seconds')
+			->first();
+		if($response && $response->total > 0){
+			$averageResponseTime = ($response->seconds / 3600) / $response->total;
 		}
 if(!$dashboard)
 			return ['count' => numberFormat($averageResponseTime)];	
