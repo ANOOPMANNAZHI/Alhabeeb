@@ -183,7 +183,7 @@
 
 <!-- /.col -->
                   <div class="col-xl-4 col-md-4 col-12">
-                    <a href="{{route('unit.index').'?unit_vaccant_status=0&unit_status=1'}}">
+                    <a href="{{route('unit.index').'?unit_vaccant_status=0&unit_status=1&sold_buildings=1'}}">
                     <div class="info-box bg-mint">
                       <span class="info-box-icon push-bottom infoBoxSmall"><i class="material-icons">hourglass_empty</i></span>
                       <div class="info-box-content">
