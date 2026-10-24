@@ -452,6 +452,10 @@ class UnitController extends Controller
                 ->where('building_status', 1);
         });
      })
+     // same as index(): opened from the sales person dashboard card
+     ->when($request->sold_buildings == 1, function ($query) {
+        $query->soldBuildingsOf(\Auth::user()->id);
+     })
      // Same rule as index(): only group by unit type when no sort was asked for.
      ->when(!$request->filled('sort'), function ($query) {
         $query->orderBy('unit_type_id','asc');
