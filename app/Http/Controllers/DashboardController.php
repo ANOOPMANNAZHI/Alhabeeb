@@ -684,18 +684,18 @@ if($count_type == 'wonEnquiry' || $dashboard == true){
 if($count_type == 'vacantUnits' || $dashboard == true){ 
 
 
+	// only buildings where this sales person has an active contract they sold
 	$vacantUnits =
-	\Modules\Masters\Entities\Unit::where('unit_vaccant_status',0)                              
+	\Modules\Masters\Entities\Unit::where('unit_vaccant_status',0)
 	->where('unit_status',1)
-	
-	->get()
+	->soldBuildingsOf(\Auth::user()->id)
 	->count();
 
 	$count_query = 'unit_vaccant_status='.$count.'&unit_status=1';
 
 
 	if(!$dashboard)
-		return ['count' => $vacantUnits, 'href' => route('unit.index') ];
+		return ['count' => $vacantUnits, 'href' => route('unit.index').'?unit_vaccant_status=0&unit_status=1&sold_buildings=1' ];
 
 }
 
