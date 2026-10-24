@@ -163,6 +163,8 @@
          var params = new URLSearchParams(window.location.search);
          var sort = params.get('sort') || '';
          var direction = params.get('direction') || '';
+         // opened from the sales person dashboard: keep searching inside their buildings only
+         var sold_buildings = params.get('sold_buildings') || '';
 
        $.ajax({
         method: "POST",
@@ -174,6 +176,7 @@
           'unit_status' : unit_status,
           'sort' : sort,
           'direction' : direction,
+          'sold_buildings' : sold_buildings,
           'curr_url' : curr_url,"_token" : $('meta[name="csrf-token"]').attr('content')},
 
         beforeSend: function(){
@@ -201,7 +204,7 @@
 
             var txt = 'unit_code='+unit_code+'&unit_no='+unit_no+'&building__building_name='+
                       building__building_name+'&unit_type_id='+unit_type_id+'&unit_vaccant_status='+unit_vaccant_status+'&unit_status='+
-                      unit_status+'&curr_url='+curr_url ;
+                      unit_status+'&sold_buildings='+sold_buildings+'&curr_url='+curr_url ;
             
             var txt_hashes = txt.split('&');
             var href_txt = '';
