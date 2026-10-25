@@ -27,7 +27,7 @@ class LegalWaiverTest extends TestCase
     private $plm;
     private $lawyer;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         SystemMessenger::$smsSender = function () { return true; };
@@ -36,7 +36,7 @@ class LegalWaiverTest extends TestCase
         $this->lawyer = $this->makeUser('lgw_t_lawyer', 'legal_advisor');
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();

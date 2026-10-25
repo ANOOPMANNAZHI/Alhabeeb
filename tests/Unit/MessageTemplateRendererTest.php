@@ -77,7 +77,7 @@ class MessageTemplateRendererTest extends TestCase
         ];
         foreach ($cases as $dirty) {
             $clean = R::cleanHtml($dirty);
-            $this->assertNotRegExp('/<script|<svg|<form|<button|<meta|\son[a-z]+\s*=|javascript:|formaction/i', $clean, $dirty . ' => ' . $clean);
+            $this->assertDoesNotMatchRegularExpression('/<script|<svg|<form|<button|<meta|\son[a-z]+\s*=|javascript:|formaction/i', $clean, $dirty . ' => ' . $clean);
         }
     }
 

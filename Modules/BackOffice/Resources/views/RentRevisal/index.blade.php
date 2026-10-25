@@ -54,7 +54,7 @@
               <td>{{ $c->building->building_name ?? '' }}</td>
               <td>{{ $c->unit->unit_no ?? '' }}</td>
               <td>{{ $end->format('d/m/Y') }}</td>
-              <td>{{ \Carbon\Carbon::today()->diffInDays($end, false) }}</td>
+              <td>{{ (int) \Carbon\Carbon::today()->diffInDays($end, false) }}</td>
               <td>{{ numberFormat($c->tenant_contract_rent) }}</td>
               <td>{{ $c->tenant->tenant_name ?? '' }}</td>
               <td>{{ $r ? numberFormat($r->revised_rent) : '' }}</td>

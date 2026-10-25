@@ -46,10 +46,10 @@ class ExpenseDetailsV2FilterTest extends TestCase
     {
         $this->actingAs(\App\User::find(1));
         $html = $this->get(route('showExpenseDetailsReportV2'))->assertOk()->getContent();
-        $this->assertRegExp('/<div[^>]*id="gl_head_box"[^>]*hidden/', $html);
-        $this->assertContains('<select class="form-control" id="gl_head" name="gl_head"', $html);
-        $this->assertContains('<option value="">All heads</option>', $html);
-        $this->assertContains('<option value="41102">41102 - MUNICIPAL TAX</option>', $html);
+        $this->assertMatchesRegularExpression('/<div[^>]*id="gl_head_box"[^>]*hidden/', $html);
+        $this->assertStringContainsString('<select class="form-control" id="gl_head" name="gl_head"', $html);
+        $this->assertStringContainsString('<option value="">All heads</option>', $html);
+        $this->assertStringContainsString('<option value="41102">41102 - MUNICIPAL TAX</option>', $html);
     }
 
     private function sources(array $rows)

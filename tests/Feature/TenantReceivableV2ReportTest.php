@@ -27,7 +27,7 @@ class TenantReceivableV2ReportTest extends TestCase
             'building_name' => $this->busyBuilding(), 'end_date' => date('Y-m-d'), 'download_type' => 'excel',
         ]);
         $res->assertOk();
-        $this->assertContains('tenant_receivable_v2_' . date('Y-m-d') . '.xlsx', $res->headers->get('content-disposition'));
+        $this->assertStringContainsString('tenant_receivable_v2_' . date('Y-m-d') . '.xlsx', $res->headers->get('content-disposition'));
     }
 
     public function test_pdf_download_for_one_building()
@@ -84,6 +84,6 @@ class TenantReceivableV2ReportTest extends TestCase
     {
         $src = file_get_contents(base_path('Modules/BackOffice/Http/Controllers/BackOfficeReportController.php'));
         $this->assertSame(1, preg_match('/function tenantReceivablesReportPdfV2\(.*?\r?\n}\r?\n/s', $src, $m));
-        $this->assertNotContains('tenantrentreceivable', $m[0]);
+        $this->assertStringNotContainsString('tenantrentreceivable', $m[0]);
     }
 }

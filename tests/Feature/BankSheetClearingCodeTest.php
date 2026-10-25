@@ -20,7 +20,7 @@ class BankSheetClearingCodeTest extends TestCase
     private $stored;
     private $pdc;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         $this->actingAs(User::find(1));
@@ -39,7 +39,7 @@ class BankSheetClearingCodeTest extends TestCase
         $this->writeSheet(storage_path('app/pdc_bank_sheets/' . $this->stored));
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         if ($this->stored) {
             @unlink(storage_path('app/pdc_bank_sheets/' . $this->stored));
@@ -56,8 +56,8 @@ class BankSheetClearingCodeTest extends TestCase
         $ss = new Spreadsheet();
         $ws = $ss->getActiveSheet();
         foreach ($headers as $i => $h) {
-            $ws->setCellValueByColumnAndRow($i + 2, 9, $h);
-            $ws->setCellValueExplicitByColumnAndRow($i + 2, 10, $row[$i], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $ws->setCellValue([$i + 2, 9], $h);
+            $ws->setCellValueExplicit([$i + 2, 10], $row[$i], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
         }
         if (!is_dir(dirname($path))) {
             mkdir(dirname($path), 0777, true);
@@ -68,12 +68,12 @@ class BankSheetClearingCodeTest extends TestCase
     public function test_preview_lists_the_unknown_code_with_the_cheques_bank_suggested()
     {
         $html = $this->get(route('pdcBankSheetPreview', $this->stored))->assertOk()->getContent();
-        $this->assertContains('Bank codes not set up in PLMS', $html);
-        $this->assertContains('<span class="bsp-code-no">' . self::CODE . '</span><strong>Test Clearing Bank</strong>', $html);
+        $this->assertStringContainsString('Bank codes not set up in PLMS', $html);
+        $this->assertStringContainsString('<span class="bsp-code-no">' . self::CODE . '</span><strong>Test Clearing Bank</strong>', $html);
         $bank = Bank::find($this->pdc->bank_id);
-        $this->assertContains('in PLMS under ' . e($bank->bank_name), $html);
-        $this->assertRegExp('/<option value="' . $bank->id . '" selected>/', $html);
-        $this->assertContains('Add code ' . self::CODE, $html);
+        $this->assertStringContainsString('in PLMS under ' . e($bank->bank_name), $html);
+        $this->assertMatchesRegularExpression('/<option value="' . $bank->id . '" selected>/', $html);
+        $this->assertStringContainsString('Add code ' . self::CODE, $html);
     }
 
     public function test_saving_adds_the_code_next_to_existing_ones_and_the_cheque_then_matches()
@@ -86,8 +86,8 @@ class BankSheetClearingCodeTest extends TestCase
         $this->assertSame($before ? $before . ',' . self::CODE : self::CODE, $after);
 
         $html = $this->get(route('pdcBankSheetPreview', $this->stored))->assertOk()->getContent();
-        $this->assertNotContains('Bank codes not set up in PLMS', $html);
-        $this->assertNotContains('is not mapped to a PLMS bank', $html);
+        $this->assertStringNotContainsString('Bank codes not set up in PLMS', $html);
+        $this->assertStringNotContainsString('is not mapped to a PLMS bank', $html);
 
         // a second save changes nothing
         $this->post(route('pdcBankSheetClearingCode', $this->stored), ['code' => self::CODE, 'bank_id' => $bank->id])->assertSessionHas('success');
@@ -100,7 +100,7 @@ class BankSheetClearingCodeTest extends TestCase
         DB::table('bank')->where('id', $other->id)->update(['bank_clearing_codes' => self::CODE]);
         $this->post(route('pdcBankSheetClearingCode', $this->stored), ['code' => self::CODE, 'bank_id' => $this->pdc->bank_id])
             ->assertSessionHas('error');
-        $this->assertNotContains(self::CODE, (string) Bank::find($this->pdc->bank_id)->bank_clearing_codes);
+        $this->assertStringNotContainsString(self::CODE, (string) Bank::find($this->pdc->bank_id)->bank_clearing_codes);
     }
 
     public function test_bad_input_is_rejected()
@@ -117,8 +117,8 @@ class BankSheetClearingCodeTest extends TestCase
         }
         $this->actingAs($user);
         $html = $this->get(route('pdcBankSheetPreview', $this->stored))->assertOk()->getContent();
-        $this->assertContains('Bank codes not set up in PLMS', $html);
-        $this->assertNotContains('Add code ' . self::CODE, $html);
+        $this->assertStringContainsString('Bank codes not set up in PLMS', $html);
+        $this->assertStringNotContainsString('Add code ' . self::CODE, $html);
         $this->post(route('pdcBankSheetClearingCode', $this->stored), ['code' => self::CODE, 'bank_id' => $this->pdc->bank_id])->assertStatus(403);
     }
 }

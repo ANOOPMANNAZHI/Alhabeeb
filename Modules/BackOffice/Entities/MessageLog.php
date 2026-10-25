@@ -19,7 +19,7 @@ class MessageLog extends Model
     protected $table = 'message_log';
     public $timestamps = false;
     protected $guarded = [];
-    protected $dates = ['created_at'];
+    protected $casts = ['created_at' => 'datetime'];
 
     /** Readable template name for the Sent log (bulk sends store bulk:<id> / bulk:one-off). */
     public function getTemplateLabelAttribute()

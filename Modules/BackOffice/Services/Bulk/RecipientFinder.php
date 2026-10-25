@@ -64,7 +64,7 @@ class RecipientFinder
         }
         $out = [];
         foreach (self::people($audience, []) as $key => $p) {
-            if (mb_strpos(mb_strtolower($p['name'], 'UTF-8'), $term, 0, 'UTF-8') !== false) {
+            if (str_contains(mb_strtolower($p['name'], 'UTF-8'), $term)) {
                 $out[] = ['key' => $key, 'name' => $p['name'], 'email' => $p['email'], 'mobile' => $p['mobile']];
                 if (count($out) >= $limit) {
                     break;

@@ -27,7 +27,7 @@ class BuildingInspectionTest extends TestCase
     private $b1;
     private $b2;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('local');
@@ -420,8 +420,8 @@ class BuildingInspectionTest extends TestCase
 
         // the history panel lists both
         $html = $this->as($this->manager)->get(route('inspection.setup.history', $this->b1))->assertOk()->getContent();
-        $this->assertContains('Ins_t_exec1', $html);
-        $this->assertContains('Current', $html);
+        $this->assertStringContainsString('Ins_t_exec1', $html);
+        $this->assertStringContainsString('Current', $html);
         $this->as($this->manager)->get(route('inspection.issues.show', $open))->assertOk()->assertSee('Reassigned');
     }
 

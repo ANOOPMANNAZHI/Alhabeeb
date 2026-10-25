@@ -2,13 +2,14 @@
 
 namespace Modules\Maintenance\Exports;
 
+use Maatwebsite\Excel\Concerns\Export;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
  * Repair & Maintenance Report: one workbook per building, one sheet per month of the year.
  * $inHouse / $subContract are RepairMaintenanceReport::inHouse() / subContract() results (keyed by month).
  */
-class RepairMaintenanceReportExport implements WithMultipleSheets
+class RepairMaintenanceReportExport implements WithMultipleSheets, Export
 {
     protected $buildingName;
     protected $year;

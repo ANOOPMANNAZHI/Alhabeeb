@@ -34,8 +34,8 @@ class SystemTemplateDefaultsTest extends TestCase
         $this->assertTrue($reminder['sms_enabled']);
         $this->assertNull($reminder['email_subject']);
         $this->assertNull($reminder['email_body']);
-        $this->assertContains('{contract_end}', D::get('renewal_form')['email_body']);
-        $this->assertContains('{inspection_details}', D::get('inspection_details')['email_body']);
+        $this->assertStringContainsString('{contract_end}', D::get('renewal_form')['email_body']);
+        $this->assertStringContainsString('{inspection_details}', D::get('inspection_details')['email_body']);
         $this->assertTrue(D::get('inspection_details')['placeholders']['inspection_details']['block']);
         $this->assertSame('landlord', D::get('key_accepted_landlord')['audience']);
         foreach ($keys as $key) {
@@ -59,11 +59,11 @@ class SystemTemplateDefaultsTest extends TestCase
             $this->assertSame(!in_array($key, ['legal_case_referback', 'legal_advisor_approved'], true), $d['is_active'], "$key active default");
         }
         $this->assertSame('any', D::get('enquiry_new')['audience']);
-        $this->assertContains('{invoice_no}', D::get('legal_rental_income_posted')['email_body']);
-        $this->assertContains('{cheque_no}', D::get('legal_pdc_posted')['email_body']);
-        $this->assertContains('{receipt_no}', D::get('legal_receipt_posted')['email_body']);
-        $this->assertContains('{status_note}', D::get('legal_status_note')['email_body']);
-        $this->assertContains('{works_code}', D::get('complaint_assigned')['sms_body']);
+        $this->assertStringContainsString('{invoice_no}', D::get('legal_rental_income_posted')['email_body']);
+        $this->assertStringContainsString('{cheque_no}', D::get('legal_pdc_posted')['email_body']);
+        $this->assertStringContainsString('{receipt_no}', D::get('legal_receipt_posted')['email_body']);
+        $this->assertStringContainsString('{status_note}', D::get('legal_status_note')['email_body']);
+        $this->assertStringContainsString('{works_code}', D::get('complaint_assigned')['sms_body']);
     }
 
     public function test_every_default_is_complete_and_uses_only_known_placeholders()
@@ -76,7 +76,7 @@ class SystemTemplateDefaultsTest extends TestCase
             $known = array_keys(P::forTemplate($d['audience'], $key));
             foreach ([$d['email_subject'], $d['email_body'], $d['sms_body']] as $text) {
                 foreach (R::placeholdersIn($text) as $ph) {
-                    $this->assertContains($ph, $known, "$key uses unregistered {{$ph}}");
+                    $this->assertStringContainsString($ph, $known, "$key uses unregistered {{$ph}}");
                 }
             }
             if ($d['email_body'] !== null) {
@@ -98,11 +98,11 @@ class SystemTemplateDefaultsTest extends TestCase
         $this->assertTrue(D::get('employee_password_reset')['is_active']);
         $this->assertTrue(D::get('password_forgot')['is_active']);
         $this->assertFalse(D::get('are_residence_reminder')['is_active']);
-        $this->assertContains('href="{set_password_link}"', D::get('employee_welcome')['email_body']);
-        $this->assertContains('{username}', D::get('employee_welcome')['email_body']);
-        $this->assertContains('href="{set_password_link}"', D::get('employee_password_reset')['email_body']);
-        $this->assertContains('href="{reset_link}"', D::get('password_forgot')['email_body']);
-        $this->assertContains('{residence_expiry}', D::get('are_residence_reminder')['email_body']);
+        $this->assertStringContainsString('href="{set_password_link}"', D::get('employee_welcome')['email_body']);
+        $this->assertStringContainsString('{username}', D::get('employee_welcome')['email_body']);
+        $this->assertStringContainsString('href="{set_password_link}"', D::get('employee_password_reset')['email_body']);
+        $this->assertStringContainsString('href="{reset_link}"', D::get('password_forgot')['email_body']);
+        $this->assertStringContainsString('{residence_expiry}', D::get('are_residence_reminder')['email_body']);
         $this->assertNull(D::get('employee_welcome')['sms_body'], 'no password link by SMS');
         $this->assertNull(D::get('password_forgot')['sms_body']);
     }

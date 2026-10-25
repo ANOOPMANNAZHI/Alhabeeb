@@ -19,7 +19,7 @@ class StaffMessagesTest extends TestCase
 
     public $sms = [];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -29,7 +29,7 @@ class StaffMessagesTest extends TestCase
         $this->actingAs(User::find(1));
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -66,7 +66,7 @@ class StaffMessagesTest extends TestCase
         });
         $this->assertCount(1, $this->sms);
         $this->assertSame('98765432', $this->sms[0][0]);
-        $this->assertContains('Please attend ' . $checklist->work->works_code, $this->sms[0][1]);
+        $this->assertStringContainsString('Please attend ' . $checklist->work->works_code, $this->sms[0][1]);
     }
 
     public function test_technician_without_email_still_gets_the_sms()

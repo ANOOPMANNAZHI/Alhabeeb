@@ -19,7 +19,7 @@ class RentRevisalTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -27,7 +27,7 @@ class RentRevisalTest extends TestCase
         app('cache')->forget('spatie.permission.cache');
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();

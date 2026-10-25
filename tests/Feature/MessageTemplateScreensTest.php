@@ -14,7 +14,7 @@ class MessageTemplateScreensTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         $this->actingAs(User::find(1));
@@ -71,17 +71,17 @@ class MessageTemplateScreensTest extends TestCase
     public function test_edit_page_shows_sms_switch_and_reset_for_system_only()
     {
         $html = $this->get(route('message-templates.edit', $this->system()->id))->assertOk()->getContent();
-        $this->assertContains('name="sms_enabled"', $html);
-        $this->assertContains('mt-reset-form', $html);
+        $this->assertStringContainsString('name="sms_enabled"', $html);
+        $this->assertStringContainsString('mt-reset-form', $html);
         $html = $this->get(route('message-templates.edit', $this->bulk()->id))->assertOk()->getContent();
-        $this->assertNotContains('name="sms_enabled"', $html);
-        $this->assertNotContains('mt-reset-form', $html);
+        $this->assertStringNotContainsString('name="sms_enabled"', $html);
+        $this->assertStringNotContainsString('mt-reset-form', $html);
     }
 
     public function test_list_shows_sms_on_badge()
     {
         $this->system()->update(['sms_enabled' => true]);
-        $this->assertContains('SMS on', $this->get(route('message-templates.index'))->assertOk()->getContent());
+        $this->assertStringContainsString('SMS on', $this->get(route('message-templates.index'))->assertOk()->getContent());
     }
 
     // --- Project A checks, moved here from a scratch script (review minor M4) ---

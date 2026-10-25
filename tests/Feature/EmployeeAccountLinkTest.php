@@ -15,7 +15,7 @@ class EmployeeAccountLinkTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -24,7 +24,7 @@ class EmployeeAccountLinkTest extends TestCase
         $this->actingAs(User::find(1));
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -82,8 +82,8 @@ class EmployeeAccountLinkTest extends TestCase
     {
         // Merge decision (2026-09-30): the old mail class files are kept in the repo, unused.
         $source = file_get_contents(base_path('Modules/Masters/Http/Controllers/EmployeeController.php'));
-        $this->assertNotContains('EmployeeLoginEmail', $source);
-        $this->assertNotContains('EmployeeResetEmail', $source);
-        $this->assertNotContains('new_password', $source);
+        $this->assertStringNotContainsString('EmployeeLoginEmail', $source);
+        $this->assertStringNotContainsString('EmployeeResetEmail', $source);
+        $this->assertStringNotContainsString('new_password', $source);
     }
 }

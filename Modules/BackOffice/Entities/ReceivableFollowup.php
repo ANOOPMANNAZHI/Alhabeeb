@@ -17,7 +17,7 @@ class ReceivableFollowup extends Model
 
     protected $table = 'receivable_followups';
     protected $guarded = [];
-    protected $dates = ['promised_date'];
+    protected $casts = ['promised_date' => 'datetime'];
 
     public function creator()
     {

@@ -18,7 +18,7 @@ class SystemMessengerTest extends TestCase
 
     private $sms;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -30,7 +30,7 @@ class SystemMessengerTest extends TestCase
 
     public function smsSent($mobile, $msg) { $this->sms[] = [$mobile, $msg]; }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -77,7 +77,7 @@ class SystemMessengerTest extends TestCase
         $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com', '99123456'), $this->values());
         $this->assertSame(['email' => 'sent', 'sms' => 'sent'], $r);
         $this->assertSame('99123456', $this->sms[0][0]);
-        $this->assertContains('A & B', $this->sms[0][1]);
+        $this->assertStringContainsString('A & B', $this->sms[0][1]);
         $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com', null), $this->values());
         $this->assertSame('skipped_no_mobile', $r['sms']);
     }
@@ -87,7 +87,7 @@ class SystemMessengerTest extends TestCase
         Mail::shouldReceive('to')->andThrow(new \Exception('SMTP 554 rejected'));
         $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com'), $this->values());
         $this->assertSame('failed', $r['email']);
-        $this->assertContains('SMTP 554', MessageLog::latest('id')->first()->note);
+        $this->assertStringContainsString('SMTP 554', MessageLog::latest('id')->first()->note);
     }
 
     public function test_secret_is_hidden_in_the_note_of_a_failed_send()
@@ -97,8 +97,8 @@ class SystemMessengerTest extends TestCase
         $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com'), $this->values(), ['secret' => [$secret]]);
         $this->assertSame('failed', $r['email']);
         $note = (string) MessageLog::latest('id')->first()->note;
-        $this->assertContains('[link hidden]', $note);
-        $this->assertNotContains('zz999', $note);
+        $this->assertStringContainsString('[link hidden]', $note);
+        $this->assertStringNotContainsString('zz999', $note);
     }
 
     public function test_missing_row_uses_default_wording()
@@ -106,7 +106,7 @@ class SystemMessengerTest extends TestCase
         DB::table('message_templates')->where('key', 'pdc_bounce_are')->delete();
         $r = SystemMessenger::send('pdc_bounce_are', new MessageRecipient('Anoop', 'are@example.com'), $this->values());
         $this->assertSame('sent', $r['email']);
-        $this->assertContains('template_missing', MessageLog::latest('id')->first()->note);
+        $this->assertStringContainsString('template_missing', MessageLog::latest('id')->first()->note);
     }
 
     public function test_templated_mail_renders_in_the_plms_layout()
@@ -116,11 +116,11 @@ class SystemMessengerTest extends TestCase
         $method = new \ReflectionMethod($mail, 'buildView');
         $method->setAccessible(true);
         $view = $method->invoke($mail);
-        $this->assertInternalType('string', $view, 'must render the PLMS view, not raw html');
+        $this->assertIsString($view, 'must render the PLMS view, not raw html');
         $html = view($view, $mail->buildViewData())->render();
-        $this->assertContains('logo_habib.png', $html);
-        $this->assertContains('<p>Dear <strong>Ali</strong></p>', $html);
-        $this->assertContains('Al Habib 2018', $html);
+        $this->assertStringContainsString('logo_habib.png', $html);
+        $this->assertStringContainsString('<p>Dear <strong>Ali</strong></p>', $html);
+        $this->assertStringContainsString('Al Habib 2018', $html);
     }
 
     public function test_employee_name_falls_back_to_username_when_employee_record_missing()
@@ -173,12 +173,12 @@ class SystemMessengerTest extends TestCase
         Mail::assertSent(TemplatedMail::class, function ($m) {
             return strpos($m->bodyHtml, 'abc123') !== false;
         });
-        $this->assertContains('abc123', $this->sms[0][1]);
+        $this->assertStringContainsString('abc123', $this->sms[0][1]);
         $rows = MessageLog::where('template_key', 'pdc_bounce_are')->latest('id')->take(2)->get();
         $this->assertCount(2, $rows);
         foreach ($rows as $row) {
-            $this->assertNotContains('abc123', (string) $row->body, $row->channel);
-            $this->assertContains('[link hidden]', (string) $row->body, $row->channel);
+            $this->assertStringNotContainsString('abc123', (string) $row->body, $row->channel);
+            $this->assertStringContainsString('[link hidden]', (string) $row->body, $row->channel);
         }
     }
 

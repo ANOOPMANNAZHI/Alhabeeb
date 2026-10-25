@@ -23,7 +23,7 @@ class FakeFigures extends ReceivableFigures
 
 class ReceivableFollowupRefreshTest extends TestCase
 {
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         FakeFigures::$computed = [];
@@ -40,7 +40,7 @@ class ReceivableFollowupRefreshTest extends TestCase
     public function test_refreshes_last_month()
     {
         $this->artisan('receivables:refresh-followup')->assertExitCode(0);
-        $this->assertContains($this->lastMonthAsOn(), FakeFigures::$computed);
+        $this->assertStringContainsString($this->lastMonthAsOn(), FakeFigures::$computed);
         $this->assertSame(10.0, Cache::get(ReceivableFigures::key($this->lastMonthAsOn()))['rows'][5]['balance']);
     }
 
@@ -48,7 +48,7 @@ class ReceivableFollowupRefreshTest extends TestCase
     {
         $current = ReceivableFigures::asOnDate((int) date('n'), (int) date('Y'));   // e.g. October -> 31 August
         $this->artisan('receivables:refresh-followup')->assertExitCode(0);
-        $this->assertContains($current, FakeFigures::$computed);
+        $this->assertStringContainsString($current, FakeFigures::$computed);
     }
 
     public function test_failure_keeps_previous_figures()

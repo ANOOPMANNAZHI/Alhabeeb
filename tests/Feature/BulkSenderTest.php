@@ -20,7 +20,7 @@ class BulkSenderTest extends TestCase
 
     public $sms = [];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -32,7 +32,7 @@ class BulkSenderTest extends TestCase
         DB::table('configuration')->where('configuration_settings', 'bulk_emails_per_day')->update(['configuration_value' => '8000']);
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         Carbon::setTestNow();
         SystemMessenger::$smsSender = 'sendSms';
@@ -95,7 +95,7 @@ class BulkSenderTest extends TestCase
         $this->assertCount(3, $this->sms);
         $row = $send->recipients()->where('person_id', 2)->first();
         $this->assertSame('sent', $row->status);
-        $this->assertContains('email: skipped_no_address', $row->note);
+        $this->assertStringContainsString('email: skipped_no_address', $row->note);
 
         $this->sms = [];
         $noSms = $this->send(2, ['send_email' => true, 'send_sms' => false], function () { return null; });
@@ -134,8 +134,8 @@ class BulkSenderTest extends TestCase
         $this->assertSame(5, (int) $f->failed);
         $this->assertSame(3, $send->pendingCount());
         $note = $send->recipients()->where('status', 'failed')->orderBy('id')->value('note');
-        $this->assertContains('email: failed', $note);
-        $this->assertContains('SMTP 554 blocked', $note);
+        $this->assertStringContainsString('email: failed', $note);
+        $this->assertStringContainsString('SMTP 554 blocked', $note);
     }
 
     public function test_rate_setting_is_capped_at_30_per_minute()

@@ -27,7 +27,7 @@ class ReceivableFollowupTest extends TestCase
     private $asOn;
     private $contracts;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         $this->app->bind(ReceivableFigures::class, NoComputeFigures::class);
@@ -66,9 +66,9 @@ class ReceivableFollowupTest extends TestCase
     {
         list($m, $y) = ReceivableFigures::lastMonth();
         $html = $this->get(route('receivable-followup.index'))->assertOk()->getContent();
-        $this->assertContains('Receivables Follow-up', $html);
-        $this->assertRegExp('/<option value="' . $m . '" selected/', $html);
-        $this->assertRegExp('/<option value="' . $y . '" selected/', $html);
+        $this->assertStringContainsString('Receivables Follow-up', $html);
+        $this->assertMatchesRegularExpression('/<option value="' . $m . '" selected/', $html);
+        $this->assertMatchesRegularExpression('/<option value="' . $y . '" selected/', $html);
     }
 
     public function test_rows_show_figures_sorted_by_balance_with_totals()
@@ -77,16 +77,16 @@ class ReceivableFollowupTest extends TestCase
         $nos = $this->contracts->pluck('tenant_contract_no')->all();
         // balance desc: 1500 (#2), 900 (#3), 500 (#1)
         $this->assertTrue(strpos($html, $nos[1]) < strpos($html, $nos[2]) && strpos($html, $nos[2]) < strpos($html, $nos[0]));
-        $this->assertContains('total 2,900"', $html);         // total balance, whole OMR
-        $this->assertContains('Figures as of 01/10/2026 09:45', $html);
+        $this->assertStringContainsString('total 2,900"', $html);         // total balance, whole OMR
+        $this->assertStringContainsString('Figures as of 01/10/2026 09:45', $html);
     }
 
     public function test_filter_by_building_and_management_type()
     {
         $c = $this->contracts[0];
         $html = $this->rows(['building_id' => $c->building_id]);
-        $this->assertContains($c->tenant_contract_no, $html);
-        $this->assertNotContains($this->contracts[1]->tenant_contract_no, $html);
+        $this->assertStringContainsString($c->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($this->contracts[1]->tenant_contract_no, $html);
 
         $html = $this->rows(['management_id' => $c->management_id]);
         foreach ($this->contracts as $other) {
@@ -98,8 +98,8 @@ class ReceivableFollowupTest extends TestCase
     public function test_search_by_contract_no()
     {
         $html = $this->rows(['q' => $this->contracts[2]->tenant_contract_no]);
-        $this->assertContains($this->contracts[2]->tenant_contract_no, $html);
-        $this->assertNotContains($this->contracts[0]->tenant_contract_no, $html);
+        $this->assertStringContainsString($this->contracts[2]->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($this->contracts[0]->tenant_contract_no, $html);
     }
 
     public function test_last_followup_and_overdue_promise_shown()
@@ -107,8 +107,8 @@ class ReceivableFollowupTest extends TestCase
         $c = $this->contracts[0];
         ReceivableFollowup::create(['tenant_contract_id' => $c->id, 'comment' => 'will pay', 'promised_date' => Carbon::yesterday(), 'created_by' => 1]);
         $html = $this->rows();
-        $this->assertRegExp('/id="rf-promise-' . $c->id . '"[^>]*class="[^"]*rf-overdue/', $html);
-        $this->assertContains(Carbon::yesterday()->format('d/m/Y'), $html);
+        $this->assertMatchesRegularExpression('/id="rf-promise-' . $c->id . '"[^>]*class="[^"]*rf-overdue/', $html);
+        $this->assertStringContainsString(Carbon::yesterday()->format('d/m/Y'), $html);
     }
 
     public function test_are_user_without_buildings_sees_nothing()
@@ -122,9 +122,9 @@ class ReceivableFollowupTest extends TestCase
         $this->actingAs($are);
         $html = $this->rows();
         foreach ($this->contracts as $c) {
-            $this->assertNotContains($c->tenant_contract_no, $html);
+            $this->assertStringNotContainsString($c->tenant_contract_no, $html);
         }
-        $this->assertContains('No agreements with a balance', $html);
+        $this->assertStringContainsString('No agreements with a balance', $html);
     }
 
     public function test_are_user_sees_only_own_buildings()
@@ -198,9 +198,9 @@ class ReceivableFollowupTest extends TestCase
         foreach ($per as $uid => $c) {
             $this->assertSame((int) $uid === (int) $are->id, strpos($html, $c->tenant_contract_no) !== false, 'ARE ' . $uid);
         }
-        $this->assertNotContains('data-sort="are"', $html);
+        $this->assertStringNotContainsString('data-sort="are"', $html);
         $page = $this->get(route('receivable-followup.index'))->getContent();
-        $this->assertNotContains('id="rf-are"', $page);
+        $this->assertStringNotContainsString('id="rf-are"', $page);
         // nor can they open another ARE's agreement
         $other = collect($per)->first(function ($c, $uid) use ($are) { return (int) $uid !== (int) $are->id; });
         $this->get(route('receivable-followup.timeline', $other->id))->assertStatus(403);
@@ -223,7 +223,7 @@ class ReceivableFollowupTest extends TestCase
         foreach ($per as $uid => $c) {
             $this->assertSame(in_array((int) $uid, $team, true), strpos($html, $c->tenant_contract_no) !== false, 'ARE ' . $uid);
         }
-        $this->assertContains('data-sort="are"', $html);
+        $this->assertStringContainsString('data-sort="are"', $html);
     }
 
     public function test_admin_sees_are_names_and_can_filter_by_are()
@@ -237,13 +237,13 @@ class ReceivableFollowupTest extends TestCase
         $uid = array_keys($per)[0];
         $name = DB::table('users')->leftJoin('employees', 'employees.id', '=', 'users.user_type_id')->where('users.id', $uid)
             ->value(DB::raw('coalesce(employees.employee_name, users.username)'));
-        $this->assertContains('data-sort="are"', $html);
-        $this->assertRegExp('/<th scope="col" title="Contract Administrator"[^>]*><button[^>]*data-sort="are"[^>]*>CA</', $html);
-        $this->assertContains(e($name), $this->rowHtml($html, $per[$uid]->id));
+        $this->assertStringContainsString('data-sort="are"', $html);
+        $this->assertMatchesRegularExpression('/<th scope="col" title="Contract Administrator"[^>]*><button[^>]*data-sort="are"[^>]*>CA</', $html);
+        $this->assertStringContainsString(e($name), $this->rowHtml($html, $per[$uid]->id));
         $page = $this->get(route('receivable-followup.index'))->getContent();
-        $this->assertRegExp('/<select id="rf-are"[^>]*>.*?<option value="' . $uid . '">/s', $page);
-        $this->assertContains('<label for="rf-are">CA (Contract Administrator)</label>', $page);
-        $this->assertContains('<option value="">All CAs</option>', $page);
+        $this->assertMatchesRegularExpression('/<select id="rf-are"[^>]*>.*?<option value="' . $uid . '">/s', $page);
+        $this->assertStringContainsString('<label for="rf-are">CA (Contract Administrator)</label>', $page);
+        $this->assertStringContainsString('<option value="">All CAs</option>', $page);
 
         $html = $this->rows(['are_id' => $uid]);
         foreach ($per as $u => $c) {
@@ -255,17 +255,17 @@ class ReceivableFollowupTest extends TestCase
     {
         $c = $this->contracts[1];
         $html = $this->rows(['contract' => substr($c->tenant_contract_no, -5)]);
-        $this->assertContains($c->tenant_contract_no, $html);
-        $this->assertNotContains($this->contracts[0]->tenant_contract_no, $html);
+        $this->assertStringContainsString($c->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($this->contracts[0]->tenant_contract_no, $html);
 
         $tenant = $c->tenant->tenant_name;
         $html = $this->rows(['tenant' => mb_substr($tenant, 0, 6)]);
-        $this->assertContains($c->tenant_contract_no, $html);
+        $this->assertStringContainsString($c->tenant_contract_no, $html);
 
         $unit = optional($c->Unit)->unit_no;
         $html = $this->rows(['unit' => $unit, 'contract' => $c->tenant_contract_no]);
-        $this->assertContains($c->tenant_contract_no, $html);
-        $this->assertNotContains($c->tenant_contract_no, $this->rows(['unit' => 'zz-no-such-unit']));
+        $this->assertStringContainsString($c->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($c->tenant_contract_no, $this->rows(['unit' => 'zz-no-such-unit']));
     }
 
     public function test_filter_by_followup_status_balance_and_paid_till()
@@ -275,26 +275,26 @@ class ReceivableFollowupTest extends TestCase
         ReceivableFollowup::create(['tenant_contract_id' => $b->id, 'comment' => 'no date', 'created_by' => 1]);
 
         $html = $this->rows(['followup' => 'overdue']);
-        $this->assertContains($a->tenant_contract_no, $html);
-        $this->assertNotContains($b->tenant_contract_no, $html);
+        $this->assertStringContainsString($a->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($b->tenant_contract_no, $html);
         $html = $this->rows(['followup' => 'none']);
-        $this->assertContains($c->tenant_contract_no, $html);
-        $this->assertNotContains($a->tenant_contract_no, $html);
+        $this->assertStringContainsString($c->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($a->tenant_contract_no, $html);
         $html = $this->rows(['followup' => 'no_date']);
-        $this->assertContains($b->tenant_contract_no, $html);
-        $this->assertNotContains($a->tenant_contract_no, $html);
+        $this->assertStringContainsString($b->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($a->tenant_contract_no, $html);
 
         // balances 500 / 1500 / 900
         $html = $this->rows(['balance_min' => 800, 'balance_max' => 1000]);
-        $this->assertContains($c->tenant_contract_no, $html);
-        $this->assertNotContains($a->tenant_contract_no, $html);
-        $this->assertNotContains($b->tenant_contract_no, $html);
+        $this->assertStringContainsString($c->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($a->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($b->tenant_contract_no, $html);
 
         // paid till 31/05, 30/06, 30/04
         $html = $this->rows(['paid_till_to' => '2026-05-31']);
-        $this->assertContains($a->tenant_contract_no, $html);
-        $this->assertContains($c->tenant_contract_no, $html);
-        $this->assertNotContains($b->tenant_contract_no, $html);
+        $this->assertStringContainsString($a->tenant_contract_no, $html);
+        $this->assertStringContainsString($c->tenant_contract_no, $html);
+        $this->assertStringNotContainsString($b->tenant_contract_no, $html);
     }
 
     public function test_sort_by_unit_and_next_followup()
@@ -319,7 +319,7 @@ class ReceivableFollowupTest extends TestCase
             $this->assertSame($sorted, $pos);
         }
         foreach (['unit', 'are', 'last_followup', 'next_followup'] as $key) {
-            $this->assertContains('data-sort="' . $key . '"', $html);
+            $this->assertStringContainsString('data-sort="' . $key . '"', $html);
         }
     }
 
@@ -400,17 +400,17 @@ class ReceivableFollowupTest extends TestCase
         $this->actingAs($user);
         $this->postJson(route('receivable-followup.store', $own->contract_id), ['comment' => 'x'])->assertStatus(403);
         $this->assertSame(0, ReceivableFollowup::where('tenant_contract_id', $own->contract_id)->where('comment', 'x')->count());
-        $this->assertNotContains('rf-followup', $this->rows());
-        $this->assertNotContains('rf-tl-followup', $this->get(route('receivable-followup.timeline', $own->contract_id))->getContent());
+        $this->assertStringNotContainsString('rf-followup', $this->rows());
+        $this->assertStringNotContainsString('rf-tl-followup', $this->get(route('receivable-followup.timeline', $own->contract_id))->getContent());
     }
 
     public function test_history_popup_offers_follow_up()
     {
         $c = $this->contracts[0];
         $html = $this->get(route('receivable-followup.timeline', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('class="rf-btn rf-btn-primary rf-tl-followup" data-url="' . route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn . '"', $html);
+        $this->assertStringContainsString('class="rf-btn rf-btn-primary rf-tl-followup" data-url="' . route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn . '"', $html);
         // the page swaps the history for the form in the same popup
-        $this->assertContains("on('click', '.rf-tl-followup'", $this->get(route('receivable-followup.index'))->getContent());
+        $this->assertStringContainsString("on('click', '.rf-tl-followup'", $this->get(route('receivable-followup.index'))->getContent());
     }
 
     public function test_are_cannot_save_or_view_outside_own_buildings()
@@ -431,10 +431,10 @@ class ReceivableFollowupTest extends TestCase
     {
         $c = $this->contracts[1];
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains($c->tenant_contract_no, $html);
-        $this->assertContains('>1,500<', $html);
-        $this->assertContains('name="comment"', $html);
-        $this->assertContains('name="promised_date"', $html);
+        $this->assertStringContainsString($c->tenant_contract_no, $html);
+        $this->assertStringContainsString('>1,500<', $html);
+        $this->assertStringContainsString('name="comment"', $html);
+        $this->assertStringContainsString('name="promised_date"', $html);
     }
 
     public function test_timeline_newest_first_with_status()
@@ -444,8 +444,8 @@ class ReceivableFollowupTest extends TestCase
         ReceivableFollowup::create(['tenant_contract_id' => $c->id, 'comment' => 'second call', 'promised_date' => Carbon::today()->addDays(5)->format('Y-m-d'), 'created_by' => 1]);
         $html = $this->get(route('receivable-followup.timeline', $c->id))->assertOk()->getContent();
         $this->assertTrue(strpos($html, 'second call') < strpos($html, 'first call'));
-        $this->assertContains('rf-badge upcoming', $html);
-        $this->assertRegExp('/rf-badge (kept|broken)/', $html);
+        $this->assertStringContainsString('rf-badge upcoming', $html);
+        $this->assertMatchesRegularExpression('/rf-badge (kept|broken)/', $html);
     }
 
     public function test_timeline_escapes_comment()
@@ -453,8 +453,8 @@ class ReceivableFollowupTest extends TestCase
         $c = $this->contracts[0];
         ReceivableFollowup::create(['tenant_contract_id' => $c->id, 'comment' => '<script>alert(1)</script>', 'created_by' => 1]);
         $html = $this->get(route('receivable-followup.timeline', $c->id))->assertOk()->getContent();
-        $this->assertNotContains('<script>alert(1)</script>', $html);
-        $this->assertContains('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
+        $this->assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
     }
 
     public function test_form_shows_last_three_comments_newest_first()
@@ -465,42 +465,42 @@ class ReceivableFollowupTest extends TestCase
                 'created_at' => Carbon::now()->subDays(10 - $i)->format('Y-m-d H:i:s')]);
         }
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('Recent follow-ups', $html);
+        $this->assertStringContainsString('Recent follow-ups', $html);
         $this->assertTrue(strpos($html, 'call four') < strpos($html, 'call three') && strpos($html, 'call three') < strpos($html, 'call two'));
-        $this->assertNotContains('call one', $html);
+        $this->assertStringNotContainsString('call one', $html);
     }
 
     public function test_form_without_followups_has_no_recent_list()
     {
         $html = $this->get(route('receivable-followup.form', $this->contracts[2]->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertNotContains('Recent follow-ups', $html);
+        $this->assertStringNotContainsString('Recent follow-ups', $html);
     }
 
     public function test_row_opens_history_and_has_no_view_button()
     {
         $c = $this->contracts[0];
         $html = $this->rows();
-        $this->assertNotContains('rf-view', $html);
-        $this->assertRegExp('/<tr id="rf-row-' . $c->id . '"[^>]*class="rf-row"[^>]*data-timeline="[^"]*receivable-followup\/' . $c->id . '\/timeline\?as_on=' . $this->asOn . '"[^>]*tabindex="0"/', $html);
+        $this->assertStringNotContainsString('rf-view', $html);
+        $this->assertMatchesRegularExpression('/<tr id="rf-row-' . $c->id . '"[^>]*class="rf-row"[^>]*data-timeline="[^"]*receivable-followup\/' . $c->id . '\/timeline\?as_on=' . $this->asOn . '"[^>]*tabindex="0"/', $html);
     }
 
     public function test_filters_sit_behind_a_button_with_apply_and_reset()
     {
         $html = $this->get(route('receivable-followup.index'))->assertOk()->getContent();
-        $this->assertRegExp('/<button[^>]*id="rf-filter-toggle"[^>]*aria-controls="rf-filter-card"[^>]*aria-expanded="false"/', $html);
-        $this->assertRegExp('/id="rf-filter-card"[^>]*hidden/', $html);
-        $this->assertContains('id="rf-apply"', $html);
-        $this->assertContains('id="rf-reset"', $html);
-        $this->assertContains('id="rf-applied"', $html);
+        $this->assertMatchesRegularExpression('/<button[^>]*id="rf-filter-toggle"[^>]*aria-controls="rf-filter-card"[^>]*aria-expanded="false"/', $html);
+        $this->assertMatchesRegularExpression('/id="rf-filter-card"[^>]*hidden/', $html);
+        $this->assertStringContainsString('id="rf-apply"', $html);
+        $this->assertStringContainsString('id="rf-reset"', $html);
+        $this->assertStringContainsString('id="rf-applied"', $html);
     }
 
     public function test_building_filter_is_searchable()
     {
         $html = $this->get(route('receivable-followup.index'))->assertOk()->getContent();
         // a type-to-search box drives the (hidden) building select
-        $this->assertRegExp('/<input[^>]*id="rf-building-q"[^>]*role="combobox"[^>]*aria-controls="rf-building-list"[^>]*aria-expanded="false"/', $html);
-        $this->assertRegExp('/<ul[^>]*id="rf-building-list"[^>]*role="listbox"[^>]*hidden/', $html);
-        $this->assertRegExp('/<select id="rf-building"[^>]*hidden/', $html);
+        $this->assertMatchesRegularExpression('/<input[^>]*id="rf-building-q"[^>]*role="combobox"[^>]*aria-controls="rf-building-list"[^>]*aria-expanded="false"/', $html);
+        $this->assertMatchesRegularExpression('/<ul[^>]*id="rf-building-list"[^>]*role="listbox"[^>]*hidden/', $html);
+        $this->assertMatchesRegularExpression('/<select id="rf-building"[^>]*hidden/', $html);
     }
 
     public function test_every_agreement_owing_at_the_cutoff_is_listed()
@@ -509,7 +509,7 @@ class ReceivableFollowupTest extends TestCase
         $this->seed3([500.0, 1500.0, 900.0], ['2025-01-31', '2026-06-30', '2026-04-15']);
         $html = $this->rows();
         foreach ($this->contracts as $c) {
-            $this->assertContains($c->tenant_contract_no, $html);
+            $this->assertStringContainsString($c->tenant_contract_no, $html);
         }
     }
 
@@ -518,15 +518,15 @@ class ReceivableFollowupTest extends TestCase
         $html = $this->rows();
         $c = $this->contracts[1];   // paid till 30/06/2026, rent 351
         $row = $this->rowHtml($html, $c->id);
-        $this->assertContains('30/06/2026', $row);
-        $this->assertContains('>351<', $row);
-        $this->assertNotContains('01/07/2026', $row);   // no "not paid from" date any more
-        $this->assertContains('02/05/2026', $row);
-        $this->assertContains('>350<', $row);
-        $this->assertContains('Paid Till', $html);
-        $this->assertContains('Rent', $html);
-        $this->assertNotContains('Not Paid From', $html);
-        $this->assertContains('Last Payment', $html);
+        $this->assertStringContainsString('30/06/2026', $row);
+        $this->assertStringContainsString('>351<', $row);
+        $this->assertStringNotContainsString('01/07/2026', $row);   // no "not paid from" date any more
+        $this->assertStringContainsString('02/05/2026', $row);
+        $this->assertStringContainsString('>350<', $row);
+        $this->assertStringContainsString('Paid Till', $html);
+        $this->assertStringContainsString('Rent', $html);
+        $this->assertStringNotContainsString('Not Paid From', $html);
+        $this->assertStringContainsString('Last Payment', $html);
     }
 
     public function test_never_paid_row_says_never_paid()
@@ -537,29 +537,29 @@ class ReceivableFollowupTest extends TestCase
             'last_received' => null, 'last_amount' => null, 'paid_till' => null, 'start' => '2026-01-01', 'rent' => 700.0];
         Cache::put(ReceivableFigures::key($this->asOn), $rows, 60);
         $row = $this->rowHtml($this->rows(), $c->id);
-        $this->assertRegExp('/Never paid.*?started 01\/01\/2026/s', $row);
+        $this->assertMatchesRegularExpression('/Never paid.*?started 01\/01\/2026/s', $row);
 
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertRegExp('/Paid till<\/dt><dd><span class="rf-unpaid">Never paid/', $html);
+        $this->assertMatchesRegularExpression('/Paid till<\/dt><dd><span class="rf-unpaid">Never paid/', $html);
     }
 
     public function test_summary_explains_the_cutoff()
     {
         list($m, $y) = ReceivableFigures::lastMonth();
         $html = $this->rows();
-        $this->assertContains('Dues up to <strong>' . Carbon::parse($this->asOn)->format('d/m/Y') . '</strong>', $html);
-        $this->assertContains('(' . Carbon::create($y, $m, 1)->format('F Y') . ' − 2 months)', $html);
-        $this->assertContains('Payments up to <strong>' . Carbon::today()->format('d/m/Y') . '</strong>', $html);
+        $this->assertStringContainsString('Dues up to <strong>' . Carbon::parse($this->asOn)->format('d/m/Y') . '</strong>', $html);
+        $this->assertStringContainsString('(' . Carbon::create($y, $m, 1)->format('F Y') . ' − 2 months)', $html);
+        $this->assertStringContainsString('Payments up to <strong>' . Carbon::today()->format('d/m/Y') . '</strong>', $html);
     }
 
     public function test_popup_header_says_paid_till_rent_and_last_payment()
     {
         $c = $this->contracts[1];
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('Paid till</dt><dd>30/06/2026', $html);
-        $this->assertContains('<dt>Rent</dt><dd>' . ReceivableFollowup::amount($c->tenant_contract_rent) . '<', $html);
-        $this->assertNotContains('Not paid from', $html);
-        $this->assertContains('02/05/2026 · 350<', $html);
+        $this->assertStringContainsString('Paid till</dt><dd>30/06/2026', $html);
+        $this->assertStringContainsString('<dt>Rent</dt><dd>' . ReceivableFollowup::amount($c->tenant_contract_rent) . '<', $html);
+        $this->assertStringNotContainsString('Not paid from', $html);
+        $this->assertStringContainsString('02/05/2026 · 350<', $html);
     }
 
     public function test_paid_till_after_not_paid_from_reads_short_paid()
@@ -570,10 +570,10 @@ class ReceivableFollowupTest extends TestCase
         $cache['rows'][$c->id]['paid_till'] = '2026-06-30';
         Cache::put(ReceivableFigures::key($this->asOn), $cache, 60);
         $row = $this->rowHtml($this->rows(), $c->id);
-        $this->assertRegExp('/30\/06\/2026<span class="rf-sub">short paid/', $row);
+        $this->assertMatchesRegularExpression('/30\/06\/2026<span class="rf-sub">short paid/', $row);
 
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('30/06/2026<span class="rf-help">short paid', $html);
+        $this->assertStringContainsString('30/06/2026<span class="rf-help">short paid', $html);
     }
 
     public function test_sort_by_paid_till_and_rent()
@@ -610,7 +610,7 @@ class ReceivableFollowupTest extends TestCase
         // nor offered in the Building filter
         $html = $this->get(route('receivable-followup.index'))->assertOk()->getContent();
         foreach (ReceivableFigures::EXCLUDED_BUILDINGS as $b) {
-            $this->assertNotRegExp('/<option value="' . $b . '"/', $html);
+            $this->assertDoesNotMatchRegularExpression('/<option value="' . $b . '"/', $html);
         }
     }
 
@@ -625,12 +625,12 @@ class ReceivableFollowupTest extends TestCase
 
     public function test_promised_date_is_labelled_next_followup_date()
     {
-        $this->assertContains('Next Follow-up Date', $this->rows());
-        $this->assertNotContains('Promised Date', $this->rows());
+        $this->assertStringContainsString('Next Follow-up Date', $this->rows());
+        $this->assertStringNotContainsString('Promised Date', $this->rows());
         $c = $this->contracts[0];
         $html = $this->get(route('receivable-followup.form', $c->id) . '?as_on=' . $this->asOn)->assertOk()->getContent();
-        $this->assertContains('<label for="rf-promised">Next Follow-up Date</label>', $html);
-        $this->assertContains('<dt>Next follow-up date</dt>', $html);
+        $this->assertStringContainsString('<label for="rf-promised">Next Follow-up Date</label>', $html);
+        $this->assertStringContainsString('<dt>Next follow-up date</dt>', $html);
         $this->postJson(route('receivable-followup.store', $c->id), ['comment' => 'x', 'promised_date' => '2020-01-01'])
             ->assertStatus(422)->assertSee('next follow-up date');
     }
@@ -644,7 +644,7 @@ class ReceivableFollowupTest extends TestCase
     public function test_timeline_empty_state()
     {
         $html = $this->get(route('receivable-followup.timeline', $this->contracts[2]->id))->assertOk()->getContent();
-        $this->assertContains('No follow-ups yet.', $html);
+        $this->assertStringContainsString('No follow-ups yet.', $html);
     }
 
     public function test_rows_answer_busy_while_the_month_is_being_calculated()

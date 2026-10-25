@@ -21,7 +21,7 @@ class LegalReportsTest extends TestCase
     private $plm;
     private $lawyer;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         SystemMessenger::$smsSender = function () { return true; };
@@ -30,7 +30,7 @@ class LegalReportsTest extends TestCase
         $this->lawyer = $this->makeUser('lgr_t_lawyer', 'legal_advisor');
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -132,10 +132,10 @@ class LegalReportsTest extends TestCase
         $this->caseWithSettlement();
         $pdf = $this->as($this->plm)->get(route('legal.reports.cases', ['lawyer' => $this->lawyer->id, 'export' => 'pdf']));
         $pdf->assertStatus(200);
-        $this->assertContains('application/pdf', $pdf->headers->get('content-type'));
+        $this->assertStringContainsString('application/pdf', $pdf->headers->get('content-type'));
         $xls = $this->as($this->plm)->get(route('legal.reports.settlements', ['export' => 'excel']));
         $xls->assertStatus(200);
-        $this->assertContains('.xlsx', $xls->headers->get('content-disposition'));
+        $this->assertStringContainsString('.xlsx', $xls->headers->get('content-disposition'));
 
         $are = $this->makeUser('lgr_t_are', 'are');
         $this->as($are)->get(route('legal.reports.cases'))->assertStatus(403);

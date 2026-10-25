@@ -14,14 +14,14 @@ class BounceReasonMasterTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         PdcBounceReason::flushCache();
         $this->actingAs(User::find(1));
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         PdcBounceReason::flushCache();
         parent::tearDown();
@@ -30,8 +30,8 @@ class BounceReasonMasterTest extends TestCase
     public function test_list_shows_reasons_with_usage()
     {
         $html = $this->get(route('bounce-reason.index'))->assertOk()->getContent();
-        $this->assertContains('Account Closed / Frozen / Dormant', $html);
-        $this->assertContains('Misc', $html);
+        $this->assertStringContainsString('Account Closed / Frozen / Dormant', $html);
+        $this->assertStringContainsString('Misc', $html);
     }
 
     public function test_add_reason_gets_the_next_code_and_is_offered()
@@ -85,10 +85,10 @@ class BounceReasonMasterTest extends TestCase
             $this->markTestSkipped('No bounced Misc PDC');
         }
         $html = $this->get(url('pdc/' . $pdc->tenant_contract_id . '/edit'))->assertOk()->getContent();
-        $this->assertContains('Account Closed / Frozen / Dormant', $html);
-        $this->assertRegExp('#<option value="9"\s+selected\s*>Misc</option>#', $html);   // old PDC keeps Misc
-        $this->assertContains('var PDC_BOUNCE_REASONS', $html);
-        $this->assertNotContains('>Signature Missing</option><option value="3"', str_replace('<option value="1" >Signature Missing', '', $html)); // old mislabelled row list gone
+        $this->assertStringContainsString('Account Closed / Frozen / Dormant', $html);
+        $this->assertMatchesRegularExpression('#<option value="9"\s+selected\s*>Misc</option>#', $html);   // old PDC keeps Misc
+        $this->assertStringContainsString('var PDC_BOUNCE_REASONS', $html);
+        $this->assertStringNotContainsString('>Signature Missing</option><option value="3"', str_replace('<option value="1" >Signature Missing', '', $html)); // old mislabelled row list gone
     }
 
     public function test_needs_permission()

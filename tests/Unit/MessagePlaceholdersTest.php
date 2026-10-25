@@ -25,7 +25,7 @@ class MessagePlaceholdersTest extends TestCase
     {
         foreach (array_keys(P::AUDIENCES) as $a) {
             foreach (P::samples($a) as $k => $v) {
-                $this->assertInternalType('string', $v, "$a.$k");
+                $this->assertIsString($v, "$a.$k");
                 $this->assertNotSame('', $v, "$a.$k");
             }
         }

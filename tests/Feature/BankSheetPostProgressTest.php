@@ -19,7 +19,7 @@ class BankSheetPostProgressTest extends TestCase
 
     private $stored;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         \Mail::fake();
@@ -27,7 +27,7 @@ class BankSheetPostProgressTest extends TestCase
         $this->stored = date('Ymd_His') . '_1_progress_test.xls';
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         @unlink(storage_path('app/pdc_bank_sheets/' . $this->stored));
         Cache::forget(Progress::cacheKey($this->stored));
@@ -55,8 +55,8 @@ class BankSheetPostProgressTest extends TestCase
         $ss = new Spreadsheet();
         $ws = $ss->getActiveSheet();
         foreach ($h as $i => $t) {
-            $ws->setCellValueByColumnAndRow($i + 2, 9, $t);
-            $ws->setCellValueExplicitByColumnAndRow($i + 2, 10, $row[$i], 's');
+            $ws->setCellValue([$i + 2, 9], $t);
+            $ws->setCellValueExplicit([$i + 2, 10], $row[$i], 's');
         }
         (new Xls($ss))->save(storage_path('app/pdc_bank_sheets/' . $this->stored));
         return $pdc;
@@ -73,8 +73,8 @@ class BankSheetPostProgressTest extends TestCase
     {
         $this->sheetForOnePdc();
         $html = $this->get(route('pdcBankSheetPreview', $this->stored))->assertOk()->getContent();
-        $this->assertContains('id="bsp-overlay"', $html);
-        $this->assertContains(str_replace('/', '\/', route('pdcBankSheetProgress', [$this->stored, Progress::key($this->stored)])), $html);
+        $this->assertStringContainsString('id="bsp-overlay"', $html);
+        $this->assertStringContainsString(str_replace('/', '\/', route('pdcBankSheetProgress', [$this->stored, Progress::key($this->stored)])), $html);
     }
 
     public function test_post_records_progress_and_keeps_the_result_message()
@@ -90,7 +90,7 @@ class BankSheetPostProgressTest extends TestCase
         $this->assertSame(1, $p['posted']);
         $this->assertTrue($p['finished']);
         // the progress call has no session, so the result page's message is still there
-        $this->assertContains('1 cheque(s) posted', (string) session('success'));
+        $this->assertStringContainsString('1 cheque(s) posted', (string) session('success'));
         $this->assertSame(1, (int) Pdc::find($pdc->id)->pdc_is_posted);
     }
 }

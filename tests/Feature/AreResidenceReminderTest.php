@@ -16,7 +16,7 @@ class AreResidenceReminderTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -24,7 +24,7 @@ class AreResidenceReminderTest extends TestCase
         MessageTemplate::where('key', 'are_residence_reminder')->update(['is_active' => true]);
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         Carbon::setTestNow();
         SystemMessenger::$smsSender = 'sendSms';

@@ -37,7 +37,7 @@ class InspectionIssueController extends Controller
     {
         $f = [];
         foreach (['q', 'executive', 'building', 'priority', 'status', 'category', 'overdue', 'source'] as $k) {
-            $f[$k] = $request->get($k);
+            $f[$k] = $request->input($k);
         }
         if (!$request->has('status')) {
             $f['status'] = 'active';

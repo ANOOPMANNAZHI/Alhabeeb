@@ -24,7 +24,7 @@ class LegalWorkflowTest extends TestCase
     private $lawyer;
     private $lawyer2;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         SystemMessenger::$smsSender = function () { return true; };
@@ -34,7 +34,7 @@ class LegalWorkflowTest extends TestCase
         $this->lawyer2 = $this->makeUser('lg_t_lawyer2', 'legal_advisor');
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();

@@ -34,7 +34,7 @@ class RentRevisal
             return false;
         }
         $end = Carbon::parse($c->tenant_contract_valid_to_date)->startOfDay();
-        $days = Carbon::today()->diffInDays($end, false);
+        $days = (int) Carbon::today()->diffInDays($end, false);
         return $days >= self::MIN_DAYS && $days <= self::MAX_DAYS;
     }
 

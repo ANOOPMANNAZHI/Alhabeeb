@@ -47,8 +47,8 @@ class RentReceiptTerminatedTest extends TestCase
         $this->assertSame($before + 1, DB::table('receipts_generation')->where('tenant_contract_id', $c->id)->count());
         $this->assertSame(125.0, (float) DB::table('receipts_generation')->where('tenant_contract_id', $c->id)->orderBy('id', 'desc')->value('receipts_generation_amt'));
         $msg = session('success');
-        $this->assertContains('Saved Successfully. Please check:', $msg);
-        $this->assertContains('no termination dues on record', $msg);
+        $this->assertStringContainsString('Saved Successfully. Please check:', $msg);
+        $this->assertStringContainsString('no termination dues on record', $msg);
     }
 
     public function test_note_when_amount_is_more_than_the_open_rent_dues()
@@ -60,8 +60,8 @@ class RentReceiptTerminatedTest extends TestCase
         }
         $note = (new TerminationDuesService)->rentReceiptNote($d->id, 99999999);
         $this->assertNotNull($note);
-        $this->assertRegExp('/more than the (open rent dues|rent owed)/', $note);
-        $this->assertNotContains('cannot', $note);
+        $this->assertMatchesRegularExpression('/more than the (open rent dues|rent owed)/', $note);
+        $this->assertStringNotContainsString('cannot', $note);
     }
 
     public function test_no_note_for_contracts_that_are_not_terminated()

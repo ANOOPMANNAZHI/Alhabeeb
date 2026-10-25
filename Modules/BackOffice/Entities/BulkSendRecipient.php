@@ -16,8 +16,9 @@ class BulkSendRecipient extends Model
     protected $table = 'bulk_send_recipients';
     protected $guarded = [];
     public $timestamps = false;
-    protected $casts = ['values' => 'array'];
-    protected $dates = ['processed_at'];
+    protected $casts = ['values' => 'array',
+        'processed_at' => 'datetime',
+    ];
 
     public function bulkSend()
     {

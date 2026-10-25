@@ -34,8 +34,8 @@ class RentOutstandingDayCountTest extends TestCase
         $c = $this->contract();
         Artisan::call('rent-outstanding:apply-day-count', ['--contract' => 'TAG2602074']);
         $out = Artisan::output();
-        $this->assertContains('TAG2602074', $out);
-        $this->assertContains('Dry run', $out);
+        $this->assertStringContainsString('TAG2602074', $out);
+        $this->assertStringContainsString('Dry run', $out);
         $this->assertSame((string) $c->tenant_contract_os, (string) DB::table('tenant_contracts')->where('id', $c->id)->value('tenant_contract_os'));
         $this->assertSame(0, DB::table('rent_outstanding_day_count_corrections')->where('tenant_contract_id', $c->id)->count());
     }
@@ -66,8 +66,8 @@ class RentOutstandingDayCountTest extends TestCase
         }
         Artisan::call('rent-outstanding:apply-day-count', ['--contract' => 'TAG2502365']);
         $out = Artisan::output();
-        $this->assertNotContains('TAG2502365 ', $out);
-        $this->assertContains('Would change 0 contract(s)', $out);
+        $this->assertStringNotContainsString('TAG2502365 ', $out);
+        $this->assertStringContainsString('Would change 0 contract(s)', $out);
     }
 
     public function test_terminations_before_the_cut_over_are_not_touched()
@@ -78,8 +78,8 @@ class RentOutstandingDayCountTest extends TestCase
             ->where('t.termination_date', '<', '2026-08-01')->whereRaw('t.termination_date < c.tenant_contract_valid_to_date')
             ->orderBy('t.id', 'desc')->value('c.tenant_contract_no');
         if ($old) {
-            $this->assertNotContains($old . ' ', $out);
+            $this->assertStringNotContainsString($old . ' ', $out);
         }
-        $this->assertContains('Dry run', $out);
+        $this->assertStringContainsString('Dry run', $out);
     }
 }

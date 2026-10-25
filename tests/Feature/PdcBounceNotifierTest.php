@@ -19,7 +19,7 @@ class PdcBounceNotifierTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -30,7 +30,7 @@ class PdcBounceNotifierTest extends TestCase
         \Auth::loginUsingId(1);
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -88,8 +88,8 @@ class PdcBounceNotifierTest extends TestCase
         $pdc->bounce_remark = null;
         PdcBounceNotifier::notify($pdc, 'pdc/1/edit');
         $log = MessageLog::where('template_key', 'pdc_bounce_are')->where('related_id', $pdc->id)->first();
-        $this->assertContains('Remarks: -', $log->body);
-        $this->assertNotContains('{', $log->body);
+        $this->assertStringContainsString('Remarks: -', $log->body);
+        $this->assertStringNotContainsString('{', $log->body);
     }
 
     public function test_mail_failure_does_not_throw()
@@ -117,7 +117,7 @@ class PdcBounceNotifierTest extends TestCase
         $response->assertJson(['success' => 'Data is successfully added']);
         $bounced = Pdc::find($open->id);
         $this->assertEquals(1, $bounced->pdc_cancel_reason);
-        $this->assertContains('Bounced: FUNDS NOT SUFFICIENT', (string) $bounced->pdc_remark);
+        $this->assertStringContainsString('Bounced: FUNDS NOT SUFFICIENT', (string) $bounced->pdc_remark);
         Mail::assertSent(\Modules\BackOffice\Emails\ChequeBounceAreEmail::class);
         Mail::assertNotSent(TemplatedMail::class);
     }

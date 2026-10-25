@@ -29,7 +29,7 @@ class TenantAgingReportTest extends TestCase
             'building_name' => $this->busyBuilding(), 'end_date' => date('Y-m-d'), 'download_type' => 'excel',
         ]);
         $res->assertOk();
-        $this->assertContains('tenant_aging_' . date('Y-m-d') . '.xlsx', $res->headers->get('content-disposition'));
+        $this->assertStringContainsString('tenant_aging_' . date('Y-m-d') . '.xlsx', $res->headers->get('content-disposition'));
     }
 
     public function test_pdf_download_for_one_building()
@@ -64,6 +64,6 @@ class TenantAgingReportTest extends TestCase
     {
         $src = file_get_contents(base_path('Modules/BackOffice/Http/Controllers/BackOfficeReportController.php'));
         preg_match('/function tenantAgingReportPdf\(.*?\r?\n}\r?\n/s', $src, $m);
-        $this->assertNotContains('tenantrentreceivable', $m[0]);
+        $this->assertStringNotContainsString('tenantrentreceivable', $m[0]);
     }
 }

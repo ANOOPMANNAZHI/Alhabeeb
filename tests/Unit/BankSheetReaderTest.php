@@ -32,16 +32,16 @@ class BankSheetReaderTest extends TestCase
         $ws->setCellValue('B1', 'Cheques Out');
         $ws->setCellValue('B3', 'RDC');
         foreach ($headers as $i => $h) {
-            $ws->setCellValueByColumnAndRow($i + 2, $headerRow, $h); // start at column B like the bank does
+            $ws->setCellValue([$i + 2, $headerRow], $h); // start at column B like the bank does
         }
         $r = $headerRow + 1;
         foreach ($rows as $row) {
             foreach ($headers as $i => $h) {
                 if (array_key_exists($h, $row)) {
                     if (is_int($row[$h]) || is_float($row[$h])) {
-                        $ws->setCellValueByColumnAndRow($i + 2, $r, $row[$h]); // a real numeric cell
+                        $ws->setCellValue([$i + 2, $r], $row[$h]); // a real numeric cell
                     } else {
-                        $ws->setCellValueExplicitByColumnAndRow($i + 2, $r, $row[$h], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                        $ws->setCellValueExplicit([$i + 2, $r], $row[$h], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
                     }
                 }
             }

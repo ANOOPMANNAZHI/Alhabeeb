@@ -690,7 +690,7 @@ public static function bouncedListView($query, Request $request, $title, $subtit
             return false;
         }
         if ($request->age && isset($ages[$request->age])) {
-            $d = $p->pdc_check_date ? Carbon::parse($p->pdc_check_date)->diffInDays($today, false) : 0;
+            $d = $p->pdc_check_date ? (int) Carbon::parse($p->pdc_check_date)->diffInDays($today, false) : 0;
             if ($d < $ages[$request->age][0] || $d > $ages[$request->age][1]) {
                 return false;
             }

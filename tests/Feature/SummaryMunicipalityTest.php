@@ -13,7 +13,7 @@ class SummaryMunicipalityTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         $this->actingAs(User::find(1));
@@ -42,7 +42,7 @@ class SummaryMunicipalityTest extends TestCase
     {
         $c = $this->renewed();
         $html = $this->summaryHtml($c);
-        $this->assertContains($this->buttonFor($c->id), $html);
+        $this->assertStringContainsString($this->buttonFor($c->id), $html);
 
         // every button on the page belongs to a renewed contract
         preg_match_all('/addMunicipality" data-id="(\d+)"/', $html, $m);
@@ -58,7 +58,7 @@ class SummaryMunicipalityTest extends TestCase
     {
         $c = $this->renewed();
         TenantContract::where('id', $c->id)->update(['tenant_contract_effective_date' => Carbon::today()->format('Y-m-d')]);
-        $this->assertNotContains($this->buttonFor($c->id), $this->summaryHtml($c));
+        $this->assertStringNotContainsString($this->buttonFor($c->id), $this->summaryHtml($c));
     }
 
     public function test_no_button_without_permission()
@@ -69,7 +69,7 @@ class SummaryMunicipalityTest extends TestCase
         }
         $c = $this->renewed();
         $this->actingAs($user);
-        $this->assertNotContains($this->buttonFor($c->id), $this->summaryHtml($c));
+        $this->assertStringNotContainsString($this->buttonFor($c->id), $this->summaryHtml($c));
     }
 
     public function test_ajax_save_returns_json_and_saves()

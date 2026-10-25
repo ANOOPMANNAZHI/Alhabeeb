@@ -22,7 +22,7 @@ class TenantMessagesTest extends TestCase
 
     public $sms = [];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -32,7 +32,7 @@ class TenantMessagesTest extends TestCase
         $this->actingAs(User::find(1));
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -100,9 +100,9 @@ class TenantMessagesTest extends TestCase
         $status = TenantMessages::inspection($t, $contract);
         $this->assertSame('sent', $status);
         $log = MessageLog::where('template_key', 'inspection_details')->where('related_id', $t->id)->first();
-        $this->assertContains('<table', $log->body);
-        $this->assertContains($contract->tenant_contract_no, $log->body);
-        $this->assertNotContains('{inspection_details}', $log->body);
+        $this->assertStringContainsString('<table', $log->body);
+        $this->assertStringContainsString($contract->tenant_contract_no, $log->body);
+        $this->assertStringNotContainsString('{inspection_details}', $log->body);
         Mail::assertSent(TemplatedMail::class, function ($m) { return $m->hasTo('contact@example.com'); });
     }
 
@@ -121,7 +121,7 @@ class TenantMessagesTest extends TestCase
         MessageTemplate::where('key', 'termination_details')->update(['is_active' => true]);
         $this->assertSame('sent', TenantMessages::terminationDetails($t, $contract));
         $log = MessageLog::where('template_key', 'termination_details')->where('status', 'sent')->latest('id')->first();
-        $this->assertContains('Dear ' . e($contract->tenant->tenant_name), $log->body);
+        $this->assertStringContainsString('Dear ' . e($contract->tenant->tenant_name), $log->body);
     }
 
     /** Data gaps in the old table view must not turn the button into a 500 (final review, important 2). */
@@ -134,7 +134,7 @@ class TenantMessagesTest extends TestCase
         Mail::assertNothingSent();
         $log = MessageLog::where('template_key', 'inspection_details')->where('related_id', $t->id)->first();
         $this->assertSame('failed', $log->status);
-        $this->assertContains('table could not be built', $log->note);
+        $this->assertStringContainsString('table could not be built', $log->note);
         $this->get(route('inspectionSendMail', $t->id))->assertRedirect(route('handoverAssigned'))->assertSessionHas('error');
     }
 
@@ -178,8 +178,8 @@ class TenantMessagesTest extends TestCase
         $this->assertSame('sent', TenantMessages::pdcDueReminder($pdc));
         Mail::assertNothingSent();
         $this->assertSame('99001122', $this->sms[0][0]);
-        $this->assertContains((string) $pdc->pdc_check_no, $this->sms[0][1]);
-        $this->assertContains(number_format($pdc->pdc_amt, 3), $this->sms[0][1]);
+        $this->assertStringContainsString((string) $pdc->pdc_check_no, $this->sms[0][1]);
+        $this->assertStringContainsString(number_format($pdc->pdc_amt, 3), $this->sms[0][1]);
     }
 
     public function test_pdc_reminder_with_sms_off_sends_nothing()
@@ -242,7 +242,7 @@ class TenantMessagesTest extends TestCase
         $level = error_reporting(E_ALL & ~E_WARNING);
         $response = $this->get(route('generatePdfEmail', $c->id));
         error_reporting($level);
-        $this->assertContains('application/pdf', $response->headers->get('content-type'));
+        $this->assertStringContainsString('application/pdf', $response->headers->get('content-type'));
         Mail::assertNothingSent();
         $this->assertSame($before, (int) TenantContract::find($c->id)->email_count);
     }

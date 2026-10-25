@@ -16,7 +16,7 @@ class MessageLogScreenTest extends TestCase
 
     private $rows = [];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         $this->actingAs(User::find(1));
@@ -33,23 +33,23 @@ class MessageLogScreenTest extends TestCase
     {
         $html = $this->get(route('message-log.index'))->assertOk()->getContent();
         foreach (['zeta.one@example.com', '99887766', 'zeta.three@example.com'] as $r) {
-            $this->assertContains($r, $html);
+            $this->assertStringContainsString($r, $html);
         }
         $html = $this->get(route('message-log.index', ['status' => 'failed']))->getContent();
-        $this->assertContains('99887766', $html);
-        $this->assertNotContains('zeta.one@example.com', $html);
-        $this->assertContains('SMS gateway refused', $html);
+        $this->assertStringContainsString('99887766', $html);
+        $this->assertStringNotContainsString('zeta.one@example.com', $html);
+        $this->assertStringContainsString('SMS gateway refused', $html);
 
         $html = $this->get(route('message-log.index', ['q' => 'Zeta Three']))->getContent();
-        $this->assertContains('zeta.three@example.com', $html);
-        $this->assertNotContains('99887766', $html);
+        $this->assertStringContainsString('zeta.three@example.com', $html);
+        $this->assertStringNotContainsString('99887766', $html);
 
         $html = $this->get(route('message-log.index', ['channel' => 'sms', 'template' => 'pdc_bounce_are']))->getContent();
-        $this->assertContains('99887766', $html);
-        $this->assertNotContains('zeta.one@example.com', $html);
+        $this->assertStringContainsString('99887766', $html);
+        $this->assertStringNotContainsString('zeta.one@example.com', $html);
 
         $html = $this->get(route('message-log.index', ['from' => date('Y-m-d', strtotime('+1 day'))]))->getContent();
-        $this->assertContains('Nothing was sent in this period', $html);
+        $this->assertStringContainsString('Nothing was sent in this period', $html);
     }
 
     public function test_show_returns_row_json()
@@ -69,15 +69,15 @@ class MessageLogScreenTest extends TestCase
         MessageLog::create($base + ['recipient' => 'bulk.other@example.com', 'related_id' => $send->id + 100000, 'created_at' => now()]);
 
         $html = $this->get(route('message-log.index', ['bulk_send' => $send->id]))->assertOk()->getContent();
-        $this->assertContains('bulk.mine@example.com', $html);
-        $this->assertNotContains('bulk.other@example.com', $html);
-        $this->assertNotContains('zeta.one@example.com', $html);
-        $this->assertContains('name="bulk_send" value="' . $send->id . '"', $html);
-        $this->assertContains('value="' . $send->created_at->format('Y-m-d') . '"', $html);
+        $this->assertStringContainsString('bulk.mine@example.com', $html);
+        $this->assertStringNotContainsString('bulk.other@example.com', $html);
+        $this->assertStringNotContainsString('zeta.one@example.com', $html);
+        $this->assertStringContainsString('name="bulk_send" value="' . $send->id . '"', $html);
+        $this->assertStringContainsString('value="' . $send->created_at->format('Y-m-d') . '"', $html);
 
         // the default 6-day window still applies without the filter; other filters still work with it
-        $this->assertNotContains('bulk.mine@example.com', $this->get(route('message-log.index'))->getContent());
-        $this->assertNotContains('bulk.mine@example.com', $this->get(route('message-log.index', ['bulk_send' => $send->id, 'channel' => 'sms']))->getContent());
+        $this->assertStringNotContainsString('bulk.mine@example.com', $this->get(route('message-log.index'))->getContent());
+        $this->assertStringNotContainsString('bulk.mine@example.com', $this->get(route('message-log.index', ['bulk_send' => $send->id, 'channel' => 'sms']))->getContent());
     }
 
     public function test_needs_view_message_log_permission()

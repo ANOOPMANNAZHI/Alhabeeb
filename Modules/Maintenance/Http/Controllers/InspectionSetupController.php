@@ -21,7 +21,7 @@ class InspectionSetupController extends Controller
 
     public function index(Request $request)
     {
-        $tab = $request->get('tab') === 'checklist' ? 'checklist' : 'buildings';
+        $tab = $request->input('tab') === 'checklist' ? 'checklist' : 'buildings';
         $executives = Inspection::executives();
         $buildings = DB::table('buildings as b')
             ->leftJoin('building_executives as be', function ($j) { $j->on('be.building_id', '=', 'b.id')->whereNull('be.assigned_till'); })

@@ -15,7 +15,7 @@ class AreExpiringCardTest extends TestCase
 
     private $used = [];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         app('cache')->forget('spatie.permission.cache');
@@ -97,8 +97,8 @@ class AreExpiringCardTest extends TestCase
     {
         $are = $this->makeAre('exp_t_are2');
         $html = $this->as($are)->get(route('dashboard'))->assertStatus(200)->getContent();
-        $this->assertContains(route('areDueForRenewalCount'), $html);
-        $this->assertContains('var href1 =   "' . route('tenantRenewal.index') . '"', $html);
-        $this->assertNotContains('<option value="120">120 Days</option>', $html);
+        $this->assertStringContainsString(route('areDueForRenewalCount'), $html);
+        $this->assertStringContainsString('var href1 =   "' . route('tenantRenewal.index') . '"', $html);
+        $this->assertStringNotContainsString('<option value="120">120 Days</option>', $html);
     }
 }

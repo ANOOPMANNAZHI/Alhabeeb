@@ -18,7 +18,7 @@ class TenantRentRevisal extends Model
     {
         return $this->status === self::DRAFT;
     }
-    protected $dates = ['emailed_at'];
+    protected $casts = ['emailed_at' => 'datetime'];
 
     public function contract()
     {

@@ -47,7 +47,7 @@ class SkipDraftRenewalsInTenantReceivable extends Migration
     private function rewrite($function, $from, $to)
     {
         $sql = DB::selectOne("SELECT pg_get_functiondef(?::regproc) AS def", ['public.' . $function])->def;
-        if (strpos($to, $from) !== false && strpos($sql, $to) !== false) {
+        if (strpos($to, (string) $from) !== false && strpos($sql, (string) $to) !== false) {
             throw new RuntimeException("$function: already changed: $to");
         }
         $count = substr_count($sql, $from);

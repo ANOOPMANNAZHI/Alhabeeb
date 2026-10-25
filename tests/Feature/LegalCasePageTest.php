@@ -25,7 +25,7 @@ class LegalCasePageTest extends TestCase
     private $lawyer;
     private $lawyer2;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('local');
@@ -36,7 +36,7 @@ class LegalCasePageTest extends TestCase
         $this->lawyer2 = $this->makeUser('lgp_t_lawyer2', 'legal_advisor');
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -118,7 +118,7 @@ class LegalCasePageTest extends TestCase
         $this->assertEquals(date('Y-m-d', strtotime('+10 days')), substr($legal->next_hearing_date, 0, 10));
 
         $row = DB::table('legal_case_updates')->where('legal_id', $legal->id)->where('kind', 'stage')->first();
-        $this->assertContains('Case no. RDC/2026/551', $row->note);
+        $this->assertStringContainsString('Case no. RDC/2026/551', $row->note);
         $doc = DB::table('legal_documents')->where('update_id', $row->id)->first();
         $this->assertEquals('filing.pdf', $doc->legal_documents_name);
         Storage::disk('local')->assertExists($doc->legal_documents_file_name);

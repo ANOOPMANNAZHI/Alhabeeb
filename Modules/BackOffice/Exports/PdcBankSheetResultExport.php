@@ -2,6 +2,7 @@
 
 namespace Modules\BackOffice\Exports;
 
+use Maatwebsite\Excel\Concerns\Export;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Modules\BackOffice\Services\BankSheetResultRows;
 
@@ -9,7 +10,7 @@ use Modules\BackOffice\Services\BankSheetResultRows;
  * Excel download of one bank-sheet posting result: "Receipts created" and,
  * when the run left cheques behind, "Not posted".
  */
-class PdcBankSheetResultExport implements WithMultipleSheets
+class PdcBankSheetResultExport implements WithMultipleSheets, Export
 {
     protected $upload;
     protected $receipts;

@@ -64,7 +64,7 @@ class BankSheetRedepositNeededTest extends TestCase
         $this->assertSame([self::CONTRACT => 'TAG2503810'], $r['redeposit_contracts']);
         $this->assertStringContainsString('Bounced cheque deposited again - click Redeposit on TAG2503810', $r['reason']);
         $this->assertCount(1, $r['related'], 'the agreement once (Rent + VAT of one cheque)');
-        $this->assertContains($r['related'][0]->id, $bounced);
+        $this->assertStringContainsString($r['related'][0]->id, $bounced);
         $this->assertSame('Redeposit needed', BankSheetResultRows::rowStatus('redeposit_needed'));
     }
 
@@ -97,8 +97,8 @@ class BankSheetRedepositNeededTest extends TestCase
         $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $ws = $ss->getActiveSheet();
         foreach ($h as $i => $t) {
-            $ws->setCellValueByColumnAndRow($i + 2, 9, $t);
-            $ws->setCellValueExplicitByColumnAndRow($i + 2, 10, $row[$i], 's');
+            $ws->setCellValue([$i + 2, 9], $t);
+            $ws->setCellValueExplicit([$i + 2, 10], $row[$i], 's');
         }
         (new \PhpOffice\PhpSpreadsheet\Writer\Xls($ss))->save(storage_path('app/pdc_bank_sheets/' . $stored));
         try {
@@ -106,9 +106,9 @@ class BankSheetRedepositNeededTest extends TestCase
         } finally {
             @unlink(storage_path('app/pdc_bank_sheets/' . $stored));
         }
-        $this->assertContains('Redeposit needed', $html);
-        $this->assertContains('click Redeposit on TAG2503810', $html);
-        $this->assertContains(route('pdc.edit', self::CONTRACT), $html);
+        $this->assertStringContainsString('Redeposit needed', $html);
+        $this->assertStringContainsString('click Redeposit on TAG2503810', $html);
+        $this->assertStringContainsString(route('pdc.edit', self::CONTRACT), $html);
     }
 
     public function test_redeposit_already_there_keeps_the_original_reason()

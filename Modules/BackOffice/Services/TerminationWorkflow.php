@@ -50,7 +50,7 @@ class TerminationWorkflow
             // Outstanding rent up to the termination date, minus what was received
             $sumOfReceipt = RentOutstanding::paidForContract($contractId);
             $remainAmt = totalContractRentCountCalculation($contractId, $current->termination_date);
-            $osAmount = $remainAmt - $sumOfReceipt;
+            $osAmount = $remainAmt - $sumOfReceipt - \Modules\Masters\Services\LegalWaiver::forContract($contractId);   // legal settlement waiver is a credit
             if (isset($osAmount)) {
                 TenantContract::where('id', $contractId)->update(['tenant_contract_os' => $osAmount]);
             }

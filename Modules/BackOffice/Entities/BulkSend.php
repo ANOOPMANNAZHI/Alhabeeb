@@ -24,8 +24,9 @@ class BulkSend extends Model
 
     protected $table = 'bulk_sends';
     protected $guarded = [];
-    protected $casts = ['filters' => 'array', 'send_email' => 'boolean', 'send_sms' => 'boolean'];
-    protected $dates = ['finished_at'];
+    protected $casts = ['filters' => 'array', 'send_email' => 'boolean', 'send_sms' => 'boolean',
+        'finished_at' => 'datetime',
+    ];
 
     public function recipients()
     {

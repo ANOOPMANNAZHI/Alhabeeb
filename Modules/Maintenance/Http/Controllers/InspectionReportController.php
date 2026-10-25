@@ -60,12 +60,12 @@ class InspectionReportController extends Controller
 
     private function params(Request $request)
     {
-        $to = preg_match('/^\d{4}-\d{2}$/', (string) $request->get('to')) ? $request->get('to') : date('Y-m');
-        $from = preg_match('/^\d{4}-\d{2}$/', (string) $request->get('from')) ? $request->get('from') : date('Y-m', strtotime($to . '-01 -1 month'));
+        $to = preg_match('/^\d{4}-\d{2}$/', (string) $request->input('to')) ? $request->input('to') : date('Y-m');
+        $from = preg_match('/^\d{4}-\d{2}$/', (string) $request->input('from')) ? $request->input('from') : date('Y-m', strtotime($to . '-01 -1 month'));
         if ($from > $to) {
             list($from, $to) = [$to, $from];
         }
-        return [$from, $to, $request->get('executive') ?: null, $request->get('building') ?: null];
+        return [$from, $to, $request->input('executive') ?: null, $request->input('building') ?: null];
     }
 
     private function data(Request $request)

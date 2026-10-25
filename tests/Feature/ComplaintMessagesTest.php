@@ -18,7 +18,7 @@ class ComplaintMessagesTest extends TestCase
 
     private $sms = [];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -27,7 +27,7 @@ class ComplaintMessagesTest extends TestCase
         MessageTemplate::whereIn('key', ['complaint_registered', 'complaint_completed', 'complaint_closed'])->update(['is_active' => true, 'sms_enabled' => false]);
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -63,7 +63,7 @@ class ComplaintMessagesTest extends TestCase
         $this->assertSame(['email' => 'sent', 'sms' => 'sent'], $r);
         Mail::assertSent(TemplatedMail::class, function ($m) { return $m->hasTo('personal@example.com'); });
         $this->assertSame('99112233', $this->sms[0][0]);
-        $this->assertContains($c->complaint_no, $this->sms[0][1]);
+        $this->assertStringContainsString($c->complaint_no, $this->sms[0][1]);
     }
 
     public function test_closed_falls_back_to_personal_email()

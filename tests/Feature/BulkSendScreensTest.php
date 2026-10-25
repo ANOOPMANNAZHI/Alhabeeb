@@ -19,7 +19,7 @@ class BulkSendScreensTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -27,7 +27,7 @@ class BulkSendScreensTest extends TestCase
         $this->actingAs(User::find(1));
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -60,13 +60,13 @@ class BulkSendScreensTest extends TestCase
     {
         $send = $this->send();
         $html = $this->get(route('bulk-send.index'))->assertOk()->getContent();
-        $this->assertContains('Water shutdown', $html);
-        $this->assertContains('Staff', $html);
+        $this->assertStringContainsString('Water shutdown', $html);
+        $this->assertStringContainsString('Staff', $html);
         $html = $this->get(route('bulk-send.show', $send->id))->assertOk()->getContent();
-        $this->assertContains('Alpha', $html);
-        $this->assertContains('Beta', $html);
+        $this->assertStringContainsString('Alpha', $html);
+        $this->assertStringContainsString('Beta', $html);
         $html = $this->get(route('bulk-send.show', [$send->id, 'status' => 'failed']))->assertOk()->getContent();
-        $this->assertNotContains('Alpha', $html);
+        $this->assertStringNotContainsString('Alpha', $html);
     }
 
     public function test_detail_has_status_counts()
@@ -80,18 +80,18 @@ class BulkSendScreensTest extends TestCase
     {
         $send = $this->send();
         $html = $this->get(route('bulk-send.show', [$send->id, 'status' => 'failed']))->assertOk()->getContent();
-        $this->assertRegExp('/href="[^"]*status=failed"[^>]*aria-current="page"[^>]*>\s*Failed\s*<span class="bs-tab-n">1<\/span>/', $html);
-        $this->assertRegExp('/>\s*All\s*<span class="bs-tab-n">2<\/span>/', $html);
-        $this->assertRegExp('/>\s*Sent\s*<span class="bs-tab-n">0<\/span>/', $html);
-        $this->assertNotContains('<select name="status"', $html);
-        $this->assertContains('bs-show-progress', $html); // the progress + counts line replaced the stat tiles
-        $this->assertContains('0 of 2 processed', $html);
-        $this->assertContains('email: failed', $html);
-        $this->assertContains('bs-row-failed', $html);
-        $this->assertContains('bs-badge-failed', $html);
-        $this->assertContains(e(route('message-log.index', ['bulk_send' => $send->id])), $html);
-        $this->assertContains('Open in Sent log', $html);
-        $this->assertContains(route('bulk-send.pause', $send->id), $html);
+        $this->assertMatchesRegularExpression('/href="[^"]*status=failed"[^>]*aria-current="page"[^>]*>\s*Failed\s*<span class="bs-tab-n">1<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/>\s*All\s*<span class="bs-tab-n">2<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/>\s*Sent\s*<span class="bs-tab-n">0<\/span>/', $html);
+        $this->assertStringNotContainsString('<select name="status"', $html);
+        $this->assertStringContainsString('bs-show-progress', $html); // the progress + counts line replaced the stat tiles
+        $this->assertStringContainsString('0 of 2 processed', $html);
+        $this->assertStringContainsString('email: failed', $html);
+        $this->assertStringContainsString('bs-row-failed', $html);
+        $this->assertStringContainsString('bs-badge-failed', $html);
+        $this->assertStringContainsString(e(route('message-log.index', ['bulk_send' => $send->id])), $html);
+        $this->assertStringContainsString('Open in Sent log', $html);
+        $this->assertStringContainsString(route('bulk-send.pause', $send->id), $html);
     }
 
     public function test_actions()
@@ -112,23 +112,23 @@ class BulkSendScreensTest extends TestCase
     {
         $send = $this->send(['status' => BulkSend::CANCELLED, 'total' => 10, 'sent' => 2, 'failed' => 1]);
         $html = $this->get(route('bulk-send.index'))->getContent();
-        $this->assertContains('2 sent', $html);
-        $this->assertContains('1 failed', $html);
-        $this->assertContains('0 pending', $html);
-        $this->assertNotContains('7 pending', $html);
+        $this->assertStringContainsString('2 sent', $html);
+        $this->assertStringContainsString('1 failed', $html);
+        $this->assertStringContainsString('0 pending', $html);
+        $this->assertStringNotContainsString('7 pending', $html);
     }
 
     public function test_list_shows_status_with_icon_and_text_and_accessible_progress()
     {
         $send = $this->send(['sent' => 1, 'failed' => 0, 'total' => 4]);
         $html = $this->get(route('bulk-send.index'))->getContent();
-        $this->assertContains('1 of 4 processed', $html);
-        $this->assertRegExp('/role="progressbar"[^>]*aria-valuenow="1"[^>]*aria-valuemax="4"/', $html);
-        $this->assertRegExp('/bs-badge-running"><i class="fa [a-z-]+" aria-hidden="true"><\/i> Running</', $html);
-        $this->assertContains('data-auto-refresh="1"', $html);
-        $this->assertContains('auto-refresh on', $html);
-        $this->assertContains('role="dialog"', $html);
-        $this->assertContains('Cancel send #' . $send->id . '? Messages not sent yet will not be sent.', $html);
+        $this->assertStringContainsString('1 of 4 processed', $html);
+        $this->assertMatchesRegularExpression('/role="progressbar"[^>]*aria-valuenow="1"[^>]*aria-valuemax="4"/', $html);
+        $this->assertMatchesRegularExpression('/bs-badge-running"><i class="fa [a-z-]+" aria-hidden="true"><\/i> Running</', $html);
+        $this->assertStringContainsString('data-auto-refresh="1"', $html);
+        $this->assertStringContainsString('auto-refresh on', $html);
+        $this->assertStringContainsString('role="dialog"', $html);
+        $this->assertStringContainsString('Cancel send #' . $send->id . '? Messages not sent yet will not be sent.', $html);
     }
 
     /** The list view with exactly these sends (no need to touch the other rows of the shared DB). */
@@ -142,29 +142,29 @@ class BulkSendScreensTest extends TestCase
     public function test_list_does_not_auto_refresh_without_a_running_send()
     {
         $html = $this->listHtml([$this->send(['status' => BulkSend::DONE])]);
-        $this->assertNotContains('data-auto-refresh="1"', $html);
-        $this->assertContains('Done', $html);
+        $this->assertStringNotContainsString('data-auto-refresh="1"', $html);
+        $this->assertStringContainsString('Done', $html);
     }
 
     public function test_list_empty_state()
     {
         $html = $this->listHtml([]);
-        $this->assertContains('No sends yet', $html);
-        $this->assertContains('bs-empty', $html);
-        $this->assertContains(route('bulk-send.create'), $html);
+        $this->assertStringContainsString('No sends yet', $html);
+        $this->assertStringContainsString('bs-empty', $html);
+        $this->assertStringContainsString(route('bulk-send.create'), $html);
     }
 
     public function test_resend_button_only_for_a_finished_send_not_yet_resent()
     {
         $send = $this->send(['failed' => 1]);
         $url = route('bulk-send.resend-failed', $send->id);
-        $this->assertNotContains($url, $this->get(route('bulk-send.index'))->getContent());
+        $this->assertStringNotContainsString($url, $this->get(route('bulk-send.index'))->getContent());
         $this->post(route('bulk-send.cancel', $send->id));
         $html = $this->get(route('bulk-send.index'))->getContent();
-        $this->assertContains($url, $html);
-        $this->assertContains('Resend the failed messages of send #' . $send->id . '?', $html);
+        $this->assertStringContainsString($url, $html);
+        $this->assertStringContainsString('Resend the failed messages of send #' . $send->id . '?', $html);
         $this->post($url)->assertSessionHas('success');
-        $this->assertNotContains($url, $this->get(route('bulk-send.index'))->getContent());
+        $this->assertStringNotContainsString($url, $this->get(route('bulk-send.index'))->getContent());
     }
 
     public function test_sent_log_shows_a_readable_label_for_bulk_rows()
@@ -173,7 +173,7 @@ class BulkSendScreensTest extends TestCase
         $this->assertSame('Bulk: Water notice', (new MessageLog(['template_key' => 'bulk:' . $t->id]))->template_label);
         $this->assertSame('Bulk: one-off message', (new MessageLog(['template_key' => 'bulk:one-off']))->template_label);
         MessageLog::create(['template_key' => 'bulk:' . $t->id, 'channel' => 'email', 'recipient' => 'z@example.com', 'status' => 'sent', 'created_at' => now()]);
-        $this->assertContains('Bulk: Water notice', $this->get(route('message-log.index'))->assertOk()->getContent());
+        $this->assertStringContainsString('Bulk: Water notice', $this->get(route('message-log.index'))->assertOk()->getContent());
     }
 
     public function test_every_route_needs_the_permission()

@@ -61,8 +61,8 @@ class RentOutstandingApplyDayCount extends Command
             $checked++;
             $from = $c->tenant_contract_effective_date ?: $c->tenant_contract_start_date;
             $args = [$from, $c->termination_date, $c->tenant_contract_rent, 0, $c->tenant_contract_value, $c->tenant_contract_valid_to_date];
-            $dueOld = call_user_func_array([RentOutstanding::class, 'compute'], $args)['rent_due'];
-            $dueNew = call_user_func_array([RentOutstanding::class, 'compute'], array_merge($args, [true]))['rent_due'];
+            $dueOld = call_user_func_array(RentOutstanding::compute(...), $args)['rent_due'];
+            $dueNew = call_user_func_array(RentOutstanding::compute(...), array_merge($args, [true]))['rent_due'];
             if (abs($dueOld - $dueNew) < 0.0005) {
                 continue; // the new rule does not change this contract: leave its stored figures alone
             }

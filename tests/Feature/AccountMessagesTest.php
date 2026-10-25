@@ -20,7 +20,7 @@ class AccountMessagesTest extends TestCase
 
     public $sms = [];
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -29,7 +29,7 @@ class AccountMessagesTest extends TestCase
         MessageTemplate::whereIn('key', ['employee_welcome', 'employee_password_reset', 'password_forgot'])->update(['is_active' => true]);
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -66,11 +66,11 @@ class AccountMessagesTest extends TestCase
         });
         preg_match('#/password/reset/([^?"]+)#', $link, $t);
         $this->assertTrue(Password::broker()->tokenExists($user, $t[1]), 'token in the link is valid');
-        $this->assertContains('email=new.staff%40example.com', $link);
+        $this->assertStringContainsString('email=new.staff%40example.com', $link);
 
         $log = MessageLog::where('template_key', 'employee_welcome')->latest('id')->first();
-        $this->assertNotContains($t[1], $log->body);
-        $this->assertContains('[link hidden]', $log->body);
+        $this->assertStringNotContainsString($t[1], $log->body);
+        $this->assertStringContainsString('[link hidden]', $log->body);
         $this->assertSame([], $this->sms);
     }
 
@@ -102,7 +102,7 @@ class AccountMessagesTest extends TestCase
                 && strpos($m->bodyHtml, '/password/reset/tok-123') !== false;
         });
         $log = MessageLog::where('template_key', 'password_forgot')->latest('id')->first();
-        $this->assertNotContains('tok-123', $log->body);
+        $this->assertStringNotContainsString('tok-123', $log->body);
     }
 
     public function test_switched_off_template_sends_nothing()

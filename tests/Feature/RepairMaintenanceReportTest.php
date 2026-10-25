@@ -120,7 +120,7 @@ class RepairMaintenanceReportTest extends TestCase
                 }
             }
         }
-        $this->assertNotContains('SERV42296', $nos); // gas leak 22.02.2026, no charges
+        $this->assertStringNotContainsString('SERV42296', $nos); // gas leak 22.02.2026, no charges
     }
 
     public function test_invoice_lines_billing_a_service_report_are_not_sub_contract()

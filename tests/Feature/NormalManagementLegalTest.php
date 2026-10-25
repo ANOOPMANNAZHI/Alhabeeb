@@ -26,7 +26,7 @@ class NormalManagementLegalTest extends TestCase
     {
         $data = $this->monthData('Aashirwad%', [1]);
         foreach (array_merge($data[1]['old_outstanding'], $data[1]['units']) as $u) {
-            $this->assertNotContains('Powerline', (string) $u->tenant_name, 'unit ' . $u->unit_no);
+            $this->assertStringNotContainsString('Powerline', (string) $u->tenant_name, 'unit ' . $u->unit_no);
         }
     }
 
@@ -70,7 +70,7 @@ class NormalManagementLegalTest extends TestCase
                 $legal = DB::table('legal as l')->join('tenant_contracts as tc', 'tc.tenant_id', '=', 'l.tenant_id')
                     ->join('tenant as t', 't.id', '=', 'l.tenant_id')->where('t.tenant_name', $u->tenant_name)->exists();
                 $this->assertFalse($legal, 'legal tenant ' . $u->tenant_name . ' in old outstanding of building ' . $id);
-                $this->assertNotRegExp('/-u?\.?legal/i', (string) $u->tenant_name);
+                $this->assertDoesNotMatchRegularExpression('/-u?\.?legal/i', (string) $u->tenant_name);
             }
         }
     }

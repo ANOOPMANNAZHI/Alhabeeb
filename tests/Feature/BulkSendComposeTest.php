@@ -19,7 +19,7 @@ class BulkSendComposeTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -36,7 +36,7 @@ class BulkSendComposeTest extends TestCase
         }
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         $this->forgetCounts();
@@ -54,21 +54,21 @@ class BulkSendComposeTest extends TestCase
     {
         $t = $this->template();
         $html = $this->get(route('bulk-send.create'))->assertOk()->getContent();
-        $this->assertContains('Staff notice', $html);
-        $this->assertContains('Active tenants', $html);
-        $this->assertContains('Past tenants', $html);
-        $this->assertContains('backoffice_manager', $html);
-        $this->assertContains(e((string) DB::table('locations')->where('locations_status', 1)->orderBy('locations_name')->value('locations_name')), $html);
-        $this->assertNotContains((string) MessageTemplate::where('kind', 'system')->value('name'), $html);
+        $this->assertStringContainsString('Staff notice', $html);
+        $this->assertStringContainsString('Active tenants', $html);
+        $this->assertStringContainsString('Past tenants', $html);
+        $this->assertStringContainsString('backoffice_manager', $html);
+        $this->assertStringContainsString(e((string) DB::table('locations')->where('locations_status', 1)->orderBy('locations_name')->value('locations_name')), $html);
+        $this->assertStringNotContainsString((string) MessageTemplate::where('kind', 'system')->value('name'), $html);
     }
 
     public function test_email_box_keeps_an_sms_only_choice_after_a_validation_error()
     {
-        $this->assertRegExp('/id="bs-email"\s+checked/', $this->get(route('bulk-send.create'))->getContent());
+        $this->assertMatchesRegularExpression('/id="bs-email"\s+checked/', $this->get(route('bulk-send.create'))->getContent());
         $html = $this->withSession(['_old_input' => ['audience' => 'staff', 'send_sms' => '1']])
             ->get(route('bulk-send.create'))->assertOk()->getContent();
-        $this->assertNotRegExp('/id="bs-email"\s+checked/', $html);
-        $this->assertRegExp('/id="bs-send-sms"\s+checked/', $html);
+        $this->assertDoesNotMatchRegularExpression('/id="bs-email"\s+checked/', $html);
+        $this->assertMatchesRegularExpression('/id="bs-send-sms"\s+checked/', $html);
     }
 
     public function test_create_page_has_steps_cards_toggles_and_a_summary()
@@ -77,23 +77,23 @@ class BulkSendComposeTest extends TestCase
         $location = DB::table('locations')->where('locations_status', 1)->orderBy('locations_name')->first();
         $html = $this->withSession(['_old_input' => ['template_id' => (string) $t->id, 'audience' => 'landlord', 'locations' => [(string) $location->id], 'send_email' => '1']])
             ->get(route('bulk-send.create'))->assertOk()->getContent();
-        $this->assertContains('class="bs-stepper is-sticky"', $html);
-        $this->assertRegExp('/<input type="radio" name="template_id" value="' . $t->id . '"[^>]*checked/', $html);
-        $this->assertRegExp('/<input type="radio" name="template_id" value=""/', $html);
-        $this->assertContains('Write a one-off message', $html);
-        $this->assertContains('SMS (costs money)', $html);
-        $this->assertRegExp('/<input type="radio" name="audience" value="landlord"[^>]*checked/', $html);
-        $this->assertContains('data-count-for="staff"', $html);
-        $this->assertContains('Counts refresh every 5 minutes; the Summary is always exact.', $html);
-        $this->assertContains('by their latest contract', $html);
-        $this->assertRegExp('/<fieldset[^>]*id="bs-loc"[^>]*>\s*<legend/', $html);
-        $this->assertRegExp('/<fieldset[^>]*id="bs-bld"[^>]*>\s*<legend/', $html);
-        $this->assertRegExp('/<input type="checkbox" name="locations\[\]" value="' . $location->id . '"[^>]*checked/', $html);
-        $this->assertRegExp('/<input type="checkbox" name="roles\[\]" value="super_admin"/', $html);
-        $this->assertContains(json_encode(route('bulk-send.audience-counts'), 15), $html); // as @json writes it
-        $this->assertContains(json_encode(route('bulk-send.place-counts'), 15), $html);
-        $this->assertRegExp('/id="bs-summary-card"[^>]*data-per-minute="([1-9]|[12][0-9]|30)"/', $html);
-        $this->assertRegExp('/<button type="submit"[^>]*>[^<]*(<i[^>]*><\/i>)?\s*Review/', $html);
+        $this->assertStringContainsString('class="bs-stepper is-sticky"', $html);
+        $this->assertMatchesRegularExpression('/<input type="radio" name="template_id" value="' . $t->id . '"[^>]*checked/', $html);
+        $this->assertMatchesRegularExpression('/<input type="radio" name="template_id" value=""/', $html);
+        $this->assertStringContainsString('Write a one-off message', $html);
+        $this->assertStringContainsString('SMS (costs money)', $html);
+        $this->assertMatchesRegularExpression('/<input type="radio" name="audience" value="landlord"[^>]*checked/', $html);
+        $this->assertStringContainsString('data-count-for="staff"', $html);
+        $this->assertStringContainsString('Counts refresh every 5 minutes; the Summary is always exact.', $html);
+        $this->assertStringContainsString('by their latest contract', $html);
+        $this->assertMatchesRegularExpression('/<fieldset[^>]*id="bs-loc"[^>]*>\s*<legend/', $html);
+        $this->assertMatchesRegularExpression('/<fieldset[^>]*id="bs-bld"[^>]*>\s*<legend/', $html);
+        $this->assertMatchesRegularExpression('/<input type="checkbox" name="locations\[\]" value="' . $location->id . '"[^>]*checked/', $html);
+        $this->assertMatchesRegularExpression('/<input type="checkbox" name="roles\[\]" value="super_admin"/', $html);
+        $this->assertStringContainsString(json_encode(route('bulk-send.audience-counts'), 15), $html); // as @json writes it
+        $this->assertStringContainsString(json_encode(route('bulk-send.place-counts'), 15), $html);
+        $this->assertMatchesRegularExpression('/id="bs-summary-card"[^>]*data-per-minute="([1-9]|[12][0-9]|30)"/', $html);
+        $this->assertMatchesRegularExpression('/<button type="submit"[^>]*>[^<]*(<i[^>]*><\/i>)?\s*Review/', $html);
     }
 
     public function test_create_page_shows_errors_next_to_their_section()
@@ -102,10 +102,10 @@ class BulkSendComposeTest extends TestCase
             'template_id' => ['Choose an active Bulk template.'], 'recipients' => ['Nobody to send to.'],
         ]));
         $html = $this->withSession(['errors' => $errors, '_old_input' => ['audience' => 'staff']])->get(route('bulk-send.create'))->assertOk()->getContent();
-        $this->assertRegExp('/id="bs-errors"[^>]*role="alert"/', $html);
-        $this->assertRegExp('/id="bs-err-message"[^>]*>.*Choose an active Bulk template\./s', $html);
-        $this->assertRegExp('/id="bs-err-recipients"[^>]*>.*Nobody to send to\./s', $html);
-        $this->assertContains('href="#bs-sec-message"', $html);
+        $this->assertMatchesRegularExpression('/id="bs-errors"[^>]*role="alert"/', $html);
+        $this->assertMatchesRegularExpression('/id="bs-err-message"[^>]*>.*Choose an active Bulk template\./s', $html);
+        $this->assertMatchesRegularExpression('/id="bs-err-recipients"[^>]*>.*Nobody to send to\./s', $html);
+        $this->assertStringContainsString('href="#bs-sec-message"', $html);
     }
 
     public function test_count_matches_the_finder()
@@ -120,8 +120,8 @@ class BulkSendComposeTest extends TestCase
         $html = $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1])->assertOk()->getContent();
         $all = RecipientFinder::people('staff', []);
         $one = reset($all);
-        $this->assertContains(e($one['name']), $html);
-        $this->assertContains('Start sending', $html);
+        $this->assertStringContainsString(e($one['name']), $html);
+        $this->assertStringContainsString('Start sending', $html);
         $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'tenant_active', 'send_email' => 1])
             ->assertRedirect()->assertSessionHasErrors('template_id');
     }
@@ -130,28 +130,28 @@ class BulkSendComposeTest extends TestCase
     {
         $t = $this->template();
         $html = $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1, 'send_sms' => 1])->assertOk()->getContent();
-        $this->assertContains('class="bs-stepper"', $html);
-        $this->assertRegExp('/data-step="3"\s+aria-current="step"/', $html);
+        $this->assertStringContainsString('class="bs-stepper"', $html);
+        $this->assertMatchesRegularExpression('/data-step="3"\s+aria-current="step"/', $html);
         foreach (['People', 'Emails', 'SMS', 'No email', 'Time needed'] as $tile) {
-            $this->assertRegExp('/bs-tile-label">(<i[^>]*><\/i>)?\s*' . preg_quote($tile, '/') . '</', $html, $tile);
+            $this->assertMatchesRegularExpression('/bs-tile-label">(<i[^>]*><\/i>)?\s*' . preg_quote($tile, '/') . '</', $html, $tile);
         }
         foreach (['all', 'excluded', 'noemail'] as $tab) {
-            $this->assertContains('data-tab="' . $tab . '"', $html);
+            $this->assertStringContainsString('data-tab="' . $tab . '"', $html);
         }
-        $this->assertContains('Select all on this page', $html);
-        $this->assertContains('id="bs-pv-frame"', $html);
-        $this->assertContains('sandbox=""', $html);
-        $this->assertContains('id="bs-pv-sms"', $html);
-        $this->assertRegExp('/role="dialog"[^>]*aria-modal="true"/', $html);
-        $this->assertContains('SMS costs money', $html);
-        $this->assertContains('Start sending', $html);
-        $this->assertContains('class="bs-actionbar"', $html);
-        $this->assertNotContains('confirm(', $html);
+        $this->assertStringContainsString('Select all on this page', $html);
+        $this->assertStringContainsString('id="bs-pv-frame"', $html);
+        $this->assertStringContainsString('sandbox=""', $html);
+        $this->assertStringContainsString('id="bs-pv-sms"', $html);
+        $this->assertMatchesRegularExpression('/role="dialog"[^>]*aria-modal="true"/', $html);
+        $this->assertStringContainsString('SMS costs money', $html);
+        $this->assertStringContainsString('Start sending', $html);
+        $this->assertStringContainsString('class="bs-actionbar"', $html);
+        $this->assertStringNotContainsString('confirm(', $html);
 
         // SMS off: no SMS tile or bubble
         $html = $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1])->assertOk()->getContent();
-        $this->assertNotRegExp('/bs-tile-label">(<i[^>]*><\/i>)?\s*SMS</', $html);
-        $this->assertNotContains('id="bs-pv-sms"', $html);
+        $this->assertDoesNotMatchRegularExpression('/bs-tile-label">(<i[^>]*><\/i>)?\s*SMS</', $html);
+        $this->assertStringNotContainsString('id="bs-pv-sms"', $html);
     }
 
     public function test_search_and_preview()
@@ -197,7 +197,7 @@ class BulkSendComposeTest extends TestCase
         $tokens = session('bulk_send_tokens');
         $this->assertCount(1, $tokens);
         $this->assertSame(40, strlen($tokens[0]));
-        $this->assertContains('name="send_token" value="' . $tokens[0] . '"', $html);
+        $this->assertStringContainsString('name="send_token" value="' . $tokens[0] . '"', $html);
         for ($i = 0; $i < 12; $i++) {
             $this->post(route('bulk-send.review'), ['template_id' => $t->id, 'audience' => 'staff', 'send_email' => 1]);
         }

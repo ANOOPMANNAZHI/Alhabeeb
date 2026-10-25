@@ -66,7 +66,7 @@ class ReceivableOneMonthContractValue extends Migration
     private function patch($sql, array $replacements, $fn)
     {
         foreach ($replacements as $old => $new) {
-            if (strpos($sql, $old) === false) {
+            if (strpos($sql, (string) $old) === false) {
                 throw new \RuntimeException("public.$fn: expected text not found: $old");
             }
             $sql = str_replace($old, $new, $sql);

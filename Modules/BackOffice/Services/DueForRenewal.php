@@ -17,7 +17,7 @@ class DueForRenewal
     public static function query(Request $request)
     {
         $months = Setting::where('configuration_settings', 'renewal_notification')->first()->configuration_value;
-        $future = Carbon::now()->addMonths($months)->format('Y-m-d H:i:s');
+        $future = Carbon::now()->addMonths((int) $months)->format('Y-m-d H:i:s');
         $q = ViewDueRenewal::areFilter()->filter($request)
             ->whereDate('tenant_contract_valid_to_date', '<', $future)
             ->where('tenant_contract_status', 1)

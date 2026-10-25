@@ -26,7 +26,7 @@ class LegalSettlementTest extends TestCase
     private $lawyer;
     private $receiptNo = 0;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('local');
@@ -36,7 +36,7 @@ class LegalSettlementTest extends TestCase
         $this->lawyer = $this->makeUser('lgs_t_lawyer', 'legal_advisor');
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -325,6 +325,6 @@ class LegalSettlementTest extends TestCase
         $this->assertNotFalse($errorAt, 'error is shown');
         $this->assertGreaterThan($modalAt, $errorAt, 'error is inside the verify modal');
         $this->assertSame(1, substr_count($html, 'Give the reason for the waiver.'), 'not also behind the modal');
-        $this->assertContains('"lcsVerifyModal"', $html);   // the script reopens it
+        $this->assertStringContainsString('"lcsVerifyModal"', $html);   // the script reopens it
     }
 }

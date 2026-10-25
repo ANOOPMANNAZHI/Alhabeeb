@@ -2,6 +2,7 @@
 
 namespace Modules\Maintenance\Exports;
 
+use Maatwebsite\Excel\Concerns\Export;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
@@ -9,7 +10,7 @@ use Maatwebsite\Excel\Concerns\WithTitle;
 use Modules\Maintenance\Services\Inspection;
 
 /** The four inspection reports, one sheet each. */
-class InspectionReportExport implements WithMultipleSheets
+class InspectionReportExport implements WithMultipleSheets, Export
 {
     protected $d;
 

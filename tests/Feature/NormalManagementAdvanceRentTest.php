@@ -36,7 +36,7 @@ class NormalManagementAdvanceRentTest extends TestCase
         $incoming = array_values(array_filter($rows, function ($u) { return stripos((string) $u->tenant_name, 'Arun') !== false; }));
         $this->assertCount(1, $incoming);
         $u = $incoming[0];
-        $this->assertContains('(from 01/05/2026)', $u->tenant_name);
+        $this->assertStringContainsString('(from 01/05/2026)', $u->tenant_name);
         $this->assertEquals(150.0, (float) $u->collection_amount);
         $this->assertEquals(0.0, (float) $u->rent_per_month);
         $this->assertEquals(0.0, (float) $u->income_amount);
@@ -73,6 +73,6 @@ class NormalManagementAdvanceRentTest extends TestCase
             }
         }
         $this->assertNotNull($row, 'incoming tenant row for unit 36 in April');
-        $this->assertContains(150.0, array_map(function ($v) { return is_numeric($v) ? (float) $v : null; }, $row));
+        $this->assertStringContainsString(150.0, array_map(function ($v) { return is_numeric($v) ? (float) $v : null; }, $row));
     }
 }

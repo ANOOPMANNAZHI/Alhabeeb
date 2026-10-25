@@ -25,7 +25,7 @@ class LegalFlowFixesTest extends TestCase
     private $lawyer2;
     private $are;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         SystemMessenger::$smsSender = function () { return true; };
@@ -36,7 +36,7 @@ class LegalFlowFixesTest extends TestCase
         $this->are = $this->makeUser('lgf_t_are', 'are');
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -119,7 +119,7 @@ class LegalFlowFixesTest extends TestCase
         $this->act($this->plm, $legal, 802, 'APRV');
         $this->assertSame(803, $this->code($legal));
         $note = DB::table('legal_case_updates')->where('legal_id', $legal->id)->where('kind', 'lawyer_approved')->value('note');
-        $this->assertContains('for the lawyer', $note);
+        $this->assertStringContainsString('for the lawyer', $note);
     }
 
     public function test_closing_before_acceptance_needs_a_reason_and_lists_under_closed()

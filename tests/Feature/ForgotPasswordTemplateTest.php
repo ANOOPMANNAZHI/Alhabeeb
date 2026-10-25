@@ -17,7 +17,7 @@ class ForgotPasswordTemplateTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
@@ -26,7 +26,7 @@ class ForgotPasswordTemplateTest extends TestCase
         MessageTemplate::where('key', 'password_forgot')->update(['is_active' => true]);
     }
 
-    protected function tearDown()
+    protected function tearDown(): void
     {
         SystemMessenger::$smsSender = 'sendSms';
         parent::tearDown();
@@ -46,7 +46,7 @@ class ForgotPasswordTemplateTest extends TestCase
         Notification::assertNothingSent();
         $this->assertSame(1, DB::table('password_resets')->where('email', 'forgot.me@example.com')->count());
         $log = MessageLog::where('template_key', 'password_forgot')->latest('id')->first();
-        $this->assertContains('[link hidden]', $log->body);
+        $this->assertStringContainsString('[link hidden]', $log->body);
     }
 
     public function test_unknown_email_sends_nothing()

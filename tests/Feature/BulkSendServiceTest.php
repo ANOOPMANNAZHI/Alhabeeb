@@ -126,7 +126,7 @@ class BulkSendServiceTest extends TestCase
         $send = S::start($this->base(['email_subject' => 'One off', 'email_body' => '<p>Hello {employee_name}</p><script>x</script>']), 1);
         $this->assertNull($send->template_id);
         $this->assertSame('bulk:one-off', $send->logKey());
-        $this->assertNotContains('<script>', $send->email_body);
+        $this->assertStringNotContainsString('<script>', $send->email_body);
         $this->assertSame(['Choose who to send to.'], $this->errors($this->base(['audience' => 'aliens', 'email_subject' => 'a', 'email_body' => '<p>b</p>']))['audience']);
         $this->assertSame(['Nobody to send to.'], $this->errors($this->base(['audience' => 'tenant_active', 'filters' => ['locations' => [999999]], 'email_subject' => 'a', 'email_body' => '<p>b</p>']))['recipients']);
     }

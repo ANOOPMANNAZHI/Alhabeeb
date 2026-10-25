@@ -123,7 +123,7 @@ class PdcBounceReason extends Model
             }
             foreach ($m['keywords'] as $k) {
                 $len = strlen($k);
-                if (strpos($t, $k) !== false && ($len > $bestLen || ($len === $bestLen && $m['sort_order'] < $bestOrder))) {
+                if (strpos($t, (string) $k) !== false && ($len > $bestLen || ($len === $bestLen && $m['sort_order'] < $bestOrder))) {
                     $best = (int) $m['id'];
                     $bestLen = $len;
                     $bestOrder = $m['sort_order'];

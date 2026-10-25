@@ -97,7 +97,7 @@ class RentLedger
         $termDay = Carbon::parse(substr((string) $term, 0, 10))->startOfDay();
         $days = $termDay->format('Y-m-d') >= self::DAY_COUNT_FROM
             ? self::thirtyDayCount($start, $termDay)
-            : $start->diffInDays($termDay, false) - 1;
+            : (int) $start->diffInDays($termDay, false) - 1;
         $due = $days > 0 ? (float) round($days * ($rent / 30), 0, PHP_ROUND_HALF_EVEN) : 0.0;
         if ($termDay->format('Y-m-d') < self::DAY_COUNT_FROM) {
             // never more than the 30-day count (the rule from DAY_COUNT_FROM on)
@@ -146,7 +146,7 @@ class RentLedger
             $months++;
         }
         $from = $start->copy()->addMonthsNoOverflow($months);
-        $extra = $from->lte($term) ? min(30, $from->diffInDays($term) + 1) : 0;
+        $extra = $from->lte($term) ? min(30, (int) $from->diffInDays($term) + 1) : 0;
         return $months * 30 + $extra;
     }
 

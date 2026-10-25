@@ -13,7 +13,7 @@ class MunicipalityTaxableBuildingTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         parent::setUp();
         $this->actingAs(User::find(1));
@@ -43,9 +43,9 @@ class MunicipalityTaxableBuildingTest extends TestCase
     {
         $c = $this->contract(false);
         $html = $this->post(route('tenantContractAddMunicipality'), ['tenant_contract_id' => $c->id])->assertOk()->getContent();
-        $this->assertContains('This building is not taxable', $html);
+        $this->assertStringContainsString('This building is not taxable', $html);
         foreach (['Municipality Tax Amount', 'Processing Charge', 'Total (Tax + Processing)', 'Penalty Amount'] as $label) {
-            $this->assertNotContains($label, $html);
+            $this->assertStringNotContainsString($label, $html);
         }
     }
 
@@ -53,9 +53,9 @@ class MunicipalityTaxableBuildingTest extends TestCase
     {
         $c = $this->contract(true);
         $html = $this->post(route('tenantContractAddMunicipality'), ['tenant_contract_id' => $c->id])->assertOk()->getContent();
-        $this->assertNotContains('This building is not taxable', $html);
+        $this->assertStringNotContainsString('This building is not taxable', $html);
         foreach (['Municipality Tax Amount', 'Processing Charge', 'Total (Tax + Processing)', 'Penalty Amount'] as $label) {
-            $this->assertContains($label, $html);
+            $this->assertStringContainsString($label, $html);
         }
     }
 
@@ -95,8 +95,8 @@ class MunicipalityTaxableBuildingTest extends TestCase
         Building::where('id', $c->building_id)->update(['building_is_taxable' => false]);
 
         $html = $this->post(route('tenantContractAddMunicipality'), ['tenant_contract_id' => $c->id])->getContent();
-        $this->assertContains('This building is not taxable', $html);
-        $this->assertContains('Tax voucher made before:</strong> ' . $taxGl->voucher_no, $html);
+        $this->assertStringContainsString('This building is not taxable', $html);
+        $this->assertStringContainsString('Tax voucher made before:</strong> ' . $taxGl->voucher_no, $html);
 
         $this->save($c, ['tenant_contract_muncipality_agr_no' => 'MUN-TEST-2', 'tenant_contract_municipality_tax_amt' => '999'])->assertSessionHasNoErrors();
         $after = $c->fresh();

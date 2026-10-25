@@ -27,10 +27,10 @@ class InspectionVisitController extends Controller
         $user = \Auth::user();
         $seesAll = Inspection::seesAll();
         $canExecute = $user->can('inspection_execute');
-        $tab = $request->get('tab', $canExecute ? 'mine' : 'all');
-        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->get('month')) ? $request->get('month') : date('Y-m');
-        $f = ['executive' => $request->get('executive'), 'status' => $request->get('status'), 'building' => $request->get('building'),
-            'type' => $request->get('type')];
+        $tab = $request->input('tab', $canExecute ? 'mine' : 'all');
+        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->input('month')) ? $request->input('month') : date('Y-m');
+        $f = ['executive' => $request->input('executive'), 'status' => $request->input('status'), 'building' => $request->input('building'),
+            'type' => $request->input('type')];
 
         $q = DB::table('inspection_visits as v')->join('buildings as b', 'b.id', '=', 'v.building_id')
             ->select('v.*', 'b.building_name', 'b.building_code');

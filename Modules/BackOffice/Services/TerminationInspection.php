@@ -130,7 +130,7 @@ class TerminationInspection
         // Outstanding rent as the desktop's inspection page computes it
         $sumOfReceipt = RentOutstanding::paidForContract($t->contract_id);
         $remainAmt = totalContractRentCountCalculation($t->contract_id, $t->termination_date);
-        $osAmount = $remainAmt - $sumOfReceipt;
+        $osAmount = $remainAmt - $sumOfReceipt - \Modules\Masters\Services\LegalWaiver::forContract($t->contract_id);   // legal settlement waiver is a credit
         $previousContracts = TenantContract::where('tenant_id', $contract->tenant_id)->where('unit_id', $contract->unit_id)
             ->where('work_flow_processes_code', 108)->where('id', '!=', $t->contract_id)->get();
         $previousOs = 0;

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Modules\Maintenance\Emails\ComplaintStageEmail;
+use Modules\BackOffice\Services\ComplaintMessages;
 use Modules\Maintenance\Entities\ComplaintChecklist;
 use Modules\Maintenance\Entities\ComplaintEnquiry;
 use Modules\Maintenance\Entities\ComplaintProcess;
@@ -296,16 +296,8 @@ class TicketAttendance
             $enquiry->text = 'Complaint - ' . $enquiry->complaint_no . ' Tickets-' . $ticket->complaint_ticket_no . ' To Closed ';
             event(new ComplaintAssigned($enquiry, User::role('maintenance_coordinator')->get()));
 
-            $enquiry->subject = 'Complaint Completed';
-            $enquiry->textContent = 'Your complaint No ' . $enquiry->complaint_no . ' is successfully attended by Al Habib Maintenance Team. Thanks for your kind co-operation.';
-            $tenant = $enquiry->tenant;
-            $email = $tenant->tenant_personal_email ?? $tenant->tenant_contact_email ?? null;
-            $mobile = $tenant->tenant_contact_no ?? $tenant->tenant_residence_tel ?? null;
-            if ($email) {
-                Mail::to($email)->send(new ComplaintStageEmail($enquiry, $tenant->tenant_name));
-            } elseif ($mobile) {
-                sendSms($mobile, 'Complaint Completed', 'optional data');
-            }
+            // Email / SMS to the tenant (system template complaint_completed)
+            ComplaintMessages::completed($enquiry);
             return $report->fresh();
         });
     }

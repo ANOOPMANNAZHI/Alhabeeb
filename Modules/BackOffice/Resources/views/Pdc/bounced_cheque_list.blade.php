@@ -18,7 +18,7 @@
 @section('content')
 @php
   $fmtDate = function ($d) { return $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : ''; };
-  $ageOf = function ($p) use ($today) { return $p->pdc_check_date ? \Carbon\Carbon::parse($p->pdc_check_date)->diffInDays($today, false) : null; };
+  $ageOf = function ($p) use ($today) { return $p->pdc_check_date ? (int) \Carbon\Carbon::parse($p->pdc_check_date)->diffInDays($today, false) : null; };
   $total = $pdc->sum(function ($p) { return (float) $p->pdc_amt; });
   $contracts = $pdc->pluck('tenant_contract_id')->unique()->count();
   $over30 = $pdc->filter(function ($p) use ($ageOf) { return $ageOf($p) > 30; })->count();
