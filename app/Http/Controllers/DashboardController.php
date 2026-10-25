@@ -776,7 +776,7 @@ return [
 'partial_pdc' => $partial_pdc,
 'handoverAssignedCount'=>$handoverAssignedCount,           
 // open bounces on the first contract of tenants this sales person brought in
-'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()->soldBy(\Auth::user()->id)->count(),
+'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::countCheques(\Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()->soldBy(\Auth::user()->id)),
 ];
 
 }
@@ -1438,7 +1438,7 @@ public function  areDashboard(Request $request,$dashboard = false){
 
 
 
-		$bouncedChequeCount = Pdc::areFilter()->openBounces()->count();
+		$bouncedChequeCount = Pdc::countCheques(Pdc::areFilter()->openBounces()); // cheques, not PDC lines
 
 
 		if(!$dashboard)
@@ -2704,7 +2704,7 @@ if(!$dashboard)
 	'sales_person_list'=>$sale,
 	'averageResponseTime'=>round($averageResponseTime),
 	// open bounces on the first contract of new tenants (all sales persons)
-	'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()->count(),
+	'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::countCheques(\Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()),
 	];
 
 }
@@ -3111,7 +3111,7 @@ return ['count' => $unregisteredContractsCount];
 
 
 
-		$bouncedChequeCount = Pdc::areFilter()->openBounces()->count();
+		$bouncedChequeCount = Pdc::countCheques(Pdc::areFilter()->openBounces()); // cheques, not PDC lines
 
 		if(!$dashboard)
 			return ['count' => $bouncedChequeCount ];
