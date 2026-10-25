@@ -115,9 +115,9 @@
               @if($p->pdc_cancel_date)<span class="bc-sub2">Bounced {{ $fmtDate($p->pdc_cancel_date) }}</span>@endif</td>
             <td><span class="lg-badge lg-badge--{{ $tone }}">@if($age === null)–@elseif($age < 0)Not due @else{{ $age }} {{ $age == 1 ? 'day' : 'days' }}@endif</span></td>
             <td class="bc-reason">{{ $p->pdc_cancel_reason_name }}</td>
-            <td class="num strong">{{ numberFormat($p->pdc_amt) }}@if((int) $p->pdc_type !== 1)<span class="bc-sub2">{{ $p->pdc_type_name }}</span>@endif</td>
+            <td class="num strong">{{ numberFormat($p->pdc_amt) }}@if($p->bounce_lines)<span class="bc-sub2">{{ $p->bounce_lines }}</span>@elseif((int) $p->pdc_type !== 1)<span class="bc-sub2">{{ $p->pdc_type_name }}</span>@endif</td>
             @if($showAre || $showSales)
-            @php $sales = isset($salesNames[$c->id]) ? $salesNames[$c->id] : ($isNew ? '' : 'Renewal'); @endphp
+            @php $sales = isset($salesNames[$c->id]) ? $salesNames[$c->id] : (isset($renewalSales[$c->id]) ? $renewalSales[$c->id] . ' (renewal)' : 'N/A'); @endphp
             <td class="bc-wrap">
               @if($showAre){{ implode(', ', $areNames[$c->building_id] ?? []) }}@if($showSales && $sales !== '')<span class="bc-sub2">Sales: {{ $sales }}</span>@endif
               @else{{ $sales }}@endif

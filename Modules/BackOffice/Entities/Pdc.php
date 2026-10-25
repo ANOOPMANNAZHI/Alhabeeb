@@ -215,4 +215,18 @@ public function scopeOpenBounces($query){
         });
 }
 
+/*
+ * One physical cheque can be entered as several PDC lines (rent + Others / VAT on the same cheque).
+ * Cards count cheques, not lines: same contract + cheque no (leading zeros ignored) + cheque date.
+ * A line without a cheque no stays on its own. chequeKey() is the same rule for a loaded row.
+ */
+public static function countCheques($query){
+    return $query->count(DB::raw("distinct (pdc.tenant_contract_id, coalesce(nullif(ltrim(pdc.pdc_check_no::text, '0'), ''), 'line ' || pdc.id), pdc.pdc_check_date::date)"));
+}
+
+public static function chequeKey($p){
+    $no = ltrim(trim((string) $p->pdc_check_no), '0');
+    return $p->tenant_contract_id . '|' . ($no !== '' ? $no : 'line ' . $p->id) . '|' . substr((string) $p->pdc_check_date, 0, 10);
+}
+
 }
