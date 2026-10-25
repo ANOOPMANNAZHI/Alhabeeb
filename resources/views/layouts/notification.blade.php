@@ -9,7 +9,11 @@
                                 <li class="external">
                                     <h3><span class="bold">Notifications</span></h3>
                                     <span class="notification-label purple-bgcolor">New {{ $notification_count }} </span>
-                                    
+                                    {{-- clears the bell: every unread notification of this user is marked read --}}
+                                    <form method="POST" action="{{ route('notifications.readAll') }}" style="display:inline;margin-left:8px" onsubmit="return confirm('Mark all {{ $notification_count }} notifications as read?');">
+                                        {{ csrf_field() }}
+                                        <button type="submit" class="btn btn-link btn-xs" style="padding:0;font-size:12px;vertical-align:middle">Mark all as read</button>
+                                    </form>
 
                                 </li>
                                 <li>
