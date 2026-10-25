@@ -50,6 +50,10 @@
                         <th>@sortablelink('building.building_name','Building',[], ['class' => 'sort_class']) </th>
                         <th>@sortablelink('unit.unit_types_name','Unit Type',[], ['class' => 'sort_class'])</th>
                         <th>@sortablelink('unit_vaccant_status','Vacant',[], ['class' => 'sort_class']) </th>
+                        @if(request()->filled('vaccating_days'))
+                        <th>Vacating Date</th>
+                        <th>Contract Expiry</th>
+                        @endif
                          @can('change_status_unit') 
                         {{-- Status is unit_status; this used to repeat the Vacant
                              column's unit_vaccant_status, so it sorted the wrong data --}}
@@ -78,7 +82,11 @@
                             <option {{(old('unit_vaccant_status') == 1)? 'selected':''}}  value="1">Occupied</option>
                             </select>
                         </td>
-                          @can('change_status_unit') 
+                        @if(request()->filled('vaccating_days'))
+                        <td></td>
+                        <td></td>
+                        @endif
+                          @can('change_status_unit')
                         <td>  
                             <select name="unit_status" class="searchFields search_fields mob" id="unit_status" style="width:100px;">
                             <option value="">Show All</option>
@@ -165,6 +173,8 @@
          var direction = params.get('direction') || '';
          // opened from the sales person dashboard: keep searching inside their buildings only
          var sold_buildings = params.get('sold_buildings') || '';
+         // opened from a "Vacating" card: keep only units vacating in those days
+         var vaccating_days = params.get('vaccating_days') || '';
 
        $.ajax({
         method: "POST",
@@ -177,6 +187,7 @@
           'sort' : sort,
           'direction' : direction,
           'sold_buildings' : sold_buildings,
+          'vaccating_days' : vaccating_days,
           'curr_url' : curr_url,"_token" : $('meta[name="csrf-token"]').attr('content')},
 
         beforeSend: function(){
@@ -204,7 +215,7 @@
 
             var txt = 'unit_code='+unit_code+'&unit_no='+unit_no+'&building__building_name='+
                       building__building_name+'&unit_type_id='+unit_type_id+'&unit_vaccant_status='+unit_vaccant_status+'&unit_status='+
-                      unit_status+'&sold_buildings='+sold_buildings+'&curr_url='+curr_url ;
+                      unit_status+'&sold_buildings='+sold_buildings+'&vaccating_days='+vaccating_days+'&curr_url='+curr_url ;
             
             var txt_hashes = txt.split('&');
             var href_txt = '';

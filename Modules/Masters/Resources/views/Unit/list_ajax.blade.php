@@ -30,7 +30,16 @@
 							<a @can('edit_unit') href="{{route('unit.edit',$unit->id)}}" title="Edit" @elsecan('view_unit') href="{{route('tenants.show',$unit->id)}}" title="Show"  @endcan class="no-link" >
 								{{$unit->vacant_status_name}}
 							</a>
-						</td> 
+						</td>
+						{{-- opened from a "Vacating Units" card: when the tenant leaves and when the contract ends --}}
+						@if(request()->filled('vaccating_days'))
+						@php
+							$vacatingContract = $unit->tenantContract;
+							$vacatingDate = optional(optional($vacatingContract)->terminationContract)->termination_date;
+						@endphp
+						<td>{{ $vacatingDate ? \Carbon\Carbon::parse($vacatingDate)->format('d/m/Y') : '' }}</td>
+						<td>{{ optional($vacatingContract)->tenant_contract_valid_to_date ? \Carbon\Carbon::parse($vacatingContract->tenant_contract_valid_to_date)->format('d/m/Y') : '' }}</td>
+						@endif
                         @can('change_status_unit')                                                   
                         <td>
                         
