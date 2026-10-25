@@ -554,8 +554,12 @@ public function scopeLegalUsers($query){
       $roles = \Auth::user()->getRoles();
       $rolesNames = \Auth::user()->getRoleNames()->toArray();
       
+      // user_id / role_id / status are legal_users columns: look them up per case. The old code put them
+      // straight on "legal", so every role outside the list below got "column user_id does not exist".
       $query->when( (\Auth::user()->hasRole(['super_admin','ceo','backoffice_manager','legal_advisor','backoffice_executive']) == false), function($query)use($roles) {
-          $query->where(function ($query) use($roles){
+          $query->whereExists(function ($query) use($roles){
+                   $query->select(DB::raw(1))->from('legal_users')->whereColumn('legal_users.legal_id', 'legal.id')
+                   ->where(function ($query) use($roles){
                    $query->where(function ($query) use($roles){
                         $query->where('user_id',null)
                               ->whereIn('role_id', $roles)->where('status','=',1);
@@ -564,7 +568,8 @@ public function scopeLegalUsers($query){
                         $query->where('user_id','>',0)
                               ->whereIn('role_id', $roles)
                               ->where('user_id','=', \Auth::user()->id)->where('status','=',1);
-                      });  
+                      });
+             });
              });
            });
                
