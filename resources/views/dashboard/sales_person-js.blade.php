@@ -1,5 +1,11 @@
-<script> 
+<script>
 
+// Vacating Units card: all three counts come with the page, just swap count and link
+$('#vacating_sp').change(function () {
+    var days = $(this).val();
+    $('.vacating_sp_count').html($(this).find(':selected').data('count'));
+    $('.vacating_sp_href').attr('href', "{{route('unit.index')}}" + '?vaccating_days=' + days + '&sold_buildings=1');
+});
 
 
   $('.firstCall').change(function (event) {

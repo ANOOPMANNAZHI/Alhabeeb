@@ -699,6 +699,16 @@ if($count_type == 'vacantUnits' || $dashboard == true){
 
 }
 
+/********  vacating units (termination date in the next 30/60/90 days), same buildings as vacantUnits  ****************/
+$vacatingUnits = [];
+if($dashboard == true){
+	foreach([30, 60, 90] as $days){
+		$vacatingUnits[$days] = \Modules\Masters\Entities\Unit::soldBuildingsOf(\Auth::user()->id)
+		->vaccatingUnits((object)['vaccating_days' => $days])
+		->count();
+	}
+}
+
 
 
 
@@ -761,8 +771,9 @@ return [
 'preapprovalEnquiry' => $preapprovalEnquiry,	           
 'approvedEnquiry' => $approvedEnquiry,	           
 'wonEnquiry' => $won_list,	           
-'vacantUnits' => $vacantUnits,	           
-'partial_pdc' => $partial_pdc,	
+'vacantUnits' => $vacantUnits,
+'vacatingUnits' => $vacatingUnits,
+'partial_pdc' => $partial_pdc,
 'handoverAssignedCount'=>$handoverAssignedCount,           
 // open bounces on the first contract of tenants this sales person brought in
 'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()->soldBy(\Auth::user()->id)->count(),
