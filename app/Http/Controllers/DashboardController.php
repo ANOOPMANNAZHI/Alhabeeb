@@ -1541,8 +1541,9 @@ return ['count' => $underPenaltyCount ];
 	}
 	$averageReceivables = 0;
 	/*********Avg Receivables******/
-	
-	if($count_type == 'averageReceivables' || $dashboard == true){ 
+	// card removed from the ARE dashboard (2026-10-25), so it is no longer worked out on every dashboard load
+
+	if($count_type == 'averageReceivables'){
 		
 		
 		$tenantContracts = ViewTenantContract::
