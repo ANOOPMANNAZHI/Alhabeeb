@@ -41,6 +41,10 @@ class UnitController extends Controller
      $units = Unit::are()->filter($request)
      ->vaccatingUnits($request)
 	 ->vacantUnitsByDays($request)
+                    // sales person dashboard card: only buildings they sold in (active contracts)
+                    ->when($request->sold_buildings == 1, function ($query) {
+                        $query->soldBuildingsOf(\Auth::user()->id);
+                    })
                     // Group by unit type only when the user has NOT asked for a
                     // sort. Applying it unconditionally made it the primary ORDER
                     // BY, so a clicked column could only order rows within a unit
@@ -449,6 +453,10 @@ class UnitController extends Controller
           $query->where('management_id', $managementId)
                 ->where('building_status', 1);
         });
+     })
+     // same as index(): opened from the sales person dashboard card
+     ->when($request->sold_buildings == 1, function ($query) {
+        $query->soldBuildingsOf(\Auth::user()->id);
      })
      // Same rule as index(): only group by unit type when no sort was asked for.
      ->when(!$request->filled('sort'), function ($query) {

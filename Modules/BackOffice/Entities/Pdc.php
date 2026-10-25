@@ -150,11 +150,14 @@ public function scopeBouncedCheques($query){
  * (duplicate tenant records). Renewals always have an earlier contract, so they are never first.
  */
 public static function firstContractSql($tc = 'tc', $t = 't'){
-    return "not exists (select 1 from tenant_contracts o join tenant t2 on t2.id = o.tenant_id
-        where o.id <> {$tc}.id and o.tenant_contract_effective_date < {$tc}.tenant_contract_effective_date
-        and (o.tenant_id = {$tc}.tenant_id
-          or (nullif(trim(t2.resident_id), '') is not null and trim(t2.resident_id) = trim({$t}.resident_id))
-          or (nullif(trim(t2.tenant_contact_no), '') is not null and trim(t2.tenant_contact_no) = trim({$t}.tenant_contact_no))))";
+    // three separate checks instead of one OR, so Postgres can hash them (the OR scanned every
+    // contract per row); a blank resident ID / mobile is null after nullif and never matches
+    $earlier = "o.id <> {$tc}.id and o.tenant_contract_effective_date < {$tc}.tenant_contract_effective_date";
+    return "not exists (select 1 from tenant_contracts o where o.tenant_id = {$tc}.tenant_id and {$earlier})
+        and not exists (select 1 from tenant_contracts o join tenant t2 on t2.id = o.tenant_id
+          where trim(t2.resident_id) = nullif(trim({$t}.resident_id), '') and {$earlier})
+        and not exists (select 1 from tenant_contracts o join tenant t2 on t2.id = o.tenant_id
+          where trim(t2.tenant_contact_no) = nullif(trim({$t}.tenant_contact_no), '') and {$earlier})";
 }
 
 /** Cheques of a contract that is the tenant's first contract (a new tenant). */
@@ -208,6 +211,20 @@ public function scopeOpenBounces($query){
               ->whereRaw('rd.pdc_check_date::date = pdc.pdc_check_date::date')
               ->whereRaw('round(rd.pdc_amt::numeric, 3) = round(pdc.pdc_amt::numeric, 3)');
         });
+}
+
+/*
+ * One physical cheque can be entered as several PDC lines (rent + Others / VAT on the same cheque).
+ * Cards count cheques, not lines: same contract + cheque no (leading zeros ignored) + cheque date.
+ * A line without a cheque no stays on its own. chequeKey() is the same rule for a loaded row.
+ */
+public static function countCheques($query){
+    return $query->count(DB::raw("distinct (pdc.tenant_contract_id, coalesce(nullif(ltrim(pdc.pdc_check_no::text, '0'), ''), 'line ' || pdc.id), pdc.pdc_check_date::date)"));
+}
+
+public static function chequeKey($p){
+    $no = ltrim(trim((string) $p->pdc_check_no), '0');
+    return $p->tenant_contract_id . '|' . ($no !== '' ? $no : 'line ' . $p->id) . '|' . substr((string) $p->pdc_check_date, 0, 10);
 }
 
 }

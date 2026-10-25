@@ -3,13 +3,17 @@
                         <li class="dropdown dropdown-extended dropdown-notification" id="header_notification_bar">
                             <a href="javascript:;" class="dropdown-toggle" data-toggle="dropdown" data-hover="dropdown" data-close-others="true">
                                 <i class="fa fa-bell-o"></i>
-                                <span class="badge headerBadgeColor1"> {{count($notifications)}} </span>
+                                <span class="badge headerBadgeColor1"> {{ $notification_count }} </span>
                             </a>
                             <ul class="dropdown-menu animated swing">
                                 <li class="external">
                                     <h3><span class="bold">Notifications</span></h3>
-                                    <span class="notification-label purple-bgcolor">New {{count($notifications)}} </span>
-                                    
+                                    <span class="notification-label purple-bgcolor">New {{ $notification_count }} </span>
+                                    {{-- clears the bell: every unread notification of this user is marked read --}}
+                                    <form method="POST" action="{{ route('notifications.readAll') }}" style="display:inline;margin-left:8px" onsubmit="return confirm('Mark all {{ $notification_count }} notifications as read?');">
+                                        {{ csrf_field() }}
+                                        <button type="submit" class="btn btn-link btn-xs" style="padding:0;font-size:12px;vertical-align:middle">Mark all as read</button>
+                                    </form>
 
                                 </li>
                                 <li>

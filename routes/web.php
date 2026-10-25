@@ -26,6 +26,7 @@ Route::get('/', 'HomeController@dashboard')->name('home');
 Route::get('/dashboard/{role?}', 'HomeController@dashboard')->name('dashboard');
 Route::get('/changePassword', 'HomeController@changePassword')->name('change_password');
 Route::post('/updatePassword', 'HomeController@updatePassword')->name('updatePassword');
+Route::post('/notifications/read-all', 'HomeController@markAllNotificationsRead')->name('notifications.readAll');
 Route::get('/profile', 'HomeController@profileView')->name('profileView');
 Route::resource('settings', 'SettingsController');
 Route::resource('logs', 'LogsController');

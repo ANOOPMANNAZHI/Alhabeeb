@@ -663,6 +663,16 @@ public static function salesBounceView($user){
 public static function bouncedListView($query, Request $request, $title, $subtitle){
     $all = $query->with(['tenantContractInfo.building', 'tenantContractInfo.Unit', 'tenantContractInfo.tenant', 'bankInfo'])
         ->orderBy('pdc_check_date')->orderBy('id')->get();
+    // one row per physical cheque (same rule as the cards, Pdc::countCheques): split lines
+    // such as rent + Others / VAT on the same cheque are added up and listed under the amount
+    $all = $all->groupBy(function ($p) { return Pdc::chequeKey($p); })->map(function ($lines) {
+        $first = $lines->first();
+        if ($lines->count() > 1) {
+            $first->bounce_lines = $lines->map(function ($l) { return $l->pdc_type_name . ' ' . numberFormat($l->pdc_amt); })->implode(' + ');
+            $first->pdc_amt = $lines->sum(function ($l) { return (float) $l->pdc_amt; });
+        }
+        return $first;
+    })->values();
 
     $buildingIds = $all->pluck('tenantContractInfo.building_id')->filter()->unique()->values()->all();
     $areNames = [];
@@ -719,10 +729,22 @@ public static function bouncedListView($query, Request $request, $title, $subtit
         ->whereIn('tc.id', $all->pluck('tenant_contract_id')->unique()->values()->all() ?: [0])
         ->select('tc.id', DB::raw("coalesce(nullif(e.employee_name, ''), u.username) as sales_name"))
         ->pluck('sales_name', 'id')->all();
+    // a renewal has no sales enquiry: take the sales person of the tenant's latest earlier contract that has one
+    $renewalIds = array_values(array_diff($all->pluck('tenant_contract_id')->unique()->values()->all(), array_keys($salesNames)));
+    $renewalSales = $renewalIds ? DB::table('tenant_contracts as tc')->whereIn('tc.id', $renewalIds)
+        ->select('tc.id', DB::raw("(select coalesce(nullif(e.employee_name, ''), u.username)
+            from tenant_contracts t2
+            join sales_enquiries se on se.id = t2.sale_enquiry_id
+            join users u on u.id = se.assigned_person
+            left join employees e on e.id = u.user_type_id
+            where t2.tenant_id = tc.tenant_id and t2.id <> tc.id
+              and t2.tenant_contract_effective_date <= tc.tenant_contract_effective_date
+            order by t2.tenant_contract_effective_date desc, t2.id desc limit 1) as sales_name"))
+        ->pluck('sales_name', 'id')->filter()->all() : [];
     $newTenantContracts = self::firstContractIds($all->pluck('tenant_contract_id')->unique()->values()->all());
 
     return view('backoffice::Pdc.bounced_cheque_list', compact('pdc', 'all', 'areNames', 'buildings', 'ares', 'ages',
-        'showAre', 'isFiltered', 'title', 'subtitle', 'request', 'today', 'newTenantContracts', 'salesNames', 'showSales', 'salesView'));
+        'showAre', 'isFiltered', 'title', 'subtitle', 'request', 'today', 'newTenantContracts', 'salesNames', 'renewalSales', 'showSales', 'salesView'));
 }
 
 /**

@@ -133,6 +133,22 @@ class Unit extends Model
       return $this->hasOne('Modules\BackOffice\Entities\Key','unit_id','id')->where('status','=',1);;
     }
 
+  /**
+   * Units in buildings where the user (sales person) sold a tenant contract that is still active
+   * (contract -> sales enquiry -> assigned_person), handed-over buildings left out.
+   * Sales person dashboard Vacant Units card + list.
+   */
+  public function scopeSoldBuildingsOf($query, $userId){
+    return $query->whereIn('units.building_id', function ($q) use ($userId) {
+        $q->select('sb_tc.building_id')->from('tenant_contracts as sb_tc')
+          ->join('sales_enquiries as sb_se', 'sb_se.id', '=', 'sb_tc.sale_enquiry_id')
+          ->join('buildings as sb_b', 'sb_b.id', '=', 'sb_tc.building_id')
+          ->where('sb_se.assigned_person', $userId)
+          ->where('sb_tc.tenant_contract_status', 1)
+          ->where('sb_b.building_handed_over', false);
+    });
+  }
+
   /*
   *  Scope are
   *
@@ -183,7 +199,7 @@ class Unit extends Model
 
       if(isset($request)){  
            
-      foreach($request->except(['_token','sort','direction','page','curr_url','vaccating_days','vacantUnits_byDays']) as $key => $val){
+      foreach($request->except(['_token','sort','direction','page','curr_url','vaccating_days','vacantUnits_byDays','sold_buildings']) as $key => $val){
 
             if($key == 'fieldValue')
               continue;

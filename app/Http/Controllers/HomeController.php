@@ -802,10 +802,19 @@ class HomeController extends Controller
 
 
     /*
+    *  Bell: mark every unread notification of the logged-in user as read (one update, any number of rows)
+    *
+    */
+    public function markAllNotificationsRead(){
+          \Auth::user()->unreadNotifications()->update(['read_at' => now()]);
+          return redirect()->back()->with('success', 'All notifications marked as read.');
+    }
+
+    /*
     *  Change Password
     *
     */
-    public function changePassword(){ 
+    public function changePassword(){
           return view('changePassword');
     }
 
