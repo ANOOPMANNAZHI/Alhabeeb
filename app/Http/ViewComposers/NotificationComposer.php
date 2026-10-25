@@ -30,9 +30,9 @@ class NotificationComposer
     public function compose(View $view)
     {
 
-      // only the latest 50 go into the page; some users have 10,000+ unread, which made every page slow
+      // only the latest 10 go into the page; some users have 10,000+ unread, which made every page slow
       $user = \Auth::user();
-      $user_notification = $user->unreadNotifications()->take(50)->get();
+      $user_notification = $user->unreadNotifications()->take(10)->get();
       $view->with(['notifications' => $user_notification, 'notification_count' => $user->unreadNotifications()->count()]);
          
     }
