@@ -1,0 +1,314 @@
+
+@if(count(\Auth::user()->getRoleNames()) == 1)
+
+ <div class="page-bar">
+            <div class="page-title-breadcrumb">
+                <div class=" pull-left">
+                    <div class="page-title">ARE - Dashboard</div>
+                </div>
+                {{ Breadcrumbs::render('are-dashboard')}}  
+            </div>
+        </div>
+
+@endif           
+<!-- start widget -->
+<div class="state-overview">
+  <div class="row">
+   @can('rent_revisal')
+   <div class="col-xl-4 col-md-4 col-12">
+     <a href="{{ route('rentRevisal.index', ['revisal' => 'due']) }}" class="rr-card-link" aria-label="Rent revisal due: open the list">
+     <div class="info-box rr-highlight {{ ($are['rentRevisalDueCount'] ?? 0) > 0 ? 'rr-due' : '' }}">
+       <span class="info-box-icon push-bottom"><i class="material-icons extra">trending_up</i></span>
+       <div class="info-box-content">
+         <span class="info-box-number">{{ $are['rentRevisalDueCount'] ?? 0 }} @if(($are['rentRevisalDueCount'] ?? 0) > 0)<span class="rr-badge">Action needed</span>@endif</span>
+         <span class="info-box-text">Rent revisal due</span>
+         <div class="progress"><div class="progress-bar width-60"></div></div>
+         <span class="progress-description">Contracts ending in 90-150 days</span>
+       </div>
+     </div>
+     </a>
+   </div>
+   <style>
+     .rr-card-link,.rr-card-link:hover{text-decoration:none;color:inherit;display:block}
+     .info-box.rr-highlight{background:linear-gradient(135deg,#F26522 0%,#D9480F 100%);color:#fff;border:3px solid #fff;box-shadow:0 0 0 3px #F26522,0 10px 24px rgba(242,101,34,.35)}
+     .info-box.rr-highlight .info-box-number,.info-box.rr-highlight .info-box-text,.info-box.rr-highlight .progress-description{color:#fff}
+     .info-box.rr-highlight .info-box-icon{background:rgba(255,255,255,.22)}
+     .rr-badge{display:inline-block;vertical-align:middle;margin-left:8px;padding:2px 9px;border-radius:999px;background:#fff;color:#C2410C;font-size:12px;font-weight:700;letter-spacing:.02em}
+     .info-box.rr-due{animation:rrPulse 2.2s ease-in-out infinite}
+     @keyframes rrPulse{0%,100%{box-shadow:0 0 0 3px #F26522,0 10px 24px rgba(242,101,34,.35)}50%{box-shadow:0 0 0 6px rgba(242,101,34,.55),0 12px 30px rgba(242,101,34,.5)}}
+     @media (prefers-reduced-motion: reduce){.info-box.rr-due{animation:none}}
+   </style>
+   @endcan
+                    
+                    <!-- /.col -->
+                    <div class="col-xl-4 col-md-4 col-12">
+                      <div class="info-box bg-mint">
+                      <a href="" class="link2" id="link2">
+                          <span class="info-box-icon push-bottom"><i class="material-icons extra">monetization_on</i></span>
+                        </a>
+                        <div class="info-box-content">
+                          <span class="info-box-number"><p class="pending_approvals" id="pending_approvals"></p></span>
+                          <span class="info-box-text">Pending Approvals from HOD</span>
+                          <div class="progress">
+                           <div class="progress-bar width-60"></div>
+                         </div>
+                         <select name="renewal_days"  class="form-control" id="renewal_days" required>
+                           <option selected value="3">3 Days</option> 
+                           <option value="6">6 Days</option> 
+                           <option value="9">9 Days</option> 
+                         </select> 
+                       </div>
+                       <!-- /.info-box-content -->
+                     </div>
+                     <!-- /.info-box -->
+                   </div>
+                   <div class="col-xl-4 col-md-4 col-12">
+                    <div class="info-box bg-b-danger">
+                      <a href="{{route('getBouncedCheques')}}">
+                        <span class="info-box-icon push-bottom"><i class="material-icons extra">assignment_late</i></span>
+                      </a>
+                      <div class="info-box-content">
+                        <span class="info-box-number">{{$are['bouncedChequeCount']}}</span>
+                        <span class="info-box-text">Bounced Cheques</span>
+                        <div class="progress">
+                         <div class="progress-bar width-60"></div>
+                       </div>
+                       <span class="progress-description">
+                         No Of Cheques
+                       </span>
+                     </div>
+                     <!-- /.info-box-content -->
+                   </div>
+                   <!-- /.info-box -->
+                 </div>
+
+                 <div class="col-xl-4 col-md-4 col-12">
+                  <div class="info-box bg-b-purple">
+                    <a href="{{route('complaint.index',['days'=>'7'])}}">
+                      <span class="info-box-icon push-bottom"><i class="material-icons extra">assistant</i></span>
+                    </a>
+                    <div class="info-box-content">
+                      <span class="info-box-number">{{$are['maintenancePendingCount']}}</span>
+                      <span class="info-box-text">Maintenance Pending Cases</span>
+                      <div class="progress">
+                       <div class="progress-bar width-60"></div>
+                     </div>
+                     <span class="progress-description">
+                    More than One Week
+                    </span>
+                  </div>
+                  <!-- /.info-box-content -->
+                </div>
+                <!-- /.info-box -->
+              </div>
+              <div class="col-xl-4 col-md-4 col-12">
+                <div class="info-box bg-b-blue">
+                  <a class="link1" href="">
+                    <span class="info-box-icon push-bottom"><i class="material-icons extra">beenhere</i></span>
+                  </a>
+                  <div class="info-box-content">
+                    <span class="info-box-number"><p id="expiring_contracts" class="expiring_contracts"></p></span>
+                    <span class="info-box-text">Contracts Expiring</span>
+                    <div class="progress">
+                     <div class="progress-bar width-60"></div>
+                   </div>
+                   <select name="expdays"  class="form-control" id="expdays" required>
+                     <option selected value="30">30 Days</option> 
+                     <option value="60">60 Days</option> 
+                     <option value="90">90 Days</option> 
+                   </select>
+                 </div>
+                 <!-- /.info-box-content -->
+               </div>
+               <!-- /.info-box -->
+             </div>
+
+
+          <div class="col-xl-4 col-md-4 col-12">
+            <div class="info-box bg-success">
+            <a href="{{route('tenant-contract.index',['grace_period'=>30,'role'=>'are'])}}">
+              <span class="info-box-icon push-bottom"><i class="material-icons extra">battery_unknown</i></span>
+              </a>
+              <div class="info-box-content">
+                <span class="info-box-number">{{$are['gracePeriodCount']}}</span>
+                <span class="info-box-text">Contracts Expired</span>
+                <div class="progress">
+                  <div class="progress-bar width-60"></div>
+                </div>
+                <span class="progress-description">
+                Grace Period 30 Days
+                </span>
+              </div>
+              <!-- /.info-box-content -->
+            </div>
+            <!-- /.info-box -->
+          </div>
+
+
+             <div class="col-xl-4 col-md-4 col-12">
+              <div class="info-box bg-danger">
+              <a href="{{route('tenant-contract.index',['under_penalty'=>30])}}">
+                <span class="info-box-icon push-bottom">
+                  <i class="material-icons extra">signal_cellular_off</i></span>
+                </a>
+                <div class="info-box-content">
+                  <span class="info-box-number">{{$are['underPenaltyCount']}}</span>
+                  <span class="info-box-text">Contracts Expired</span>
+                  <div class="progress">
+                    <div class="progress-bar width-60"></div>
+                  </div>
+                  <span class="progress-description">
+                    Under Penalty
+                  </span>
+                </div>
+                <!-- /.info-box-content -->
+              </div>
+              <!-- /.info-box -->
+            </div>
+            <!-- /.col -->
+            <div class="col-xl-4 col-md-4 col-12">
+              <div class="info-box bg-primary">
+              <a href="{{route('tenantRenewedContract',['no_days'=>5])}}">
+                <span class="info-box-icon push-bottom"><i class="material-icons extra">contact_mail</i></span>
+                </a>
+                <div class="info-box-content">
+                  <span class="info-box-number">{{$are['notRegisteredInMunicipalityCount']}}</span>
+                  <span class="info-box-text">Contracts Renewed -Not registered</span>
+                  <div class="progress">
+                   <div class="progress-bar width-60"></div>
+                 </div>
+                 <span class="progress-description">
+                 After 5 Days Of Renewal
+                </span>
+              </div>
+              <!-- /.info-box-content -->
+            </div>
+            <!-- /.info-box -->
+          </div>
+          <!-- /.col -->
+          
+          <!-- /.col -->
+
+          <div class="col-xl-6 col-md-4 col-12">
+            <div class="info-box bg-orange">
+              <a href="{{route('unit.index',['vaccating_days=15'])}}">
+                <span class="info-box-icon push-bottom"><i class="material-icons extra">code</i></span>
+              </a>
+              <div class="info-box-content">
+                <span class="info-box-number">{{$are['vaccatingUnitsCount']}}</span>
+                <span class="info-box-text">Number Of Units</span>
+                <div class="progress">
+                  <div class="progress-bar width-60"></div>
+                </div>
+                <span class="progress-description">
+                 Vacating In 15 Days
+               </span>
+             </div>
+             <!-- /.info-box-content -->
+           </div>
+           <!-- /.info-box -->
+         </div>
+         <div class="col-xl-6 col-md-4 col-12">
+          <div class="info-box bg-purple">
+          <a href="{{route('tenantContract.underRenewal',['referback'=>'yes'])}}">
+            <span class="info-box-icon push-bottom"><i class="material-icons extra">cached</i></span>
+            </a>
+            <div class="info-box-content">
+              <span class="info-box-number">{{$are['referBackContractsCount']}}</span>
+              <span class="info-box-text">Referred Back</span>
+              <div class="progress">
+                <div class="progress-bar width-60"></div>
+              </div>
+              <span class="progress-description">
+                Maintenance Take Over Team
+              </span>
+            </div>
+            <!-- /.info-box-content -->
+          </div>
+          <!-- /.info-box -->
+        </div>
+
+
+
+
+      </div>
+      <!-- /rwo wnd -->
+    </div>
+    <div>
+      <div class="row">
+
+
+      </div>
+    </div>
+    <!-- end widget -->
+    
+    
+    
+    <!-- end page content -->
+    <!-- start chat sidebar -->
+    
+    
+    <script>
+      $(document).ready(function() {
+       /***********Contracts Expiring starts**************/
+       // The link follows the dropdown straight away (and again at click time); the count loads separately,
+       // so clicking before it arrives still opens the days shown. Only the latest count response is used.
+       var href1 =   "{{ route('tenantRenewal.index')}}";
+       var expReq = 0;
+       function expDays($from) {
+         var $sel = $from ? $from.closest('.info-box').find('select[name=expdays]') : $('#expdays');
+         return $sel.val() || 30;
+       }
+       function expRefresh() {
+         var mine = ++expReq, days = expDays();
+         $(".link1").attr('href', href1 + '?expdays=' + days);
+         $.ajax({
+           type: "GET",
+           url: "{!!URL::route('areDueForRenewalCount')!!}",
+           data: {expdays: days},
+           success: function(data){
+             if (mine !== expReq) { return; }   // a newer choice is already loading
+             var result = $.parseJSON(data);
+             $('#expiring_contracts').text(result[0].count);
+           }
+         });
+       }
+       $('#expdays').on('change', expRefresh);
+       $(document).on('click', '.link1', function () {
+         $(this).attr('href', href1 + '?expdays=' + expDays($(this)));
+       });
+       expRefresh();
+       /***********Contracts Expiring ends**************/      
+        /***********Pending approvals from HOD starts**************/
+       $('#renewal_days').on('change', function(e) {   
+         var renewal_days = $('#renewal_days').val();
+         var href2 =   "{{ route('renewalContractApproval')}}";
+         $.ajax({
+           type: "GET",
+           url: "{!!URL::route('pendingApprovals')!!}",
+           data:'renewal_days='+ $('#renewal_days').val(),
+           success: function(data){
+            var result = $.parseJSON(data);
+            $('#pending_approvals').text(result[0].count);
+            href2 = href2+'?renewal_days='+renewal_days;
+            $(".link2").attr('href', href2);
+          }
+        });
+       });
+       /***********Pending approvals from HOD ends**************/
+       var renewal_days = 3;
+       var href2 =   "{{ route('renewalContractApproval')}}";
+       $.ajax({
+         type: "GET",
+         url: "{!!URL::route('pendingApprovals')!!}",
+         data:'renewal_days='+ 3,
+         success: function(data){
+          var result = $.parseJSON(data);
+          $('#pending_approvals').text(result[0].count);
+          href2 = href2+'?renewal_days='+renewal_days;
+          $(".link2").attr('href', href2);
+        }
+      });
+       /***********Pending approvals from HOD ends**************/
+     });
+   </script>
