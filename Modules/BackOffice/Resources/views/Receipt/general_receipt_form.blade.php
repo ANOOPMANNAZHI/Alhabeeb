@@ -258,6 +258,7 @@
                                 </div>
                         </div>
                     </div>
+@include('backoffice::Receipt._landlord_deposit_field', ['receipt' => isset($generalReceiptInfo) ? $generalReceiptInfo : null])
 <div class="col-sm-6">
     <div class="form-group">
         <label for="receipts_generation_amt">Amount : </label>
@@ -983,7 +984,7 @@ $('.add_details').click(function(event){
 
   var first_row = $tr.clone().prop('id', 'first_row'+num );
 
-  $(first_row).find("input:text").val("").end().appendTo('tbody');;
+  $(first_row).find("input:text").val("").end().appendTo('#acc_line_list');
 
   $('tr').each(function(rowIndex){
     /// find each input with a name attribute inside each row

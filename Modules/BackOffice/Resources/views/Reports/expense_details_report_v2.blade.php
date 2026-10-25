@@ -44,7 +44,7 @@
               <label for="building_name">Building Name<small class="textRed">*</small></label>
               <div class="p-relative">
                 <i class="fa fa-codepen icn-add" aria-hidden="true"></i>
-                 <select class="form-control" name="building_name" id="building_name">
+                 <select class="form-control" name="building_name" id="building_name" data-searchable="Search building…">
                     <option value="">All Buildings</option>
                     @foreach($buildings as $building)
                     <option value={{$building->id}}>{{$building->building_name.'('.$building->building_code.')'}}</option>
@@ -75,6 +75,22 @@
                   <option value="">All</option>
                   <option value="inhouse">In-house</option>
                   <option value="subcontractor">Subcontractor</option>
+                  <option value="gl">General Ledger</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          {{-- shown only for Expense Type = General Ledger --}}
+          <div class="col-sm-6" id="gl_head_box" hidden>
+              <div class="form-group">
+                <label for="gl_head">Account Head</label>
+                <div class="p-relative">
+                 <i class="fa fa-list icn-add" aria-hidden="true"></i>
+                 <select class="form-control" id="gl_head" name="gl_head" disabled>
+                  <option value="">All heads</option>
+                  @foreach($glHeads as $head)
+                  <option value="{{ $head->acc_code_val }}">{{ $head->acc_code_val }} - {{ $head->acc_code_desc }}</option>
+                  @endforeach
                 </select>
               </div>
             </div>
@@ -110,10 +126,21 @@
 </div>
 @endsection
 @section('scripts')
+@include('backoffice::reports._searchable_select')
 <script>
 $(function(){
   var pdfExcelAction = "{{ route('expenseDetailsReportPdfV2') }}";
   var serviceZipAction = "{{ route('expenseDetailsServiceReportsZip') }}";
+
+  // Account Head only applies to General Ledger rows: show it (and send it) only then
+  function syncGlHead() {
+    var gl = $('#expense_type').val() === 'gl';
+    $('#gl_head_box').prop('hidden', !gl);
+    $('#gl_head').prop('disabled', !gl);
+    if (!gl) { $('#gl_head').val(''); }
+  }
+  $('#expense_type').on('change', syncGlHead);
+  syncGlHead();
 
   $('#form_sample_2').on('submit', function(e){
     var downloadType = $('#download_type').val();

@@ -3,6 +3,7 @@
 namespace Modules\Masters\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Kyslik\ColumnSortable\Sortable;
 
 class Legal extends Model
@@ -63,6 +64,10 @@ class Legal extends Model
     *  legalUser
     *
     */
+    public function lawyer() {
+        return $this->belongsTo('App\User', 'lawyer_user_id');
+    }
+
     public function legalUser() {
         
            return $this->hasMany('Modules\Masters\Entities\LegalUser','legal_id');
@@ -239,7 +244,7 @@ public function scopeLawyerReferBack($query,$request){
       $generalSearch = array(); 
      
     
-        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','params','param','md']) as $key => $val){         
+        foreach($request->except(['_token','sort','direction','page','curr_url','fieldValues','ajax','operation','logic','route','params','param','md','lc_priority','lc_type','lc_stage','lc_lawyer','lc_hearing','lc_ownership']) as $key => $val){         
 
            if($key == 'fieldValue' || $key == 'fieldValues' )
               continue;
@@ -569,4 +574,65 @@ public function scopeLegalUsers($query){
 
      
   }
+
+    /**
+     * Lists open with the most recently moved to legal first (user, 18/10/2026); a column the user
+     * clicks to sort on (?sort=) still wins. The legal row is created when the case is moved.
+     */
+    public static function newestMovedFirst($query)
+    {
+        if (!request()->filled('sort')) {
+            $query->orderBy('legal.created_at', 'desc')->orderBy('legal.id', 'desc');
+        }
+        return $query;
+    }
+
+    /**
+     * Legal lists show one row per tenant + building + unit: the case of the latest contract
+     * (renewals each get their own case). $base is the list's filtered query; sort + paginate the result.
+     */
+    public static function latestPerGroup($base)
+    {
+        $ids = (clone $base)->select('legal.id');
+        return static::whereIn('legal.id', function ($q) use ($ids) {
+            $q->select('g.id')
+              ->from(DB::raw('(select l2.id, row_number() over (partition by tc2.tenant_id, l2.building_id, l2.unit_id'
+                  . ' order by tc2.tenant_contract_valid_to_date desc nulls last, tc2.id desc, l2.id desc) as rn'
+                  . ' from legal l2 join tenant_contracts tc2 on tc2.id = l2.tenant_contract_id'
+                  . ' where l2.id in (' . $ids->toSql() . ')) as g'))
+              ->mergeBindings($ids->getQuery())
+              ->whereRaw('g.rn = 1');
+        });
+    }
+
+    /**
+     * Sets relation groupSiblings on each row of the page: the other cases of its group that are in
+     * the same list ($base), latest contract first.
+     */
+    public static function attachGroupSiblings($page, $base)
+    {
+        $rows = $page->getCollection();
+        if ($rows->isEmpty()) {
+            return $page;
+        }
+        $rows->load('tenantContract');
+        $key = function ($c) {
+            return ($c->tenantContract ? $c->tenantContract->tenant_id : 0) . '-' . $c->building_id . '-' . $c->unit_id;
+        };
+        $siblings = static::with(['tenantContract.tenant', 'building', 'unit', 'workFlowProcess'])
+            ->whereIn('legal.id', (clone $base)->select('legal.id'))
+            ->whereIn('legal.unit_id', $rows->pluck('unit_id')->unique()->values()->all())
+            ->whereNotIn('legal.id', $rows->pluck('id')->all())
+            ->get()
+            ->sort(function ($a, $b) {
+                $da = $a->tenantContract ? (string) $a->tenantContract->tenant_contract_valid_to_date : '';
+                $db = $b->tenantContract ? (string) $b->tenantContract->tenant_contract_valid_to_date : '';
+                return $da === $db ? $b->id - $a->id : strcmp($db, $da);
+            })
+            ->groupBy($key);
+        foreach ($rows as $c) {
+            $c->setRelation('groupSiblings', $siblings->get($key($c), collect())->values());
+        }
+        return $page;
+    }
 }

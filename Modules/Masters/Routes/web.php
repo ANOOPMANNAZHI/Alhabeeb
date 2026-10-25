@@ -57,6 +57,9 @@ Route::post('/workLinkStatus/{id}', 'ContractorWorkLinkController@changeStatus')
 Route::resource('bank', 'BankController');
 Route::post('/bankStatus/{id}', 'BankController@changeStatus')->name('bank.changeStatus');
 
+// Masters -> Bounce Reason (codes stored in pdc.pdc_bounce_reason; no delete, switch off instead)
+Route::resource('bounce-reason', 'BounceReasonController')->except(['show', 'destroy'])->parameters(['bounce-reason' => 'bounceReason']);
+
 Route::resource('homeUtility', 'HomeUtilityController');
 Route::post('/homeUtilityStatus/{id}', 'HomeUtilityController@changeStatus')->name('homeUtility.changeStatus');
 
@@ -117,6 +120,7 @@ Route::resource('vendors', 'VendorController');
 
 //Building
 Route::post('/buildingStatus/{building}', 'BuildingController@changeStatus')->name('building.changeStatus');
+Route::post('/buildingTaxable/{building}', 'BuildingController@changeTaxable')->name('building.changeTaxable');
 Route::resource('building', 'BuildingController');
 Route::post('/updateUnitTypeCount', 'BuildingController@updateUnitTypeCount')->name('building.updateUnitTypeCount'); 
 //Unit
@@ -163,6 +167,11 @@ Route::get('tenancy_details/enquiry_filter', 'TenancyDetailsController@enquiryFi
 Route::get('legalCase/plmsApproval', 'LegalController@plmsApproval')->name('plmsApproval');
 Route::get('legalCase/lawyerApproval', 'LegalController@lawyerApproval')->name('lawyerApproval');
 Route::get('legalCase/activeCases', 'LegalController@activeCases')->name('activeCases');
+Route::post('legalCase/activeCases/assignLawyer', 'LegalController@bulkAssignLawyer')->name('activeCasesAssignLawyer');
+Route::post('legalCase/activeCases/close', 'LegalCaseController@bulkClose')->name('activeCasesClose');
+Route::post('legalCase/activeCases/handOver', 'LegalController@bulkHandOver')->name('activeCasesHandOver');
+Route::post('legalCase/activeCases/settle', 'LegalCaseController@bulkSettle')->name('activeCasesSettle');
+Route::post('legalCase/activeCases/remove', 'LegalCaseController@bulkRemove')->name('activeCasesRemove');
 Route::resource('legalCase','LegalController');
 //search
 Route::match(['get', 'post'],'legalCaseSearch/legalCase', 'LegalController@legalSearch')->name('legalCaseSearch');
@@ -175,6 +184,20 @@ Route::post('/legalCase/areStageStore', 'LegalController@areStageStore')->name('
 /*****    closed legal cases  starts****/
 Route::get('/closedLegalCases', 'LegalController@closedLegalCases')->name('closedLegalCases');
 Route::get('closedLegalCases/{id}', 'LegalController@closedLegalCasesShow')->name('closedLegalCasesShow');
+Route::get('/handedOverLegalCases', 'LegalController@handedOverCases')->name('handedOverLegalCases');
+/* Legal case page + stage master */
+Route::get('/legal-case/{id}', 'LegalCaseController@show')->name('legal.case');
+Route::post('/legal-case/{id}/stage', 'LegalCaseController@stageStore')->name('legal.case.stage');
+Route::post('/legal-case/{id}/comment', 'LegalCaseController@commentStore')->name('legal.case.comment');
+Route::post('/legal-case/{id}/settlement', 'LegalCaseController@settlementStore')->name('legal.case.settlement');
+Route::post('/legal-case/{id}/settlement/verify', 'LegalCaseController@settlementVerify')->name('legal.case.settlement.verify');
+Route::post('/legal-case/{id}/close', 'LegalCaseController@close')->name('legal.case.close');
+Route::post('/legal-case/{id}/reopen', 'LegalCaseController@reopen')->name('legal.case.reopen');
+Route::get('/legal-stages', 'LegalCaseController@stages')->name('legal.stages');
+Route::post('/legal-stages', 'LegalCaseController@stageMasterStore')->name('legal.stages.store');
+Route::post('/legal-stages/{id}/move', 'LegalCaseController@stageMove')->name('legal.stages.move');
+Route::get('/legal-reports/cases', 'LegalReportController@cases')->name('legal.reports.cases');
+Route::get('/legal-reports/settlements', 'LegalReportController@settlements')->name('legal.reports.settlements');
 
 /*****    closed legal cases ends  ****/
 /*****    referback legal cases  starts****/
@@ -192,6 +215,7 @@ Route::post('/plmsApproval/approveReferBack', 'LegalController@plmsApproveReferB
 Route::post('/plmsApproval/approveReferBackStore', 'LegalController@plmsApproveReferBackStore')->name('plmsApproveReferBackStore');
 //plms close
 Route::post('/plmsApproval/legalCaseClose', 'LegalController@legalCaseClose')->name('legalCaseClose');
+Route::post('/plmsApproval/legalCloseForm', 'LegalController@legalCloseForm')->name('legalCloseForm');
 
 
 /* lawyer approval */

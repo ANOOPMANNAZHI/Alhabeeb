@@ -7,32 +7,32 @@
   .tov .card-box { border-radius:var(--t-radius); }
   .tov .card-box:hover { transform:none; }
   .tov .t-head { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 18px 6px; }
-  .tov .t-head .t-title { font-size:18px; font-weight:800; margin:0; }
+  .tov .t-head .t-title { font-size:18px; font-weight:400; margin:0; }
   .tov .t-head .t-sub { color:var(--t-muted); font-size:13px; }
   .tov .t-head .t-actions { margin-left:auto; display:flex; flex-wrap:wrap; gap:8px; }
   .tov .t-head .t-actions .btn { min-height:40px; display:inline-flex; align-items:center; gap:6px; margin:0; }
-  .tov .t-status { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:4px 10px; border-radius:999px; background:var(--t-line); color:var(--t-ink); }
+  .tov .t-status { display:inline-block; font-size:11px; font-weight:400; text-transform:uppercase; letter-spacing:.04em; padding:4px 10px; border-radius:999px; background:var(--t-line); color:var(--t-ink); }
   .tov .t-head .t-title { font-size:22px; }
   .tov .t-os { margin-top:8px; font-size:14px; }
-  .tov .t-os-yes { color:#991b1b; font-weight:700; } .tov .t-os-no { color:#166534; font-weight:700; }
-  .tov .t-id-tile .t-meta .t-status { margin-top:2px; }
+  .tov .t-os-yes { color:#991b1b; font-weight:400; } .tov .t-os-no { color:#166534; font-weight:400; }  .tov .t-id-tile .t-meta .t-status { margin-top:2px; }
 
   /* Identity strip: who / where — the three facts staff look for first */
-  .tov .t-id { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
+  .tov .t-id { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:16px; padding:8px 18px 8px; }
   .tov .t-id-tile { border:1px solid var(--t-line); border-radius:var(--t-radius); padding:16px; background:#fff; min-width:0; }
-  .tov .t-id-tile .t-lbl { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--t-muted); margin-bottom:8px; }
-  .tov .t-id-tile .t-big { display:block; font-size:20px; line-height:1.3; font-weight:800; color:var(--t-ink); word-break:break-word; }
+  .tov .t-id-tile .t-lbl { display:block; font-size:11px; font-weight:400; text-transform:uppercase; letter-spacing:.06em; color:var(--t-muted); margin-bottom:8px; }
+  .tov .t-id-tile .t-big { display:block; font-size:20px; line-height:1.3; font-weight:400; color:var(--t-ink); word-break:break-word; }
   .tov .t-id-tile .t-meta { display:block; font-size:13px; color:var(--t-muted); margin-top:4px; word-break:break-word; }
   .tov .t-id-tile.t-id-primary { border-color:var(--t-blue); background:var(--t-blue-soft); }
+  @media (max-width: 1200px) { .tov .t-id { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 900px) { .tov .t-id { grid-template-columns:1fr; } }
 
   /* Details: label/value table, two pairs per row on wide screens */
-  .tov .t-group { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--t-blue); border-top:1px solid var(--t-line); padding-top:12px; margin:16px 0 8px; }
+  .tov .t-group { font-size:11px; font-weight:400; text-transform:uppercase; letter-spacing:.06em; color:var(--t-blue); border-top:1px solid var(--t-line); padding-top:12px; margin:16px 0 8px; }
   .tov .t-group:first-child { border-top:0; margin-top:0; padding-top:0; }
   .tov table.t-details { width:100%; margin:0; border-collapse:collapse; }
   .tov table.t-details th, .tov table.t-details td { padding:8px 12px; border-bottom:1px solid var(--t-line); vertical-align:top; font-size:14px; }
-  .tov table.t-details th { width:18%; font-size:12px; font-weight:600; color:var(--t-muted); text-align:left; white-space:nowrap; background:var(--t-bg); }
-  .tov table.t-details td { width:32%; font-weight:600; word-break:break-word; }
+  .tov table.t-details th { width:18%; font-size:12px; font-weight:400; color:var(--t-muted); text-align:left; white-space:nowrap; background:var(--t-bg); }
+  .tov table.t-details td { width:32%; font-weight:400; word-break:break-word; }
   .tov table.t-details tr:last-child th, .tov table.t-details tr:last-child td { border-bottom:0; }
   @media (max-width: 900px) {
     .tov table.t-details, .tov table.t-details tbody, .tov table.t-details tr, .tov table.t-details th, .tov table.t-details td { display:block; width:auto; }
@@ -45,8 +45,8 @@
   .tov .t-edit button:hover { color:var(--t-blue); background:var(--t-blue-soft); }
   .tov .t-edit input[type=date] { min-height:36px; border:1px solid var(--t-line); border-radius:6px; padding:0 8px; }
 
-  .tov .t-section { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:700; border-left:4px solid var(--t-blue); padding:6px 12px; margin:0 0 10px; background:var(--t-blue-soft); border-radius:6px; }
-  .tov .t-section .t-hint { margin-left:auto; font-size:12px; font-weight:500; color:var(--t-muted); }
+  .tov .t-section { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:400; border-left:4px solid var(--t-blue); padding:6px 12px; margin:0 0 10px; background:var(--t-blue-soft); border-radius:6px; }
+  .tov .t-section .t-hint { margin-left:auto; font-size:12px; font-weight:400; color:var(--t-muted); }
   .tov .t-table-wrap { border:1px solid var(--t-line); border-radius:var(--t-radius); overflow:hidden; }
   .tov table.t-table { margin:0; }
   .tov table.t-table th { font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:var(--t-muted); background:var(--t-bg); border-top:0; border-bottom:2px solid var(--t-line); padding:8px 12px; }
@@ -57,12 +57,24 @@
   .tov .t-timeline { list-style:none; margin:0; padding:0 0 0 18px; border-left:2px solid var(--t-line); }
   .tov .t-timeline li { position:relative; padding:0 0 14px 14px; }
   .tov .t-timeline li::before { content:""; position:absolute; left:-24px; top:4px; width:10px; height:10px; border-radius:50%; background:var(--t-blue); border:2px solid #fff; box-shadow:0 0 0 2px var(--t-blue); }
-  .tov .t-timeline .t-stage { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--t-blue); }
+  .tov .t-timeline .t-stage { font-size:12px; font-weight:400; text-transform:uppercase; letter-spacing:.04em; color:var(--t-blue); }
   .tov .t-timeline .t-meta { font-size:12px; color:var(--t-muted); margin-left:8px; }
   .tov .t-timeline .t-note { margin-top:4px; font-size:14px; white-space:pre-line; }
   .tov .t-two { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width: 900px) { .tov .t-two { grid-template-columns:1fr; } }
+  .tov .t-hint-line { display:block; font-size:11px; color:var(--t-muted); margin-top:2px; }
+
+  /* Same look as the handover inspection: normal weight throughout (font of the Taken Over list);
+     bold only on what was asked for - tenant name, mobile, email, outstanding. The shared
+     inspection-details partial is set to normal on this screen only. */
+  .tov b, .tov strong, .tov h1, .tov h2, .tov h3, .tov h4, .tov h5, .tov th, .tov label, .tov .btn, .tov .nav-link { font-weight:400; }
+  .tov .idet, .tov .idet * { font-weight:400 !important; }
+  .tov .t-head .t-sub.t-contact { font-size:16px; line-height:1.6; margin-top:4px; }
+  .tov .t-head .t-title, .tov .t-head .t-contact b, .tov .t-head .t-contact b a { font-weight:700; }
+  .tov .t-head .t-os .t-os-yes, .tov .t-head .t-os .t-os-no { font-size:15px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .tov .t-head .t-os .t-os-yes { text-decoration:underline dotted; }
 </style>
+@include('backoffice::Termination._tenant_outstanding_modal')
 @endsection
 
 @section('content')
@@ -71,6 +83,18 @@
   $lastTerm = $tc->terminationContract;
   $fmtDate = function ($d) { return $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : 'NA'; };
   $inspection = \Modules\BackOffice\Entities\Termination::where('contract_id', $tc->id)->whereNotNull('termination_total_amount')->orderBy('id', 'desc')->first();
+  // this contract only (start -> valid to), user 20/10/2026
+  $duration = null;
+  if ($tc->tenant_contract_start_date && $tc->tenant_contract_valid_to_date) {
+      $d = contractDurationCalculation($tc->tenant_contract_start_date, $tc->tenant_contract_valid_to_date);
+      $duration = $d['year'] . ' Year ' . $d['month'] . ' Month ' . $d['day'] . ' Days';
+  }
+  // whole tenancy on this unit (first contract start -> this contract's end), as on the handover inspection
+  $totalTenancy = null;
+  if (optional($tenancyStartDt)->tenant_contract_start_date && $tc->tenant_contract_valid_to_date) {
+      $d = contractDurationCalculation($tenancyStartDt->tenant_contract_start_date, $tc->tenant_contract_valid_to_date);
+      $totalTenancy = $d['year'] . ' Year ' . $d['month'] . ' Month ' . $d['day'] . ' Days';
+  }
 @endphp
 <div class="page-bar">
   <div class="page-title-breadcrumb">
@@ -89,14 +113,13 @@
     <div class="t-head">
       <div>
         <h3 class="t-title">{{ $tc->tenant->tenant_name }}</h3>
-        <div class="t-sub">{{ $tc->tenant->tenant_contact_no ? 'Mobile ' . $tc->tenant->tenant_contact_no : 'No mobile on file' }}{{ !empty($tc->tenant->tenant_status_name) ? ' · ' . $tc->tenant->tenant_status_name : '' }}</div>
+        <div class="t-sub t-contact">@include('backoffice::Termination._tenant_contact', ['tenant' => $tc->tenant, 'stacked' => true])</div>
         <div class="t-os">
           @if($outstandingOs > 0)
-            <span class="t-os-yes" title="Outstanding rent">Outstanding {{ numberFormat($outstandingOs) }} OMR</span>
+            <a href="#" class="t-os-yes tos-link" data-toggle="modal" data-target="#tenant-os-modal" title="Click for the breakup">Outstanding {{ numberFormat($outstandingOs) }} OMR</a>
           @else
             <span class="t-os-no">No outstanding</span>
-          @endif
-        </div>
+          @endif        </div>
       </div>
       <div class="t-actions">
         @can('takenover_resubmit')
@@ -116,17 +139,22 @@
       <div class="t-id-tile t-id-primary">
         <span class="t-lbl">Building</span>
         <span class="t-big">{{ $tc->building->building_name }}</span>
-        <span class="t-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_address) ? ' · Way ' . $tc->building->building_address : '' }}</span>
+        <span class="t-meta">{{ optional(optional($tc->building)->location)->locations_name ?? 'Location NA' }}{{ !empty($tc->building->building_pc) ? ' · Way No ' . $tc->building->building_pc : '' }}{{ !empty($tc->building->block_number) ? ' · Block No ' . $tc->building->block_number : '' }}</span>
       </div>
       <div class="t-id-tile">
         <span class="t-lbl">Unit</span>
         <span class="t-big">{{ $tc->unit->unit_no }}</span>
-        <span class="t-meta">{{ $tc->unit->vacant_status_name ?? 'Status NA' }} · Key {{ !empty($tc->unit->key) ? $tc->unit->key->status_name : 'NA' }}</span>
+        <span class="t-meta">{{ optional($tc->unit->unit)->unit_types_name ?? 'Type NA' }} · {{ $unitUsage ?: 'Usage NA' }} · {{ $tc->unit->vacant_status_name ?? 'Status NA' }} · Key {{ !empty($tc->unit->key) ? $tc->unit->key->status_name : 'NA' }}</span>
       </div>
       <div class="t-id-tile">
         <span class="t-lbl">Contract</span>
         <span class="t-big">{{ $tc->tenant_contract_no }}</span>
         <span class="t-meta"><span class="t-status">{{ $tc->tenant_contract_status_name }}</span></span>
+      </div>
+      <div class="t-id-tile">
+        <span class="t-lbl">CA (ARE)</span>
+        <span class="t-big">{{ $areName ?: 'Not assigned' }}</span>
+        <span class="t-meta">Building assigned to</span>
       </div>
     </div>
 
@@ -141,17 +169,24 @@
           <th>Rent</th><td>{{ $tc->tenant_contract_rent ? numberFormat($tc->tenant_contract_rent) . ' OMR' : 'NA' }}{{ !empty($tc->tenant_contract_payment_name) ? ' · ' . $tc->tenant_contract_payment_name : '' }}</td>
           <th>Municipality registration</th><td>{{ $tc->tenant_contract_is_reg_municipality == null ? 'No' : 'Yes' }}</td>
         </tr>
+        <tr>
+          <th>Contract duration</th><td>{{ $duration ?: 'NA' }}</td>
+          <th>Deposit</th><td>{{ $deposit['has_deposit'] ? numberFormat($deposit['held']) . ' OMR' : 'NA' }}</td>
+        </tr>
+        <tr>
+          <th>Tenancy start</th><td>{{ $fmtDate(optional($tenancyStartDt)->tenant_contract_start_date) }}</td>
+          <th>Total tenancy</th><td>{{ $totalTenancy ?: 'NA' }}</td>
+        </tr>
       </table>
 
       <div class="t-group">Rent</div>
       <table class="t-details">
         <tr>
-          <th>Rent paid up to</th><td>{{ $fmtDate($tc->tenant_contract_last_paid_date) }}</td>
+          <th>Last payment received</th><td>@if($lastPaidReceipt){{ $fmtDate($lastPaidReceipt->receipts_generation_receipt_date) }} · {{ numberFormat($lastPaidReceipt->receipts_generation_amt) }} OMR<span class="t-hint-line">Receipt {{ $lastPaidReceipt->receipts_generation_receipt_no }}{{ (int) $lastPaidReceipt->receipts_generation_approval_status === 1 ? ' · waiting for approval' : ((int) $lastPaidReceipt->receipts_generation_approval_status === 3 ? ' · not posted' : '') }}</span>@else NA @endif</td>
           <th>Remaining days to expiry</th><td>{{ $remainingDays }}</td>
         </tr>
         <tr>
-          <th>Last paid date</th><td>{{ isset($tc->tenant->tenant_contract_last_paid_date) ? $tc->tenant->tenant_contract_last_paid_date->format('d/m/Y') : 'NA' }}</td>
-          <th>Last paid amount</th><td>{{ isset($tc->tenant->tenant_contract_last_paid_amt) ? numberFormat($tc->tenant->tenant_contract_last_paid_amt) . ' OMR' : 'NA' }}</td>
+          <th>Unpaid rent</th><td colspan="3">@if($tenantOs['current']['outstanding'] > 0){{ $fmtDate($lastPaidTill ? date('Y-m-d', strtotime($lastPaidTill . ' +1 day')) : $tenantOs['current']['from']) }} – {{ $fmtDate($tenantOs['current']['to']) }} · {{ numberFormat($tenantOs['current']['outstanding']) }} OMR @else None @endif</td>
         </tr>
       </table>
 

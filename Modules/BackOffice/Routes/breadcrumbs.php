@@ -5,6 +5,11 @@ Breadcrumbs::for('tenantRenewal.index', function ($trail) {
     $trail->push('Tenant - Due For Renewal', route('tenantRenewal.index'));
 });
 
+Breadcrumbs::for('rentRevisal.index', function ($trail) {
+    $trail->parent('tenantRenewal.index');
+    $trail->push('Rent revisal', route('rentRevisal.index'));
+});
+
 // Renewal Index
 Breadcrumbs::for('tenantContract.underRenewal', function ($trail) {
     $trail->parent('home');
@@ -448,6 +453,26 @@ Breadcrumbs::for('pdcPosting', function ($trail) {
     $trail->parent('home');
     $trail->push('PDC Bulk Posting', route('pdcPosting'));
 });
+Breadcrumbs::for('pdcBankSheetPreview', function ($trail) {
+    $trail->parent('pdcPosting');
+    $trail->push('Bank Sheet Preview');
+});
+Breadcrumbs::for('pdcBankSheetUploads', function ($trail) {
+    $trail->parent('pdcPosting');
+    $trail->push('Bank Sheet Posting History', route('pdcBankSheetUploads'));
+});
+Breadcrumbs::for('pdcBankSheetResult', function ($trail, $upload) {
+    $trail->parent('pdcBankSheetUploads');
+    $trail->push('Posting #' . $upload->id);
+});
+Breadcrumbs::for('pdcBankSheetPending', function ($trail) {
+    $trail->parent('pdcBankSheetUploads');
+    $trail->push('Pending Cheques');
+});
+Breadcrumbs::for('pdcBankSheetDay', function ($trail, $date) {
+    $trail->parent('pdcBankSheetUploads');
+    $trail->push(\Carbon\Carbon::parse($date)->format('d/m/Y'));
+});
 Breadcrumbs::for('rentalIncomePosting', function ($trail) {
     $trail->parent('home');
     $trail->push('Rental Income Posting', route('rentalIncomePosting'));
@@ -697,6 +722,19 @@ Breadcrumbs::for('massMail.view', function ($trail,$massMail) {
     $trail->parent('massMail.index');
     $trail->push('Compose Mail View', route('massMail.show',[$massMail->id]));
 });
+
+Breadcrumbs::for('message-templates.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Templates', route('message-templates.index'));
+});
+Breadcrumbs::for('message-templates.create', function ($trail) {
+    $trail->parent('message-templates.index');
+    $trail->push('New Template', route('message-templates.create'));
+});
+Breadcrumbs::for('message-templates.edit', function ($trail, $template) {
+    $trail->parent('message-templates.index');
+    $trail->push($template->name, route('message-templates.edit', $template->id));
+});
 Breadcrumbs::for('renewalPdc', function ($trail,$parent,$params) {
     $trail->parent($parent);
     $trail->push('Tenant PDC', route('pdcGeneration',[$params[0],$params[1],$params[2]]));
@@ -778,6 +816,10 @@ Breadcrumbs::for('showRentReceiptReport', function ($trail) {
     $trail->parent('home');
     $trail->push('Rent Receipt',route('showRentReceiptReport'));
 });
+Breadcrumbs::for('showCashReceiptReport', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Cash Receipts',route('showCashReceiptReport'));
+});
 Breadcrumbs::for('showGeneralReceiptReport', function ($trail) {
     $trail->parent('home');
     $trail->push('General Receipt',route('showGeneralReceiptReport'));
@@ -849,6 +891,11 @@ Breadcrumbs::for('landlord-invoice-v2.show', function ($trail, $invoice) {
 Breadcrumbs::for('termination-dues.index', function ($trail) {
     $trail->parent('home');
     $trail->push('Termination Dues', route('termination-dues.index'));
+});
+
+Breadcrumbs::for('termination-dues.backfill', function ($trail) {
+    $trail->parent('termination-dues.index');
+    $trail->push('Backfill Termination Dues', route('termination-dues.backfill'));
 });
 
 Breadcrumbs::for('termination-dues.show', function ($trail, $dues) {
@@ -928,4 +975,31 @@ Breadcrumbs::for('tenant-onboarding.index', function ($trail) {
 Breadcrumbs::for('tenant-onboarding.show', function ($trail, $onboarding) {
     $trail->parent('tenant-onboarding.index');
     $trail->push(optional($onboarding->tenantContract)->tenant_contract_no ?: ('Onboarding #' . $onboarding->id), route('tenant-onboarding.show', $onboarding->id));
+});
+
+Breadcrumbs::for('message-log.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Sent log', route('message-log.index'));
+});
+Breadcrumbs::for('bulk-send.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Send', route('bulk-send.index'));
+});
+Breadcrumbs::for('bulk-send.create', function ($trail) {
+    $trail->parent('bulk-send.index');
+    $trail->push('New send', route('bulk-send.create'));
+});
+Breadcrumbs::for('bulk-send.show', function ($trail, $send) {
+    $trail->parent('bulk-send.index');
+    $trail->push('Send #' . $send->id, route('bulk-send.show', $send->id));
+});
+
+Breadcrumbs::for('receivable-followup.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Receivables Follow-up', route('receivable-followup.index'));
+});
+
+Breadcrumbs::for('receivable-followup.results', function ($trail) {
+    $trail->parent('receivable-followup.index');
+    $trail->push('Follow-up Results', route('receivable-followup.results'));
 });

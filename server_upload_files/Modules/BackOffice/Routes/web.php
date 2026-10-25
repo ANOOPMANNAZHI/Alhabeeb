@@ -55,6 +55,7 @@ Route::get('tenantRenewal/renewalCron', 'TenantRenewalController@cronRenewalCont
 Route::get('/tenantRenewal/stage/{contractId}/{stage}/{status}/{oldId}', 'TenantRenewalController@tenantRenewalStage')->name('tenantRenewalStage');
 
 Route::post('/tenantRenewalStageDue/stage/{contractId}/{stage}/{status}/{oldId}', 'TenantRenewalController@tenantRenewalStageDue')->name('tenantRenewalStageDue');
+Route::post('/tenantRenewal/vacate/{contractId}', 'TenantRenewalController@renewalVacate')->name('tenantRenewalVacate');
 /***  Sent for approval in renewal stage ****/
 Route::get('/sendApprovalFromRenewal/{contractId}/{stage}/{status}/{oldId}', 'TenantRenewalController@sendApprovalFromRenewal')->name('sendApprovalFromRenewal');
 //List Grid
@@ -76,6 +77,11 @@ Route::post('tenantContractRenewalTypeStore/{tenant_contract}','TenantRenewalCon
    
 
 
+
+// Rent revisal before renewal (spec 2026-10-15) - must come before the tenantRenewal resource
+Route::get('tenantRenewal/rentRevisal', 'RentRevisalController@index')->name('rentRevisal.index');
+Route::get('tenantRenewal/rentRevisal/{tenant_contract}/form', 'RentRevisalController@form')->name('rentRevisal.form');
+Route::post('tenantRenewal/rentRevisal/{tenant_contract}', 'RentRevisalController@store')->name('rentRevisal.store');
 
 /*** Renewal Request List ****/
 Route::resource('tenantRenewal', 'TenantRenewalController');
@@ -442,6 +448,18 @@ Route::match(['get', 'post'],'pdcPosting/tenantReceiptPosting', 'RoutinesControl
 Route::match(['get', 'post'],'pdcPosting/costRecognition', 'RoutinesController@costRecognitionList')->name('costRecognition');
 //pdc Post
 Route::post('/pdcPosting/pdcPost', 'RoutinesController@pdcPost')->name('pdcPost');
+// PDC posting from the bank's cheque clearing sheet
+Route::post('/pdcPosting/bankSheet', 'PdcBankSheetController@upload')->name('pdcBankSheetUpload');
+Route::get('/pdcPosting/bankSheet/{stored}', 'PdcBankSheetController@preview')->name('pdcBankSheetPreview');
+Route::post('/pdcPosting/bankSheet/{stored}/select', 'PdcBankSheetController@select')->name('pdcBankSheetSelect');
+Route::post('/pdcPosting/bankSheet/{stored}/post', 'PdcBankSheetController@post')->name('pdcBankSheetPost');
+Route::post('/pdcPosting/bankSheet/{stored}/clearingCode', 'PdcBankSheetController@saveClearingCode')->name('pdcBankSheetClearingCode');
+Route::get('/pdcPosting/bankSheetUploads', 'PdcBankSheetController@uploads')->name('pdcBankSheetUploads');
+Route::get('/pdcPosting/bankSheetPending', 'PdcBankSheetController@pending')->name('pdcBankSheetPending');
+Route::get('/pdcPosting/bankSheetPending/excel', 'PdcBankSheetController@pendingExcel')->name('pdcBankSheetPendingExcel');
+Route::get('/pdcPosting/bankSheetUploads/{upload}', 'PdcBankSheetController@result')->name('pdcBankSheetResult');
+Route::get('/pdcPosting/bankSheetUploads/{upload}/excel', 'PdcBankSheetController@resultExcel')->name('pdcBankSheetResultExcel');
+Route::get('/pdcPosting/bankSheetUploads/day/{date}', 'PdcBankSheetController@day')->name('pdcBankSheetDay');
 Route::post('/rentalIncomePosting/rentalPost', 'RoutinesController@rentalPost')->name('rentalPost');
 Route::post('/tenantReceiptPostingList/receiptPost', 'RoutinesController@receiptPost')->name('receiptPost');
 Route::post('/costRecognitionList/costPost', 'RoutinesController@costPost')->name('costPost');
@@ -540,6 +558,7 @@ Route::post('rentReceiptGeneration/receiptContractDetailsByBuildingUnit','RentRe
 Route::match(['get', 'post'],'receiptsTabViewList/rentReceiptGeneration/{tab?}/{data?}','RentReceiptGenerationController@receiptsTabViewList')->name('receiptsTabViewList');
 /*******Print Preview**********/
 Route::get('rentReceiptGeneration/printPreview/{id}', 'RentReceiptGenerationController@printPreview')->name('printPreview');
+Route::post('rentReceiptGeneration/{id}/landlordDeposit', 'RentReceiptGenerationController@landlordDeposit')->name('receiptLandlordDeposit')->middleware('permission:mark_receipt_landlord_deposit');
 /******* End Print Preview**********/
  Route::match(['get', 'post'],'receiptsTabViewList/rentReceiptGeneration/{tab}','RentReceiptGenerationController@receiptsTabViewList')->name('receiptsTabViewListtab');
 Route::match(['get', 'post'],'receiptsAgreementViewList/rentReceiptGeneration/{id}/{tab}','RentReceiptGenerationController@receiptsAgreementViewList')->name('receiptsAgreementViewList');
@@ -631,6 +650,25 @@ Route::middleware('auth')->group(function () {
 
 	  /***************** Mass Mail **************/
 
+	Route::get('message-log', 'MessageLogController@index')->name('message-log.index');
+	Route::get('message-log/{id}', 'MessageLogController@show')->name('message-log.show');
+	Route::get('bulk-send', 'BulkSendController@index')->name('bulk-send.index');
+	Route::get('bulk-send/create', 'BulkSendController@create')->name('bulk-send.create');
+	Route::post('bulk-send/count', 'BulkSendController@count')->name('bulk-send.count');
+	Route::get('bulk-send/audience-counts', 'BulkSendController@audienceCounts')->name('bulk-send.audience-counts');
+	Route::get('bulk-send/place-counts', 'BulkSendController@placeCounts')->name('bulk-send.place-counts');
+	Route::post('bulk-send/review', 'BulkSendController@review')->name('bulk-send.review');
+	Route::get('bulk-send/search', 'BulkSendController@search')->name('bulk-send.search');
+	Route::post('bulk-send/preview', 'BulkSendController@preview')->name('bulk-send.preview');
+	Route::post('bulk-send', 'BulkSendController@store')->name('bulk-send.store');
+	Route::get('bulk-send/{bulkSend}', 'BulkSendController@show')->name('bulk-send.show')->where('bulkSend', '[0-9]+');
+	Route::post('bulk-send/{bulkSend}/pause', 'BulkSendController@pause')->name('bulk-send.pause');
+	Route::post('bulk-send/{bulkSend}/resume', 'BulkSendController@resume')->name('bulk-send.resume');
+	Route::post('bulk-send/{bulkSend}/cancel', 'BulkSendController@cancel')->name('bulk-send.cancel');
+	Route::post('bulk-send/{bulkSend}/resend-failed', 'BulkSendController@resendFailed')->name('bulk-send.resend-failed');
+	Route::post('message-templates/preview', 'MessageTemplateController@preview')->name('message-templates.preview');
+	Route::post('message-templates/{messageTemplate}/reset', 'MessageTemplateController@reset')->name('message-templates.reset');
+	Route::resource('message-templates', 'MessageTemplateController')->except(['show'])->parameters(['message-templates' => 'messageTemplate']);
 	Route::resource('massMail', 'MassMailController');
 	Route::get('emailAutocomplete', 'MassMailController@emailAutocomplete')->name('emailAutocomplete');
 	Route::get('/massEmailAutocomplete', 'MassMailController@massEmailAutocomplete')->name('massEmailAutocomplete');
@@ -701,6 +739,8 @@ Route::middleware('auth')->group(function () {
 	Route::get('showRentReceiptReport', 'BackOfficeReportController@showRentReceiptReport')->name('showRentReceiptReport');
 
 	Route::post('rentReceiptReportPdf', 'BackOfficeReportController@rentReceiptReportPdf')->name('rentReceiptReportPdf');
+	Route::get('showCashReceiptReport', 'BackOfficeReportController@showCashReceiptReport')->name('showCashReceiptReport');
+	Route::post('cashReceiptReportPdf', 'BackOfficeReportController@cashReceiptReportPdf')->name('cashReceiptReportPdf');
 
 	Route::get('rentBuildingAutocompleteCode', 'BackOfficeReportController@rentBuildingAutocompleteCode')->name('rentBuildingAutocompleteCode');
 
@@ -772,12 +812,23 @@ Route::middleware('auth')->group(function () {
 	// Termination dues: what terminated tenants still owe, by team
 	Route::get('termination-dues', 'TerminationDuesController@index')->name('termination-dues.index');
 	Route::get('termination-dues-summary', 'TerminationDuesController@summary')->name('terminationDuesSummary');
+	Route::get('termination-dues/backfill', 'TerminationDuesController@backfill')->name('termination-dues.backfill');
+	Route::post('termination-dues/backfill/batch', 'TerminationDuesController@backfillBatch')->name('termination-dues.backfill.batch');
 	Route::get('termination-dues/{terminationDues}', 'TerminationDuesController@show')->name('termination-dues.show');
 	Route::post('termination-dues/{terminationDues}/followup', 'TerminationDuesController@storeFollowup')->name('termination-dues.followup');
 	Route::post('termination-dues/{terminationDues}/allocate', 'TerminationDuesController@storeAllocation')->name('termination-dues.allocate');
 	Route::post('termination-dues/{terminationDues}/waive', 'TerminationDuesController@storeWaiver')->name('termination-dues.waive');
 	Route::delete('termination-dues/{terminationDues}/allocation/{allocation}', 'TerminationDuesController@destroyAllocation')->name('termination-dues.allocation.destroy');
 	Route::get('termination-dues/{terminationDues}/print', 'TerminationDuesController@print')->name('termination-dues.print');
+
+	// Receivables follow-up: AREs record calls and promised dates on agreements that owe rent
+	Route::get('receivable-followup', 'ReceivableFollowupController@index')->name('receivable-followup.index');
+	Route::get('receivable-followup/results', 'ReceivableFollowupController@results')->name('receivable-followup.results');
+	Route::get('receivable-followup/rows', 'ReceivableFollowupController@rows')->name('receivable-followup.rows');
+	Route::post('receivable-followup/refresh', 'ReceivableFollowupController@refresh')->middleware('throttle:5,1')->name('receivable-followup.refresh');
+	Route::get('receivable-followup/{contract}/form', 'ReceivableFollowupController@form')->where('contract', '[0-9]+')->name('receivable-followup.form');
+	Route::post('receivable-followup/{contract}', 'ReceivableFollowupController@store')->where('contract', '[0-9]+')->name('receivable-followup.store');
+	Route::get('receivable-followup/{contract}/timeline', 'ReceivableFollowupController@timeline')->where('contract', '[0-9]+')->name('receivable-followup.timeline');
 
 	Route::get('showchequeReturnReport', 'BackOfficeReportController@showchequeReturnReport')->name('showchequeReturnReport');
 

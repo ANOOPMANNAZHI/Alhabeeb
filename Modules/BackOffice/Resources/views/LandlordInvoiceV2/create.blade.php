@@ -192,7 +192,9 @@
                 <label for="building_id">Building<small class="textRed">*</small></label>
                 <div class="p-relative">
                     <i class="icon icon-building" aria-hidden="true"></i>
-                    <select class="form-control" id="building_id" name="building_id" required>
+                    {{-- Searchable front for #building_id (jQuery UI autocomplete); the select stays the submitted field. --}}
+                    <input type="text" class="form-control" id="building_search" placeholder="Type to search building" autocomplete="off" required aria-label="Building">
+                    <select class="form-control liv2-hidden" id="building_id" name="building_id" tabindex="-1" aria-hidden="true">
                         <option value="">Select Building</option>
                         @foreach($buildings as $b)
                         <option value="{{ $b->id }}" {{ (int) old('building_id') === (int) $b->id ? 'selected' : '' }}>{{ $b->building_name }}</option>
@@ -261,6 +263,7 @@
                     ['income', 'Income as per Rental Agreement', true],
                     ['collection', 'Selected Month Collection', true],
                     ['expenses', 'Total Expenses for the Month', false],
+                    ['direct_deposit', 'Less: Direct Deposit to Landlord', false],
                     ['transfer', 'Amount Transfer to Landlord', true],
                     ['total_units', 'Total Number of Units', true],
                     ['occupancy_level', 'Total Building Occupancy Level', true],
@@ -469,6 +472,7 @@ $(function () {
             $('#disp_ov_income').text(r.income);
             $('#disp_ov_collection').text(r.collection);
             $('#disp_ov_expenses').text(r.total_expenses);
+            $('#disp_ov_direct_deposit').text(r.direct_deposit);
             $('#disp_ov_transfer').text(r.transfer_to_landlord);
             $('#disp_ov_total_units').text(r.total_units);
             $('#disp_ov_occupancy_level').text(r.occupancy_level + '%');
@@ -603,6 +607,36 @@ $(function () {
         resetBelow('building');
         if (this.value) { loadVendors(this.value); }
     });
+
+    /* ---------- searchable building box -> #building_id ---------- */
+    var $buildingSearch = $('#building_search');
+    var buildingItems = $building.find('option').filter(function () { return this.value !== ''; }).map(function () {
+        return { id: this.value, label: $(this).text(), value: $(this).text() };
+    }).get();
+    function pickBuilding(id) {
+        if (String($building.val() || '') === String(id || '')) return;
+        $building.val(id || '').trigger('change');
+    }
+    $buildingSearch.autocomplete({
+        source: buildingItems,
+        minLength: 0,
+        delay: 0,
+        select: function (e, ui) { pickBuilding(ui.item.id); },
+        change: function (e, ui) {
+            if (ui.item) return;
+            // Typed text without picking: accept an exact name, otherwise clear.
+            var typed = $.trim(this.value).toLowerCase(), match = null;
+            $.each(buildingItems, function (i, it) { if (it.label.toLowerCase() === typed) { match = it; return false; } });
+            this.value = match ? match.label : '';
+            pickBuilding(match ? match.id : '');
+        }
+    }).on('focus click', function () {
+        if ($(this).autocomplete('widget').is(':visible')) return;
+        // Show the full list when the box just shows the current selection.
+        var current = $building.val() ? $building.find('option:selected').text() : '';
+        $(this).autocomplete('search', this.value === current ? '' : this.value);
+    });
+    $buildingSearch.val($building.find('option:selected').val() ? $building.find('option:selected').text() : '');
     $vendor.on('change', function () {
         resetBelow('vendor');
         if (this.value) { loadContracts($building.val(), this.value); }

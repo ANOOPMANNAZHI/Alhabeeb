@@ -941,6 +941,26 @@ Breadcrumbs::for('closedLegalCasesShow', function ($trail, $closedLegalCases) {
     $trail->parent('closedLegalCases');
     $trail->push('Closed Legal Cases View', route('closedLegalCases',[$closedLegalCases->id]));
 });
+Breadcrumbs::for('handedOverLegalCases', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Handed-over Legal Cases', route('handedOverLegalCases'));
+});
+Breadcrumbs::for('legal.case', function ($trail, $legal) {
+    $trail->parent('legalActiveCases');
+    $trail->push('Legal Case', route('legal.case', $legal->id));
+});
+Breadcrumbs::for('legal.stages', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Legal Stages', route('legal.stages'));
+});
+Breadcrumbs::for('legal.reports.cases', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Legal Cases Summary', route('legal.reports.cases'));
+});
+Breadcrumbs::for('legal.reports.settlements', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Legal Settlements', route('legal.reports.settlements'));
+});
 /*    **************************************************************************     */
 // Tenancy Details  Index
 Breadcrumbs::for('tenancyDetails.index', function ($trail) {
@@ -991,4 +1011,21 @@ Breadcrumbs::for('onboarding-items.create', function ($trail) {
 Breadcrumbs::for('onboarding-items.edit', function ($trail, $item) {
     $trail->parent('onboarding-items.index');
     $trail->push('Edit Item', route('onboarding-items.edit', $item->id));
+});
+// Bounce Reason
+Breadcrumbs::for('bounce-reason.index', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Bounce Reason', route('bounce-reason.index'));
+});
+Breadcrumbs::for('bounce-reason.create', function ($trail) {
+    $trail->parent('bounce-reason.index');
+    $trail->push('Add Bounce Reason', route('bounce-reason.create'));
+});
+Breadcrumbs::for('bounce-reason.edit', function ($trail, $reason) {
+    $trail->parent('bounce-reason.index');
+    $trail->push('Edit Bounce Reason', route('bounce-reason.edit', $reason->id));
+});
+Breadcrumbs::for('referBackCases', function ($trail) {
+    $trail->parent('home');
+    $trail->push('Referred Back Legal Cases', route('referBackCases'));
 });

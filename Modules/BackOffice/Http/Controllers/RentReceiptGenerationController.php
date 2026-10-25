@@ -27,6 +27,7 @@ use Carbon\Carbon;
 use Dynamics;
 use App\Setting;
 use Modules\BackOffice\Services\TerminationDuesService;
+use Modules\BackOffice\Services\ReceiptNarration;
 
 #[\AllowDynamicProperties]
 class RentReceiptGenerationController extends Controller
@@ -95,15 +96,13 @@ class RentReceiptGenerationController extends Controller
 
          ]);
 
-        // Terminated contracts: only the open rent dues may be collected, and never for a period after termination.
-        $duesError = (new TerminationDuesService)->rentReceiptError(
+        // Terminated contracts: the receipt is always saved (user, 03/10/2026); a mismatch with the
+        // termination dues is only shown as a note after saving.
+        $duesNote = (new TerminationDuesService)->rentReceiptNote(
             $request->tenant_contract_no,
             replaceCommaWithDot($request->receipts_generation_amt),
             $request->receipts_generation_eff_to
         );
-        if ($duesError) {
-            return redirect()->back()->withInput()->with('error', $duesError);
-        }
          // 1 - cheque, 2 - cash - receipt No sequence
         // 1 - cheque, 2 - cash - receipt No sequence
         if($request->receipts_generation_payment_method == 1){	
@@ -158,7 +157,7 @@ class RentReceiptGenerationController extends Controller
                          ? (isset($request->pdc_replace_cheque) ? $request->pdc_replace_cheque : null)
                          : (isset($request->pdc_bounce_cheque) ? $request->pdc_bounce_cheque : null),
                      'created_by' => \Auth::user()->id
-                 ]);
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord));
 
         // If Replace: update PDC cancel reason and remark at save time so PDC page reflects it immediately
         if (isset($request->pay_type) && $request->pay_type == 3 && !empty($request->pdc_replace_cheque)) {
@@ -174,7 +173,7 @@ class RentReceiptGenerationController extends Controller
 		$this->incrementSequenceNo($configIncKey);
         TerminationDuesService::touchContract($request->tenant_contract_no);
 
-        session()->flash('success', 'Saved Successfully');
+        session()->flash('success', 'Saved Successfully' . ($duesNote ? '. Please check: ' . $duesNote : ''));
         return redirect()->route('receiptsTabViewListtab','rent');
     }
 
@@ -199,6 +198,20 @@ class RentReceiptGenerationController extends Controller
     }
 
     /**
+     * Mark / unmark a receipt as "Direct deposit to landlord" (tenant paid the landlord directly).
+     * Changes only the flag, for any receipt status; amounts, status and AX posting are untouched.
+     */
+    public function landlordDeposit(Request $request, $id)
+    {
+        $receipt = ReceiptsGeneration::findOrFail($id);
+        $paid = $request->paid_to_landlord == 1;
+        $receipt->update(ReceiptsGeneration::landlordDepositFields($paid, $receipt));
+
+        session()->flash('success', $paid ? 'Marked as direct deposit to landlord' : 'Direct deposit to landlord mark removed');
+        return redirect()->route('rentReceiptGeneration.show', $id);
+    }
+
+    /**
      * Tenant receipt edit
      * @param int $id
      * @return Response
@@ -211,7 +224,8 @@ class RentReceiptGenerationController extends Controller
         
         $bankMaster = Bank::Where('bank_status', 1)->where('accounts_bank',1)->orderBy('bank_name', 'ASC')->get();    
         $contract_bounce_pdc  = Pdc::where('tenant_contract_id',$rentReceiptInfo->tenant_contract_id)->where('pdc_cancel_reason',1)->get();
-        $contract_replace_pdc = Pdc::where('tenant_contract_id',$rentReceiptInfo->tenant_contract_id)->whereNull('pdc_receipt_no')->get();
+        $contract_replace_pdc = $this->replaceablePdcs($rentReceiptInfo->tenant_contract_id,
+            $rentReceiptInfo->receipts_generation_is_bounce_normal == 3 ? $rentReceiptInfo->receipts_generation_is_pdc_bounce_id : null);
 
 		// 1 - cheque, 2 - cash - receipt No sequence
 		$cashReceiptNo    = $this->receiptGenerateCode('receipt_cash');
@@ -242,15 +256,13 @@ class RentReceiptGenerationController extends Controller
 
          ]);
 
-        $duesError = (new TerminationDuesService)->rentReceiptError(
+        // always saved; a mismatch with the termination dues is only shown as a note
+        $duesNote = (new TerminationDuesService)->rentReceiptNote(
             $request->tenant_contract_no,
             replaceCommaWithDot($request->receipts_generation_amt),
             $request->receipts_generation_eff_to,
             $id
         );
-        if ($duesError) {
-            return redirect()->back()->withInput()->with('error', $duesError);
-        }
 
 		 $rentReceiptInfo = ReceiptsGeneration::where('id', $id)->first();
 		 
@@ -277,7 +289,7 @@ class RentReceiptGenerationController extends Controller
                          ? (isset($request->pdc_replace_cheque) ? $request->pdc_replace_cheque : null)
                          : (isset($request->pdc_bounce_cheque) ? $request->pdc_bounce_cheque : null),
                      'created_by' => \Auth::user()->id
-                 ]);
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord, $rentReceiptInfo));
 
         // If Replace: update PDC cancel reason and remark at save time so PDC page reflects it immediately
         if (isset($request->pay_type) && $request->pay_type == 3 && !empty($request->pdc_replace_cheque)) {
@@ -291,7 +303,7 @@ class RentReceiptGenerationController extends Controller
 
         TerminationDuesService::touchReceipt($id);
 
-        session()->flash('success', 'Saved Successfully');
+        session()->flash('success', 'Saved Successfully' . ($duesNote ? '. Please check: ' . $duesNote : ''));
         return redirect()->route('receiptsTabViewListtab','rent');
     }
 
@@ -529,7 +541,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
     $route   =   $request->url();     
    // print_r($route);exit;
     if(!isset($request->are_id) || $request->are_id == ''){
-       $receiptslist = ViewReceipt::whereNull('deleted_at')->filter($request)->type($tab)
+       $receiptslist = ViewReceipt::whereNull('deleted_at')->filter($request)->type($tab)->paidToLandlord($request->paid_to_landlord)
                                         ->sortable()
                                         ->paginate($this->noOfRecord);  
     $are_id = ''; 
@@ -558,7 +570,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                     })
                 ->pluck('id')->toArray();
             // print_r($collectionMTD);exit;
-        $receiptslist = ViewReceipt::whereNull('deleted_at')->filter($request)->type($tab)
+        $receiptslist = ViewReceipt::whereNull('deleted_at')->filter($request)->type($tab)->paidToLandlord($request->paid_to_landlord)
                                         ->sortable()->whereIn('id',$collectionMTD)
                                         ->paginate($this->noOfRecord);
         $are_id =  $headUser; 
@@ -566,11 +578,13 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
     }
    
                                      
+    // receipts marked "Direct deposit to landlord" on this page (view_receipt has no such column)
+    $landlordIds = ReceiptsGeneration::whereIn('id', $receiptslist->pluck('id'))->where('receipts_generation_paid_to_landlord', true)->pluck('id')->all();
     //dd($receiptslist);
     if(isset($request->ajax))
-    return view('backoffice::Receipt.receipt_list_ajax',compact('receiptslist','tab','request','route','are_id','date')); 
+    return view('backoffice::Receipt.receipt_list_ajax',compact('receiptslist','tab','request','route','are_id','date','landlordIds')); 
 
-    return view('backoffice::Receipt.receipt_list',compact('receiptslist','tab','search_fields','operations','route','are_id','date'));
+    return view('backoffice::Receipt.receipt_list',compact('receiptslist','tab','search_fields','operations','route','are_id','date','landlordIds'));
        
 
     }
@@ -675,7 +689,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'receipts_generation_is_bounce_normal'=>isset($request->pay_type)?$request->pay_type:1,
                      'receipts_generation_is_pdc_bounce_id'=>isset($request->pdc_bounce_cheque)?$request->pdc_bounce_cheque:null,
                      'created_by' => \Auth::user()->id,
-                 ]);   
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord));   
                
                  // Debit Insertation
                  ReceiptGenerationDim::create([
@@ -814,8 +828,15 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'receipts_generation_is_bounce_normal'=>isset($request->pay_type)?$request->pay_type:1,
                      'receipts_generation_is_pdc_bounce_id'=>isset($request->pdc_bounce_cheque)?$request->pdc_bounce_cheque:null,
                      'created_by' => \Auth::user()->id,
-                 ]);   
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord, $rentReceiptInfo));   
 
+        // Distribution lines follow the edited amount: bank debit, then deposit ledger credit (order they are added in)
+        $amount = replaceCommaWithDot($request->receipts_generation_amt);
+        $lines  = ReceiptGenerationDim::where('receipts_generation_id', $id)->orderBy('id')->pluck('id');
+        if (count($lines) == 2) {
+            ReceiptGenerationDim::where('id', $lines[0])->update(['debit_amount' => $amount, 'credit_amount' => 0, 'updated_by' => \Auth::user()->id]);
+            ReceiptGenerationDim::where('id', $lines[1])->update(['debit_amount' => 0, 'credit_amount' => $amount, 'updated_by' => \Auth::user()->id]);
+        }
 
         session()->flash('success', 'Update Successfully');
         return redirect()->route('receiptsTabViewListtab','deposit');
@@ -902,7 +923,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'general_receipt_narration'=>$request->general_narration ,
                      'created_by' => \Auth::user()->id,
                      
-                 ]);   
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord));   
         
         if(count($request->account_code) > 0){ 
             foreach ($request->account_code as $key => $value) {
@@ -1014,7 +1035,7 @@ public function receiptContractDetailsByBuildingUnit(Request $request){
                      'finance_dim' => $request->finance_dim,
                      'general_receipt_narration'=> $request->general_narration,
                      'created_by' => \Auth::user()->id,
-                 ]);   
+                 ] + ReceiptsGeneration::landlordDepositFields($request->paid_to_landlord, $generalReceiptInfo));   
            
             
             ReceiptGenerationDim::where('receipts_generation_id',$id)->delete();
@@ -1459,6 +1480,8 @@ $receiptslist = ViewReceipt::filter($request)
                     }
                 } 
                 else{ 
+                    // Cash against a cheque posts the rent line + a cheque note, like the printed receipt
+                    $axNarration = ReceiptNarration::forAxPostingOf($receiptInfo);
                     //Comprehensive Building
                     if($management_type == 1){
                                     
@@ -1471,7 +1494,7 @@ $receiptslist = ViewReceipt::filter($request)
                                         'JournalNum'=> $response,
                                         'JournalName'=> AR_PAYMENT_JOURNAL_NAME,
                                         'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-                                        'Description'=> $receiptInfo->receipts_generation_remark,
+                                        'Description'=> $axNarration['description'],
                                         'CustAccount'=> $receiptInfo->tenantContractInfo->tenant->tenant_code ,
                                         'currency'=> CURRENCY,
                                         'accountType'=> 'Cust',
@@ -1481,7 +1504,7 @@ $receiptslist = ViewReceipt::filter($request)
                                         'DebitCredit'=>'Credit',
                                         'voucher'=>$receiptInfo->receipts_generation_receipt_no,
                                         'Amount'=>$receiptInfo->receipts_generation_amt,
-                                        'Remarks'=>$receiptInfo->receipts_generation_description,
+                                        'Remarks'=> $axNarration['remarks'],
                                         'Invoice'=>'',
                                         'dimension1'=> 'Building',
                                         'dimension1value'=>isset($receiptInfo->tenantContractInfo->building->building_code)?$receiptInfo->tenantContractInfo->building->building_code:'000',
@@ -1511,7 +1534,7 @@ $receiptslist = ViewReceipt::filter($request)
                                             'JournalNum'=> $response,
                                             'JournalName'=> AR_PAYMENT_JOURNAL_NAME,
                                             'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-                                            'Description'=> $receiptInfo->receipts_generation_remark,
+                                            'Description'=> $axNarration['description'],
                                             'CustAccount'=> $bank_checkbkId,
                                             'currency'=> CURRENCY,
                                             'accountType'=> AX_BANK,
@@ -1521,7 +1544,7 @@ $receiptslist = ViewReceipt::filter($request)
                                             'DebitCredit'=>'Debit',
                                             'voucher'=>$receiptInfo->receipts_generation_receipt_no,
                                             'Amount'=>$receiptInfo->receipts_generation_amt,
-                                            'Remarks'=>$receiptInfo->receipts_generation_description,
+                                            'Remarks'=> $axNarration['remarks'],
                                             'Invoice'=>'',
                                             'dimension1'=> 'Building',
                                             'dimension1value'=>'000',
@@ -1567,7 +1590,7 @@ $receiptslist = ViewReceipt::filter($request)
                                 'JournalNum'=> $response,
                                 'JournalName'=> GENERAL_LEDGER_JOURNAL_NAME,
                                 'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-                                'Description'=>$receiptInfo->receipts_generation_remark,
+                                'Description'=> $axNarration['description'],
                                 'Account'=> $bank_checkbkId,
                                 'currency'=> CURRENCY,
                                 'accountType'=> AX_BANK,
@@ -1578,7 +1601,7 @@ $receiptslist = ViewReceipt::filter($request)
                                 'voucher'=>$receiptInfo->receipts_generation_receipt_no,
                                 'AmountCredit'=>0,
                                 'AmountDebit'=>$receiptInfo->receipts_generation_amt,
-                                'Remarks'=> $receiptInfo->receipts_generation_description,
+                                'Remarks'=> $axNarration['remarks'],
                                 'Invoice'=>'',
                                 'dimension1'=> 'Building',
                                 'dimension1value'=>'000',
@@ -1597,7 +1620,7 @@ $receiptslist = ViewReceipt::filter($request)
                                 'JournalNum'=> $response,
                                 'JournalName'=> GENERAL_LEDGER_JOURNAL_NAME,
                                 'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-                                'Description'=> $receiptInfo->receipts_generation_remark,
+                                'Description'=> $axNarration['description'],
                                 'Account'=> $acc_parameter->acc_params_cr_acc,
                                 'currency'=> CURRENCY,
                                 'accountType'=> AX_GL,
@@ -1608,7 +1631,7 @@ $receiptslist = ViewReceipt::filter($request)
                                 'voucher'=>$receiptInfo->receipts_generation_receipt_no,
                                 'AmountCredit'=>$receiptInfo->receipts_generation_amt,
                                 'AmountDebit'=>0,
-                                'Remarks'=>$receiptInfo->receipts_generation_remark,
+                                'Remarks'=> $axNarration['remarks_alt'],
                                 'Invoice'=>'',
                                 'dimension1'=> 'Building',
                                 'dimension1value'=>isset($receiptInfo->tenantContractInfo->building->building_code)?$receiptInfo->tenantContractInfo->building->building_code:'000',
@@ -2168,11 +2191,7 @@ $receiptslist = ViewReceipt::filter($request)
   */
   public function pdcListWithoutReceiptByContract(Request $request)
   {
-      $contract_id = $request->contractId;
-
-      $pdc_list = Pdc::where('tenant_contract_id', $contract_id)
-                     ->whereNull('pdc_receipt_no')
-                     ->get();
+      $pdc_list = $this->replaceablePdcs($request->contractId, $request->current ?: null);
 
       $option = '';
       if (count($pdc_list) == 0) {
@@ -2180,11 +2199,42 @@ $receiptslist = ViewReceipt::filter($request)
       } else {
           $option .= '<option value="">Select Cheque</option>';
           foreach ($pdc_list as $list) {
-              $option .= '<option value="' . $list->id . '" data-cheque="' . $list->pdc_check_no . '">' . $list->pdc_check_no . '</option>';
+              $option .= '<option value="' . $list->id . '" data-cheque="' . $list->pdc_check_no . '"' . ((string) $list->id === (string) $request->current ? ' selected' : '') . '>'
+                       . e($list->pdc_check_no . ' - ' . ($list->pdc_check_date ? $list->pdc_check_date->format('d/m/Y') : '') . ' - ' . numberFormat($list->pdc_amt)) . '</option>';
           }
       }
 
       return json_encode(['option_html' => $option]);
+  }
+
+  /**
+   * PDCs of the agreement a cash receipt can still replace: no receipt yet (not
+   * posted, cleared, bounced, exchanged or already replaced) and no live receipt
+   * on the agreement carrying the cheque number (booked by hand). $keepId: the
+   * PDC the receipt being edited already replaces, kept in the list.
+   */
+  private function replaceablePdcs($contractId, $keepId = null)
+  {
+      return Pdc::where('tenant_contract_id', $contractId)
+          ->where(function ($q) use ($keepId) {
+              $q->where(function ($open) {
+                  $open->whereNull('pdc_receipt_no')
+                       ->where('pdc_is_posted', 0)
+                       ->whereNull('pdc_clear_date')
+                       ->where(function ($c) { $c->where('pdc_cancel_reason', '0')->orWhereNull('pdc_cancel_reason'); })
+                       ->whereRaw("NOT EXISTS (
+                            SELECT 1 FROM receipts_generation rg
+                            WHERE rg.tenant_contract_id = pdc.tenant_contract_id AND rg.deleted_at IS NULL
+                              AND rg.receipts_generation_status <> 2
+                              AND ltrim(CASE WHEN position('__' in rg.receipts_generation_cheque_no) > 0 THEN split_part(rg.receipts_generation_cheque_no, '__', 2)
+                                             ELSE rg.receipts_generation_cheque_no END, '0') = ltrim(pdc.pdc_check_no::text, '0'))");
+              });
+              if ($keepId) {
+                  $q->orWhere('id', $keepId);
+              }
+          })
+          ->orderBy('pdc_check_date')
+          ->get();
   }
 
    /***    receiptsAgreementList    of Contract    ***/

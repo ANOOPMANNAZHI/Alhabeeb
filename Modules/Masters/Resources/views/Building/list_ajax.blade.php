@@ -17,12 +17,25 @@
          <a @can('edit_building') href="{{route('building.edit',$building->id)}}" title="Edit" @elsecan('view_building') href="{{route('building.show',$building->id)}}" title="View"  @endcan class="no-link" >
           {{$building->management->management_types_name}}
         </td>
+        <td>{{ $building->ownership_type_name }}</td>
+        <td>
+          @can('edit_building')
+          <label style="display:inline-flex;align-items:center;gap:6px;margin:0;font-weight:normal;cursor:pointer" title="Taxable">
+            <input type="checkbox" class="building-taxable" data-url="{{ route('building.changeTaxable', $building->id) }}" {{ $building->building_is_taxable ? 'checked' : '' }} aria-label="Taxable: {{ $building->building_name }}" style="width:16px;height:16px;margin:0">
+            <span class="building-taxable-text">{{ $building->building_is_taxable ? 'Yes' : 'No' }}</span>
+          </label>
+          @else
+          {{ $building->building_is_taxable ? 'Yes' : 'No' }}
+          @endcan
+        </td>
         @can('change_status_building')   
         <td> 
 
          @if($building->building_status == 1)
          <span  class=" btn-circle btn-success btn-sm m-b-10 status">{{$building->building_status_name}}</span>
-         @else 
+         @elseif($building->building_handed_over)
+         <span  class=" btn-circle btn-warning btn-sm m-b-10" title="{{ $building->building_handed_over_date ? 'Handed over on '.\Carbon\Carbon::parse($building->building_handed_over_date)->format('d/m/Y') : 'Handed over' }}">{{$building->building_status_name}}</span>
+         @else
          <span  class=" btn-circle btn-danger btn-sm m-b-10">{{$building->building_status_name}}</span>
          @endif
 
@@ -51,7 +64,7 @@
                         @php $count++; @endphp
                         @empty
                         <tr>
-                          <td colspan="4" align="center">
+                          <td colspan="8" align="center">
                             <p>No Record</p>
                           </td>
                         </tr>
@@ -62,7 +75,7 @@
                                 <tr>                                   
                                             
                                                       
-                                  <td colspan="6" id="pagination_ajax"> 
+                                  <td colspan="8" id="pagination_ajax"> 
                                         @php 
                                         $buildings->withPath(\Request::input('curr_url'));
                              

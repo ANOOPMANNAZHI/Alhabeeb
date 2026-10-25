@@ -27,6 +27,7 @@
 					Create Renew Contract
 			  	</a>                    	
 				@endcan
+				@include('backoffice::RenewalOrTermination.partials.renewal_vacate')
 			</div>
  <div class="dataSearchBox">   
 
@@ -516,6 +517,7 @@
 </div>
 </div>
 
+@stack('renewal_vacate_modal')
 @endsection
 @section('scripts')
 <script> 

@@ -7,6 +7,12 @@
   .tdue-list td.num, .tdue-list th.num { text-align:right; white-space:nowrap; }
   .tdue-list .tdue-sub { display:block; font-size:12px; color:#6b7280; }
   .tdue-list .tdue-overdue { color:#dc2626; }
+  /* Own styles: the theme's .btn sizing clips longer labels on this page */
+  .tdue-create-btn { display:inline-flex; align-items:center; gap:8px; width:auto; height:40px; padding:0 16px; margin:0 0 16px;
+                     border:1px solid #16a34a; border-radius:6px; background:#16a34a; color:#fff;
+                     font-size:14px; font-weight:600; line-height:1; white-space:nowrap; text-decoration:none; }
+  .tdue-create-btn:hover, .tdue-create-btn:focus { background:#15803d; border-color:#15803d; color:#fff; text-decoration:none; }
+  .tdue-create-btn:focus-visible { outline:2px solid #2f4fd6; outline-offset:2px; }
 </style>
 @endsection
 

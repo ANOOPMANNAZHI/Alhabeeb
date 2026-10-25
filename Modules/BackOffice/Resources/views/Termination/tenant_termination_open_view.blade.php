@@ -74,6 +74,18 @@
                 <h5 class="details"><b>Agreement Date  :  </b><span>{{isset($tenantContract->created_at)?$tenantContract->created_at->format('d/m/Y'):""}}</span></h5>
             </div>
         </div>
+        {{-- same figure as the other termination screens; a click scrolls to Current And Previous Contracts --}}
+        <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+                <h5 class="details"><b>Outstanding Amount :  </b><span><a href="#tos-contracts" class="tos-jump" style="color:#c00000; font-weight:700" title="Go to Current And Previous Contracts">{{ numberFormat($outstandingOs) }} OMR</a></span></h5>
+            </div>
+        </div>
+        {{-- deposit still held for the tenancy (all contracts of this tenant on this unit), same as the taken-over view --}}
+        <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+                <h5 class="details"><b>Deposit Amount :  </b><span>{{ $deposit['has_deposit'] ? numberFormat($deposit['held']) . ' OMR' : 'NA' }}</span></h5>
+            </div>
+        </div>
     </div>
 </div>
 <div class="sub-head">Building Details</div>
@@ -88,6 +100,11 @@
         <div class="col-lg-6 p-t-20"> 
             <div class = "txt-full-width">
                 <h5 class="details"><b>Building Code :  </b><span>{{$tenantContract->building->building_code}}</span></h5>
+            </div>
+        </div>
+        <div class="col-lg-6 p-t-20">
+            <div class = "txt-full-width">
+                <h5 class="details"><b>ARE Name :  </b><span>{{ $areName ?: 'Not assigned' }}</span></h5>
             </div>
         </div>
         <div class="col-lg-6 p-t-20"> 
@@ -444,7 +461,17 @@
 </div> -->
 <!--Document Section ends -->
 <!-------------Previous Contract of Tenant --------------->
-<div class="row">
+<div class="row" id="tos-contracts">
+<script>
+  // Outstanding Amount link at the top: smooth scroll here, clearing the fixed header
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a.tos-jump') : null;
+    if (!a) { return; }
+    e.preventDefault();
+    var el = document.getElementById('tos-contracts');
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.pageYOffset - 80, behavior: 'smooth' });
+  });
+</script>
   <div class="col-sm-12">
     <div class="card card-box salesLeadBox">
       <div class="card-head">

@@ -50,10 +50,11 @@
 											<label for="tenant_contract_registered_date">Contract Registered Date<small class="textRed">*</small></label>
 											<div class="p-relative">
 												<i class="fa fa-calendar-o icn-add" aria-hidden="true"></i>
-												<input type="date" class="form-control" id="tenant_contract_registered_date" placeholder="Enter Contract Registered Date" name="tenant_contract_registered_date"  value="{{old('tenant_contract_registered_date',isset($tenantContractInfo->tenant_contract_registered_date)? $tenantContractInfo->tenant_contract_registered_date->format('Y-m-d') : '')}}" required>
+												<input type="date" class="form-control" id="tenant_contract_registered_date" placeholder="Enter Contract Registered Date" name="tenant_contract_registered_date"  value="{{old('tenant_contract_registered_date',isset($tenantContractInfo->tenant_contract_registered_date)? $tenantContractInfo->tenant_contract_registered_date->format('Y-m-d') : date('Y-m-d'))}}" required>
 											</div>
 										</div>
 									</div>
+									@include('backoffice::TenantContract._municipality_charges', ['municipality' => $municipality])
 									<div class="col-sm-12">
 										<div class="form-group">
 											<label for="tenant_contract_note">Guarantee cheque </label>

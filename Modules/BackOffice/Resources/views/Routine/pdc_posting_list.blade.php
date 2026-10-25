@@ -23,14 +23,51 @@
     <div class=" pull-left">
       <div class="page-title">PDC Bulk Posting</div>
     </div> 
-    {{ Breadcrumbs::render('pdcPosting') }} 
+    {{ Breadcrumbs::render('pdcPosting') }}
+  </div>
+</div>
+
+<a class="align-right advSearch" href="#" data-toggle="modal" data-target="#bank-sheet-modal" id="bank-sheet-open">
+  <i class="fa fa-file-excel-o" aria-hidden="true"></i> Import Bank Sheet
+</a>
+<a class="align-right advSearch" href="{{ route('pdcBankSheetUploads') }}" style="margin-right:15px">
+  <i class="fa fa-history" aria-hidden="true"></i> Bank Sheet Posting History
+</a>
+<div class="clearfix"></div>
+
+{{-- Import the bank's cheque clearing sheet (modal) --}}
+<div class="modal fade" id="bank-sheet-modal" tabindex="-1" role="dialog" aria-labelledby="bank-sheet-modal-title" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="post" action="{{ route('pdcBankSheetUpload') }}" enctype="multipart/form-data" id="bank-sheet-form">
+        @csrf
+        <div class="modal-header">
+          <h4 class="modal-title" id="bank-sheet-modal-title">Import Bank Clearing Sheet</h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom:8px">
+            <label for="bank_sheet">Cheque clearing export (.xls / .xlsx)</label>
+            <input type="file" class="form-control" name="bank_sheet" id="bank_sheet" accept=".xls,.xlsx" required>
+          </div>
+          <p class="help-block" style="margin:0;color:#6b7280;font-size:12px">
+            Accepted cheques are matched to unposted PDCs by cheque number, bank, month and amount.
+            You review the matches on the next screen before anything is posted.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="bank-sheet-submit">Upload &amp; Review</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 
 <div class="row">
 	<div class="col-md-12 col-sm-12 dashboardtab">
 		<div class="panel tab-border card-box">
-      @include('backoffice::Routine.pdc_search')   
+      @include('backoffice::Routine.pdc_search')
     </div>
   </div>
 </div>
@@ -135,7 +172,8 @@
 
         var maxDate = year + '-' + month + '-' + day;    
         $('#pdc_deposit_date').attr('max', maxDate);
-  }); 
+   $('#bank-sheet-form').on('submit', function () { $('#bank-sheet-submit').prop('disabled', true).text('Reading sheet…'); });
+  });
    $("#checkAll").click(function () {
      $('input:checkbox').not(this).prop('checked', this.checked);
    });

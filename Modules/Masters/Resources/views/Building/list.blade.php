@@ -79,7 +79,9 @@
         <th>@sortablelink('building_name','Building Name',[], ['class' => 'sort_class'])</th>                       
         <th>@sortablelink('vendor.vendor_name','Landlord Name',[], ['class' => 'sort_class'])</th>
         <th>@sortablelink('management.management_types_name','Management Type',[], ['class' => 'sort_class'])</th>
-        @can('change_status_building')   
+        <th>@sortablelink('building_ownership_type','Ownership Type',[], ['class' => 'sort_class'])</th>
+        <th>@sortablelink('building_is_taxable','Taxable',[], ['class' => 'sort_class'])</th>
+        @can('change_status_building')
         <th>@sortablelink('building_status','Status',[], ['class' => 'sort_class'])</th>
         @endcan
         <th>Action</th>
@@ -90,12 +92,28 @@
         <td><input  type="text" name="building_name" class="search_fields " id="building_name" value="{{old('building_name')}}" ></td>
         <td><input  type="text" name="vendor__vendor_name" class="search_fields " id="vendor__vendor_name" value="{{old('vendor__vendor_name')}}" ></td>
         <td><input  type="text" name="management__management_types_name" class="search_fields " id="management__management_types_name" value="{{old('management__management_types_name')}}" ></td>
+        <td>
+          <select name="building_ownership_type" class="searchFields search_fields mob" id="building_ownership_type" style="width:130px;">
+            <option value="">Show All</option>
+            @foreach(\Modules\Masters\Entities\Building::ownershipTypes() as $ownershipId => $ownershipName)
+            <option {{ ((string) old('building_ownership_type') === (string) $ownershipId) ? 'selected' : '' }} value="{{$ownershipId}}">{{$ownershipName}}</option>
+            @endforeach
+          </select>
+        </td>
+        <td>
+          <select name="building_is_taxable" class="searchFields search_fields mob" id="building_is_taxable" style="width:90px;">
+            <option value="">Show All</option>
+            <option {{ (string) old('building_is_taxable') === '1' ? 'selected' : '' }} value="1">Yes</option>
+            <option {{ (string) old('building_is_taxable') === '0' ? 'selected' : '' }} value="0">No</option>
+          </select>
+        </td>
         @can('change_status_building')
         <td>
           <select name="building_status" class="searchFields search_fields mob" id="building_status" style="width:100px;">
             <option value="">Show All</option>
             <option {{ (old('building_status') != '')? ((old('building_status') ==  0)? 'selected':'') : ''}}   value="0">Inactive</option>
             <option {{(old('building_status') ==  1)? 'selected':''}}  value="1">Active</option>
+            <option {{(old('building_status') ==  2)? 'selected':''}}  value="2">Handed Over</option>
           </select>
         </td>
         @endcan
@@ -284,15 +302,31 @@
     }
   })
 
+  // Taxable switch: saves straight away; on failure the switch goes back.
+  $(document).on('change', '.building-taxable', function () {
+    var $box = $(this), on = $box.prop('checked');
+    if (!confirm(on ? 'Mark this building as taxable?' : 'Mark this building as not taxable?')) {
+      $box.prop('checked', !on);
+      return;
+    }
+    $box.prop('disabled', true);
+    $.post($box.attr('data-url'), { taxable: on ? 1 : 0, _token: $('meta[name="csrf-token"]').attr('content') })
+      .done(function (r) { $box.prop('checked', !!r.taxable).next('.building-taxable-text').text(r.taxable ? 'Yes' : 'No'); })
+      .fail(function () { $box.prop('checked', !on); alert('Could not save Taxable. Please try again.'); })
+      .always(function () { $box.prop('disabled', false); });
+  });
+
 
   $(document).on('change keyup paste','.search_fields',function(){ 
 
    var building_name = $("#building_name").val();  
    var vendor__vendor_name = $("#vendor__vendor_name").val();  
    var management__management_types_name = $("#management__management_types_name").val();  
-   var building_status = $("#building_status").val();  
+   var building_status = $("#building_status").val();
+   var building_ownership_type = $("#building_ownership_type").val();
+   var building_is_taxable = $("#building_is_taxable").val();
 
-   var curr_url = $("#curr_url").val();  
+   var curr_url = $("#curr_url").val();
 
 
 
@@ -302,6 +336,8 @@
     data: { 'building_name' : building_name, 'vendor__vendor_name' : vendor__vendor_name , 
     'management__management_types_name' : management__management_types_name,
     'building_status' : building_status,
+    'building_ownership_type' : building_ownership_type,
+    'building_is_taxable' : building_is_taxable,
 
     'curr_url' : curr_url,"_token" : $('meta[name="csrf-token"]').attr('content')},
 
@@ -329,7 +365,7 @@
             }  
 
             var txt = 'building_name='+building_name+'&vendor__vendor_name='+vendor__vendor_name+'&management__management_types_name='+
-            management__management_types_name+'&building_statu='+building_status+'&curr_url='+curr_url ;
+            management__management_types_name+'&building_statu='+building_status+'&building_ownership_type='+building_ownership_type+'&building_is_taxable='+building_is_taxable+'&curr_url='+curr_url ;
 
             var txt_hashes = txt.split('&');
             var href_txt = '';

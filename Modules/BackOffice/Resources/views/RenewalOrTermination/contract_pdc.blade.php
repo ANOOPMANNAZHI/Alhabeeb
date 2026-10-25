@@ -223,6 +223,7 @@
               <option value="1" {{($item->pdc_type == 1)?'selected':''}}>Rent</option>
               <option value="2" {{($item->pdc_type == 2)?'selected':''}}>Deposit</option>
               <option value="3" {{($item->pdc_type == 3)?'selected':''}}>Others</option>
+              <option value="4" {{($item->pdc_type == 4)?'selected':''}}>VAT</option>
 
             </select>
 
@@ -231,6 +232,7 @@
               <option value="1" {{($item->pdc_type == 1)?'selected':''}}>Rent</option>
               <option value="2" {{($item->pdc_type == 2)?'selected':''}}>Deposit</option>
               <option value="3" {{($item->pdc_type == 3)?'selected':''}}>Others</option>
+              <option value="4" {{($item->pdc_type == 4)?'selected':''}}>VAT</option>
 
             </select>
             @endif
@@ -242,14 +244,14 @@
               <select name="temp_bank_id_{{$key}}" id="temp_bank_id_{{$key}}" {{($isDisable)?'disabled':''}}>
                 <option value="">Select</option>
                 @foreach($bankMaster as $name)
-                <option {{($item->bank_id == $name->id)?'selected':''}} value="{{$name->id}}">{{$name->bank_code}}</option>
+                <option {{($item->bank_id == $name->id)?'selected':''}} value="{{$name->id}}">{{ trim($name->bank_name) }}</option>
                 @endforeach
               </select>
               @else
               <select name="bank_id_{{$key}}" id="bank_id_{{$key}}" >
                 <option value="">Select</option>
                 @foreach($bankMaster as $name)
-                <option {{($item->bank_id == $name->id)?'selected':''}} value="{{$name->id}}">{{$name->bank_code}}</option>
+                <option {{($item->bank_id == $name->id)?'selected':''}} value="{{$name->id}}">{{ trim($name->bank_name) }}</option>
                 @endforeach
               </select>         
               @endif
@@ -289,28 +291,12 @@
             <input type="hidden" name="pdc_bounce_reason_{{$key}}" id="pdc_bounce_reason_{{$key}}" value="{{$item->pdc_bounce_reason}}">               
             <select name="temp_pdc_bounce_reason_{{$key}}" disabled  id="temp_pdc_bounce_reason_{{$key}}">
               <option value="">Select</option>
-              <option value="1" {{($item->pdc_bounce_reason == 1)?'selected':''}}>Insufficient Funds</option>
-              <option value="2" {{($item->pdc_bounce_reason == 2)?'selected':''}}>Signature Missing</option>
-              <option value="3" {{($item->pdc_bounce_reason == 3)?'selected':''}}>Signature Mismatch</option> 
-              <option value="4" {{($item->pdc_bounce_reason == 4)?'selected':''}}>Word in amount and figure differ</option>
-              <option value="5" {{($item->pdc_bounce_reason == 5)?'selected':''}}>Stop Payment</option>
-              <option value="6" {{($item->pdc_bounce_reason == 6)?'selected':''}}>Refer to Drawer</option>
-              <option value="7" {{($item->pdc_bounce_reason == 7)?'selected':''}}>Correction</option>  
-              <option value="8" {{($item->pdc_bounce_reason == 8)?'selected':''}}>Stale Cheque (Beyond six months)</option>
-              <option value="9" {{($item->pdc_bounce_reason == 9)?'selected':''}}>Misc</option>
+              @include('backoffice::Pdc._bounce_reason_options', ['selected' => $item->pdc_bounce_reason])
             </select>
             @else
             <select name="pdc_bounce_reason_{{$key}}" {{!$item->pdc_bounce_reason?'disabled':''}} id="pdc_bounce_reason_{{$key}}">
               <option value="">Select</option>
-              <option value="1" {{($item->pdc_bounce_reason == 1)?'selected':''}}>Insufficient Funds</option>
-              <option value="2" {{($item->pdc_bounce_reason == 2)?'selected':''}}>Signature Missing</option>
-              <option value="3" {{($item->pdc_bounce_reason == 3)?'selected':''}}>Signature Mismatch</option> 
-              <option value="4" {{($item->pdc_bounce_reason == 4)?'selected':''}}>Word in amount and figure differ</option>
-              <option value="5" {{($item->pdc_bounce_reason == 5)?'selected':''}}>Stop Payment</option>
-              <option value="6" {{($item->pdc_bounce_reason == 6)?'selected':''}}>Refer to Drawer</option>
-              <option value="7" {{($item->pdc_bounce_reason == 7)?'selected':''}}>Correction</option>  
-              <option value="8" {{($item->pdc_bounce_reason == 8)?'selected':''}}>Stale Cheque (Beyond six months)</option>
-              <option value="9" {{($item->pdc_bounce_reason == 9)?'selected':''}}>Misc</option>
+              @include('backoffice::Pdc._bounce_reason_options', ['selected' => $item->pdc_bounce_reason])
             </select>   
             @endif
           </td>
@@ -336,7 +322,7 @@
           <select name="pdc_type_0" id="pdc_type_0">
             <option value="1">Rent</option>
             <option value="2">Deposit</option>
-            <option value="3">Others</option>
+            <option value="3">Others</option><option value="4">VAT</option>
 
           </select>
         </td>
@@ -344,7 +330,7 @@
             <select name="bank_id_0" id="bank_id_0">
               <option value="">Select</option>
               @foreach($bankMaster as $name)
-              <option value="{{$name->id}}">{{$name->bank_code}}</option>
+              <option value="{{$name->id}}">{{ trim($name->bank_name) }}</option>
               @endforeach
             </select>
           </td>
@@ -366,14 +352,7 @@
           <td>
            <select name="pdc_bounce_reason_0" disabled id="pdc_bounce_reason_0">
             <option value="">Select</option>
-            <option value="1">Insufficient Funds</option>
-            <option value="2">Signature Missing</option>
-            <option value="3">Signature Mismatch</option> 
-            <option value="4">Word in amount and figure differ</option>
-            <option value="5">Stop Payment</option>
-            <option value="6">Refer to Drawer</option>
-            <option value="7">Correction</option>   <option value="8">Stale Cheque (Beyond six months)</option>
-            <option value="9">Misc</option>
+            @include('backoffice::Pdc._bounce_reason_options', ['selected' => null])
           </select>
         </td>
         <td></td>
@@ -455,7 +434,7 @@
                     <select name="bank_id" id="bank_id" class="form-control" required>
                       <option value="">Select</option> 
                       @foreach($bankMaster as $name)
-                      <option value="{{$name->id}}">{{$name->bank_code}}</option>
+                      <option value="{{$name->id}}">{{ trim($name->bank_name) }}</option>
                       @endforeach
                     </select>                 
                   </div>
@@ -503,6 +482,11 @@
 
 @endsection
 @section('scripts')
+@include('backoffice::Pdc._bounce_reason_js')
+<style>
+  /* bank dropdowns show the full bank name, wider than the 94px row selects */
+  tr.chkRow select[id^="bank_id_"], tr.chkRow select[id^="temp_bank_id_"] { width: 200px !important; }
+</style>
 <script>
 $(document).ready(function() {
     
@@ -614,17 +598,17 @@ $(document).on("click",'#process_btn, .addDataRow', function(event){
        pdc_check_date = nextMonth.getFullYear()+'-'+month+'-'+day;
        
 
-       $htmlRow +='<tr class="chkRow" id="tr_'+i+'"><td><input type="hidden" name="pdc_is_saved_'+i+'" value="0" ><a  id="'+i+'" class="dataRow"  href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td><td><span class="sl_no">'+i+'</span></td><td><input type="text" maxlength="10" name="pdc_check_no_'+i+'" id="pdc_check_no_'+i+'" value="'+pdc_check_no+'" onkeypress="return isNumber(event)" class="pdc_no_cls"></td><td><input type="date"  name="pdc_check_date_'+i+'" id="pdc_check_date_'+i+'" value="'+pdc_check_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="text" name="pdc_amt_'+i+'" class="pdc_amt_cls text-right" id="pdc_amt_'+i+'" value="'+pdc_amt+'"   min="1" step="0.01" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" onkeyup="return FormatCurrency(this)" class="text-right" maxlength="10"></td><td><input type="number" min="1" max="100" name="pdc_stage_'+i+'" id="pdc_stage_'+i+'" value="'+pdc_stage+'" class="pdc_stage_cls"><td><select name="pdc_type_'+i+'" id="pdc_type_'+i+'"><option value="1" '+(pdc_type==1?'SELECTED':'')+'>Rent</option><option value="2" '+(pdc_type==2?'SELECTED':'')+'>Deposit</option><option value="3" '+(pdc_type==3?'SELECTED':'')+'>Others</option></select></td></td><td><select name="bank_id_'+i+'" id="bank_id_'+i+'"><option value="">Select</option>';
+       $htmlRow +='<tr class="chkRow" id="tr_'+i+'"><td><input type="hidden" name="pdc_is_saved_'+i+'" value="0" ><a  id="'+i+'" class="dataRow"  href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td><td><span class="sl_no">'+i+'</span></td><td><input type="text" maxlength="10" name="pdc_check_no_'+i+'" id="pdc_check_no_'+i+'" value="'+pdc_check_no+'" onkeypress="return isNumber(event)" class="pdc_no_cls"></td><td><input type="date"  name="pdc_check_date_'+i+'" id="pdc_check_date_'+i+'" value="'+pdc_check_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="text" name="pdc_amt_'+i+'" class="pdc_amt_cls text-right" id="pdc_amt_'+i+'" value="'+pdc_amt+'"   min="1" step="0.01" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" onkeyup="return FormatCurrency(this)" class="text-right" maxlength="10"></td><td><input type="number" min="1" max="100" name="pdc_stage_'+i+'" id="pdc_stage_'+i+'" value="'+pdc_stage+'" class="pdc_stage_cls"><td><select name="pdc_type_'+i+'" id="pdc_type_'+i+'"><option value="1" '+(pdc_type==1?'SELECTED':'')+'>Rent</option><option value="2" '+(pdc_type==2?'SELECTED':'')+'>Deposit</option><option value="3" '+(pdc_type==3?'SELECTED':'')+'>Others</option><option value="4" '+(pdc_type==4?'SELECTED':'')+'>VAT</option></select></td></td><td><select name="bank_id_'+i+'" id="bank_id_'+i+'"><option value="">Select</option>';
 
        @foreach($bankMaster as $name)
        $htmlRow +='<option value="'+'{{$name->id}}'+'"';
        if(bank_id=='{{$name->id}}')
         $htmlRow +=' SELECTED';
 
-      $htmlRow +=' >'+'{{$name->bank_code}}'+'</option>';
+      $htmlRow +=' >'+'{{ trim($name->bank_name) }}'+'</option>';
       @endforeach 
 
-      $htmlRow +='</select></td><td><input type="date" name="pdc_recieve_date_'+i+'" id="pdc_recieve_date_'+i+'" value="'+pdc_recieve_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_from_date_'+i+'" id="pdc_from_date_'+i+'" value="'+pdc_from_date+'"  min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_to_date_'+i+'" id="pdc_to_date_'+i+'" value="'+pdc_to_date+'"  min="1970-01-01" max="2099-12-31" ></td><td><input type="date" readonly name="pdc_deposit_date_'+i+'" id="pdc_deposit_date_'+i+'" value="'+pdc_deposit_date+'"  min="1970-01-01" max="2099-12-31" ></td><td><input type="date" class="pdc_clear_date" name="pdc_clear_date_'+i+'" id="pdc_clear_date_'+i+'" value="'+pdc_clear_date+'" min="1970-01-01" max="2099-12-31"></td><td><input type="date" name="pdc_cancel_date_'+i+'" id="pdc_cancel_date_'+i+'" value="'+pdc_cancel_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="hidden" name="pdc_reference_'+i+'" id="pdc_reference_'+i+'" value=""><select name="pdc_cancel_reason_'+i+'" class="pdc_cancel_reason" disabled id="pdc_cancel_reason_'+i+'"><option value="">Select</option><option value="1"'+(pdc_cancel_reason==1?'SELECTED':'')+'>Bounce</option><option value="2" '+(pdc_cancel_reason==2?'SELECTED':'')+'>Exchange</option></select></td><td><select name="pdc_bounce_reason_'+i+'" disabled id="pdc_bounce_reason_'+i+'"><option value="">Select</option><option value="1" '+(pdc_bounce_reason==1?'SELECTED':'')+'>Insufficient Funds</option><option value="2" '+(pdc_bounce_reason==2?'SELECTED':'')+'>Signature Missing</option><option value="3" '+(pdc_bounce_reason==3?'SELECTED':'')+'>Signature Mismatch</option> <option value="4" '+(pdc_bounce_reason==4?'SELECTED':'')+'>Word in amount and figure differ</option><option value="5" '+(pdc_bounce_reason==5?'SELECTED':'')+'>Stop Payment</option><option value="6" '+(pdc_bounce_reason==6?'SELECTED':'')+'>Refer to Drawer</option><option value="7" '+(pdc_bounce_reason==7?'SELECTED':'')+'>Correction</option><option value="8" '+(pdc_bounce_reason==8?'SELECTED':'')+'>Stale Cheque (Beyond six months)</option><option value="9" '+(pdc_bounce_reason==9?'SELECTED':'')+'>Misc</option></select></td><td></td><td><input type="text" name="pdc_cheque_acknowledge_'+i+'" value="" ><a  id="'+i+'" class="dataRow"></a></td><td><input type="text" name="pdc_remark_'+i+'" value="" ><a  id="'+i+'" class="dataRow"></a></td></tr>'; 
+      $htmlRow +='</select></td><td><input type="date" name="pdc_recieve_date_'+i+'" id="pdc_recieve_date_'+i+'" value="'+pdc_recieve_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_from_date_'+i+'" id="pdc_from_date_'+i+'" value="'+pdc_from_date+'"  min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_to_date_'+i+'" id="pdc_to_date_'+i+'" value="'+pdc_to_date+'"  min="1970-01-01" max="2099-12-31" ></td><td><input type="date" readonly name="pdc_deposit_date_'+i+'" id="pdc_deposit_date_'+i+'" value="'+pdc_deposit_date+'"  min="1970-01-01" max="2099-12-31" ></td><td><input type="date" class="pdc_clear_date" name="pdc_clear_date_'+i+'" id="pdc_clear_date_'+i+'" value="'+pdc_clear_date+'" min="1970-01-01" max="2099-12-31"></td><td><input type="date" name="pdc_cancel_date_'+i+'" id="pdc_cancel_date_'+i+'" value="'+pdc_cancel_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="hidden" name="pdc_reference_'+i+'" id="pdc_reference_'+i+'" value=""><select name="pdc_cancel_reason_'+i+'" class="pdc_cancel_reason" disabled id="pdc_cancel_reason_'+i+'"><option value="">Select</option><option value="1"'+(pdc_cancel_reason==1?'SELECTED':'')+'>Bounce</option><option value="2" '+(pdc_cancel_reason==2?'SELECTED':'')+'>Exchange</option></select></td><td><select name="pdc_bounce_reason_'+i+'" disabled id="pdc_bounce_reason_'+i+'"><option value="">Select</option>'+bounceReasonOptions(pdc_bounce_reason)+'</select></td><td></td><td><input type="text" name="pdc_cheque_acknowledge_'+i+'" value="" ><a  id="'+i+'" class="dataRow"></a></td><td><input type="text" name="pdc_remark_'+i+'" value="" ><a  id="'+i+'" class="dataRow"></a></td></tr>'; 
 
           //k = parseInt(k) + parseInt(payment_term);
 
@@ -681,17 +665,17 @@ $(document).on("click",'#exchange', function(){
             for (i = lastRow; i <= lastRow; i++) {
 
               var sl_no = i+1;
-              $htmlRow +='<tr class="chkRow" id="tr_'+i+'"><td><input type="hidden" name="pdc_is_saved_"'+i+'" value="0" ><a  id="'+i+'" class="dataRow"  href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td><td>'+sl_no+'</td><td><input maxlength="10" type="text" name="pdc_check_no_'+i+'" id="pdc_check_no_'+i+'" value="'+pdc_check_no+'" onkeypress="return isNumber(event)"></td><td><input type="date"  name="pdc_check_date_'+i+'" id="pdc_check_date_'+i+'" value="'+pdc_check_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="text" class="text-right" name="pdc_amt_'+i+'" id="pdc_amt_'+i+'" value="'+pdc_amt+'"  min="1" step="0.01" onkeyup="return FormatCurrency(this)" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" maxlength="10"></td><td><input type="number"  name="pdc_stage_'+i+'" id="pdc_stage_'+i+'" value="'+pdc_stage+'"  min="1" max="100" ></td><td><select name="pdc_type_'+i+'" id="pdc_type_'+i+'"><option value="1" >Rent</option><option value="2" >Deposit</option><option value="3" >Others</option></select></td><td><select name="bank_id_'+i+'" id="bank_id_'+i+'"><option value="">Select</option>';
+              $htmlRow +='<tr class="chkRow" id="tr_'+i+'"><td><input type="hidden" name="pdc_is_saved_"'+i+'" value="0" ><a  id="'+i+'" class="dataRow"  href="#" title="Delete"><i class="fa fa-minus" aria-hidden="true"></i></a></td><td>'+sl_no+'</td><td><input maxlength="10" type="text" name="pdc_check_no_'+i+'" id="pdc_check_no_'+i+'" value="'+pdc_check_no+'" onkeypress="return isNumber(event)"></td><td><input type="date"  name="pdc_check_date_'+i+'" id="pdc_check_date_'+i+'" value="'+pdc_check_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="text" class="text-right" name="pdc_amt_'+i+'" id="pdc_amt_'+i+'" value="'+pdc_amt+'"  min="1" step="0.01" onkeyup="return FormatCurrency(this)" data-rule-pattern="^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:(\.|,)\d+)?$" data-msg-pattern="Allowed only Numeric and Decimal Values" maxlength="10"></td><td><input type="number"  name="pdc_stage_'+i+'" id="pdc_stage_'+i+'" value="'+pdc_stage+'"  min="1" max="100" ></td><td><select name="pdc_type_'+i+'" id="pdc_type_'+i+'"><option value="1" >Rent</option><option value="2" >Deposit</option><option value="3" >Others</option><option value="4" >VAT</option></select></td><td><select name="bank_id_'+i+'" id="bank_id_'+i+'"><option value="">Select</option>';
 
               @foreach($bankMaster as $name)
               $htmlRow +='<option value="'+'{{$name->id}}'+'"';
               if(bank_id=='{{$name->id}}')
                 $htmlRow +=' SELECTED';
 
-              $htmlRow +=' >'+'{{$name->bank_code}}'+'</option>';
+              $htmlRow +=' >'+'{{ trim($name->bank_name) }}'+'</option>';
               @endforeach 
 
-              $htmlRow +='</select></td><td><input type="date" name="pdc_recieve_date_'+i+'" id="pdc_recieve_date_'+i+'" value="'+pdc_recieve_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_from_date_'+i+'" id="pdc_from_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_to_date_'+i+'" id="pdc_to_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_deposit_date_'+i+'" id="pdc_deposit_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" readonly></td><td><input type="date" name="pdc_clear_date_'+i+'" class="pdc_clear_date" id="pdc_clear_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_cancel_date_'+i+'" id="pdc_cancel_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" ></td><td><input type="hidden" name="pdc_reference_'+i+'" id="pdc_reference_'+i+'" value="'+pdc_reference+'"><select name="pdc_cancel_reason_'+i+'" class="pdc_cancel_reason" disabled id="pdc_cancel_reason_'+i+'"><option value="">Select</option><option value="1">Bounce</option><option value="2">Exchange</option></select></td><td><select name="pdc_bounce_reason_'+i+'" disabled id="pdc_bounce_reason_'+i+'"><option value="">Select</option><option value="1" >Signature Missing</option><option value="3" >Signature Mismatch</option> <option value="4" >Word in amount and figure differ</option><option value="5" >Stop Payment</option><option value="6">Refer to Drawer</option><option value="7" >Correction</option><option value="8" >Stale Cheque (Beyond six months)</option><option value="9">Misc</option></select></td><td></td><td><input type="text" name="pdc_remark_'+i+'" id="pdc_remark_'+i+'" value=""></td></tr>'; 
+              $htmlRow +='</select></td><td><input type="date" name="pdc_recieve_date_'+i+'" id="pdc_recieve_date_'+i+'" value="'+pdc_recieve_date+'" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_from_date_'+i+'" id="pdc_from_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_to_date_'+i+'" id="pdc_to_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_deposit_date_'+i+'" id="pdc_deposit_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" readonly></td><td><input type="date" name="pdc_clear_date_'+i+'" class="pdc_clear_date" id="pdc_clear_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" ></td><td><input type="date" name="pdc_cancel_date_'+i+'" id="pdc_cancel_date_'+i+'" value="" min="1970-01-01" max="2099-12-31" ></td><td><input type="hidden" name="pdc_reference_'+i+'" id="pdc_reference_'+i+'" value="'+pdc_reference+'"><select name="pdc_cancel_reason_'+i+'" class="pdc_cancel_reason" disabled id="pdc_cancel_reason_'+i+'"><option value="">Select</option><option value="1">Bounce</option><option value="2">Exchange</option></select></td><td><select name="pdc_bounce_reason_'+i+'" disabled id="pdc_bounce_reason_'+i+'"><option value="">Select</option>'+bounceReasonOptions('')+'</select></td><td></td><td><input type="text" name="pdc_remark_'+i+'" id="pdc_remark_'+i+'" value=""></td></tr>'; 
 
 
               

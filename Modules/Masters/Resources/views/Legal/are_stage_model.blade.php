@@ -1,63 +1,26 @@
-<div class="modal-dialog assign">
-    <div class="modal-content">
-  
-    <!-- Modal Header -->
-    <div class="modal-header">
-      <h4 class="modal-title"> Note</h4>
-      <button type="button" class="close" data-dismiss="modal">&times;</button>
-    </div>
-    
-    <!-- Modal body -->
-    <div class="modal-body">
-    
-   <div class="row">
-    <div class="col">
-        <div class="card card-box salesSearchBox">
-        <form action="{{route('areStageStore')}}" autocomplete="off" method="POST" id="renewal_note_modal" class="form-horizontal" enctype="multipart/form-data" data-toggle="validator">
-        {{csrf_field()}}
-        <input  type="hidden" class="form-control" name="legal_id" value="{{$legal_id}}">
-        <input  type="hidden" class="form-control" name="process_flow" value="{{$process_flow}}">
-        <input  type="hidden" class="form-control" name="are_status" value="{{$are_status}}">
-        <div class="dataSearchBox ">
-            
-                <div class="row">
-                  <div class="col-sm-12">
-                    <div class="form-group">
-                        <label for="simpleFormCode">Note </label>
-                        <div class="p-relative">
-                          <i class="fa fa-file-text-o icn-add" aria-hidden="true"></i>
-                          <textarea class="form-control"  id="are_note"  placeholder="Enter Note" name="are_note"   data-rule-maxlength="200" data-msg-maxlength="Only allows 200 Characters" required></textarea>
-                        </div>
-                    </div>
-                  </div>
-                  
-               <div class="w-100"></div>
-                <div class="col">
-                   <div class="w-100"></div>
-                      <button type="submit" name="submit" value="submit" class="btn btn-primary">Save</button>
-                      <!-- <button type="submit" value="skip"  name="skip" id="skip" class="btn btn-warning">Skip</button> -->
-                   </div>
-                   
-              </div>
-        
+{{-- ARE sends a referred-back case for verification again. Loaded into #myModal (.lg .lg-modal). --}}
+<div class="modal-dialog" role="document" style="max-width:520px;">
+  <div class="modal-content">
+    <form action="{{ route('areStageStore') }}" autocomplete="off" method="POST" id="renewal_note_modal" enctype="multipart/form-data" data-toggle="validator">
+      {{ csrf_field() }}
+      <input type="hidden" name="legal_id" value="{{ $legal_id }}">
+      <input type="hidden" name="process_flow" value="{{ $process_flow }}">
+      <input type="hidden" name="are_status" value="{{ $are_status }}">
+      <div class="modal-header">
+        <h2 class="modal-title">Send for verification</h2>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="lg-field" style="margin:0;">
+          <label for="are_note" class="lg-label">Note</label>
+          <textarea class="lg-textarea" id="are_note" name="are_note" maxlength="200" data-rule-maxlength="200" data-msg-maxlength="Only allows 200 characters" required></textarea>
+          <div class="lg-hint">What was corrected. Up to 200 characters.</div>
         </div>
-        <div class="col-sm-12 text-right">
-        
-    </div>
-        <div class="clearfix"></div>
-        </form>
-            
-        </div>
-    </div>
-</div> 
-
-    </div>
-    
-    <!-- Modal footer -->
-    <div class="modal-footer">
-      
-    </div>
-
-    </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="lg-btn lg-btn--secondary" data-dismiss="modal">Cancel</button>
+        <button type="submit" name="submit" value="submit" class="lg-btn lg-btn--primary">Send</button>
+      </div>
+    </form>
+  </div>
 </div>
-

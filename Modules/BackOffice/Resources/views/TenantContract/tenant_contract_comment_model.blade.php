@@ -23,6 +23,9 @@
                 <div class="col-sm-12">
                     <div class="form-group">
                         <label for="simpleFormCode">Status</label>
+                        @if(!empty($openLegalCase))
+                        <div class="alert alert-warning" style="margin-bottom:8px;">This contract has an open legal case (#{{ $openLegalCase->id }}). The status cannot change until the case is closed on the legal screens.</div>
+                        @endif
                         <div class="p-relative">
                           <i class="fa fa-file-text-o icn-add" aria-hidden="true"></i>
                            <select class="form-control" name="tenant_contract_status" id="tenant_contract_status" required>

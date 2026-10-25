@@ -119,7 +119,8 @@
                 <div class="p-relative">
                 <i class="icon icon-unit" aria-hidden="true"></i>
                
-                <select class="form-control reads" name="unit_usage" id="unit_usage" required>
+                <select class="form-control" name="unit_usage" id="unit_usage" required>
+                    @if(!in_array(old('unit_usage',$tenantContract->unit_usage), ['Residential','Commercial']))<option value="" selected>-- Select --</option>@endif
                     <option {{ isset($tenantContract)? ((old('unit_usage',$tenantContract->unit_usage) == 'Residential')? 'selected' : '') : 'selected'}} value="Residential" >Residential</option>
                     <option  {{ isset($tenantContract)? ((old('unit_usage',$tenantContract->unit_usage) == 'Commercial')? 'selected' : '') : ''}} value="Commercial" >Commercial</option>
                     
@@ -145,7 +146,7 @@
                 <label for="occupant_primary_contact_no">Occupant Mob No</label>
                  <div class="p-relative">
                     <i class="fa fa-volume-control-phone icn-add" aria-hidden="true"></i>
-                <input type="text" class="form-control mob_validation_8" id="occupant_primary_contact_no" placeholder="Enter Occupant Mob No" name="occupant_primary_contact_no" value="{{(isset($tenantContract))?((!isset($tenantContract->occupant_id))?$tenantContract->tenant->tenant_contact_no:$tenantContract->occupant->occupant_primary_contact_no):old('occupant_primary_contact_no','')}}" onkeypress="return isNumber(event)">
+                <input type="text" class="form-control" id="occupant_primary_contact_no" placeholder="Enter Occupant Mob No" name="occupant_primary_contact_no" value="{{(isset($tenantContract))?((!isset($tenantContract->occupant_id))?$tenantContract->tenant->tenant_contact_no:$tenantContract->occupant->occupant_primary_contact_no):old('occupant_primary_contact_no','')}}" onkeypress="return isNumber(event)">
             </div>
             </div>
         </div>

@@ -29,7 +29,7 @@ use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\Mail;
 use Modules\BackOffice\Events\DepositRefundApprove;
 use Modules\BackOffice\Events\DepositRefundReject;
-use Modules\Masters\Emails\LegalEmail;
+use Modules\BackOffice\Services\LegalMessages;
 use Dynamics;
 use Modules\BackOffice\Entities\DepositRefundReceipt;
 use Modules\BackOffice\Services\DepositRefundReceiptIssuer;
@@ -890,25 +890,9 @@ public function depositRefundPost($deposit_id,$status){
 
   $depositRefund = DepositRefund::find($deposit_id);
   $tenantContract = TenantContract::find($depositRefund->tenant_contract_id);
-  $legal = Legal::where('tenant_contract_id',$tenantContract->id)->first();
   if($tenantContract->status == 5){
-    $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-    $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
-
-   $legal->subject = "Deposit Refund Posted !"; 
-  $legal->textContent = "Deposit Refund Posted which is under Legal";
-  foreach($legalUsers as $legalUser){
-    $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-    $msg = "Deposit Refund Posted";
-    $params = 'optional data';
-    if(!empty($legalUser->email)){
-      Mail::to($legalUser->email)->send(new LegalEmail($legal,$legalUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
+    // System template legal_deposit_refund_posted
+    LegalMessages::toRoles('legal_deposit_refund_posted', ['are','backoffice_manager','legal_advisor'], $tenantContract);
   //Notifications ends
   }
 

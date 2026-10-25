@@ -22,6 +22,116 @@ class TerminationDuesService
     const FINAL_STAGE = 505;
     const INSPECTION_STAGE = 503;
 
+    /** Message of the last failed rent calculation in buildInputFor() (null when it worked). */
+    public $lastRentError = null;
+
+    /**
+     * Terminated contracts (status 8, approved tenant termination 505) that have
+     * no dues record yet: the backfill's scope.
+     */
+    public function backfillCandidates()
+    {
+        return Termination::where('work_flow_processes_code', self::FINAL_STAGE)
+            ->whereIn('contract_id', function ($s) { $s->select('id')->from('tenant_contracts')->where('tenant_renewal_termination_status', 8); })
+            ->whereNotIn('contract_id', function ($s) { $s->select('tenant_contract_id')->from('termination_dues'); });
+    }
+
+    /**
+     * One step of the screen backfill: the next $limit candidate contracts after
+     * $afterContractId, previewed ($apply false, nothing kept) or created.
+     *
+     * @return array rows (preview/created), failures, counts, last_contract_id, done
+     */
+    public function backfillBatch($afterContractId, $limit, $apply, $userId)
+    {
+        $ids = $this->backfillCandidates()
+            ->where('contract_id', '>', (int) $afterContractId)
+            ->groupBy('contract_id')
+            ->orderBy('contract_id')
+            ->limit($limit)
+            ->select('contract_id', DB::raw('MAX(id) AS final_id'))
+            ->get();
+
+        $out = ['rows' => [], 'failures' => [], 'counts' => ['create' => 0, 'settled' => 0, 'nothing_owed' => 0, 'failed' => 0],
+                'last_contract_id' => (int) $afterContractId, 'done' => count($ids) < $limit];
+
+        foreach ($ids as $row) {
+            $out['last_contract_id'] = (int) $row->contract_id;
+            $final = Termination::find($row->final_id);
+            $contract = TenantContract::with(['tenant', 'building', 'Unit'])->find($row->contract_id);
+            $r = $this->manualCreate($final, $userId, $apply);
+
+            if ($r['outcome'] === 'preview' || $r['outcome'] === 'created') {
+                $out['counts']['create']++;
+                $out['rows'][] = [
+                    'dues_id'          => $r['dues'] ? $r['dues']->id : null,
+                    'contract_no'      => $contract ? $contract->tenant_contract_no : '#' . $row->contract_id,
+                    'tenant'           => $contract && $contract->tenant ? $contract->tenant->tenant_name : '',
+                    'unit'             => trim(($contract && $contract->building ? $contract->building->building_name : '') . ($contract && $contract->Unit ? ' / ' . $contract->Unit->unit_no : '')),
+                    'termination_date' => $final->termination_date ? date('d/m/Y', strtotime($final->termination_date)) : '',
+                    'owed'             => $r['result']['total']['owed'],
+                    'balance'          => $r['result']['total']['balance'],
+                ];
+            } elseif ($r['outcome'] === 'settled') {
+                $out['counts']['settled']++;
+            } elseif ($r['outcome'] === 'nothing_owed') {
+                $out['counts']['nothing_owed']++;
+            } else {
+                $out['counts']['failed']++;
+                $out['failures'][] = ['contract_no' => $contract ? $contract->tenant_contract_no : '#' . $row->contract_id, 'message' => $r['message']];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Build the dues record exactly as the backfill does and report what it
+     * holds. Nothing is kept unless $save is true and a balance remains.
+     *
+     * @return array outcome (preview|created|nothing_owed|settled|error), message, result (refresh() result), dues
+     */
+    public function manualCreate(Termination $final, $userId, $save)
+    {
+        $out = ['outcome' => 'error', 'message' => null, 'result' => null, 'dues' => null];
+        DB::beginTransaction();
+        try {
+            $this->lastRentError = null;
+            $lines = TerminationDuesBuilder::build($this->buildInputFor($final->contract_id, $final));
+            if ($this->lastRentError !== null) {
+                DB::rollBack();
+                $out['message'] = 'The outstanding rent could not be calculated: ' . $this->lastRentError;
+                return $out;
+            }
+            $dues = $lines ? $this->createForTermination($final, $userId) : null;
+            if (!$dues) {
+                DB::rollBack();
+                $out['outcome'] = 'nothing_owed';
+                $out['message'] = 'Nothing is owed on this contract (rent, E&W and checklist charges are all zero).';
+                return $out;
+            }
+            $out['result'] = $this->refresh($dues);
+            if ($out['result']['total']['balance'] <= 0.005) {
+                DB::rollBack();
+                $out['outcome'] = 'settled';
+                $out['message'] = 'Everything owed is already settled by receipts or deposit deductions, so no dues record is needed.';
+                return $out;
+            }
+            if ($save) {
+                DB::commit();
+                $out['outcome'] = 'created';
+                $out['dues'] = $dues;
+                return $out;
+            }
+            DB::rollBack();
+            $out['outcome'] = 'preview';
+            return $out;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $out['message'] = 'The dues record could not be built: ' . $e->getMessage();
+            return $out;
+        }
+    }
+
     /**
      * Called from the 505 block of TenantTerminationController. Idempotent:
      * a contract that already has dues is left alone.
@@ -140,6 +250,7 @@ class TerminationDuesService
         try {
             $rentOs = RentOutstanding::amountForContract($contractId, $terminationDate);
         } catch (\Exception $e) {
+            $this->lastRentError = $e->getMessage();
             Log::warning('TerminationDues: rent OS calculation failed for contract ' . $contractId . ': ' . $e->getMessage());
         }
 
@@ -163,6 +274,36 @@ class TerminationDuesService
      * Recompute from live sources and persist the summary columns.
      * @return array the TerminationDuesSettlement::compute() result plus 'sources', 'pending', 'account_map'
      */
+    /**
+     * Legal settlement waivers (legal plan phase 4) as waiver allocations on the rent line, not stored:
+     * cancelling the waiver drops it again. Only waivers approved after the charges were fixed - the
+     * frozen rent figure already nets out earlier ones (RentOutstanding subtracts live waivers).
+     * Capped at the rent line amount.
+     */
+    private function legalWaiverAllocations(TerminationDues $dues, array $lines)
+    {
+        $rent = null;
+        foreach ($lines as $l) {
+            if ($l['category'] === Cat::RENT) {
+                $rent = $l;
+                break;
+            }
+        }
+        if (!$rent || !$dues->tenant_contract_id) {
+            return [];
+        }
+        $q = DB::table('legal_waivers')->where('tenant_contract_id', $dues->tenant_contract_id)->whereNull('cancelled_at');
+        if ($dues->charges_fixed_at) {
+            $q->where('approved_at', '>', $dues->charges_fixed_at);
+        }
+        $waived = round((float) $q->sum('amount'), 3);
+        if ($waived <= 0) {
+            return [];
+        }
+        return [['id' => -1, 'termination_dues_line_id' => $rent['id'], 'source_type' => 'waiver', 'source_id' => null,
+            'amount' => min($waived, round((float) $rent['amount'], 3)), 'remark' => 'Legal settlement waiver']];
+    }
+
     public function refresh(TerminationDues $dues)
     {
         $dues->loadMissing('lines');
@@ -171,6 +312,7 @@ class TerminationDuesService
             return ['id' => $l->id, 'category' => $l->category, 'owner_team' => $l->owner_team, 'description' => $l->description, 'amount' => $l->amount];
         })->all();
         $manual = TerminationDuesAllocation::whereIn('termination_dues_line_id', array_column($lines, 'id'))->orderBy('id')->get()->toArray();
+        $manual = array_merge($manual, $this->legalWaiverAllocations($dues, $lines));
         $src = $sources->forDues($dues);
 
         $result = TerminationDuesSettlement::compute($lines, $src, $manual);
@@ -207,6 +349,8 @@ class TerminationDuesService
         } catch (\Exception $e) {
             Log::warning('TerminationDues refresh failed for contract ' . $contractId . ': ' . $e->getMessage());
         }
+        // legal settlements watch the same receipts (bounced settlement cheque, settlement fully paid)
+        \Modules\Masters\Services\LegalSettlement::touchContract($contractId);
     }
 
     public static function touchReceipt($receiptId)
@@ -264,10 +408,12 @@ class TerminationDuesService
     }
 
     /**
-     * Guard for rent receipts on terminated contracts.
-     * @return string|null error message, or null when the receipt may be saved
+     * Note for rent receipts on terminated contracts. The receipt is always saved
+     * (user, 03/10/2026: old legal cases and inspection figures made the old refusal
+     * block genuine receipts); this only says what does not match the termination dues.
+     * @return string|null note to show after saving, or null when nothing to point out
      */
-    public function rentReceiptError($contractId, $amount, $effTo = null, $ignoreReceiptId = null)
+    public function rentReceiptNote($contractId, $amount, $effTo = null, $ignoreReceiptId = null)
     {
         $contract = TenantContract::where('id', $contractId)->first(['id', 'tenant_renewal_termination_status', 'tenant_contract_no']);
         if (!$contract || (int) $contract->tenant_renewal_termination_status !== 8) {
@@ -276,22 +422,14 @@ class TerminationDuesService
         $amount = (float) $amount;
         $dues = TerminationDues::where('tenant_contract_id', $contractId)->first();
         if (!$dues) {
-            if (!$ignoreReceiptId) {
-                return 'Contract ' . $contract->tenant_contract_no . ' is terminated and has no termination dues on record. Rent receipts cannot be created on it; if rent is genuinely outstanding ask an administrator to run the termination dues backfill.';
-            }
-            // Legacy receipt on a terminated contract without dues: allow corrections that
-            // do not increase the amount and do not push the period past the termination date.
-            $existing = DB::table('receipts_generation')->where('id', $ignoreReceiptId)->first(['receipts_generation_amt', 'receipts_generation_eff_to']);
             $finalRow = Termination::where('contract_id', $contractId)->where('work_flow_processes_code', self::FINAL_STAGE)->orderBy('id', 'desc')->first();
             $terminationDate = $finalRow && $finalRow->termination_date ? $finalRow->termination_date : null;
-            $amountOk = $existing && $amount <= (float) $existing->receipts_generation_amt + TerminationDuesSettlement::EPS;
-            $dateOk = !$effTo || !$terminationDate || strtotime($effTo) <= $terminationDate->getTimestamp();
-            if ($amountOk && $dateOk) {
-                return null;
+            $note = 'contract ' . $contract->tenant_contract_no . ' is terminated' . ($terminationDate ? ' (' . $terminationDate->format('d/m/Y') . ')' : '')
+                . ' and has no termination dues on record, so this receipt could not be checked against what is owed.';
+            if ($effTo && $terminationDate && strtotime($effTo) > $terminationDate->getTimestamp()) {
+                $note .= ' The effective-to date ' . date('d/m/Y', strtotime($effTo)) . ' is after the termination date.';
             }
-            return 'Contract ' . $contract->tenant_contract_no . ' is terminated and has no termination dues on record. Only non-increasing edits are allowed on its existing rent receipts: keep the amount at or below '
-                . numberFormat($existing ? $existing->receipts_generation_amt : 0)
-                . ($terminationDate ? ' and the effective-to date on or before the termination date ' . $terminationDate->format('d/m/Y') : '') . '.';
+            return $note;
         }
         $r = $this->refresh($dues);
         $rentBalance = 0.0;
@@ -322,15 +460,15 @@ class TerminationDuesService
         $rentBalance = round($rentBalance - $pending, 3);
         $pendingNote = $pending > TerminationDuesSettlement::EPS ? ' (' . numberFormat($grossBalance) . ' open less ' . numberFormat($pending) . ' pending approval)' : '';
 
+        $notes = [];
         if ($rentBalance <= TerminationDuesSettlement::EPS) {
-            return 'Contract ' . $contract->tenant_contract_no . ' is terminated and its rent dues are fully settled' . ($pendingNote ? ' or covered by receipts awaiting approval' . $pendingNote : '') . ' (see Termination Dues). No further rent receipt can be created.';
-        }
-        if ($amount > $rentBalance + TerminationDuesSettlement::EPS) {
-            return 'Receipt amount ' . numberFormat($amount) . ' exceeds the open rent dues of ' . numberFormat($rentBalance) . $pendingNote . ' on terminated contract ' . $contract->tenant_contract_no . '. Enter at most ' . numberFormat($rentBalance) . '.';
+            $notes[] = 'contract ' . $contract->tenant_contract_no . ' is terminated and its rent dues were already settled' . ($pendingNote ? ' or covered by receipts awaiting approval' . $pendingNote : '') . ', so this receipt is more than the rent owed (see Termination Dues).';
+        } elseif ($amount > $rentBalance + TerminationDuesSettlement::EPS) {
+            $notes[] = 'receipt amount ' . numberFormat($amount) . ' is more than the open rent dues of ' . numberFormat($rentBalance) . $pendingNote . ' on terminated contract ' . $contract->tenant_contract_no . ' (see Termination Dues).';
         }
         if ($effTo && $dues->termination_date && strtotime($effTo) > $dues->termination_date->getTimestamp()) {
-            return 'Effective-to date ' . date('d/m/Y', strtotime($effTo)) . ' is after the termination date ' . $dues->termination_date->format('d/m/Y') . '. Rent cannot be collected for a period after termination.';
+            $notes[] = 'the effective-to date ' . date('d/m/Y', strtotime($effTo)) . ' is after the termination date ' . $dues->termination_date->format('d/m/Y') . '.';
         }
-        return null;
+        return $notes ? implode(' Also, ', $notes) : null;
     }
 }

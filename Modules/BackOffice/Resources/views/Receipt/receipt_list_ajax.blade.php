@@ -10,7 +10,7 @@
 
     <tr>
       <td><a class="no-link" href="{{route('rentReceiptGeneration.show',$receipt->id)}}">{{$receiptslist->perPage()*($receiptslist->currentPage()-1)+$count}} </a></td>
-      <td><a class="no-link" href="{{route('rentReceiptGeneration.show',$receipt->id)}}">{{$receipt->receipts_generation_receipt_no}}</a></td>
+      <td><a class="no-link" href="{{route('rentReceiptGeneration.show',$receipt->id)}}">{{$receipt->receipts_generation_receipt_no}}</a>@if(isset($landlordIds) && in_array($receipt->id, $landlordIds))<br><span title="Paid directly to landlord" style="display:inline-block;margin-top:3px;padding:1px 6px;border-radius:3px;background:#b45309;color:#fff;font-size:11px;font-weight:600;white-space:nowrap">Paid to LL</span>@endif</td>
       <td>
         @if(isset($receipt->receipts_generation_receipt_date))<a class="no-link" href="{{route('rentReceiptGeneration.show',$receipt->id)}}">{{$receipt->receipts_generation_receipt_date->format('d/m/Y')}} </a>@endif</td>
        <td><a class="no-link" href="{{route('rentReceiptGeneration.show',$receipt->id)}}">{{$receipt->tenant_name}}</a></td>

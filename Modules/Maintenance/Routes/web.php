@@ -320,6 +320,35 @@ Route::post('maintenanceInvoiceReportPdfV2', 'MaintenanceReportController@mainte
 Route::post('maintenanceInvoiceServiceReportsZip', 'MaintenanceReportController@maintenanceInvoiceServiceReportsZipDownload')->name('maintenanceInvoiceServiceReportsZip');
 Route::get('maintenanceInvoiceReportV2Stream', 'MaintenanceReportController@maintenanceInvoiceReportV2Stream')->name('maintenanceInvoiceReportV2Stream');
 Route::get('maintenanceInvoiceReportV2Download/{token}', 'MaintenanceReportController@maintenanceInvoiceReportV2Download')->name('maintenanceInvoiceReportV2Download');
+Route::get('showRepairMaintenanceReport', 'RepairMaintenanceReportController@show')->name('showRepairMaintenanceReport');
+Route::get('repairMaintenanceReportStream', 'RepairMaintenanceReportController@stream')->name('repairMaintenanceReportStream');
+Route::get('repairMaintenanceReportDownload/{token}', 'RepairMaintenanceReportController@download')->name('repairMaintenanceReportDownload');
 Route::get('servicecomplaintReportAutocompleteCode', 'MaintenanceReportController@servicecomplaintReportAutocompleteCode')->name('servicecomplaintReportAutocompleteCode');
 Route::get('servicecomplaintReportNoAutocompleteCode', 'MaintenanceReportController@servicecomplaintReportNoAutocompleteCode')->name('servicecomplaintReportNoAutocompleteCode');
+
+// Building Inspection & Maintenance
+Route::get('inspection-dashboard', 'InspectionReportController@dashboard')->name('inspection.dashboard');
+Route::get('inspection-reports', 'InspectionReportController@reports')->name('inspection.reports');
+Route::get('inspection-reports/export', 'InspectionReportController@export')->name('inspection.reports.export');
+Route::get('inspection-visits', 'InspectionVisitController@index')->name('inspection.visits');
+Route::post('inspection-visits', 'InspectionVisitController@store')->name('inspection.visits.store');
+Route::get('inspection-visits/{id}', 'InspectionVisitController@show')->where('id', '[0-9]+')->name('inspection.visits.show');
+Route::post('inspection-visits/{id}/cancel', 'InspectionVisitController@cancel')->where('id', '[0-9]+')->name('inspection.visits.cancel');
+Route::get('inspection-visits/{id}/inspect', 'InspectionVisitController@inspect')->where('id', '[0-9]+')->name('inspection.visits.inspect');
+Route::post('inspection-visits/{id}/inspect', 'InspectionVisitController@submit')->where('id', '[0-9]+')->name('inspection.visits.submit');
+Route::get('inspection-issues', 'InspectionIssueController@index')->name('inspection.issues');
+Route::post('inspection-issues', 'InspectionIssueController@store')->name('inspection.issues.store');
+Route::get('inspection-issues/units/{building}', 'InspectionIssueController@units')->where('building', '[0-9]+')->name('inspection.issues.units');
+Route::get('inspection-issues/{id}', 'InspectionIssueController@show')->where('id', '[0-9]+')->name('inspection.issues.show');
+Route::post('inspection-issues/{id}/plan', 'InspectionIssueController@savePlan')->where('id', '[0-9]+')->name('inspection.issues.plan');
+Route::post('inspection-issues/{id}/progress', 'InspectionIssueController@addProgress')->where('id', '[0-9]+')->name('inspection.issues.progress');
+Route::post('inspection-issues/{id}/resolve', 'InspectionIssueController@resolve')->where('id', '[0-9]+')->name('inspection.issues.resolve');
+Route::post('inspection-issues/{id}/verify', 'InspectionIssueController@verify')->where('id', '[0-9]+')->name('inspection.issues.verify');
+Route::post('inspection-issues/{id}/complaint', 'InspectionIssueController@createComplaint')->where('id', '[0-9]+')->name('inspection.issues.complaint');
+Route::get('inspection-setup', 'InspectionSetupController@index')->name('inspection.setup');
+Route::post('inspection-setup/assign', 'InspectionSetupController@assign')->name('inspection.setup.assign');
+Route::get('inspection-setup/history/{building}', 'InspectionSetupController@history')->where('building', '[0-9]+')->name('inspection.setup.history');
+Route::post('inspection-setup/history/{id}', 'InspectionSetupController@updateHistory')->where('id', '[0-9]+')->name('inspection.setup.history.update');
+Route::post('inspection-setup/area', 'InspectionSetupController@saveArea')->name('inspection.setup.area');
+Route::post('inspection-setup/item', 'InspectionSetupController@saveItem')->name('inspection.setup.item');
 });

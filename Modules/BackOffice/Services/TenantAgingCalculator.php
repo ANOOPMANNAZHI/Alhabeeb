@@ -5,20 +5,17 @@ namespace Modules\BackOffice\Services;
 use Carbon\Carbon;
 
 /**
- * Splits a tenant receivable row (from tenantrentreceivable_v2 /
- * tenantrentreceivablecompo_v2) into aging buckets for the Tenant Aging
- * Report. There is no per-installment due ledger, so the buckets are
- * derived: every rent-month after lastpaid_till (or the contract start)
- * up to the as-on date is treated as unpaid and bucketed by how many days
- * overdue its due date is. Buckets are then reconciled so they always sum
- * to netamtdue. Pure PHP (no DB) so it can be unit tested; runs on
- * PHP < 7.4 in production: no arrow functions.
+ * Tenant Aging Report: how long each contract's unpaid rent has been due.
+ * Works on RentLedger lines: receipts have already cleared the oldest lines,
+ * so every unpaid line is aged by the days since its due date (as-on date -
+ * due date) into fixed day windows. The buckets always add up to the balance.
+ * Pure PHP (no DB); PHP < 7.4 in production: no arrow functions.
  */
 class TenantAgingCalculator
 {
-    /** Bucket key => [label, min days, max days (null = open ended)] oldest last. */
+    /** key => [label, min days overdue, max days overdue (null = open ended)] */
     const BUCKETS = [
-        'current'  => ['Current',   0,   30],
+        'current'  => ['0 - 30',    0,   30],
         'b31_60'   => ['31 - 60',   31,  60],
         'b61_90'   => ['61 - 90',   61,  90],
         'b91_120'  => ['91 - 120',  91,  120],
@@ -26,15 +23,11 @@ class TenantAgingCalculator
         'b180plus' => ['180 +',     181, null],
     ];
 
-    /**
-     * Date windows for each bucket, counted back from the as-on date.
-     *
-     * @return array key => ['label', 'from' (Y-m-d|null), 'to' (Y-m-d)]
-     */
+    /** @return array key => ['label', 'from' (Y-m-d|null), 'to' (Y-m-d)] */
     public static function buckets($asOn)
     {
         $asOn = Carbon::parse($asOn)->startOfDay();
-        $out  = [];
+        $out = [];
         foreach (self::BUCKETS as $key => $def) {
             $out[$key] = [
                 'label' => $def[0],
@@ -46,86 +39,64 @@ class TenantAgingCalculator
     }
 
     /**
-     * @param  object $row   needs start_date, lastpaid_till, termination_date, rentper_month, netamtdue
-     * @param  string $asOn  Y-m-d
-     * @return array  bucket key => amount (3 dp), in BUCKETS order
+     * @param  array  $lines RentLedger lines (due_date, amount, unpaid)
+     * @return array  bucket key => unpaid amount (3 dp)
      */
-    public static function age($row, $asOn)
+    public static function age(array $lines, $asOn)
     {
-        $keys    = array_keys(self::BUCKETS);
-        $amounts = array_fill_keys($keys, 0.0);
-
-        $net = round((float) ($row->netamtdue ?? 0), 3);
-        if ($net <= 0) {
-            return $amounts;
-        }
-
         $asOn = Carbon::parse($asOn)->startOfDay();
-        $rent = (float) ($row->rentper_month ?? 0);
-
-        $unpaidFrom = !empty($row->lastpaid_till)
-            ? Carbon::parse($row->lastpaid_till)->startOfDay()->addDay()
-            : (!empty($row->start_date) ? Carbon::parse($row->start_date)->startOfDay() : null);
-
-        $periodEnd = $asOn->copy();
-        if (!empty($row->termination_date)) {
-            $term = Carbon::parse($row->termination_date)->startOfDay();
-            if ($term->lt($periodEnd)) {
-                $periodEnd = $term;
+        $amounts = array_fill_keys(array_keys(self::BUCKETS), 0.0);
+        foreach ($lines as $l) {
+            if ($l['unpaid'] <= 0) {
+                continue;
             }
+            $days = (int) Carbon::parse($l['due_date'])->startOfDay()->diffInDays($asOn, false);
+            $amounts[self::bucketFor(max(0, $days))] += $l['unpaid'];
         }
-
-        // Walk the unpaid rent-months, each due on the day the period starts.
-        if ($unpaidFrom !== null && $rent > 0) {
-            $due = $unpaidFrom->copy();
-            $i   = 0;
-            while ($due->lte($periodEnd) && $i < 600) {
-                $days = (int) abs($due->diffInDays($asOn));
-                $amounts[self::bucketFor($days)] += $rent;
-                $i++;
-                $due = $unpaidFrom->copy()->addMonthsNoOverflow($i);
-            }
-        }
-
-        // Reconcile against the actual balance: partial payments clear the
-        // oldest months first, so any shortfall is taken from the oldest
-        // buckets; any excess is added to the oldest non-empty bucket.
-        $sum  = array_sum($amounts);
-        $diff = round($net - $sum, 3);
-        if ($sum <= 0) {
-            $amounts['current'] = $net;
-        } elseif ($diff > 0) {
-            foreach (array_reverse($keys) as $key) {
-                if ($amounts[$key] > 0) {
-                    $amounts[$key] += $diff;
-                    break;
-                }
-            }
-        } elseif ($diff < 0) {
-            $excess = -$diff;
-            foreach (array_reverse($keys) as $key) {
-                if ($excess <= 0) {
-                    break;
-                }
-                $take = min($amounts[$key], $excess);
-                $amounts[$key] -= $take;
-                $excess        -= $take;
-            }
-        }
-
-        foreach ($amounts as $key => $v) {
-            $amounts[$key] = round($v, 3);
+        foreach ($amounts as $k => $v) {
+            $amounts[$k] = round($v, 3);
         }
         return $amounts;
     }
 
-    private static function bucketFor($days)
+    public static function bucketFor($days)
     {
         foreach (self::BUCKETS as $key => $def) {
-            if ($def[2] === null || $days <= $def[2]) {
+            if ($days >= $def[1] && ($def[2] === null || $days <= $def[2])) {
                 return $key;
             }
         }
         return 'b180plus';
+    }
+
+    /**
+     * Report rows from RentDues::forDate(): every contract with a balance, sorted by
+     * building, unit and contract, with the field names the PDF and Excel use.
+     */
+    public static function rows(array $dues, $asOn)
+    {
+        $rows = [];
+        foreach ($dues as $d) {
+            if ($d->ledger['balance'] <= 0) {
+                continue;
+            }
+            $rows[] = (object) [
+                'buildingname' => $d->building_name,
+                'tenant_name'  => $d->tenant_name,
+                'contract_no'  => $d->contract_no,
+                'unit_code'    => $d->unit_code,
+                'pdc'          => $d->pdc,
+                'netamtdue'    => $d->ledger['balance'],
+                'aging'        => self::age($d->ledger['lines'], $asOn),
+            ];
+        }
+        usort($rows, function ($a, $b) {
+            $cmp = strcmp((string) $a->buildingname, (string) $b->buildingname);
+            if ($cmp === 0) {
+                $cmp = strnatcasecmp((string) $a->unit_code, (string) $b->unit_code);
+            }
+            return $cmp !== 0 ? $cmp : strcmp((string) $a->contract_no, (string) $b->contract_no);
+        });
+        return $rows;
     }
 }

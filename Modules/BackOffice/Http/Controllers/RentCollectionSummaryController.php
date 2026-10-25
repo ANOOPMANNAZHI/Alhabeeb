@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use Modules\Masters\Entities\ManagementType;
 
 /**
  * Building-wise Rent Collection Summary (PLM Module -> Reports).
@@ -14,6 +15,7 @@ use App\Http\Controllers\Controller;
  * every building that had rent activity in that month, with the rent collected
  * (rent receipts by receipt date) and the pending amount (monthly rent of the
  * contracts active in that month minus the collection, floored at zero).
+ * Optional building / building type (management type: Comprehensive, Normal, ...) / ARE filters.
  * Display only — no PDF/Excel.
  */
 class RentCollectionSummaryController extends Controller
@@ -27,15 +29,30 @@ class RentCollectionSummaryController extends Controller
     public function index(Request $request)
     {
         list($month, $year) = $this->monthYear($request);
-        $buildingName = trim((string) $request->input('building_name'));
-        $rows = $this->summaryRows($month, $year, $buildingName);
+        $buildingName   = trim((string) $request->input('building_name'));
+        $managementId   = (int) $request->input('management_id');
+        $areId          = (int) $request->input('are_id');
+        $rows = $this->summaryRows($month, $year, $buildingName, $managementId, $areId);
         $monthLabel = Carbon::createFromDate($year, $month, 1)->format('M Y');
 
         if ($request->ajax()) {
             return view('backoffice::Reports.rent_collection_summary_ajax', compact('rows', 'monthLabel'));
         }
 
-        return view('backoffice::Reports.rent_collection_summary', compact('rows', 'monthLabel', 'month', 'year', 'buildingName'));
+        $managementTypes = ManagementType::active()->orderBy('management_types_name')->get(['id', 'management_types_name']);
+        $ares = DB::select("
+            SELECT DISTINCT emp.id, emp.employee_name
+            FROM employees emp
+            JOIN users us ON us.user_type_id = emp.id
+            JOIN are_buildings ab ON ab.user_id = us.id
+            JOIN preferred_buildings pb ON pb.are_building_id = ab.id
+            WHERE pb.assign_to IS NULL
+            ORDER BY emp.employee_name");
+
+        return view('backoffice::Reports.rent_collection_summary', compact(
+            'rows', 'monthLabel', 'month', 'year', 'buildingName',
+            'managementTypes', 'ares', 'managementId', 'areId'
+        ));
     }
 
     /** @return array [int $month, int $year] — falls back to the current month/year. */
@@ -57,17 +74,32 @@ class RentCollectionSummaryController extends Controller
      * collected: rent receipts (type 0), not cancelled, not deleted, receipt date within the month.
      * expected_rent: SUM(tenant_contract_rent) of active contracts overlapping the month.
      * pending: GREATEST(expected_rent - collected, 0).
+     * are_names: the building's current ARE(s) (preferred_buildings with no assign_to),
+     * the same mapping the Tenancy Details report uses.
      */
-    private function summaryRows($month, $year, $buildingName = '')
+    private function summaryRows($month, $year, $buildingName = '', $managementId = 0, $areId = 0)
     {
         $anchor = sprintf('%04d-%02d-01', $year, $month);
         $bindings = [$anchor, $anchor];
 
+        $filters = '';
+        $filterBindings = [];
+
         // Free-text building search (name or code), same convention as the
         // Landlord Contract / Landlord Invoice v2 list filters.
-        $buildingFilter = '';
         if ($buildingName !== '') {
-            $buildingFilter = " AND (b.building_name ILIKE ? OR b.building_code ILIKE ?)";
+            $filters .= " AND (b.building_name ILIKE ? OR b.building_code ILIKE ?)";
+            $like = '%' . $buildingName . '%';
+            $filterBindings[] = $like;
+            $filterBindings[] = $like;
+        }
+        if ($managementId > 0) {
+            $filters .= " AND b.management_id = ?";
+            $filterBindings[] = $managementId;
+        }
+        if ($areId > 0) {
+            $filters .= " AND EXISTS (SELECT 1 FROM current_are ca WHERE ca.building_id = b.id AND ca.employee_id = ?)";
+            $filterBindings[] = $areId;
         }
 
         $sql = "
@@ -94,24 +126,30 @@ class RentCollectionSummaryController extends Controller
                   AND tc.tenant_contract_start_date::date <= mb.m_end
                   AND (tc.tenant_contract_valid_to_date IS NULL OR tc.tenant_contract_valid_to_date::date >= mb.m_start)
                 GROUP BY un.building_id
+            ),
+            current_are AS (
+                SELECT DISTINCT pb.building_id, emp.id AS employee_id, emp.employee_name
+                FROM employees emp
+                JOIN users us ON us.user_type_id = emp.id
+                JOIN are_buildings ab ON ab.user_id = us.id
+                JOIN preferred_buildings pb ON pb.are_building_id = ab.id
+                WHERE pb.assign_to IS NULL
             )
             SELECT b.id, b.building_name, b.building_code,
+                   mt.management_types_name,
+                   (SELECT STRING_AGG(ca.employee_name, ', ' ORDER BY ca.employee_name)
+                      FROM current_are ca WHERE ca.building_id = b.id) AS are_names,
                    COALESCE(c.collected, 0)     AS collected,
                    COALESCE(e.expected_rent, 0) AS expected_rent,
                    GREATEST(COALESCE(e.expected_rent, 0) - COALESCE(c.collected, 0), 0) AS pending
             FROM buildings b
+            LEFT JOIN management_types mt ON mt.id = b.management_id
             LEFT JOIN collected c ON c.building_id = b.id
             LEFT JOIN expected  e ON e.building_id = b.id
             WHERE (c.building_id IS NOT NULL OR e.building_id IS NOT NULL)
-                  {$buildingFilter}
+                  {$filters}
             ORDER BY b.building_name";
 
-        if ($buildingName !== '') {
-            $like = '%' . $buildingName . '%';
-            $bindings[] = $like;
-            $bindings[] = $like;
-        }
-
-        return DB::select($sql, $bindings);
+        return DB::select($sql, array_merge($bindings, $filterBindings));
     }
 }

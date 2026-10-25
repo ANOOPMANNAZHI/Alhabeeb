@@ -26,7 +26,6 @@ use Illuminate\Support\Facades\Mail;
 use Modules\Sales\Events\NewEnquiry;
 use Modules\Sales\Events\UpdateEnquiry;
 use Modules\Sales\Events\ReminderEnquiry;
-use Modules\Sales\Emails\SalesEnquiryEmail;
 
 class ApiController  
 {

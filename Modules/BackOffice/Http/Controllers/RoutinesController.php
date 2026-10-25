@@ -19,10 +19,12 @@ use Modules\BackOffice\Entities\AccountParams;
 use Modules\Masters\Entities\Legal;
 use App\User;
 use Illuminate\Support\Facades\Mail;
-use Modules\Masters\Emails\LegalEmail;
+use Modules\BackOffice\Services\LegalMessages;
 use Dynamics;
 use App\Setting;
 use DB;
+use Modules\BackOffice\Services\ReceiptNarration;
+use Modules\BackOffice\Services\VatReceiptCreator;
 
 
 class RoutinesController extends Controller
@@ -142,7 +144,7 @@ class RoutinesController extends Controller
           ->join('bank', 'bank.id', '=', 'pdc.bank_id')->whereBetween('pdc_check_date', [$fromDate, $toDate])
                 ->where('pdc_clear_date', null)
                 ->where('pdc_is_posted',0)
-				->whereIn('pdc_type',[1,2])
+				->whereIn('pdc_type',[1,2,4])
                 ->where('pdc_cancel_reason',0)->sortable()
                 ->when($building_name, function ($query) use($building_name,$custom_direction) { 
                     return $query->orderBy($building_name,$custom_direction);
@@ -160,7 +162,7 @@ class RoutinesController extends Controller
                    ->where('pdc_clear_date', null)
                    ->where('pdc_check_no',intval($pdc_check_no))
                    ->where('pdc_cancel_reason',0)
-				   ->whereIn('pdc_type',[1,2])
+				   ->whereIn('pdc_type',[1,2,4])
                    ->where('pdc_is_posted',0)
                     ->when($building_name, function ($query) use($building_name,$custom_direction) { 
                     return $query->orderBy($building_name,$custom_direction);
@@ -174,7 +176,7 @@ class RoutinesController extends Controller
         $pdc = Pdc::join('tenant_contracts','tenant_contracts.id','=','pdc.tenant_contract_id')->join('buildings', 'buildings.id', '=', 'tenant_contracts.building_id')
 				   ->where('pdc_check_no',intval($pdc_check_no))
                    ->where('pdc_is_posted',0)
-				   ->whereIn('pdc_type',[1,2])
+				   ->whereIn('pdc_type',[1,2,4])
                    ->where('pdc_cancel_reason',0)
 				   ->where('pdc_clear_date', null)
                    ->when($building_name, function ($query) use($building_name,$custom_direction) { 
@@ -186,7 +188,7 @@ class RoutinesController extends Controller
 
       }else {
         $pdc = Pdc::join('tenant_contracts','tenant_contracts.id','=','pdc.tenant_contract_id')->join('buildings', 'buildings.id', '=', 'tenant_contracts.building_id')->where('pdc.id',0)
-          ->whereIn('pdc_type',[1,2])
+          ->whereIn('pdc_type',[1,2,4])
 		  ->when($building_name, function ($query) use($building_name,$custom_direction) { 
                     return $query->orderBy($building_name,$custom_direction);
                 })
@@ -224,51 +226,93 @@ class RoutinesController extends Controller
 	  
 	  try{
 		  $pdcArr           = $request->pdc_id;
-      $contract_id      = $request->contract_id;
       $pdc_deposit_date = $request->pdc_deposit_date;
-      $row_collection   = $request->row_collection; 
-      $search_count     = $request->search_count;
       $selectedBank     = $request->bank_id;
 	  $totalPdc         = count($pdcArr);
 	  $overeffdatearray = array();	  
 
-      foreach($pdcArr as $key=>$pdc){
+      // VAT PDCs last: their receipt takes its period from the month's rent receipt, which may be in this batch
+      $pdcs = Pdc::whereIn('id', $pdcArr)->get()->sortBy(function ($p) {
+        return ((int) $p->pdc_type === Pdc::TYPE_VAT ? 1 : 0) . '-' . str_pad($p->id, 12, '0', STR_PAD_LEFT);
+      });
+      $vatFailed = array();
+      foreach($pdcs as $pdcRow){
+        if((int) $pdcRow->pdc_type === Pdc::TYPE_VAT){
+          try{
+            DB::transaction(function () use ($pdcRow, $pdc_deposit_date, $selectedBank) {
+              $this->postSinglePdc($pdcRow, $pdc_deposit_date, $selectedBank);
+            });
+          }catch(\RuntimeException $e){
+            $vatFailed[] = 'VAT cheque ' . $pdcRow->pdc_check_no . ': ' . $e->getMessage();
+          }
+          continue;
+        }
+        $result = $this->postSinglePdc($pdcRow, $pdc_deposit_date, $selectedBank);
+        if(!$result['posted']){
+          array_push($overeffdatearray, $result['contract_no']);
+        }
+      }
+      $totalPdc = $totalPdc - count($vatFailed);
+      if(count($vatFailed) > 0){
+        session()->flash('error', 'Not posted: ' . implode(' | ', $vatFailed));
+      }
 
-        $contract_id  = $request->{'contract_id_'.$pdc};
-        $pdc_type     = $request->{'pdc_type_'.$pdc};
+
+      session()->flash('success', $totalPdc.' PDC Posted Successfully');
+	   if(count($overeffdatearray)>0){
+        $allconteffover=implode(",", $overeffdatearray);
+        session()->flash('success', $allconteffover .' Rent Receipt Generated Completely Till Your Contract End Date');
+        if($totalPdc>0){
+          $totalPdc=$totalPdc-count($overeffdatearray);
+          session()->flash('success',$totalPdc.' - PDC Posted Successfully. For '. $allconteffover .' - Already Rent Receipt Generated Completely Till Contract End Date');
+        }
+      }
+      return redirect()->route('pdcPosting');
+		  
+	  }
+	  catch(\Exception $e){
+		  return $e;
+	  }
+
+      
+    }
+
+    /**
+     * Posts one PDC: marks it posted, generates its receipt (and deposit
+     * dimensions), bumps the receipt sequence and notifies legal when the
+     * contract is under legal. Shared by the manual posting screen and the
+     * bank-sheet upload. Returns ['posted' => bool, 'contract_no' => string];
+     * posted is false when rent receipts already run to the contract end.
+     */
+    public function postSinglePdc(Pdc $pdcData, $pdc_deposit_date, $selectedBank){
+
+        $contract_id  = $pdcData->tenant_contract_id;
+        $pdc_type     = $pdcData->pdc_type;
         $contractInfo = TenantContract::where('id', $contract_id)->first();
         $overcontractend=0;
 		
-        $pdcData  = Pdc::find($pdc);
+        $pdc      = $pdcData->id;
         $selectBankInfo = Bank::where('id',$selectedBank)->first();
         $pdcBankInfo    = Bank::where('id',$pdcData->bank_id)->first();
         $bank_id  = $selectBankInfo->id;
         //Notification Starts
         $legal = Legal::where('tenant_contract_id',$contractInfo->tenant_contract_id)->first();
          if($contractInfo->status == 5){
-            $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-            $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
-			$legal = Legal::where('tenant_contract_id',$contractInfo->id)->first();
-			if($legal!=null){
-			$legal->subject = "PDC Posted !"; 
-            $legal->textContent = "PDC Posted having Cheque No: ".$pdcData->pdc_check_no." which is under Legal";
-            foreach($legalUsers as $legalUser){
-              $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-              $msg = "PDC Posted";
-              $params = 'optional data';
-                if(!empty($legalUser->email)){
-				  Mail::to($legalUser->email)->send(new LegalEmail($legal,$legalUser)); //Email Notification
-				}else{
-				   sendSms($mobile,$msg,$params); //SMS Notification
-				}
-
-			}
+			// System template legal_pdc_posted (kept: only when a legal case row exists, as before)
+			if(Legal::where('tenant_contract_id',$contractInfo->id)->exists()){
+				LegalMessages::toRoles('legal_pdc_posted', ['are','backoffice_manager','legal_advisor'], $contractInfo,
+					['cheque_no' => $pdcData->pdc_check_no]);
 			}
 
             
  }
  //Notification Ends
+
+// VAT PDC: a VAT receipt for the rent period it belongs to (throws when that rent is not posted yet)
+if ((int) $pdc_type === Pdc::TYPE_VAT) {
+    (new VatReceiptCreator($this))->createSeparate([$pdcData], $pdcData->pdc_check_no, $pdcBankInfo->bank_code, $pdc_deposit_date, $bank_id);
+    return ['posted' => true, 'contract_no' => $contractInfo->tenant_contract_no];
+}
 // 1 - cheque, 2 - cash - receipt No sequence
 $rentIndexCheque   = ReceiptsGeneration::withTrashed()->where('receipts_generation_payment_method',1)->orderBy('id', 'DESC')->first();
 $prefix_cheque  = prefixData('receipt_cheque')->configuration_value;
@@ -277,16 +321,17 @@ $receiptNo    = $this->receiptGenerateCode('receipt_cheque');
 $configIncKey = 'receipt_cheque';
 
 $indexNo = 0;
+$isOtherCharge = false;
 
 // Rent PDC
 if($pdc_type == 1){
 
     $pdc_type = 0;
    // $receiptEff = $this->receiptEffectiveDateCalculation($contractInfo->id, $contractInfo->tenant_contract_effective_date, $contractInfo->tenant_contract_valid_to_date, $contractInfo->tenant_contract_payment_type );
-   $receiptEff = $this->receiptEffectiveDateCalculation($contractInfo->id, $contractInfo->tenant_contract_effective_date, $contractInfo->tenant_contract_valid_to_date,$contractInfo->tenant_contract_rent,$request->{'pdc_amt_'.$pdc} );
+   $receiptEff = $this->receiptEffectiveDateCalculation($contractInfo->id, $contractInfo->tenant_contract_effective_date, $contractInfo->tenant_contract_valid_to_date,$contractInfo->tenant_contract_rent,$pdcData->pdc_amt );
    if(isset($receiptEff['msg_receipt'])){
 	    $overcontractend=1;
-		array_push($overeffdatearray,$contractInfo->tenant_contract_no);
+
    // session()->flash('success', $contractInfo->tenant_contract_no .' '. $receiptEff['msg_receipt']);
    // return redirect()->route('pdcPosting');
 
@@ -300,13 +345,14 @@ if($pdc_type == 1){
    }
 }elseif($pdc_type == 3){
 	$pdc_type = 1;
-  //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($request->{'pdc_amt_'.$pdc});
+	$isOtherCharge = true;
+  //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($pdcData->pdc_amt);
 	$receipts_generation_remark = 'UNIT NO. '.$contractInfo->Unit->unit_no.','.$contractInfo->building->building_name;	
 	Pdc::where('id',$pdc)->update(['pdc_is_posted'=>1,'pdc_deposit_date'=>$pdc_deposit_date  ,'pdc_posted_date'=>date("Y-m-d"),'pdc_posted_by' => \Auth::user()->id]);
 }
 else{ // Deposit PDC
   $pdc_type = 2;
-  //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($request->{'pdc_amt_'.$pdc});
+  //$receipts_generation_remark = 'Deposit :'.$contractInfo->building->building_name.'-'.$contractInfo->Unit->unit_no.'/'.$contractInfo->tenant->tenant_name.'@'.numberFormat($pdcData->pdc_amt);
 	$receipts_generation_remark = 'DEPOSIT FOR UNIT NO. '.$contractInfo->Unit->unit_no.' '.$contractInfo->building->building_name;	
 	Pdc::where('id',$pdc)->update(['pdc_is_posted'=>1,'pdc_deposit_date'=>$pdc_deposit_date  ,'pdc_posted_date'=>date("Y-m-d"),'pdc_posted_by' => \Auth::user()->id]);
             
@@ -343,7 +389,7 @@ if(isset($receiptEff['eff_from']) && isset($receiptEff['eff_to'])){
       $pay_term = 12;
   }
  // $receiptRent = $pay_term*$contractInfo->tenant_contract_rent;
-  $receiptRent = $request->{'pdc_amt_'.$pdc};
+  $receiptRent = $pdcData->pdc_amt;
   
   $receipts_generation_eff_from = $receiptEff['eff_from'];
   $receipts_generation_eff_to = $receiptEff['eff_to']; 
@@ -353,7 +399,7 @@ if(isset($receiptEff['eff_from']) && isset($receiptEff['eff_to'])){
 
   $receipts_generation_eff_from = null;
   $receipts_generation_eff_to =null;
-  $receipts_generation_amt = $request->{'pdc_amt_'.$pdc} ;
+  $receipts_generation_amt = $pdcData->pdc_amt ;
 }
 if($overcontractend==0){      
 $receiptId =  ReceiptsGeneration::create([
@@ -363,7 +409,7 @@ $receiptId =  ReceiptsGeneration::create([
         'receipts_generation_receipt_date' => $pdc_deposit_date,
         'bank_id' => $bank_id,
         'receipts_generation_amt' => $receipts_generation_amt,
-        'receipts_generation_cheque_no' => $pdcBankInfo->bank_code.'__'.$request->{'pdc_check_no'.'_'.$pdc},
+        'receipts_generation_cheque_no' => $pdcBankInfo->bank_code.'__'.$pdcData->pdc_check_no,
         'receipts_generation_remark' => $receipts_generation_remark,
         'receipts_generation_description'=>$receipts_generation_remark,
         'receipts_generation_posted_by' => \Auth::user()->id,
@@ -416,32 +462,40 @@ $receiptId =  ReceiptsGeneration::create([
       'created_by' => \Auth::user()->id,
     ]);
 	}
+	// "Others" charge (E&W ...): one credit line, as the back office books it by hand; AX posting adds the bank debit
+	if($isOtherCharge && $overcontractend==0){
+		$ledger  = self::otherChargeAccount($pdcData->pdc_remark, $contractInfo->building->management_id);
+		$account = AccountCodes::where('acc_code_val', $ledger)->first();
+		ReceiptGenerationDim::create([
+		  'receipts_generation_id' => $receiptId->id,
+		  'account_code' => $ledger,
+		  'description' => $account ? $account->acc_code_desc : '',
+		  'dim_type' => 'LEDGER',
+		  'debit_amount' => 0,
+		  'credit_amount' => $receipts_generation_amt,
+		  'narration' => $pdcData->pdc_remark ?: '',
+		  'ac_codes_id' => $account ? $account->id : 0,
+		  'created_by' => \Auth::user()->id,
+		]);
+	}
 	if($overcontractend==0){
 	Pdc::where('id',$pdc)->update(['pdc_receipt_no'=>$receiptNo ]);
   
 	 //Update next increment value     
 	$this->incrementSequenceNo($configIncKey);
 	}
-	}
+        return ['posted' => $overcontractend == 0, 'contract_no' => $contractInfo->tenant_contract_no];
+    }
 
-
-      session()->flash('success', $totalPdc.' PDC Posted Successfully');
-	   if(count($overeffdatearray)>0){
-        $allconteffover=implode(",", $overeffdatearray);
-        session()->flash('success', $allconteffover .' Rent Receipt Generated Completely Till Your Contract End Date');
-        if($totalPdc>0){
-          $totalPdc=$totalPdc-count($overeffdatearray);
-          session()->flash('success',$totalPdc.' - PDC Posted Successfully. For '. $allconteffover .' - Already Rent Receipt Generated Completely Till Contract End Date');
+    /**
+     * Credit account of an "Others" PDC charge: 41105 ELECTRICITY & WATER when its remark says so (as the hand-made
+     * E&W receipts), otherwise the VAT receipt ledger (22301 Normal, 12211 Comprehensive / Commission).
+     */
+    public static function otherChargeAccount($remark, $managementId){
+        if (preg_match('/electric|water|\bE\s*&\s*W\b|\bEW\b/i', (string) $remark)) {
+            return 41105;
         }
-      }
-      return redirect()->route('pdcPosting');
-		  
-	  }
-	  catch(\Exception $e){
-		  return $e;
-	  }
-
-      
+        return VatReceiptCreator::ledgerAccount($managementId);
     }
 
     public function rentalIncomePosting(){
@@ -463,6 +517,9 @@ $receiptId =  ReceiptsGeneration::create([
 
 			$invoices=Invoice::whereBetween('tenant_invoice_date', [$fromDate, $toDate])
 			->where('tenant_invoice_status',1)
+			->whereHas('tenantContractInfo.building', function ($query) {
+			  $query->where('management_id', 1); // Comprehensive buildings only
+			})
 			->with('tenantContractInfo.unit')
 			->whereHas('tenantContractInfo.unit')
 			->get()
@@ -474,7 +531,11 @@ $receiptId =  ReceiptsGeneration::create([
 			->where('tenant_invoice_status',1)
 			->whereHas('tenantContractInfo', function ($query)use($building_id) {
 			  $query->whereIn('building_id', $building_id);
-			})->with('tenantContractInfo.unit')
+			})
+			->whereHas('tenantContractInfo.building', function ($query) {
+			  $query->where('management_id', 1); // Comprehensive buildings only
+			})
+			->with('tenantContractInfo.unit')
 			->whereHas('tenantContractInfo.unit')
 			->get()
 			->sortBy('tenantContractInfo.unit.unit_code');
@@ -484,7 +545,11 @@ $receiptId =  ReceiptsGeneration::create([
 			$invoices = Invoice::where('tenant_invoice_status',1)
 			->whereHas('tenantContractInfo', function ($query)use($building_id) {
 			  $query->whereIn('building_id', $building_id)->where('tenant_contract_status', 1);
-    	})->with('tenantContractInfo.unit')
+    	})
+			->whereHas('tenantContractInfo.building', function ($query) {
+			  $query->where('management_id', 1); // Comprehensive buildings only
+			})
+			->with('tenantContractInfo.unit')
 			->whereHas('tenantContractInfo.unit')
 			->get()
 			->sortBy('tenantContractInfo.unit.unit_code');
@@ -731,6 +796,8 @@ $receiptId =  ReceiptsGeneration::create([
 			} 
 		} 
 		else{ 
+			// Cash against a cheque posts the rent line + a cheque note, like the printed receipt
+			$axNarration = ReceiptNarration::forAxPostingOf($receiptInfo);
 			//Comprehensive Building
 			if($management_type == 1){
 							
@@ -743,7 +810,7 @@ $receiptId =  ReceiptsGeneration::create([
 								'JournalNum'=> $response,
 								'JournalName'=> AR_PAYMENT_JOURNAL_NAME,
 								'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-								'Description'=> $receiptInfo->receipts_generation_remark,
+								'Description'=> $axNarration['description'],
 								'CustAccount'=> $receiptInfo->tenantContractInfo->tenant->tenant_code ,
 								'currency'=> CURRENCY,
 								'accountType'=> 'Cust',
@@ -753,7 +820,7 @@ $receiptId =  ReceiptsGeneration::create([
 								'DebitCredit'=>'Credit',
 								'voucher'=>$receiptInfo->receipts_generation_receipt_no,
 								'Amount'=>$receiptInfo->receipts_generation_amt,
-								'Remarks'=>$receiptInfo->receipts_generation_description,
+								'Remarks'=> $axNarration['remarks'],
 								'Invoice'=>'',
 								'dimension1'=> 'Building',
 								'dimension1value'=>isset($receiptInfo->tenantContractInfo->building->building_code)?$receiptInfo->tenantContractInfo->building->building_code:'000',
@@ -779,7 +846,7 @@ $receiptId =  ReceiptsGeneration::create([
 									'JournalNum'=> $response,
 									'JournalName'=> AR_PAYMENT_JOURNAL_NAME,
 									'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-									'Description'=> $receiptInfo->receipts_generation_remark,
+									'Description'=> $axNarration['description'],
 									'CustAccount'=> $bank_checkbkId,
 									'currency'=> CURRENCY,
 									'accountType'=> AX_BANK,
@@ -789,7 +856,7 @@ $receiptId =  ReceiptsGeneration::create([
 									'DebitCredit'=>'Debit',
 									'voucher'=>$receiptInfo->receipts_generation_receipt_no,
 									'Amount'=>$receiptInfo->receipts_generation_amt,
-									'Remarks'=>$receiptInfo->receipts_generation_description,
+									'Remarks'=> $axNarration['remarks'],
 									'Invoice'=>'',
 									'dimension1'=> 'Building',
 									'dimension1value'=>'000',
@@ -835,7 +902,7 @@ $receiptId =  ReceiptsGeneration::create([
 						'JournalNum'=> $response,
 						'JournalName'=> GENERAL_LEDGER_JOURNAL_NAME,
 						'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-						'Description'=>$receiptInfo->receipts_generation_remark,
+						'Description'=> $axNarration['description'],
 						'Account'=> $bank_checkbkId,
 						'currency'=> CURRENCY,
 						'accountType'=> AX_BANK,
@@ -846,7 +913,7 @@ $receiptId =  ReceiptsGeneration::create([
 						'voucher'=>$receiptInfo->receipts_generation_receipt_no,
 						'AmountCredit'=>0,
 						'AmountDebit'=>$receiptInfo->receipts_generation_amt,
-						'Remarks'=> $receiptInfo->receipts_generation_description,
+						'Remarks'=> $axNarration['remarks'],
 						'Invoice'=>'',
 						'dimension1'=> 'Building',
 						'dimension1value'=>'000',
@@ -865,7 +932,7 @@ $receiptId =  ReceiptsGeneration::create([
 						'JournalNum'=> $response,
 						'JournalName'=> GENERAL_LEDGER_JOURNAL_NAME,
 						'PaymentDate'=> $receiptInfo->receipts_generation_receipt_date->format('Y-m-d'),
-						'Description'=> $receiptInfo->receipts_generation_remark,
+						'Description'=> $axNarration['description'],
 						'Account'=> $acc_parameter->acc_params_cr_acc,
 						'currency'=> CURRENCY,
 						'accountType'=> AX_GL,
@@ -876,7 +943,7 @@ $receiptId =  ReceiptsGeneration::create([
 						'voucher'=>$receiptInfo->receipts_generation_receipt_no,
 						'AmountCredit'=>$receiptInfo->receipts_generation_amt,
 						'AmountDebit'=>0,
-						'Remarks'=>$receiptInfo->receipts_generation_remark,
+						'Remarks'=> $axNarration['remarks_alt'],
 						'Invoice'=>'',
 						'dimension1'=> 'Building',
 						'dimension1value'=>isset($receiptInfo->tenantContractInfo->building->building_code)?$receiptInfo->tenantContractInfo->building->building_code:'000',
@@ -936,23 +1003,9 @@ $receiptId =  ReceiptsGeneration::create([
     $legal = Legal::where('tenant_contract_id',$receiptGeneration->tenant_contract_id)->first();
 
     if($tenantContract->status == 5){
-      $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-      $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
-
-      $legal->subject = "Tenant Receipt Posted !"; 
-      $legal->textContent = "Tenant Receipt Posted having Receipt No: ".$receiptGeneration->receipts_generation_receipt_no." which is under Legal";
-      foreach($legalUsers as $legalUser){
-        $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-        $msg = "Tenant Receipt Posted";
-        $params = 'optional data';
-        if(!empty($legalUser->email)){
-      Mail::to($legalUser->email)->send(new LegalEmail($legal,$legalUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
+      // System template legal_receipt_posted
+      LegalMessages::toRoles('legal_receipt_posted', ['are','backoffice_manager','legal_advisor'], $tenantContract,
+          ['receipt_no' => $receiptGeneration->receipts_generation_receipt_no]);
   //Notifications ends
  }
  

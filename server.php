@@ -53,4 +53,25 @@ if ($uri !== '/' && (strpos($uri, '/public/') === 0 || strpos($uri, '/storage/ap
     }
 }
 
+// Jasper report output (PDF / Excel) — on the live server Apache serves this folder directly.
+if (preg_match('#^/vendor/cossou/jasperphp/examples/[^/]+\.(pdf|xlsx|xls|docx|csv)$#', $uri, $m)) {
+    $filePath = __DIR__.$uri;
+    if (is_file($filePath)) {
+        $types = [
+            'pdf'  => 'application/pdf',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'xls'  => 'application/vnd.ms-excel',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'csv'  => 'text/csv',
+        ];
+        header('Content-Type: '.$types[$m[1]]);
+        header('Content-Length: '.filesize($filePath));
+        if ($m[1] !== 'pdf') {
+            header('Content-Disposition: attachment; filename="'.basename($filePath).'"');
+        }
+        readfile($filePath);
+        exit;
+    }
+}
+
 require_once __DIR__.'/public/index.php';

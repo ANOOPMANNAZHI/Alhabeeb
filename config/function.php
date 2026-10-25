@@ -482,7 +482,8 @@ function getReceivables($fromDate , $validToDate, $nextDays,$tenantContractRent,
 
 	$sumOfReceipt   = ReceiptsGeneration::where('receipts_generation_type',0)->where('tenant_contract_id',$tenantContractId)->where('receipts_generation_status',3)->sum('receipts_generation_amt');
 
-	$totalRentAmount = $totalRent-$sumOfReceipt;
+	// legal settlement waiver is a credit on the contract (legal plan phase 4)
+	$totalRentAmount = $totalRent-$sumOfReceipt-\Modules\Masters\Services\LegalWaiver::forContract($tenantContractId);
 
 
 	return numberFormat($totalRentAmount); 
@@ -534,6 +535,8 @@ $domain=  $_SERVER['HTTP_HOST'];
 
 if($domain == '134.0.205.114:9443'){
 $logo = 'public/img/logo-1.png'; //path for http://134.0.205.114:9081/
+}elseif(strpos($domain, 'localhost') !== false || strpos($domain, '127.0.0.1') !== false){
+$logo = base_path('public/img/logo-1.png'); // local: php -S serves one request at a time, so Jasper cannot fetch the logo by URL
 }else{
 $logo = asset('public/img/logo-1.png');  //path for http://plms.alhabib.om:8086/
 }
@@ -589,6 +592,12 @@ if (!$tenantContract) {
 }
 $effectiveDate = $tenantContract->tenant_contract_effective_date ?: $tenantContract->tenant_contract_start_date;
 $sumOfRent = \Modules\BackOffice\Services\RentOutstanding::rentDue($effectiveDate, $terminationDate, $tenantContract->tenant_contract_rent);
+// A contract shorter than a month (or ending part way through one) never owes more than its value.
+$cap = \Modules\BackOffice\Services\RentOutstanding::contractValueCap($effectiveDate, $tenantContract->tenant_contract_valid_to_date,
+    $tenantContract->tenant_contract_rent, $tenantContract->tenant_contract_value);
+if ($cap !== null && $sumOfRent > $cap) {
+    $sumOfRent = $cap;
+}
 
 return number_format((float)$sumOfRent, 3, '.', '');
 }

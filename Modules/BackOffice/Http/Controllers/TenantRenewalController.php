@@ -41,7 +41,8 @@ use Modules\BackOffice\Events\TenantRenewalReject;
 use Modules\Sales\Http\Controllers\TenantContractController as Contract ;
 use Modules\General\Http\Controllers\GeneralController as General;
 use Illuminate\Support\Facades\Mail;
-use Modules\BackOffice\Emails\RenewalFormPdfEmail;
+use Modules\BackOffice\Entities\MessageLog;
+use Modules\BackOffice\Services\TenantMessages;
 use Modules\BackOffice\Entities\ReceiptsGeneration;
 
 class TenantRenewalController extends Controller 
@@ -108,18 +109,10 @@ class TenantRenewalController extends Controller
       $current = Carbon::now(); 
 	    $futureDate = $current->addMonths((int) $config_data)->format('Y-m-d H:i:s');
       
-	  $dueForRenewal = ViewDueRenewal::select('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email')
-            ->groupBy('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email')
-            ->areFilter()->filter($request)->whereDate('tenant_contract_valid_to_date','<',$futureDate)
-                                        ->where('tenant_contract_status',1)
-                                        ->where(function ($query) {
-                                          $query->where('tenant_renewal_termination_status',0)
-                                                ->where('tenant_renewal_termination_status','!=',2)
-                                                ->orWhere('tenant_renewal_termination_status',4)
-                        ->orWhere('tenant_renewal_termination_status',1)
-												->orWhere('tenant_renewal_termination_status',5)
-                        ->orWhere('tenant_renewal_termination_status',6);
-                                        });
+	  // same rows as the ARE dashboard "Contracts Expiring" card (optional ?expdays from the card)
+	  $dueForRenewal = \Modules\BackOffice\Services\DueForRenewal::query($request)
+            ->select('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email')
+            ->groupBy('id','tenant_contract_no','building_name','unit_no','tenant_contract_start_date','tenant_contract_valid_to_date','tenant_contract_rent','tenant_name','tenant_contact_email','tenant_personal_email');
 
         $dueForRenewals = $dueForRenewal->sortable()->paginate($this->noOfRecord);
       //dd($dueForRenewals);
@@ -393,6 +386,8 @@ class TenantRenewalController extends Controller
         $isYearCorrect = (date('y') == $year)?true:false;
 
 
+        $tenantContract->unit_usage = $this->previousUnitUsage($tenantContract);
+
         return view('backoffice::RenewalOrTermination.tenant_renew_contract_edit',compact('tenantContract','banks','locations','employeeList','upload_size','landlord_contract_valid_to_date','isYearCorrect'));
     }
 
@@ -415,6 +410,9 @@ class TenantRenewalController extends Controller
       $occupant_id = '';
       $contract =  new Contract;
       $data = $contract->getContractData();
+      if ($request->filled('unit_usage')) {
+          $data['unit_usage'] = $request['unit_usage'];
+      }
       $data['tenant_contract_penalty'] = $request['tenant_contract_penalty'];
       $data['tenant_marketing_executive'] =$request['tenant_marketing_executive'];
       $data['tenant_contract_duration_countdown'] = $request['yeartxt'].'-'.$request['monthtxt'].'-'.$request['daytxt'];
@@ -944,6 +942,24 @@ class TenantRenewalController extends Controller
     * Renewal New Contract
     *
     */
+    /**
+     * Unit usage to pre-select on a renewal: the contract's own, else the latest one
+     * recorded on this tenant's earlier contracts for the same unit.
+     */
+    private function previousUnitUsage($tenantContract)
+    {
+        if (!empty($tenantContract->unit_usage)) {
+            return $tenantContract->unit_usage;
+        }
+        return TenantContract::where('tenant_id', $tenantContract->tenant_id)
+            ->where('unit_id', $tenantContract->unit_id)
+            ->where('id', '<', $tenantContract->id)
+            ->whereNotNull('unit_usage')
+            ->where('unit_usage', '<>', '')
+            ->orderBy('id', 'desc')
+            ->value('unit_usage');
+    }
+
     public function renewalNewContract($id) 
     { 
         $tenantContractLatest = TenantContract::orderBy('id','desc')->limit(1)->first();
@@ -966,6 +982,7 @@ class TenantRenewalController extends Controller
 
 
         $tenantContract->tenant_contract_start_date = $startDate;
+        $tenantContract->unit_usage = $this->previousUnitUsage($tenantContract);
      	  $employeeList     = Employee::whereHas('user',function ($query){
                                           $query->role('sales_person');
                                       })->orderBy('id', 'DESC')->get();        
@@ -1011,7 +1028,9 @@ class TenantRenewalController extends Controller
       }else{
 
         $interval = contractDurationCalculation($startDate,$contract_valid_to_date );
-      
+
+        // Rent revisal (spec 2026-10-15): with no renewal form yet, start from the revised rent (shown only, not saved here).
+        $tenantContract->tenant_contract_rent = \Modules\BackOffice\Services\RentRevisal::renewalRent($tenantContract);
         $rent =  $tenantContract->tenant_contract_rent;
         $contract_amount = rentCalcualtionWithDuration($interval, $rent);
       
@@ -1282,10 +1301,28 @@ class TenantRenewalController extends Controller
       fwrite($myfile, $txt);
       fclose($myfile);
      	  
+      // Runs every minute and on every dashboard load: one run at a time, the others skip (no deadlock)
+      $lock = DB::selectOne("SELECT pg_try_advisory_lock(hashtext('cronRenewalContract')) AS ok");
+      if (!$lock->ok) {
+        return;
+      }
+      try {
+        $this->runRenewalContractCron($today);
+      } finally {
+        DB::selectOne("SELECT pg_advisory_unlock(hashtext('cronRenewalContract'))");
+      }
+    }
+
+    private function runRenewalContractCron($today) {
       $units = new Unit;
-	  // Vacany Loss Table Update
-      $vacanyDataList = VacantVacancyLoss::where('status','=',1)->where('vacant_from','<=',date('Y-m-d'))->get();
-	  
+	  // Vacany Loss Table Update; rows already brought up to today are skipped (days only change once a day)
+      $vacanyDataList = VacantVacancyLoss::where('status','=',1)->where('vacant_from','<=',date('Y-m-d'))
+        ->where(function ($q) use ($today) {
+          $q->whereNull('vacant_to')->orWhere('vacant_to', '<>', $today);
+        })->get();
+
+      // saved together: one commit for the whole run, and nothing half-updated if it stops
+      DB::transaction(function () use ($vacanyDataList) {
       foreach($vacanyDataList as $lst){
 
         $start  = $lst->vacant_from;
@@ -1300,6 +1337,7 @@ class TenantRenewalController extends Controller
         }
         VacantVacancyLoss::where('unit_id','=',$lst->unit_id)->where('status','=',1)->update(['vacant_to'=>$validToDt,'vacant_days'=>$vacantDays,'vacany_loss'=>$vacany_loss]);
       }
+      });
 	 // Manually Terminate by backoffice team
 	/*
       $affectedTenInactive = TenantContract::whereDate('tenant_contract_valid_to_date','<=',$today)
@@ -1347,11 +1385,33 @@ class TenantRenewalController extends Controller
       // LandlordContract::whereDate('landlord_contract_valid_to_date',$today)
 				  //  ->update(['landlord_contract_status' => 0,'landlord_renewal_termination_status'=>5]);
 				
-      LandlordContract::whereHas('salesEnquiry', function ($query){
-                $query->where('work_flow_processes_code', '=', 204);                     
+      // Landlord contracts whose period has started: active, renewal status 0. Only approved ones
+      // (0, or 5 = renewal approved before its start); contracts under renewal (1-4) and superseded
+      // ones (6) are left alone. It used to set 6 on every current contract, which hid renewed
+      // contracts from Landlord Contracts and Landlord Renewal Due (08/10/2026).
+      $startingLandlord = LandlordContract::whereHas('salesEnquiry', function ($query){
+                $query->where('work_flow_processes_code', '=', 204);
             })->whereDate('landlord_contract_valid_from_date','<=',$today)
 			->whereDate('landlord_contract_valid_to_date','>',$today)
-            ->update(['landlord_contract_status' => 1,'landlord_renewal_termination_status'=>6]); 
+            ->where(function ($query) {
+                $query->whereIn('landlord_renewal_termination_status', [0, 5])->orWhereNull('landlord_renewal_termination_status');
+            })
+            ->where(function ($query) {
+                $query->where('landlord_contract_status', '!=', 1)->orWhere('landlord_renewal_termination_status', '!=', 0)
+                      ->orWhereNull('landlord_renewal_termination_status');
+            })
+            ->pluck('id');
+      if (count($startingLandlord)) {
+        LandlordContract::whereIn('id', $startingLandlord)
+            ->update(['landlord_contract_status' => 1, 'landlord_renewal_termination_status' => 0]);
+        // the contract each one renews is closed, as an approval after the start date does
+        $replacedLandlord = DB::table('renewals')->where('renewal_type', 2)->whereIn('new_contract_id', $startingLandlord)
+            ->whereNotNull('old_contract_id')->pluck('old_contract_id');
+        if (count($replacedLandlord)) {
+          LandlordContract::whereIn('id', $replacedLandlord)->whereNotIn('id', $startingLandlord)
+              ->update(['landlord_contract_status' => 0, 'landlord_renewal_termination_status' => 6]);
+        }
+      }
       $contracts_building = LandlordContract::with('Unit')
                 ->whereHas('salesEnquiry', function ($query){
                   $query->where('work_flow_processes_code', '=', 204);                     
@@ -1940,7 +2000,12 @@ class TenantRenewalController extends Controller
       if(count($tenantContract->tenantRenewalForm) > 0){
         $form_count = count($tenantContract->tenantRenewalForm);
         $renewal_data = $tenantContract->tenantRenewalForm[$form_count-1];
-      }   
+      }
+      // Rent revisal (spec 2026-10-15): with no renewal form yet, start from the revised rent (shown only, not saved here).
+      if (!$renewal_data) {
+        $tenantContract->tenant_contract_rent = \Modules\BackOffice\Services\RentRevisal::renewalRent($tenantContract);
+      }
+      $rentRevisal = \Modules\BackOffice\Services\RentRevisal::sentRevisal($tenantContract);   // info line under Rent(P.M.)
 
       $landloard = LandlordContract::where('building_id',$tenantContract->building_id)
                                       ->active()->first();
@@ -1957,7 +2022,7 @@ class TenantRenewalController extends Controller
       }                               
        
       //dd($tenantContract->building);
-      return view('backoffice::RenewalOrTermination.renewalTemplatePdfModel',compact('tenantContract','renewal_data','landlord_contract_valid_to_date','start_date','areEmail'));                                  
+      return view('backoffice::RenewalOrTermination.renewalTemplatePdfModel',compact('tenantContract','renewal_data','landlord_contract_valid_to_date','start_date','areEmail','rentRevisal'));                                  
    }
 
 
@@ -1983,8 +2048,11 @@ class TenantRenewalController extends Controller
     * generatePDF
     *
     */
-    public function generatePDF(TenantContract $tenant_contract)
+    public function generatePDF($contract)
     {
+      // Called with the contract by tenantRenewalTemplateStore (the renewal modal), or with an id by the
+      // generatePdfEmail route ({contract_id} — its old TenantContract type-hint was never bound).
+      $tenant_contract = $contract instanceof TenantContract ? $contract : TenantContract::findOrFail($contract);
       $areEmail= null;
       if(isset($tenant_contract->building->buildingAssignToAre->buildingAssignToName->areUser)){
 
@@ -1995,7 +2063,6 @@ class TenantRenewalController extends Controller
       $userDetails = User::where('id',\Auth::user()->id)->first();
       $tenantContract->username = $userDetails->username;
       $tenantContract->email = $userDetails->email;
-      $contractDate = $tenantContract->tenant_contract_valid_to_date->format('d/m/Y');
       $data['tenantContract'] = $tenantContract;
       
       $pdf = \PDF::loadView('backoffice::RenewalOrTermination.renewal_contract_form_pdf',$data)->setPaper('a3');
@@ -2010,28 +2077,18 @@ class TenantRenewalController extends Controller
        $nextCode=$prefix.$random;
 
        $pdfName=$nextCode.'.pdf';
-        //Email Notification
-        $tenantDetail = Tenant::where('id',$tenantContract->tenant_id)->first();
-        $tenantEmail = $tenantDetail->tenant_contact_email;
-        $tenantDetail->pdf = $pdf;
-        $tenantDetail->pdfname = $pdfName; 
-        $tenantDetail->todate = $contractDate;
-        $tenantDetail->building = $tenantContract->building->building_name;
-        $tenantDetail->unitno = $tenantContract->Unit->unit_no;
-        
-        if($tenantEmail == "")$tenantEmail = $tenantDetail->tenant_personal_email;
-
-        if(!empty($tenantEmail)){
-
-          Mail::to($tenantEmail)
-                ->cc([$userDetails->email,$areEmail])
-                ->send(new RenewalFormPdfEmail($tenantDetail));
+        // Email to the tenant with the form attached (system template renewal_form); cc sender + ARE
+        $status = TenantMessages::renewalForm($tenantContract, $pdf->output(), $pdfName, [$userDetails->email, $areEmail]);
+        if ($status === MessageLog::SENT) {
           TenantContract::where('id',$tenantContract->id)->update(['email_count'=>$tenantContract->email_count+1]);
           session()->flash('success', ' Mail Send Successfully');
           return redirect()->route('tenantRenewal.index');
-        }else{
-          return  $pdf->download($pdfName);
         }
+        // Not emailed (no address, template switched off, or send failed): give the user the form instead.
+        if ($status === MessageLog::FAILED) {
+          session()->flash('error', 'The email could not be sent (see Mail > Sent log). The form has been downloaded instead.');
+        }
+        return $pdf->download($pdfName);
 
                
     }
@@ -2184,6 +2241,85 @@ class TenantRenewalController extends Controller
    /**
      * Before Renew Contract create to view Previous Contract.
      */
+    /**
+     * Tenant decided to vacate after the renewal was accepted (Contract Under Renewal 304 or
+     * Contract Renewal 301) but before a renewal contract was made. Closes the renewal steps
+     * (kept as history, with the reason as a stage note) and starts the termination exactly
+     * like Vacating on Due for Renewal: 501 dated on the contract end, unit under termination.
+     */
+    public function renewalVacate(Request $request, $contractId)
+    {
+        $user = \Auth::user();
+        $allowed = $user->hasRole('super_admin');
+        foreach (['renewal_contract_add', 'under_renewal_normal_renewal', 'under_renewal_send_for_approval', 'renewal_due_accept'] as $perm) {
+            $allowed = $allowed || $user->can($perm);
+        }
+        if (!$allowed) {
+            abort(403);
+        }
+        $this->validate($request, ['renewal_notes' => 'nullable|max:200']);
+
+        $error = null;
+        $response = DB::transaction(function () use ($request, $contractId, $user, &$error) {
+            // lock the contract row so a double click cannot start two terminations
+            $contract = TenantContract::where('id', $contractId)->lockForUpdate()->first();
+            list($stage, $error) = self::renewalVacateCheck($contract);
+            if ($error) {
+                return null;
+            }
+
+            Renewal::where('old_contract_id', $contractId)->update(['status' => 0]);
+            $note = trim((string) $request->renewal_notes);
+            $closed = new Renewal;
+            $closed->old_contract_id = $contractId;
+            $closed->renewal_type = 1;
+            $closed->work_flow_processes_code = $stage;
+            $closed->renewal_notes = 'Tenant vacating, renewal stopped' . ($note !== '' ? ': ' . $note : '');
+            $closed->status = 0;
+            $closed->created_by = $user->id;
+            $closed->save();
+
+            activity('Tenant Renewal Vacating')
+              ->performedOn($contract)
+              ->causedBy($user->id)
+              ->withProperties(['stage' => $stage, 'note' => $note])
+              ->log('Renewal stopped at stage ' . $stage . ', tenant vacating. By: ' . $user->username);
+
+            // same as Vacating on Due for Renewal
+            return $this->tenantRenewalStage($contractId, 501, 7, 0);
+        });
+
+        if ($error) {
+            session()->flash('error', $error);
+            return redirect()->back();
+        }
+        return $response;
+    }
+
+    /**
+     * [renewal stage (301/304), error message or null] for Tenant Vacating; also decides whether
+     * the button shows. A termination counts as open when the contract's latest termination row
+     * was not referred back (Refer Back for Renewal flags only that row, the older 501/502 stay).
+     */
+    public static function renewalVacateCheck($contract)
+    {
+        $current = $contract ? Renewal::where('old_contract_id', $contract->id)->where('renewal_type', 1)
+            ->where('status', 1)->orderBy('id', 'desc')->first() : null;
+        $stage = $current ? (int) $current->work_flow_processes_code : null;
+
+        if (!$contract || (int) $contract->tenant_contract_status !== 1 || !in_array($stage, [301, 304])) {
+            return [$stage, 'This contract is not under renewal any more.'];
+        }
+        if (Renewal::where('old_contract_id', $contract->id)->whereNotNull('new_contract_id')->exists()) {
+            return [$stage, 'A renewal contract has already been created. Reject or cancel it before marking the tenant as vacating.'];
+        }
+        $lastTermination = Termination::where('contract_id', $contract->id)->orderBy('id', 'desc')->first();
+        if ($lastTermination && !$lastTermination->termination_refer_back) {
+            return [$stage, 'A termination has already been started for this contract.'];
+        }
+        return [$stage, null];
+    }
+
     public function previousContractViewAndAction($id)
     {
       $tenantContract = TenantContract::where('id',$id)->first();

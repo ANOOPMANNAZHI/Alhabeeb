@@ -91,6 +91,7 @@ class PdcExcelImport implements ToModel,WithStartRow
           case 'Rent' : return '1';
           case 'Deposit' : return '2';   
           case 'Others' : return '3';
+          case 'VAT' : return '4';
                
         }
 

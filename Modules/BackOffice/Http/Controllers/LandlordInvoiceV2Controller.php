@@ -11,6 +11,7 @@ use Modules\Masters\Entities\Vendor;
 use Modules\Sales\Entities\LandlordContract;
 use Modules\BackOffice\Entities\LandlordInvoiceV2;
 use Modules\BackOffice\Exceptions\AxPostingException;
+use Modules\BackOffice\Exports\NormalManagementConsolidateSheet;
 use Modules\BackOffice\Services\LandlordInvoiceV2AxPoster;
 use Modules\BackOffice\Services\LandlordInvoiceV2LineNormalizer;
 
@@ -396,17 +397,38 @@ class LandlordInvoiceV2Controller extends Controller
                 ['description' => 'CLEANING CHARGES FOR ' . $amounts['period_label'], 'amount' => $amounts['cleaning_charge']],
                 ['description' => 'REPAIR AND MAINTENANCE CHARGES', 'amount' => $amounts['repair_maintenance']],
             ];
+            // Contract-derived fees, only when non-zero for the period - same
+            // lines the Landlord Tax Invoice report prints.
+            if ($amounts['facility_management_fee'] > 0) {
+                $lines[] = ['description' => 'FACILITY MANAGEMENT FEE FOR ' . $amounts['period_label'], 'amount' => $amounts['facility_management_fee']];
+            }
+            if ($amounts['renewal_fee'] > 0) {
+                $lines[] = ['description' => 'RENEWAL FEE FOR ' . $amounts['period_label'], 'amount' => $amounts['renewal_fee']];
+            }
+            if ($amounts['new_leasing_fee'] > 0) {
+                $lines[] = ['description' => 'NEW LEASING FEE FOR ' . $amounts['period_label'], 'amount' => $amounts['new_leasing_fee']];
+            }
         } else {
             $amounts = $this->calc->landlordOtherDeductionsLineAmounts($building, $fromDate, $toDate);
             $subAmount = $this->calc->landlordSubcontractorRepairMaintenanceAmount($building->id, $fromDate, $toDate);
+            // every line names the month, e.g. "MUN TAX CHARGES FOR AUG'26" (user, 08/10/2026)
+            $forMonth = ' FOR ' . strtoupper(date('M', strtotime($fromDate))) . "'" . date('y', strtotime($fromDate));
             $lines = [
-                ['description' => 'MUN TAX CHARGES', 'amount' => $amounts['mun_tax_charges']],
-                ['description' => 'ELECT. AND WATER CHARGES', 'amount' => $amounts['elect_water_charges']],
-                ['description' => 'DEWATERING CHARGES', 'amount' => $amounts['dewatering_charges']],
-                ['description' => 'AMC / REPAIR AND MAINTENANCE CHARGES FOR A/C UNITS', 'amount' => $amounts['ac_amc_repair_charges']],
-                ['description' => 'AMC FOR F.A.S FOR THE PERIOD', 'amount' => $amounts['fas_amc_charges']],
-                ['description' => 'REPAIR AND MAINTENANCE CHARGES (SUB-CONTRACTOR)', 'amount' => $subAmount],
+                ['description' => 'MUN TAX CHARGES' . $forMonth, 'amount' => $amounts['mun_tax_charges']],
+                ['description' => 'ELECT. AND WATER CHARGES' . $forMonth, 'amount' => $amounts['elect_water_charges']],
             ];
+            // Dewatering is split into this period's bills and late bills for
+            // other months (e.g. "FROM MAR'26 TO JUN'26"); the lines sum to
+            // $amounts['dewatering_charges'].
+            foreach ($this->calc->landlordDewateringLines($building, $fromDate, $toDate) as $dewateringLine) {
+                $lines[] = $dewateringLine;
+            }
+            // A/C, F.A.S and lift: an AMC line and a Repair & Maintenance line each, non-zero only
+            foreach ($this->calc->landlordAmcRepairLines($building, $fromDate, $toDate) as $amcLine) {
+                $amcLine['description'] .= $forMonth;
+                $lines[] = $amcLine;
+            }
+            $lines[] = ['description' => 'REPAIR AND MAINTENANCE CHARGES' . $forMonth, 'amount' => $subAmount];
         }
 
         return response()->json(['lines' => $lines]);
@@ -441,6 +463,7 @@ class LandlordInvoiceV2Controller extends Controller
         $income = 0.0;
         $collection = 0.0;
         $totalExpenses = 0.0;
+        $directDeposit = 0.0;
         $occupancy = [
             'total_units' => 0, 'new_leased_residential' => 0, 'new_leased_commercial' => 0,
             'occupied_residential' => 0, 'occupied_commercial' => 0, 'vacant_residential' => 0,
@@ -455,22 +478,18 @@ class LandlordInvoiceV2Controller extends Controller
             foreach ($data['old_outstanding'] ?? [] as $u) {
                 $collection += (float) ($u->collection_amount ?? 0);
             }
+            // Municipal tax paid back by early leavers, as on the consolidated sheet
+            $collection += NormalManagementConsolidateSheet::munTaxCollection($data);
+            // Rent paid directly to the landlord: in Collection, deducted from the transfer (as on the consolidated sheet)
+            $directDeposit = NormalManagementConsolidateSheet::directDepositTotal($data);
 
-            foreach ($data['expenses'] ?? [] as $exp) {
-                $totalExpenses += (float) $exp->expense_amount;
-            }
-            // Cleaning Charges, Facility Management Fee, Renewal Fee, and New
-            // Leasing Fee are not transactional expenses but are folded into
-            // Total Expenses here, matching NormalManagementConsolidateSheet.php.
-            $totalExpenses += (float) ($data['cleaning_charge'] ?? 0);
-            $totalExpenses += (float) ($data['facility_management_fee'] ?? 0);
-            $totalExpenses += (float) ($data['renewal_fee'] ?? 0);
-            $totalExpenses += (float) ($data['new_leasing_fee'] ?? 0);
+            // Same expense rows as the consolidated sheet's Total Expenses
+            $totalExpenses += array_sum(NormalManagementConsolidateSheet::expenseLines($data));
 
             $occupancy = array_merge($occupancy, $data['occupancy'] ?? []);
         }
 
-        $transfer = $collection - $totalExpenses;
+        $transfer = $collection - $totalExpenses - $directDeposit;
         $occupiedTotal = $occupancy['occupied_residential'] + $occupancy['occupied_commercial'];
         $occupancyLevel = $occupancy['total_units'] > 0
             ? round(($occupiedTotal / $occupancy['total_units']) * 100, 1)
@@ -480,6 +499,7 @@ class LandlordInvoiceV2Controller extends Controller
             'income'                  => round($income, 3),
             'collection'              => round($collection, 3),
             'total_expenses'          => round($totalExpenses, 3),
+            'direct_deposit'          => round($directDeposit, 3),
             'transfer_to_landlord'    => round($transfer, 3),
             'total_units'             => $occupancy['total_units'],
             'new_leased_residential'  => $occupancy['new_leased_residential'],

@@ -92,6 +92,7 @@
           @endif
       @endcan
     <a class="btn btn-circle btn-default align-right btnprn" title="Print" href="{{route('printPreview',$rentReceiptInfo->id)}}">Print</a>
+    @include('backoffice::Receipt._landlord_deposit_button', ['receipt' => $rentReceiptInfo])
         </form> 
      @else   
      
@@ -134,6 +135,7 @@
       @endcan
     
     <a class="btn btn-circle btn-default align-right btnprn" title="Print" href="{{route('printPreview',$rentReceiptInfo->id)}}">Print</a>
+    @include('backoffice::Receipt._landlord_deposit_button', ['receipt' => $rentReceiptInfo])
         </form>
     
      <!--      <a href="#" class="btn btn-circle btn-primary  align-right">Send for Approval</a> -->
@@ -154,9 +156,13 @@
     </button>
     @endcan
   <a class="btn btn-circle btn-default align-right btnprn" title="Print" href="{{route('printPreview',$rentReceiptInfo->id)}}">Print</a>
+  @cannot('request_approval_receipt')
+  @include('backoffice::Receipt._landlord_deposit_button', ['receipt' => $rentReceiptInfo])
+  @endcannot
 </form>       
 
 @endif
+@include('backoffice::Receipt._landlord_deposit_form', ['receipt' => $rentReceiptInfo])
 <div class="clr"></div>
 </h4>
 <div class="dataSearchBox">
@@ -272,6 +278,7 @@
                     </div>
                     @endif
           
+                    @include('backoffice::Receipt._landlord_deposit_status', ['receipt' => $rentReceiptInfo])
                     <div class="col-lg-6 p-t-20"> 
                         <div class = "txt-full-width">
                             <h5 class="details"><b class="frame">Payment Method :  </b>

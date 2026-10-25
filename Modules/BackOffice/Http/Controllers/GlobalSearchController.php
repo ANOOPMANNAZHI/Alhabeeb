@@ -46,7 +46,6 @@ use Modules\Sales\Http\Controllers\TenantContractController as Contract ;
 use Modules\General\Http\Controllers\GeneralController as General ;
 use Modules\Sales\Events\RevokeCreate;
 use Modules\Sales\Events\RevokeEnquiry;
-use Modules\Masters\Emails\LegalEmail;
 use Modules\Sales\Entities\TenantSequence;
 use Dynamics;
 use App\Setting;

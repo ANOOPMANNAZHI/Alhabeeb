@@ -489,10 +489,8 @@ class HomeController extends Controller
 
         $date = new Carbon;  
         $date->subWeek(); 
-
-       //modification for auto renewal 
-	   $tenantRenewal =  new TenantRenewal;
-        $tenantRenewal->cronRenewalContract();
+       
+       // auto renewal / vacancy loss update runs from the scheduler (taskOverDuenotify:command), not on page load
         // $this->info('Tenant Renewal Activation');
 
         $employees = Employee::take(10)->get();

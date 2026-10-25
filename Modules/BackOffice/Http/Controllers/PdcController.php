@@ -22,12 +22,16 @@ use Illuminate\Support\Facades\Mail;
 use Modules\BackOffice\Emails\ChequeBounceEmail;
 use Modules\BackOffice\Emails\ChequeBounceAreEmail;
 use Modules\BackOffice\Events\ChequeBounceAre;
+use Modules\BackOffice\Services\PdcBounceNotifier;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 #[\AllowDynamicProperties]
 class PdcController extends Controller
 {
+    /** Tenant bounce email switched off 2026-09-30 (SMS still sent); set true to send it again. */
+    const TENANT_BOUNCE_EMAIL = false;
+
     public function __construct()
     {
 
@@ -104,6 +108,11 @@ e     */
                       return redirect()->route('pdc.edit', $contractId);
                 }
 				*/
+                // Locked row (2: bounced / exchanged through the Cheque Bounce popup): leave it as it is.
+                // It used to fall through to create() below and came back as a new open PDC on every Save.
+                if($request->{'pdc_is_saved_'.$i} == 2 && $request->{'pdc_check_id_'.$i}){
+                    continue;
+                }
                 if($request->{'pdc_is_saved_'.$i} == 1 && $request->{'pdc_check_no_'.$i} > 0){
 
                     if($request->{'pdc_reference_'.$i} >0 ){
@@ -114,7 +123,8 @@ e     */
                     if(isset($request->{'pdc_cancel_reason_'.$i})){
                         $cancel = date('Y-m-d');
                     }
-                    Pdc::where('id','=',$request->{'pdc_check_id_'.$i})->update([    
+                    $cancelReasonBefore = Pdc::where('id', $request->{'pdc_check_id_'.$i})->value('pdc_cancel_reason');
+                    Pdc::where('id','=',$request->{'pdc_check_id_'.$i})->update([
                         'pdc_check_no' => $request->{'pdc_check_no_'.$i},
                         'pdc_check_date' => $request->{'pdc_check_date'.'_'.$i},
                         'pdc_recieve_date' => $request->{'pdc_recieve_date_'.$i},
@@ -129,11 +139,13 @@ e     */
                         'pdc_cancel_date' => $cancel,
                         'pdc_cancel_reason' => isset($request->{'pdc_cancel_reason_'.$i})?$request->{'pdc_cancel_reason_'.$i}:0, // '1 - Bounce , 2 - Exchange , 3 - Other'
                         'pdc_bounce_reason' => $request->{'pdc_bounce_reason_'.$i},
-                         //'1 -Insufficient Funds , 2 -Signature Missing , 3 -Signature Mismatch, 4 -Word in amount and figure differ ,5 -Stop Payment , 6 -Refer to Drawer,7 -Correction , 8 -Stale Cheque (Beyond six months), 9 - Misc';
+                         // codes: Masters -> Bounce Reason (pdc_bounce_reasons.id)
                         'pdc_is_saved'=> 1,     
                         'pdc_type' =>$request->{'pdc_type_'.$i},
                         'pdc_remark' =>$request->{'pdc_remark_'.$i},
                         'pdc_cheque_acknowledge' =>$request->{'pdc_cheque_acknowledge_'.$i},
+                        // blank keeps what is stored: the renewal PDC screen has no account field, and a grid opened before a bank-sheet post would otherwise erase the account that post filled in
+                        'pdc_account_no' => $this->keptAccountNo($request->{'pdc_account_no_'.$i}, $request->{'pdc_check_id_'.$i}),
                         'pdc_from_date' =>$request->{'pdc_from_date_'.$i},
                         'pdc_to_date' =>$request->{'pdc_to_date_'.$i},
                         'created_by' => \Auth::user()->id
@@ -142,17 +154,14 @@ e     */
                     /* Check whether it is bounce*/
 
                     $bounce = $request->{'pdc_cancel_reason_'.$i};
-                    if($bounce == 1){
+                    // Bounced rows are re-posted on every grid save: notify only when it newly became a bounce.
+                    if(PdcBounceNotifier::isNewBounce($cancelReasonBefore, $bounce)){
                         $pdc_id = $request->{'pdc_check_id_'.$i};
-                        $pdcData = Pdc::where('id',$pdc_id)->first(); 
+                        $pdcData = Pdc::where('id',$pdc_id)->first();
 
-                        /*-----------Tenant Email Starts--------------------
-                        if(!empty($pdcData->tenantContractInfo->tenant->tenant_contact_email) || !empty($pdcData->tenantContractInfo->tenant->tenant_personal_email)){
-                            $tenant_email = $pdcData->tenantContractInfo->tenant->tenant_contact_email ?
-                            $pdcData->tenantContractInfo->tenant->tenant_contact_email:$pdcData->tenantContractInfo->tenant->tenant_personal_email ;
-                            Mail::to($tenant_email)->send(new ChequeBounceEmail($pdcData));
-                        }
-                        -----------Tenant Email Ends--------------------*/
+                        $this->notifyTenantBounce($pdcData);
+                        $this->notifyBounceCopies($pdcData);
+                        PdcBounceNotifier::notifySalesPerson($pdcData->id);
 
                         /*-----------Are Email Starts--------------------*/
                         if(count($pdcData->tenantContractInfo->building->buildingAssignTo) > 0)
@@ -188,6 +197,7 @@ e     */
                                      'pdc_type' => $request->{'pdc_type_'.$i},
                                      'pdc_remark' => $request->{'pdc_remark_'.$i},
                                      'pdc_cheque_acknowledge' => $request->{'pdc_cheque_acknowledge_'.$i},
+                                     'pdc_account_no' => $this->accountNo($request->{'pdc_account_no_'.$i}),
                                      'pdc_from_date' => $request->{'pdc_from_date_'.$i},
                                      'pdc_to_date' => $request->{'pdc_to_date_'.$i},
                                      'pdc_is_saved' => 1,
@@ -222,6 +232,75 @@ e     */
      * @param int $id
      * @return Response
      */
+    /** Optional drawer account: digits only, as typed (leading zeros kept); null when blank. */
+    private function accountNo($value)
+    {
+        $digits = substr(preg_replace('/\D/', '', (string) $value), 0, 20);
+        return $digits === '' ? null : $digits;
+    }
+
+    /** Account for an existing PDC: the typed one, or the stored one when the field is blank/absent. */
+    private function keptAccountNo($value, $pdcId)
+    {
+        $typed = $this->accountNo($value);
+        return $typed !== null ? $typed : Pdc::where('id', $pdcId)->value('pdc_account_no');
+    }
+
+    /**
+     * Ids of the bounced PDCs that were deposited again: a later, not cancelled PDC of the same
+     * contract with the same cheque no, bank, cheque date and amount. Their Redeposit button is hidden.
+     */
+    public static function redepositedIds($pdcs)
+    {
+        $key = function ($p) {
+            return ltrim((string) $p->pdc_check_no, '0') . '|' . (int) $p->bank_id . '|'
+                . substr((string) $p->pdc_check_date, 0, 10) . '|' . number_format((float) $p->pdc_amt, 3, '.', '');
+        };
+        $out = [];
+        foreach ($pdcs as $b) {
+            if ((int) $b->pdc_cancel_reason !== 1) {
+                continue;
+            }
+            foreach ($pdcs as $p) {
+                if ($p->id > $b->id && (int) $p->pdc_cancel_reason === 0 && $key($p) === $key($b)) {
+                    $out[] = (int) $b->id;
+                    break;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Bounced PDCs already paid by a receipt made against the bounce, as [pdc id => receipt no].
+     * Counts any receipt linked to the cheque that is not cancelled (status 2) or rejected (approval 4).
+     * Their Redeposit button is hidden.
+     */
+    public static function bounceReceiptNos($pdcs)
+    {
+        $bounced = [];
+        foreach ($pdcs as $p) {
+            if ((int) $p->pdc_cancel_reason === 1) {
+                $bounced[(int) $p->id] = $p;
+            }
+        }
+        if (!$bounced) {
+            return [];
+        }
+        $out = ReceiptsGeneration::whereIn('receipts_generation_is_pdc_bounce_id', array_keys($bounced))
+            ->where('receipts_generation_status', '!=', 2)
+            ->where('receipts_generation_approval_status', '!=', 4)
+            ->orderBy('id')
+            ->pluck('receipts_generation_receipt_no', 'receipts_generation_is_pdc_bounce_id')
+            ->all();
+        foreach ($bounced as $id => $p) {
+            if (!isset($out[$id]) && (int) $p->pdc_settlement === 2) {
+                $out[$id] = (string) $p->pdc_receipt_no;
+            }
+        }
+        return $out;
+    }
+
     public function show($id)
     {
 
@@ -257,7 +336,9 @@ e     */
             else
                 $pdcTransacNo = $prefix.str_pad(1,4,'0',STR_PAD_LEFT);
 
-            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date'));
+            $redeposited = self::redepositedIds($tenantPdcInfo);
+            $bounceReceipts = self::bounceReceiptNos($tenantPdcInfo);
+            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date','redeposited','bounceReceipts'));
 
         }
         elseif($tenantContract->work_flow_processes_code >=106 || $salesEnquiry->work_flow_processes_code >=106){
@@ -276,7 +357,9 @@ e     */
             else
                 $pdcTransacNo = $prefix.str_pad(1,4,'0',STR_PAD_LEFT);
 
-            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date'));
+            $redeposited = self::redepositedIds($tenantPdcInfo);
+            $bounceReceipts = self::bounceReceiptNos($tenantPdcInfo);
+            return view('backoffice::Pdc.contract_pdc',compact('tenantContract','pdcTransacNo','bankMaster','tenantPdcInfo','pdc_transaction_date','redeposited','bounceReceipts'));
         }
         else{
            // Contract in-progress
@@ -375,25 +458,32 @@ e     */
         if(!$pdc_id)
             response()->json(['error'=>'Something Error in Server']);
 
-        $isPosted           = Pdc::where('id',$pdc_id)->first(); 
+        $isPosted           = Pdc::where('id',$pdc_id)->first();
+
+        // Optional bounce remark (e.g. the bank's rejection reason from the bank sheet):
+        // appended to the PDC remarks and shown in the ARE email / notification.
+        $bounceRemark = trim((string) $request->input('bounce_remark'));
+        $remarkUpdate = [];
+        if ($bounceRemark !== '') {
+            $existingRemark = trim((string) $isPosted->pdc_remark);
+            $remarkUpdate['pdc_remark'] = ($existingRemark !== '' ? $existingRemark . ' | ' : '') . 'Bounced: ' . $bounceRemark;
+        }
+        $isPosted->pdc_bounce_reason = $pdc_bounce_reason; // so the email / notification can name the reason
+        $isPosted->bounce_remark     = $bounceRemark !== '' ? $bounceRemark : null;
 
 
 
         if(empty($isPosted->pdc_is_posted)){ // Delete status - 2
 
-            Pdc::where('id',$pdc_id)->update(['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_is_saved'=>2,'pdc_cancel_by' => \Auth::user()->id]);
+            Pdc::where('id',$pdc_id)->update($remarkUpdate + ['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_is_saved'=>2,'pdc_cancel_by' => \Auth::user()->id]);
 
             ReceiptsGeneration::where('receipts_generation_receipt_no',$isPosted->pdc_receipt_no)->update(['receipts_generation_cancel_date'=>date('Y-m-d'),'receipts_generation_status'=>2,'receipts_generation_reason_cancel'=>'PDC Bounce','receipts_generation_cancel_by' => \Auth::user()->id]);
 
             \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
-            /*-----------Tenant Email Starts--------------------
-            if(!empty($isPosted->tenantContractInfo->tenant->tenant_personal_email) || !empty($isPosted->tenantContractInfo->tenant->tenant_contact_email)){
-                $tenant_email = $isPosted->tenantContractInfo->tenant->tenant_personal_email ?
-                $isPosted->tenantContractInfo->tenant->tenant_personal_email:$isPosted->tenantContractInfo->tenant->tenant_contact_email ;
-                Mail::to($tenant_email)->send(new ChequeBounceEmail($isPosted));
-            }*/
-            /*-----------Tenant Email Ends--------------------*/
+            $this->notifyTenantBounce($isPosted);
+            $this->notifyBounceCopies($isPosted);
+            PdcBounceNotifier::notifySalesPerson($isPosted->id);
             /*-----------Are Email Starts--------------------*/
             if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
                 foreach($isPosted->tenantContractInfo->building->buildingAssignTo as $assign)
@@ -414,19 +504,15 @@ e     */
           }
           else{
 
-            Pdc::where('id',$pdc_id)->update(['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_cancel_by' => \Auth::user()->id]);
+            Pdc::where('id',$pdc_id)->update($remarkUpdate + ['pdc_cancel_date'=>date('Y-m-d')    ,'pdc_cancel_reason'=>1 ,'pdc_bounce_reason'=>$pdc_bounce_reason,'pdc_cancel_by' => \Auth::user()->id]);
 
             ReceiptsGeneration::where('receipts_generation_receipt_no',$isPosted->pdc_receipt_no)->update(['receipts_generation_cancel_date'=>date('Y-m-d'),'receipts_generation_status'=>2,'receipts_generation_reason_cancel'=>'PDC Bounce','receipts_generation_cancel_by' => \Auth::user()->id]);
 
             \Modules\BackOffice\Services\TerminationDuesService::touchContract($isPosted->tenant_contract_id);
 
-            /*-----------Tenant Email Starts--------------------
-            if(!empty($isPosted->tenantContractInfo->tenant->tenant_personal_email) || !empty($isPosted->tenantContractInfo->tenant->tenant_contact_email )){
-                $tenant_email = $isPosted->tenantContractInfo->tenant->tenant_personal_email ?
-                $isPosted->tenantContractInfo->tenant->tenant_personal_email:$isPosted->tenantContractInfo->tenant->tenant_contact_email ;
-                Mail::to($tenant_email)->send(new ChequeBounceEmail($isPosted));
-            }*/
-            /*-----------Tenant Email Ends--------------------*/
+            $this->notifyTenantBounce($isPosted);
+            $this->notifyBounceCopies($isPosted);
+            PdcBounceNotifier::notifySalesPerson($isPosted->id);
      
             /*-----------Are Email Starts--------------------*/
             if(count($isPosted->tenantContractInfo->building->buildingAssignTo) > 0)
@@ -543,9 +629,117 @@ public function getPdcExchangeDetails(Request $request){
   return view('backoffice::Pdc.pdc_exchange_view',compact('pdc','nowUrl','banks'));
 }
 //get Bounced Cheques
-public function getBouncedCheques(){
-    $pdc= Pdc::areFilter()->bouncedCheques()->get();
-    return view('backoffice::Pdc.bounced_cheque_list',compact('pdc'));
+public function getBouncedCheques(Request $request){
+    $user = \Auth::user();
+    // Sales staff see only new tenants' bounces (first contract): a sales person their own, the sales head all.
+    if (self::salesBounceView($user)) {
+        $query = Pdc::openBounces()->onNewTenantContract();
+        if (!$user->hasRole('sales_head')) {
+            $query->soldBy($user->id);
+        }
+        return self::bouncedListView($query, $request, 'New tenant bounces',
+            $user->hasRole('sales_head') ? 'Open bounces on the first contract of new tenants'
+                : 'Open bounces on the first contract of tenants you brought in');
+    }
+    $query = Pdc::areFilter()->openBounces();
+    if ($request->new) {
+        return self::bouncedListView($query->onNewTenantContract(), $request, 'New tenant bounces',
+            'Open bounces on the first contract of new tenants');
+    }
+    return self::bouncedListView($query, $request, 'Bounced cheques',
+        'Open bounces on active contracts: not settled, no bounce receipt, not redeposited');
+}
+
+/** True for sales person / sales head users with no ARE, back office or management role. */
+public static function salesBounceView($user){
+    return $user->hasAnyRole(['sales_person', 'sales_head'])
+        && !$user->hasAnyRole(['super_admin', 'ceo', 'md', 'are', 'are_team_lead', 'backoffice_manager', 'backoffice_executive', 'finance_manager']);
+}
+
+/**
+ * Bounced cheques list (ARE / back office manager card, MD month-to-date): summary, filters
+ * (search, building, ARE, age since the cheque date) and one row per cheque, oldest first.
+ */
+public static function bouncedListView($query, Request $request, $title, $subtitle){
+    $all = $query->with(['tenantContractInfo.building', 'tenantContractInfo.Unit', 'tenantContractInfo.tenant', 'bankInfo'])
+        ->orderBy('pdc_check_date')->orderBy('id')->get();
+
+    $buildingIds = $all->pluck('tenantContractInfo.building_id')->filter()->unique()->values()->all();
+    $areNames = [];
+    if ($buildingIds) {
+        $rows = DB::table('preferred_buildings as pb')
+            ->join('are_buildings as ab', 'ab.id', '=', 'pb.are_building_id')
+            ->join('users as u', 'u.id', '=', 'ab.user_id')
+            ->join('employees as e', 'e.id', '=', 'u.user_type_id')
+            ->whereNull('pb.assign_to')->whereIn('pb.building_id', $buildingIds)
+            ->select('pb.building_id', 'e.employee_name')->distinct()->orderBy('e.employee_name')->get();
+        foreach ($rows as $r) {
+            $areNames[$r->building_id][] = $r->employee_name;
+        }
+    }
+
+    $today = Carbon::today();
+    $ages = ['0-7' => [0, 7], '8-30' => [8, 30], '31-90' => [31, 90], '90+' => [91, PHP_INT_MAX]];
+    $search = trim((string) $request->search);
+    $pdc = $all->filter(function ($p) use ($request, $search, $areNames, $ages, $today) {
+        $c = $p->tenantContractInfo;
+        if ($request->building && (int) $c->building_id !== (int) $request->building) {
+            return false;
+        }
+        if ($request->are && !in_array($request->are, isset($areNames[$c->building_id]) ? $areNames[$c->building_id] : [], true)) {
+            return false;
+        }
+        if ($request->age && isset($ages[$request->age])) {
+            $d = $p->pdc_check_date ? Carbon::parse($p->pdc_check_date)->diffInDays($today, false) : 0;
+            if ($d < $ages[$request->age][0] || $d > $ages[$request->age][1]) {
+                return false;
+            }
+        }
+        if ($search !== '') {
+            $hay = implode(' ', [$c->tenant->tenant_name ?? '', $c->tenant->tenant_contact_no ?? '', $c->tenant->gsm_no ?? '',
+                $c->building->building_name ?? '', $c->Unit->unit_no ?? '', $c->tenant_contract_no, $p->pdc_check_no]);
+            if (stripos($hay, $search) === false) {
+                return false;
+            }
+        }
+        return true;
+    })->values();
+
+    $buildings = $all->pluck('tenantContractInfo.building')->filter()->unique('id')->sortBy('building_name')->values();
+    $ares = collect($areNames)->flatten()->unique()->sort()->values();
+    $showAre = !(count(\Auth::user()->roles) == 1 && \Auth::user()->hasRole('are'));
+    $isFiltered = $request->search || $request->building || $request->are || $request->age;
+    $salesView = self::salesBounceView(\Auth::user());
+    // a sales person's own list needs no sales column; everyone else sees who brought the tenant in
+    $showSales = !($salesView && !\Auth::user()->hasRole('sales_head'));
+    $salesNames = DB::table('tenant_contracts as tc')
+        ->join('sales_enquiries as se', 'se.id', '=', 'tc.sale_enquiry_id')
+        ->join('users as u', 'u.id', '=', 'se.assigned_person')
+        ->leftJoin('employees as e', 'e.id', '=', 'u.user_type_id')
+        ->whereIn('tc.id', $all->pluck('tenant_contract_id')->unique()->values()->all() ?: [0])
+        ->select('tc.id', DB::raw("coalesce(nullif(e.employee_name, ''), u.username) as sales_name"))
+        ->pluck('sales_name', 'id')->all();
+    $newTenantContracts = self::firstContractIds($all->pluck('tenant_contract_id')->unique()->values()->all());
+
+    return view('backoffice::Pdc.bounced_cheque_list', compact('pdc', 'all', 'areNames', 'buildings', 'ares', 'ages',
+        'showAre', 'isFiltered', 'title', 'subtitle', 'request', 'today', 'newTenantContracts', 'salesNames', 'showSales', 'salesView'));
+}
+
+/**
+ * Contracts (of the given ids) that are the tenant's first contract: no earlier contract for the
+ * tenant, nor for another tenant record with the same resident ID or mobile (duplicate tenant
+ * records). Renewals always have an earlier contract, so they are never first. Returns [id => true].
+ */
+public static function firstContractIds(array $contractIds){
+    if (!$contractIds) {
+        return [];
+    }
+    $rows = DB::table('tenant_contracts as tc')
+        ->join('tenant as t', 't.id', '=', 'tc.tenant_id')
+        ->whereIn('tc.id', $contractIds)
+        ->whereRaw(Pdc::firstContractSql('tc', 't'))
+        ->pluck('tc.id')->all();
+    return array_fill_keys($rows, true);
 }
 
 
@@ -667,6 +861,60 @@ public function printPreview($contract_id){
   }
 
   /**
+   * Tell the tenant their cheque bounced: email (contact, else personal) and SMS
+   * to the contact number. Failures are logged only, so the bounce itself never fails.
+   */
+  private function notifyTenantBounce(Pdc $pdc)
+  {
+      $tenant = $pdc->tenantContractInfo->tenant ?? null;
+      if (!$tenant) {
+          return;
+      }
+
+      $email = $tenant->tenant_contact_email ?: $tenant->tenant_personal_email;
+      if (self::TENANT_BOUNCE_EMAIL && !empty($email)) {
+          try {
+              Mail::to($email)->send(new ChequeBounceEmail($pdc));
+          } catch (\Throwable $e) {
+              Log::error('Tenant bounce email failed for PDC #' . $pdc->id . ': ' . $e->getMessage(), ['email' => $email]);
+          }
+      }
+
+      if (!empty($tenant->tenant_contact_no)) {
+          try {
+              $msg = "Dear Tenant, your cheque {$pdc->pdc_check_no} for " . number_format($pdc->pdc_amt, 3)
+                   . ' dated ' . Carbon::parse($pdc->pdc_check_date)->format('d-m-Y') . ' was returned. Please pay immediately. - Al Habib';
+              if (!sendSms($tenant->tenant_contact_no, $msg, [])) {
+                  Log::warning('Tenant bounce SMS not sent for PDC #' . $pdc->id . ', mobile: ' . $tenant->tenant_contact_no);
+              }
+          } catch (\Throwable $e) {
+              Log::error('Tenant bounce SMS failed for PDC #' . $pdc->id . ': ' . $e->getMessage());
+          }
+      }
+  }
+
+  /**
+   * Copy of the ARE bounce email to the addresses in Settings -> Cheque Bounce
+   * Copy Emails (comma separated), sent even when the building has no ARE.
+   * Failures are logged only.
+   */
+  private function notifyBounceCopies(Pdc $pdc)
+  {
+      $setting = prefixData('cheque_bounce_copy_emails');
+      $list = $setting ? preg_split('/[\s,;]+/', (string) $setting->configuration_value) : [];
+      foreach (array_unique(array_filter($list)) as $email) {
+          if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+              continue;
+          }
+          try {
+              Mail::to($email)->send(new ChequeBounceAreEmail($pdc, 'Team'));
+          } catch (\Throwable $e) {
+              Log::error('Bounce copy email failed for PDC #' . $pdc->id . ': ' . $e->getMessage(), ['email' => $email]);
+          }
+      }
+  }
+
+  /**
    * Send SMS reminder to tenants 3 days before PDC cheque date
    */
   public function pdcExpiryReminderSms()
@@ -702,24 +950,13 @@ public function printPreview($contract_id){
           $failCount = 0;
 
           foreach ($pdcs as $pdc) {
-              $tenant = $pdc->tenantContractInfo->tenant ?? null;
-              if (!$tenant || empty($tenant->tenant_contact_no)) {
-                  Log::warning('pdcExpiryReminderSms: Skipping PDC #' . $pdc->id . ' - no tenant or contact number');
-                  continue;
-              }
-
-              $amount = number_format($pdc->pdc_amt, 3);
-              $chequeDate = Carbon::parse($pdc->pdc_check_date)->format('d-m-Y');
-              $chequeNo = $pdc->pdc_check_no;
-
-              $msg = "Dear Tenant, your cheque No. {$chequeNo} of amount {$amount} is due on {$chequeDate}. Please ensure sufficient funds are available in your account to avoid penalty charges. - Al Habib";
-
-              $result = sendSms($tenant->tenant_contact_no, $msg, []);
-              if ($result) {
+              // System template pdc_due_reminder (SMS); every attempt is in Mail > Sent log
+              $status = \Modules\BackOffice\Services\TenantMessages::pdcDueReminder($pdc);
+              if ($status === \Modules\BackOffice\Entities\MessageLog::SENT) {
                   $sentCount++;
               } else {
                   $failCount++;
-                  Log::warning('pdcExpiryReminderSms: SMS failed for PDC #' . $pdc->id . ', mobile: ' . $tenant->tenant_contact_no);
+                  Log::warning('pdcExpiryReminderSms: PDC #' . $pdc->id . ' not sent (' . ($status ?: 'SMS switched off') . ')');
               }
           }
 

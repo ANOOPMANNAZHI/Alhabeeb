@@ -20,7 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Mail;
-use Modules\Masters\Emails\LegalEmail;
+use Modules\BackOffice\Services\LegalMessages;
 use Dynamics;
 use Modules\BackOffice\Entities\InvoiceSequenceConfig;
 
@@ -544,23 +544,9 @@ class InvoiceController extends Controller
     $legal = Legal::where('tenant_contract_id',$invoice->tenant_contract_id)->first();
 
           if($tenantContract->status == 5){
-            $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-            $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
-
-            $legal->subject = "Rental Income Posted !"; 
-            $legal->textContent = "Rental Income Posted having Invoice No: ".$invoice->tenant_invoice_no." which is under Legal";
-            foreach($legalUsers as $legalUser){
-              $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-              $msg = "Rental Income Posted";
-              $params = 'optional data';
-              if(!empty($legalUser->email)){
-      Mail::to($legalUser->email)->send(new LegalEmail($legal,$legalUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
+            // System template legal_rental_income_posted
+            LegalMessages::toRoles('legal_rental_income_posted', ['are','backoffice_manager','legal_advisor'], $tenantContract,
+                ['invoice_no' => $invoice->tenant_invoice_no]);
  }
 
   //Notifications ends

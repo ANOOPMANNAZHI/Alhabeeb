@@ -29,8 +29,7 @@ use Spatie\Activitylog\Models\Activity;
 use Modules\Sales\Events\AssignedEnquiry;
 use Modules\Sales\Events\ReminderAssignEnquiry;
 use Modules\Sales\Events\StageEnquiry;
-use Modules\Sales\Emails\SalesAssignEmail;
-use Modules\Sales\Emails\SalesRejectEmail;
+use Modules\BackOffice\Services\StaffMessages;
 use Dynamics;
 
 class TenantStageController extends Controller
@@ -213,22 +212,13 @@ class TenantStageController extends Controller
 
       //Notification 
       clearNotification('Modules\Sales\Notifications\EnquiryNotification',$enquiry_id,true);
-      $users_notify =  \App\User::whereIn('id',[$userid])->get(); 
-      $usersList =  \App\User::whereIn('id',[$userid])->first(); 
-      $mobile = $usersList->employee->employee_contact_no ?? $usersList->employee->employee_secondary_no;
+      $users_notify =  \App\User::whereIn('id',[$userid])->get();
 
-      $msg = "Tenant Enquiry Assigned !";
-      $params = 'optional data';
-      
-      $enquiryDetails->text = "Enquiry - ".$enquiryDetails->sales_enquiry_no."  Assigned ";  
-      $enquiryDetails->href = url('tenantNextstage/'.$enquiryDetails->id.'/'.$next_process_id); 
-//dd($enquiryDetails);
+      $enquiryDetails->text = "Enquiry - ".$enquiryDetails->sales_enquiry_no."  Assigned ";
+      $enquiryDetails->href = url('tenantNextstage/'.$enquiryDetails->id.'/'.$next_process_id);
       event(new AssignedEnquiry($enquiryDetails,$users_notify)); //Internal Notification
-      if(!empty($usersList->email)){
-      Mail::to($usersList->email)->send(new SalesAssignEmail($enquiryDetails)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
+      // Email / SMS to the assigned user (system template enquiry_assigned)
+      StaffMessages::enquiryToStaff('enquiry_assigned', $enquiryDetails, $users_notify);
 
 
      session()->flash('success', 'Lead Assigned Successfully');
@@ -1027,24 +1017,9 @@ if($action_key == 'RJCT'){
 		 if(!empty($tenantData)){$tenantData->Unit->update(['unit_vaccant_status'=>'0','unit_status'=>1]);}
 	}
     //Notification Starts
-  $userLists = User::role(['sales_coordinator','sales_person'])->get(); 
-  $userLists = \Illuminate\Support\Arr::flatten($userLists);
-
-  $enquiryDetails->subject = "Preliminary Documentation Rejected";
-  $enquiryDetails->textContent = "Preliminary Documentation Rejected Enquiry No: ".$enquiryDetails->sales_enquiry_no;
-  foreach($userLists as $userList){
-    $mobile = $userList->employee->employee_contact_no ?? $userList->employee->employee_secondary_no;
-    $userName = $userList->employee->userName;
-
-    $msg = "Preliminary Documentation Rejected !";
-    $params = 'optional data';
-    if(!empty($userList->email)){
-      Mail::to($userList->email)->send(new SalesRejectEmail($enquiryDetails,$userName)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
+  $userLists = User::role(['sales_coordinator','sales_person'])->get();
+  // Email / SMS to sales staff (system template enquiry_rejected)
+  StaffMessages::enquiryToStaff('enquiry_rejected', $enquiryDetails, $userLists);
 //Notification Ends
  }
 
@@ -2394,23 +2369,13 @@ string_agg(distinct building_name, ',') As Agre_build"),DB::raw("string_agg(dist
 
           //Notification
         clearNotification('Modules\Sales\Notifications\EnquiryNotification',$enquiry_id,true); 
-        $users_notify =  \App\User::whereIn('id',[$userid])->get(); 
-        $usersList =  \App\User::whereIn('id',[$userid])->first(); 
-        $mobile = $usersList->employee->employee_contact_no ?? $usersList->employee->employee_secondary_no;
-
-        $msg = "Tenant Enquiry Assigned !";
-        $params = 'optional data';
+        $users_notify =  \App\User::whereIn('id',[$userid])->get();
 
         $enquiryDetails->text = "Enquiry - ".$enquiryDetails->sales_enquiry_no."  Assigned ";
-        $enquiryDetails->href = url('tenantNextstage/'.$enquiryDetails->id.'/'.$next_process_id);   
-
-        //dd($enquiryDetails);  
+        $enquiryDetails->href = url('tenantNextstage/'.$enquiryDetails->id.'/'.$next_process_id);
         event(new AssignedEnquiry($enquiryDetails,$users_notify));   //Internal Notification
-        if(!empty($usersList->email)){
-      Mail::to($usersList->email)->send(new SalesAssignEmail($enquiryDetails)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
+        // Email / SMS to the assigned user (system template enquiry_assigned)
+        StaffMessages::enquiryToStaff('enquiry_assigned', $enquiryDetails, $users_notify);
 
 
    }
@@ -2657,23 +2622,13 @@ return true;
      $users = array_diff($users, array(\Auth::user()->id));         
      $users_notify =  \App\User::whereIn('id',$users)->get();
 
-     $usersList =  \App\User::whereIn('id',[$users])->first(); 
-        $mobile = $usersList->employee->employee_contact_no ?? $usersList->employee->employee_secondary_no;
-
-        $msg = "Tenant Enquiry ReAssigned !";
-        $params = 'optional data';
-
-
      clearNotification('Modules\Sales\Notifications\EnquiryNotification',$enquiryid,true);
-     $enquiryDetails =  SalesEnquiry::find($enquiryid);	 	
+     $enquiryDetails =  SalesEnquiry::find($enquiryid);
      $enquiryDetails->href = url('tenantNextstage/'.$enquiryDetails->id.'/'.$next_process_id);
-     $enquiryDetails->text = "Enquiry - ".$enquiryDetails->sales_enquiry_no."  ReAssigned "; 
+     $enquiryDetails->text = "Enquiry - ".$enquiryDetails->sales_enquiry_no."  ReAssigned ";
      event(new AssignedEnquiry($enquiryDetails,$users_notify));//Internal Notification
-        if(!empty($usersList->email)){
-      Mail::to($usersList->email)->send(new SalesAssignEmail($enquiryDetails)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
+     // Email / SMS to every notified user (system template enquiry_reassigned); before, only the first got it
+     StaffMessages::enquiryToStaff('enquiry_reassigned', $enquiryDetails, $users_notify);
 
    }
   /*

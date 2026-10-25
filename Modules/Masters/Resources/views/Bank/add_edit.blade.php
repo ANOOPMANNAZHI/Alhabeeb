@@ -67,9 +67,9 @@
                 <div class="p-relative">
                 <i class="fa fa-font-awesome icn-add" aria-hidden="true"></i>
                 <select class="form-control" id="dim1Value"  name="dim1Value" required>
-                  <option {{(old('bank_chequebook_id', isset($bank)? $bank->dim1Value :'00') == '02') ? 'selected' : '' }} value="02">PLM</option>
+                  <option {{(old('dim1Value', isset($bank)? $bank->dim1Value :'00') == '02') ? 'selected' : '' }} value="02">PLM</option>
                  
-                   <option  {{(old('bank_chequebook_id', isset($bank)?  $bank->dim1Value :'00') == '01') ? 'selected' : '' }} value="01">HO</option>
+                   <option  {{(old('dim1Value', isset($bank)?  $bank->dim1Value :'00') == '01') ? 'selected' : '' }} value="01">HO</option>
                                  
                 </select> 
               </div>
@@ -80,12 +80,21 @@
                 <label for="simpleFormBranch">Accounts <small class="textRed">*</small></label>
                 <div class="p-relative">
                 <i class="fa fa-font-awesome icn-add" aria-hidden="true"></i>
-                <select class="form-control" id="dim1Value"  name="dim1Value" required>
+                <select class="form-control" id="accounts_bank"  name="accounts_bank" required>
                   <option {{(old('accounts_bank', isset($bank)? $bank->accounts_bank :'') == '0') ? 'selected' : '' }} value="0">No</option>
                  
                    <option  {{(old('accounts_bank', isset($bank)?  $bank->accounts_bank :'') == '1') ? 'selected' : '' }} value="1">Yes</option>
-                                 
-                </select> 
+
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="form-group">
+                <label for="simpleFormClearingCodes">Clearing Sheet Code(s)</label>
+                <div class="p-relative">
+                   <i class="fa fa-hashtag icn-add" aria-hidden="true"></i>
+                <input  type="text" class="form-control" id="simpleFormClearingCodes"  placeholder="e.g. 27 or 30,38 — code the bank's cheque sheet uses for this bank" name="bank_clearing_codes" pattern="^\s*\d+(\s*,\s*\d+)*\s*$" title="Numbers separated by commas" value="{{ isset($bank)?  old('bank_clearing_codes',$bank->bank_clearing_codes): old('bank_clearing_codes')}}" data-rule-maxlength="100" data-msg-maxlength="Only allowes 100 Characters">
               </div>
             </div>
           </div>

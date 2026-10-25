@@ -18,9 +18,8 @@ use Spatie\Activitylog\Models\Activity;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Mail;
-use Modules\Masters\Emails\EmployeeLoginEmail;
-use Modules\Masters\Emails\EmployeeResetEmail;
+use Modules\BackOffice\Entities\MessageLog;
+use Modules\BackOffice\Services\AccountMessages;
 use Dynamics;
 
 class EmployeeController extends Controller
@@ -151,7 +150,7 @@ class EmployeeController extends Controller
       $user =  User::create([
         'username'        => $request['username'],
         'email'           => $request['email'],
-        'password'        => Hash::make($request['username'].$empInsertId),
+        'password'        => Hash::make(AccountMessages::randomPassword()), // never emailed; the user sets their own from the link
           'user_type'       => 'employee',           // employee
           'user_type_id'    => $empInsertId, // employee_id
           'user_type_status'=> 1,
@@ -176,11 +175,12 @@ class EmployeeController extends Controller
       ->log("Created Name :".\Auth::user()->username.", Created Email :".\Auth::user()->email);
 
       $user->assignRole($role_name);
-      $user->new_password = $request['username'].$empInsertId;
 
-      Mail::to($request['email'])->send(new EmployeeLoginEmail($user));
-
+      $sent = AccountMessages::welcome($user);
       session()->flash('success', 'Employee created successfully');
+      if ($sent['email'] !== MessageLog::SENT) {
+          session()->flash('error', 'Employee created, but no set-password email went out. ' . self::linkNotSentReason($sent['email']));
+      }
       return redirect()->route('employee.index');
     }
 
@@ -372,27 +372,35 @@ class EmployeeController extends Controller
     public function resetPassword($id,Employee $employee)
     {
       $user = User::where('user_type_id',$id)->where('user_type','employee')->first();
-
-      if( $user->password){
-        User::where('id', $user->id)->update([
-         'password'   => Hash::make($user->username.$user->id),
-         'updated_by' => \Auth::user()->id
-         ]);
-
-      }
-      $user->password = $user->username.$user->id;
-       /* $userinfo =  [
-          'username'        => $user->username,
-          'email'           => $user->email,
-          'password'        => Hash::make($user->username.$user->id)
-          ];
-        */
-        //  dd($user);
-          Mail::to($user->email)->send(new EmployeeResetEmail($user));
-          session()->flash('success', 'Password reset successfully');
+      if (!$user) {
+          session()->flash('error', 'This employee has no login user');
           return redirect()->route('employee.index');
+      }
 
-        }
+      // The current password keeps working; the user sets a new one from the emailed link.
+      $sent = AccountMessages::passwordReset($user);
+      if ($sent['email'] === MessageLog::SENT) {
+          session()->flash('success', 'A link to set a new password was emailed to ' . $user->email);
+      } else {
+          session()->flash('error', self::linkNotSentReason($sent['email']));
+      }
+      return redirect()->route('employee.index');
+    }
+
+    /** Why the set-password email did not go out, for the admin. */
+    private static function linkNotSentReason($status)
+    {
+      if ($status === MessageLog::SKIPPED_NO_ADDRESS) {
+          return 'No link sent: the employee has no email address. Add one and use Reset Password again.';
+      }
+      if ($status === MessageLog::SKIPPED_OFF) {
+          return 'No link sent: the password email template is switched off (Mail -> Templates).';
+      }
+      if ($status === AccountMessages::DUPLICATE_EMAIL) {
+          return 'No link sent: another login user has the same email address. Give this employee a unique email and use Reset Password again.';
+      }
+      return 'The password email could not be sent. See Mail -> Sent log for the reason.';
+    }
         public function deleteEmployeeImage(Request $request)
         {
           $employee_id = $request->employeeId;

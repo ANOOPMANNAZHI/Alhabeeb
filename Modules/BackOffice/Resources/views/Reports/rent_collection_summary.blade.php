@@ -57,10 +57,37 @@
             </div>
             <div class="col-sm-4">
               <div class="form-group">
+                <label for="management_id">Building Type</label>
+                <div class="p-relative">
+                  <i class="fa fa-building-o icn-add" aria-hidden="true"></i>
+                  <select class="form-control" id="management_id" name="management_id">
+                    <option value="">All</option>
+                    @foreach($managementTypes as $mt)
+                    <option value="{{ $mt->id }}" {{ $mt->id == $managementId ? 'selected' : '' }}>{{ $mt->management_types_name }}</option>
+                    @endforeach
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="form-group">
+                <label for="are_id">ARE</label>
+                <div class="p-relative">
+                  <i class="fa fa-user icn-add" aria-hidden="true"></i>
+                  <select class="form-control" id="are_id" name="are_id">
+                    <option value="">All</option>
+                    @foreach($ares as $are)
+                    <option value="{{ $are->id }}" {{ $are->id == $areId ? 'selected' : '' }}>{{ $are->employee_name }}</option>
+                    @endforeach
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="form-group">
                 <label>&nbsp;</label>
                 <div>
-                  <button type="button" id="rcs_apply" class="btn btn-primary">APPLY</button>
-                  <button type="button" id="rcs_reset" class="btn btn-default" title="Current month, all buildings">RESET</button>
+                  <button type="button" id="rcs_reset" class="btn btn-default" title="Current month, clear all filters">RESET</button>
                 </div>
               </div>
             </div>
@@ -81,6 +108,8 @@
               <tr>
                 <th width="5%">#</th>
                 <th>Building</th>
+                <th width="12%">Building Type</th>
+                <th width="15%">ARE</th>
                 <th width="12%">Month</th>
                 <th class="num" width="18%">Total Rent Collection</th>
               </tr>
@@ -107,16 +136,17 @@ $(function () {
         $.get(url, {
             month: $('#month').val(),
             year: $('#year').val(),
-            building_name: $('#building_name').val()
+            building_name: $('#building_name').val(),
+            management_id: $('#management_id').val(),
+            are_id: $('#are_id').val()
         }, function (html) {
             $tbody.html(html).removeClass('rcs-loading');
         }).fail(function () {
-            $tbody.removeClass('rcs-loading').html('<tr><td colspan="4" align="center" class="text-danger">Could not load data.</td></tr>');
+            $tbody.removeClass('rcs-loading').html('<tr><td colspan="6" align="center" class="text-danger">Could not load data.</td></tr>');
         });
     }
 
-    $('#rcs_apply').on('click', load);
-    $('#month').on('change', load);
+    $('#month, #management_id, #are_id').on('change', load);
     $('#year').on('change', function () { if (this.value.length === 4) load(); });
 
     // Search as you type, settling briefly so one keystroke is not one request.
@@ -130,6 +160,8 @@ $(function () {
         $('#month').val({{ (int) date('n') }});
         $('#year').val({{ (int) date('Y') }});
         $('#building_name').val('');
+        $('#management_id').val('');
+        $('#are_id').val('');
         load();
     });
 });

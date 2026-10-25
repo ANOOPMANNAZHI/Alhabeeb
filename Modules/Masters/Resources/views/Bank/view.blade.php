@@ -81,6 +81,13 @@
                   <div class="col-md-6"><span>@if($bank->accounts_bank==1){{ 'Yes' }}@else{{ 'No' }}@endif</span></div>
                 </div>
               </div>
+			    <div class="col-md-6 p-t-10">
+                <div class="row">
+                  <div class="col-md-5"><b>Clearing Sheet Code(s)  </b></div>
+                  <div class="col-md-1 s-clm">:</div>
+                  <div class="col-md-6"><span>{{$bank->bank_clearing_codes}}</span></div>
+                </div>
+              </div>
        <div class="col-md-6 p-t-10">
                 <div class="row">
                   <div class="col-md-5"><b>Remark  </b></div>

@@ -16,6 +16,192 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         9 => 'SEPT', 10 => 'OCT', 11 => 'NOV', 12 => 'DEC',
     ];
 
+    const AMC        = 'Annual Maint. Cont. - A C, FAS, Lift & Others';
+    const REPAIR_A   = 'A C, FAS, Lift, etc. Repair Charges - (a)';
+    const REPAIR_B   = 'Electric, Plumbing, Repair & Maint - (b)';
+
+    /** Expense rows of the consolidated sheet, in report order (user, 03/10/2026). */
+    const LABELS = [
+        'Municipal Tax',
+        'Management Fees',          // landlord contract, Normal buildings only
+        'Value Added Tax (VAT)',    // VAT_RATE of Repair (b) + Management Fees + Cleaning Charges
+        self::AMC,
+        'Sewage Removal',
+        'Common Area E/Water Charges',
+        'Legal Expenses',           // no expense head yet
+        self::REPAIR_A,
+        self::REPAIR_B,
+        'Cleaning Charges',         // landlord contract
+    ];
+
+    const VAT_RATE = 0.05;
+
+    /** Expense heads that go to one row whatever the bill. */
+    const BY_NAME = [
+        'MUNICIPAL TAX'       => 'Municipal Tax',
+        'DEWATERING'          => 'Sewage Removal',
+        'ELECTRICITY & WATER' => 'Common Area E/Water Charges',
+    ];
+
+    /** AMC accounts, used from AMC_CODES_FROM: A/C, fire alarm, lift. */
+    const AMC_CODES = [22307, 22308, 22309];
+    /** A/C, fire alarm and lift repair accounts. */
+    const REPAIR_A_CODES = [41107, 41108, 41109];
+    /** Routine & Maintenance accounts (normal and CIT). */
+    const REPAIR_B_CODES = [41110, 22310];
+
+    /** Bills from this date follow the account codes alone (user, 04/10/2026). */
+    const AMC_CODES_FROM = '2026-10-01';
+
+    /**
+     * Before AMC_CODES_FROM, contract (AMC) work by these vendors was booked to
+     * Routine & Maintenance; it is moved to the AMC row. Pest control, lifts,
+     * fire & safety, garden and pools (user, 04/10/2026).
+     */
+    const OLD_AMC_VENDORS = [
+        619,    // MUSCAT PEST CONTROL
+        818,    // INTERNATIONAL INSECTICIDES
+        787,    // KONE ASSARAIN LLC
+        757,    // AG MELCO MUSCAT ELEVATOR LLC
+        726,    // INTISAR FIRE AND SAFETY ENGINEERING LLC
+        743,    // MARSA AL QURUM AGRICULTURE SERVICE AND TRAD LLC
+        616,    // KEHLAN POOLS AND FOUNTAINS LLC
+    ];
+
+    /** OLD_AMC_VENDORS as an SQL list. */
+    public static function oldAmcVendorList(): string
+    {
+        return implode(',', array_map('intval', self::OLD_AMC_VENDORS));
+    }
+
+    /** True for a database boolean (true / 't' / 1). */
+    private static function flag($v): bool
+    {
+        return $v === true || $v === 't' || $v === 1 || $v === '1';
+    }
+
+    /**
+     * The row one expense line belongs to, or null when it is not on the sheet
+     * (cleaning bills, lease rent, municipal tax penalty, ...).
+     * From AMC_CODES_FROM the account decides: AMC accounts -> AMC, A/C, fire alarm
+     * and lift accounts -> Repair (a), Routine & Maintenance -> Repair (b).
+     * Before it, A/C, fire alarm and lift bills from a sub-contractor are AMC and
+     * the ones from a technician's service report are Repair (a); Routine &
+     * Maintenance bills from OLD_AMC_VENDORS are AMC.
+     */
+    public static function rowFor($exp)
+    {
+        if (isset(self::BY_NAME[$exp->expense_name])) {
+            return self::BY_NAME[$exp->expense_name];
+        }
+        $code    = (int) ($exp->acc_code ?? 0);
+        $old     = self::flag($exp->before_cutover ?? false);
+        $inhouse = self::flag($exp->inhouse ?? false);
+        if (in_array($code, self::AMC_CODES, true)) {
+            return self::AMC;
+        }
+        if (in_array($code, self::REPAIR_A_CODES, true)) {
+            return ($old && !$inhouse) ? self::AMC : self::REPAIR_A;
+        }
+        if (in_array($code, self::REPAIR_B_CODES, true)) {
+            return ($old && !$inhouse && self::flag($exp->old_amc_vendor ?? false)) ? self::AMC : self::REPAIR_B;
+        }
+        return null;
+    }
+
+    /** Municipal tax paid back by tenants who left early, collected this month (user, 04/10/2026). */
+    public static function munTaxCollection(array $month): float
+    {
+        $sum = 0.0;
+        foreach ($month['mun_tax'] ?? [] as $mt) {
+            $sum += (float) $mt->amount;
+        }
+        return $sum;
+    }
+
+    /**
+     * Rent the tenant paid straight to the landlord (receipt flag "Direct deposit to landlord"):
+     * one "Less: D.Deposit - <unit>" row per unit, amount positive (user, 07/10/2026).
+     */
+    public static function directDepositRows(array $units): array
+    {
+        $byUnit = [];
+        foreach ($units as $u) {
+            $amount = (float) ($u->direct_deposit_amount ?? 0);
+            if ($amount > 0) {
+                $key = (string) $u->unit_no;
+                $byUnit[$key] = (isset($byUnit[$key]) ? $byUnit[$key] : 0.0) + $amount;
+            }
+        }
+        uksort($byUnit, 'strnatcmp');
+        $rows = [];
+        foreach ($byUnit as $unitNo => $amount) {
+            $rows[] = (object) ['description' => 'Less: D.Deposit - ' . $unitNo, 'amount' => round($amount, 3)];
+        }
+        return $rows;
+    }
+
+    const DIRECT_DEPOSIT_LABEL = 'Less: Direct Deposit to Landlord';
+
+    /** The month's direct deposits to the landlord (current + old outstanding), deducted from Amount Transfer to Land Lord. */
+    public static function directDepositTotal(array $month): float
+    {
+        $sum = 0.0;
+        foreach (array_merge($month['units'] ?? [], $month['old_outstanding'] ?? []) as $u) {
+            $sum += (float) ($u->direct_deposit_amount ?? 0);
+        }
+        return $sum;
+    }
+
+    /** One month's expense rows: [label => amount], in report order. */
+    public static function expenseLines(array $month): array
+    {
+        $out = array_fill_keys(self::LABELS, 0.0);
+        // Management fee only for buildings of Management Type Normal in the building master (user, 03/10/2026)
+        $out['Management Fees']  = (int) ($month['building_management_id'] ?? 0) === 2 ? self::managementFee($month) : 0.0;
+        $out['Cleaning Charges'] = (float) ($month['cleaning_charge'] ?? 0);
+        foreach ($month['expenses'] ?? [] as $exp) {
+            $row = self::rowFor($exp);
+            if ($row !== null) {
+                $out[$row] += (float) $exp->expense_amount;
+            }
+        }
+        // VAT = 5% of Repair (b) + Management Fees + Cleaning Charges (user, 04/10/2026)
+        $out['Value Added Tax (VAT)'] = round(($out[self::REPAIR_B] + $out['Management Fees'] + $out['Cleaning Charges']) * self::VAT_RATE, 3);
+        return $out;
+    }
+
+    /**
+     * One month's management fee from the landlord contract covering it: a fixed
+     * amount (management_method 2), or a percentage of the month's income
+     * (landlord_contract_percentage 1) or collection (2). Same formula as the
+     * Landlord Tax Invoice. The collection basis includes rent paid directly to the
+     * landlord: the fee is earned on it too (user, 07/10/2026).
+     */
+    public static function managementFee(array $month): float
+    {
+        $lc = $month['landlord_contract'] ?? null;
+        if ($lc === null) {
+            return 0.0;
+        }
+        if ((int) $lc->management_method === 2) {
+            return (float) $lc->landlord_contract_management_fee;
+        }
+        $income = $collection = 0.0;
+        foreach ($month['units'] ?? [] as $u) {
+            $income     += (float) ($u->income_amount ?? 0);
+            $collection += (float) ($u->collection_amount ?? 0);
+        }
+        foreach ($month['old_outstanding'] ?? [] as $u) {
+            $collection += (float) ($u->collection_amount ?? 0);
+        }
+        $basis = (int) $lc->landlord_contract_percentage;
+        if ($basis !== 1 && $basis !== 2) {
+            return 0.0; // unknown basis on the contract: no fee rather than a guess
+        }
+        return round(($basis === 2 ? $collection : $income) * ((float) $lc->landlord_contract_management_fee / 100), 3);
+    }
+
     protected $monthData;
     protected $year;
     protected $buildingName;
@@ -85,6 +271,7 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
             foreach ($this->monthData[$m]['old_outstanding'] ?? [] as $u) {
                 $total += (float)($u->collection_amount ?? 0);
             }
+            $total += self::munTaxCollection($this->monthData[$m] ?? []);
             $collections[$m] = $total;
         }
         $collectionRow = ['', 'Collection'];
@@ -104,29 +291,18 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         // Row 9: EXPENSES OVERVIEW — value in col C (merged C9:O9 in AfterSheet)
         $rows[] = ['', '', 'EXPENSES OVERVIEW', '', '', '', '', '', '', '', '', '', '', '', ''];
 
-        // Expense rows (name in col B, values in C–N, YTD in O)
-        $allExpenseNames = [];
-        foreach (range(1, 12) as $m) {
-            foreach ($this->monthData[$m]['expenses'] ?? [] as $exp) {
-                if (!in_array($exp->expense_name, $allExpenseNames)) {
-                    $allExpenseNames[] = $exp->expense_name;
-                }
-            }
-        }
-        sort($allExpenseNames);
-
+        // Expense rows in the fixed order of the report (user, 03/10/2026):
+        // name in col B, values in C-N, YTD in O. Only these rows make up Total Expenses.
         $expenseTotalsByMonth = array_fill(1, 12, 0);
-        foreach ($allExpenseNames as $expName) {
-            $expenseRow = ['', $expName];
+        $linesByMonth = [];
+        foreach (range(1, 12) as $m) {
+            $linesByMonth[$m] = self::expenseLines($this->monthData[$m] ?? []);
+        }
+        foreach (self::LABELS as $label) {
+            $expenseRow = ['', $label];
             $yearTotal  = 0;
             foreach (range(1, 12) as $m) {
-                $amount = 0;
-                foreach ($this->monthData[$m]['expenses'] ?? [] as $exp) {
-                    if ($exp->expense_name === $expName) {
-                        $amount = (float)$exp->expense_amount;
-                        break;
-                    }
-                }
+                $amount = (float) $linesByMonth[$m][$label];
                 $expenseRow[] = $amount > 0 ? $amount : '-';
                 $yearTotal    += $amount;
                 $expenseTotalsByMonth[$m] += $amount;
@@ -134,58 +310,6 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
             $expenseRow[] = $yearTotal ?: '-';
             $rows[] = $expenseRow;
         }
-
-        // Cleaning Charges (from the landlord contract, not a transactional expense —
-        // included in the Expenses section since it's deducted like one)
-        $cleaningRow  = ['', 'Cleaning Charges'];
-        $cleaningYTD  = 0;
-        foreach (range(1, 12) as $m) {
-            $amount = (float)($this->monthData[$m]['cleaning_charge'] ?? 0);
-            $cleaningRow[] = $amount > 0 ? $amount : '-';
-            $cleaningYTD  += $amount;
-            $expenseTotalsByMonth[$m] += $amount;
-        }
-        $cleaningRow[] = $cleaningYTD ?: '-';
-        $rows[] = $cleaningRow;
-
-        // Facility Management Fee — same treatment as Cleaning Charges: from the
-        // landlord contract, not a transactional expense, folded into Total Expenses.
-        $facilityRow = ['', 'Facility Management Fee'];
-        $facilityYTD = 0;
-        foreach (range(1, 12) as $m) {
-            $amount = (float)($this->monthData[$m]['facility_management_fee'] ?? 0);
-            $facilityRow[] = $amount > 0 ? $amount : '-';
-            $facilityYTD += $amount;
-            $expenseTotalsByMonth[$m] += $amount;
-        }
-        $facilityRow[] = $facilityYTD ?: '-';
-        $rows[] = $facilityRow;
-
-        // Renewal Fee — count of tenant contract renewals that month times the
-        // landlord contract's flat renewal fee (computed in buildNormalManagementMonthData()).
-        $renewalRow = ['', 'Renewal Fee'];
-        $renewalYTD = 0;
-        foreach (range(1, 12) as $m) {
-            $amount = (float)($this->monthData[$m]['renewal_fee'] ?? 0);
-            $renewalRow[] = $amount > 0 ? $amount : '-';
-            $renewalYTD += $amount;
-            $expenseTotalsByMonth[$m] += $amount;
-        }
-        $renewalRow[] = $renewalYTD ?: '-';
-        $rows[] = $renewalRow;
-
-        // New Leasing Fee — count/rent-sum of genuinely new tenant leases that
-        // month times the landlord contract's flat fee or percentage.
-        $newLeasingRow = ['', 'New Leasing Fee'];
-        $newLeasingYTD = 0;
-        foreach (range(1, 12) as $m) {
-            $amount = (float)($this->monthData[$m]['new_leasing_fee'] ?? 0);
-            $newLeasingRow[] = $amount > 0 ? $amount : '-';
-            $newLeasingYTD += $amount;
-            $expenseTotalsByMonth[$m] += $amount;
-        }
-        $newLeasingRow[] = $newLeasingYTD ?: '-';
-        $rows[] = $newLeasingRow;
 
         // Total Expenses
         $totalExpRow = ['', 'Total Expenses'];
@@ -198,11 +322,26 @@ class NormalManagementConsolidateSheet implements FromArray, ShouldAutoSize, Wit
         // Empty
         $rows[] = array_fill(0, 15, '');
 
+        // Rent the tenant paid straight to the landlord: in Collection, but not ours to transfer (user, 07/10/2026).
+        // Row only when the year has one.
+        $directDeposits = [];
+        foreach (range(1, 12) as $m) {
+            $directDeposits[$m] = self::directDepositTotal($this->monthData[$m] ?? []);
+        }
+        if (array_sum($directDeposits) > 0) {
+            $ddRow = ['', self::DIRECT_DEPOSIT_LABEL];
+            foreach ($directDeposits as $v) {
+                $ddRow[] = $v > 0 ? -$v : '-';
+            }
+            $ddRow[] = -array_sum($directDeposits);
+            $rows[] = $ddRow;
+        }
+
         // Amount Transfer to Land Lord
         $transferRow = ['', 'Amount Transfer to Land Lord'];
         $transferYTD = 0;
         foreach (range(1, 12) as $m) {
-            $transfer = $collections[$m] - $expenseTotalsByMonth[$m];
+            $transfer = $collections[$m] - $expenseTotalsByMonth[$m] - $directDeposits[$m];
             $transferRow[] = $transfer ?: '-';
             $transferYTD  += $transfer;
         }

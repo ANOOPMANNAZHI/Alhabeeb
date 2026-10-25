@@ -55,7 +55,9 @@
         .filters .val { font-weight: bold; color: #1f3864; font-size: 11pt; }
 
         /* ---------- data table ---------- */
-        table.data { width: 100%; border-collapse: collapse; }
+        /* fixed layout: a long cheque no / bank transfer narration wraps inside
+           its column instead of pushing the table off the page */
+        table.data { width: 100%; border-collapse: collapse; table-layout: fixed; }
 
         /* repeat the column headings on every page */
         table.data thead { display: table-header-group; }
@@ -75,6 +77,7 @@
             border: 1px solid #cfd9e6;
         }
         table.data td.num, table.data th.num { text-align: right; }
+        table.data td.cheque { font-size: 8.5pt; word-wrap: break-word; }
 
         tr.zebra td { background: #f6f9fd; }
 
@@ -154,20 +157,21 @@
     <thead>
         <tr>
             <th style="width:4%;">#</th>
-            <th style="width:15%;">Receipt No</th>
-            <th style="width:9%;">Type</th>
-            <th style="width:11%;">Receipt Date</th>
-            <th style="width:11%;">Period From</th>
-            <th style="width:11%;">Period To</th>
-            <th style="width:12%;">Payment Method</th>
-            <th style="width:12%;">Cheque No</th>
-            <th class="num" style="width:15%;">Amount</th>
+            <th style="width:11%;">Receipt No</th>
+            <th style="width:7%;">Type</th>
+            <th style="width:9%;">Receipt Date</th>
+            <th style="width:9%;">Period From</th>
+            <th style="width:9%;">Period To</th>
+            <th style="width:9%;">Payment Method</th>
+            <th style="width:22%;">Cheque No</th>
+            <th style="width:8%;">Status</th>
+            <th class="num" style="width:12%;">Amount</th>
         </tr>
     </thead>
     <tbody>
         @forelse($groups as $group)
         <tr class="contract-head">
-            <td colspan="9">
+            <td colspan="10">
                 Contract No : {{ $group['contract_no'] }}
                 <span class="contract-meta">
                     @if($group['start_date'])
@@ -176,6 +180,9 @@
                     @endif
                     &nbsp;&bull;&nbsp; Rent : {{ numberFormat($group['rent']) }}
                     &nbsp;&bull;&nbsp; Contract Value : {{ numberFormat($group['contract_value']) }}
+                    @if($group['termination_date'])
+                        &nbsp;&bull;&nbsp; Terminated : {{ \Carbon\Carbon::parse($group['termination_date'])->format('d/m/Y') }}
+                    @endif
                 </span>
             </td>
         </tr>
@@ -188,29 +195,30 @@
             <td>{{ $row->eff_from ? \Carbon\Carbon::parse($row->eff_from)->format('d/m/Y') : '' }}</td>
             <td>{{ $row->eff_to ? \Carbon\Carbon::parse($row->eff_to)->format('d/m/Y') : '' }}</td>
             <td>{{ $row->payment_method }}</td>
-            <td>{{ $row->cheque_no }}</td>
+            <td class="cheque">{{ $row->cheque_no }}</td>
+            <td>{{ $row->receipt_status }}</td>
             <td class="num">{{ numberFormat($row->amount) }}</td>
         </tr>
         @endforeach
         <tr class="subtotal">
-            <td colspan="8">Subtotal &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} ({{ $group['count'] }} receipt{{ $group['count'] == 1 ? '' : 's' }})</td>
+            <td colspan="9">Subtotal &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} ({{ $group['count'] }} receipt{{ $group['count'] == 1 ? '' : 's' }})</td>
             <td class="num">{{ numberFormat($group['subtotal']) }}</td>
         </tr>
         <tr class="subtotal">
-            <td colspan="8">Due &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} (Contract Value {{ numberFormat($group['contract_value']) }} &minus; Rent Collected {{ numberFormat($group['rent_collected']) }})</td>
+            <td colspan="9">Due &nbsp;&mdash;&nbsp; {{ $group['contract_no'] }} @if($group['paid_to_termination'])(Terminated {{ \Carbon\Carbon::parse($group['termination_date'])->format('d/m/Y') }}, rent paid till termination)@else{{ '(' }}@if($group['termination_date'])Rent till termination {{ \Carbon\Carbon::parse($group['termination_date'])->format('d/m/Y') }} {{ numberFormat($group['rent_due']) }}@else Contract Value {{ numberFormat($group['contract_value']) }}@endif &minus; Rent Collected {{ numberFormat($group['rent_collected']) }}@if($group['waived'] > 0) &minus; Legal Waiver {{ numberFormat($group['waived']) }}@endif)@endif</td>
             <td class="num">{{ numberFormat($group['due']) }}</td>
         </tr>
-        <tr class="spacer"><td colspan="9"></td></tr>
+        <tr class="spacer"><td colspan="10"></td></tr>
         @empty
-        <tr class="empty"><td colspan="9">No records found for this selection.</td></tr>
+        <tr class="empty"><td colspan="10">No records found for this selection.</td></tr>
         @endforelse
 
         <tr class="grand">
-            <td colspan="8">GRAND TOTAL &nbsp;&mdash;&nbsp; {{ $receiptCount }} receipt{{ $receiptCount == 1 ? '' : 's' }} across {{ $contractCount }} contract{{ $contractCount == 1 ? '' : 's' }}</td>
+            <td colspan="9">GRAND TOTAL &nbsp;&mdash;&nbsp; {{ $receiptCount }} receipt{{ $receiptCount == 1 ? '' : 's' }} across {{ $contractCount }} contract{{ $contractCount == 1 ? '' : 's' }}</td>
             <td class="num">{{ numberFormat($grandTotal) }}</td>
         </tr>
         <tr class="grand">
-            <td colspan="8">TOTAL DUE</td>
+            <td colspan="9">TOTAL DUE</td>
             <td class="num">{{ numberFormat($grandDue) }}</td>
         </tr>
     </tbody>

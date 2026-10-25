@@ -148,6 +148,12 @@ class DashboardController extends Controller
 		$expiringContractCount =   ['count' => $tenantContracts];
 		return json_encode(array($expiringContractCount));
 	}
+	/*
+	* ARE dashboard "Contracts Expiring": the Due for Renewal rows ending within ?expdays days (the card opens that list).
+	*/
+	public function areDueForRenewalCount(Request $request){
+		return json_encode(array(['count' => \Modules\BackOffice\Services\DueForRenewal::count($request)]));
+	}
 	public function UnregisteredContracts(Request $request){
 		
 		$tenantContracts = TenantContract::filter($request) 
@@ -758,6 +764,8 @@ return [
 'vacantUnits' => $vacantUnits,	           
 'partial_pdc' => $partial_pdc,	
 'handoverAssignedCount'=>$handoverAssignedCount,           
+// open bounces on the first contract of tenants this sales person brought in
+'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()->soldBy(\Auth::user()->id)->count(),
 ];
 
 }
@@ -1419,7 +1427,7 @@ public function  areDashboard(Request $request,$dashboard = false){
 
 
 
-		$bouncedChequeCount = Pdc::areFilter()->bouncedCheques()->count();
+		$bouncedChequeCount = Pdc::areFilter()->openBounces()->count();
 
 
 		if(!$dashboard)
@@ -1578,7 +1586,8 @@ return ['count' => $underPenaltyCount ];
 	'underPenaltyCount'=>$underPenaltyCount,
 	'notRegisteredInMunicipalityCount'=>$notRegisteredInMunicipalityCount,
 	'averageReceivables'=>$averageReceivables,
-	'referBackContractsCount'=>$referBackContractsCount
+	'referBackContractsCount'=>$referBackContractsCount,
+	'rentRevisalDueCount'=>\Modules\BackOffice\Services\RentRevisal::dueCount(\Auth::user())
 	];
 
 }
@@ -2689,7 +2698,9 @@ if(!$dashboard)
 	'pendingApproval'=>$pendingApproval,
 	'vacantUnits'=>$vacantUnits,
 	'sales_person_list'=>$sale,
-	'averageResponseTime'=>round($averageResponseTime)
+	'averageResponseTime'=>round($averageResponseTime),
+	// open bounces on the first contract of new tenants (all sales persons)
+	'newTenantBounceCount' => \Modules\BackOffice\Entities\Pdc::openBounces()->onNewTenantContract()->count(),
 	];
 
 }
@@ -2956,8 +2967,9 @@ public function  backofficeManagerDashboard(Request $request,$dashboard = false)
 
 
 
+// open cases the lawyer accepted (legal_is_closed = 2 is "accepted"; 0 counted almost nothing)
 $activeCasesCount = Legal::filter($request)
-->where('legal_is_closed',0)
+->whereNull('legal.closed_at')
 ->legalUsers()              
 ->where('legal.work_flow_processes_code', '=', 803)->get()->count();
 
@@ -3095,7 +3107,7 @@ return ['count' => $unregisteredContractsCount];
 
 
 
-		$bouncedChequeCount = Pdc::areFilter()->bouncedCheques()->count();
+		$bouncedChequeCount = Pdc::areFilter()->openBounces()->count();
 
 		if(!$dashboard)
 			return ['count' => $bouncedChequeCount ];

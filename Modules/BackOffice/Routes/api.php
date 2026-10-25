@@ -13,6 +13,9 @@ use Illuminate\Http\Request;
 |
 */
 
+// progress of a bank-sheet post, polled by its review page: no session on purpose (see the controller)
+Route::get('/pdcBankSheetProgress/{stored}/{key}', 'PdcBankSheetProgressController')->name('pdcBankSheetProgress');
+
 Route::middleware('auth:api')->get('/backoffice', function (Request $request) {
     return $request->user();
 });

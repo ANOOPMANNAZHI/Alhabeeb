@@ -7,6 +7,8 @@ use Illuminate\Http\Response;
 use App\Http\Controllers\Controller;
 
 use Modules\BackOffice\Entities\TenantContractEdit;
+use Modules\BackOffice\Services\MunicipalityRegistrationLedger;
+use Modules\BackOffice\Exceptions\MunicipalityLedgerException;
 use Modules\Sales\Entities\LandlordContract;
 use Modules\BackOffice\Entities\TenantContractRevokeTemp;
 use Modules\BackOffice\Entities\TenantContractRevokeNote;	
@@ -19,6 +21,7 @@ use Modules\Masters\Entities\VacantVacancyLoss;
 use Modules\Masters\Entities\Bank;
 use Modules\Masters\Entities\Employee;
 use Modules\Masters\Entities\Legal;
+use Modules\Masters\Services\LegalCase;
 use Modules\Sales\Entities\Tenant;
 use Modules\Sales\Entities\TenantContract;
 use Modules\Sales\Entities\TenantDocument;
@@ -45,7 +48,7 @@ use Modules\Sales\Http\Controllers\TenantContractController as Contract ;
 use Modules\General\Http\Controllers\GeneralController as General ;
 use Modules\Sales\Events\RevokeCreate;
 use Modules\Sales\Events\RevokeEnquiry;
-use Modules\Masters\Emails\LegalEmail;
+use Modules\BackOffice\Services\LegalMessages;
 use Modules\Sales\Entities\TenantSequence;
 use Dynamics;
 use App\Setting;
@@ -502,7 +505,7 @@ class TenantContractEditController extends Controller
         'occupant_email' => $request['occupant_email'],
         'created_by' => \Auth::user()->id,
         ]);
-       $request['occupant_id'] = $occupant_id;
+       $request['occupant_id'] = $occupant_id->id;
      }
      
      $yearToMonth = ($request['yeartxt'] > 0)? $request['yeartxt']*12:0;
@@ -756,23 +759,8 @@ class TenantContractEditController extends Controller
 
             //Notification starts
       if($tenantData->status == 5){
-        $legal = Legal::where('tenant_contract_id',$tenantData->id)->first();
-        $legalUsers = User::role(['are','backoffice_manager','legal_advisor'])->get(); 
-        $legalUsers = \Illuminate\Support\Arr::flatten($legalUsers);
-
-        $legal->textContent = "Tenant Contract Revoked";
-        foreach($legalUsers as $legalUser){
-          $mobile = $legalUser->employee->employee_contact_no ?? $legalUser->employee->employee_secondary_no;
-
-          $msg = "Tenant Contract Revoked !";
-          $params = 'optional data';
-          if(!empty($legalUser->email)){
-      Mail::to($legalUser->email)->send(new LegalEmail($legal,$legalUser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   }
+        // System template legal_contract_revoked
+        LegalMessages::toRoles('legal_contract_revoked', ['are','backoffice_manager','legal_advisor'], $tenantData);
  }
 	 $userLists = User::role(['backoffice_manager','backoffice_executive'])->where('id','!=',\Auth::user()->id)->get(); 
 
@@ -1206,8 +1194,8 @@ class TenantContractEditController extends Controller
   public function tenantContractChangeStatus(Request $request){
     $tenant_contract_id = $request->tenant_contract_id;
     $tenantContractInfo = TenantContract::where('id',$tenant_contract_id)->first();
-     // dd($tenant_contract_id);
-    return view('backoffice::TenantContract.tenant_contract_comment_model',compact('tenant_contract_id','tenantContractInfo'));
+    $openLegalCase = LegalCase::openCaseFor($tenant_contract_id);
+    return view('backoffice::TenantContract.tenant_contract_comment_model',compact('tenant_contract_id','tenantContractInfo','openLegalCase'));
   }
     /*
     *
@@ -1224,26 +1212,10 @@ class TenantContractEditController extends Controller
       TenantContract::where('id',$tenant_contract_id)->update(['status'=>$tenant_contract_status]);
 
       $tenantContract=TenantContract::where('id',$tenant_contract_id)->first();
-	  $isLegal = false;
+	  // One open case per contract; an existing open case is kept as it is
+	  list($legalCase, $created) = LegalCase::open($tenantContract, 'old leagal case moving', \Auth::user()->id);
 
-	  //check contract already moved to leagal
-	   if (Legal::where('tenant_contract_id', '=', $tenant_contract_id)->exists()) {
-		   
-		   $isLegal = true;
-		}
-	  //$isLegal = Legal::where('tenant_contract_id',$tenant_contract_id).a();
-	  
-	  
-	  if($isLegal == false){
-		   $legalCase=Legal::create([ 
-        'building_id' => $tenantContract->building_id,
-        'unit_id' => $tenantContract->unit_id,
-        'tenant_id'=> $tenantContract->tenant_id,
-        'tenant_contract_id' => $tenant_contract_id,
-        'note' => 'old leagal case moving',
-        'work_flow_processes_code' => 801,
-        'created_by' => \Auth::user()->id
-        ]); 
+	  if($created){
 
 
       $next_process_id=801;
@@ -1298,8 +1270,16 @@ class TenantContractEditController extends Controller
         $tenant_contract_id = $request->tenant_contract_id;
       $tenant_contract_status = $request->tenant_contract_status;
       $tenant_contract_comment = $request->tenant_contract_comment;
-      
-      $tenantContractComment = TenantContractComment::create([ 
+
+      // while a legal case is open the status stays "in legal": the case is closed or dropped on the legal screens
+      // (changing it here left cases nobody could work on - user, 18/10/2026)
+      $openLegalCase = LegalCase::openCaseFor($tenant_contract_id);
+      if ($openLegalCase && (string) $tenant_contract_status !== '5') {
+        session()->flash('error', 'This contract has an open legal case (#' . $openLegalCase->id . '). Close the case first; the status then returns to Normal.');
+        return redirect()->back();
+      }
+
+      $tenantContractComment = TenantContractComment::create([
        'tenant_contract_id' => $tenant_contract_id,
        'status' => $tenant_contract_status,
        'comment' => $tenant_contract_comment,
@@ -1317,21 +1297,8 @@ class TenantContractEditController extends Controller
       $next_process_id=801;
       $general =  new General;
 
-      $legalCase=Legal::create([ 
-        'building_id' => $tenantContract->building_id,
-        'unit_id' => $tenantContract->unit_id,
-        'tenant_id'=> $tenantContract->tenant_id,
-        'tenant_contract_id' => $tenant_contract_id,
-        'note' => $tenant_contract_comment,
-        'work_flow_processes_code' => 801,
-        'created_by' => \Auth::user()->id
-        ]); 
-      
-    //check contract already moved to leagal
-      if (Legal::where('tenant_contract_id', '=', $tenant_contract_id)->exists()) {
-       
-        $isLegal = true;
-      }
+      // One open case per contract; an existing open case is kept as it is
+      list($legalCase, $isLegal) = LegalCase::open($tenantContract, $tenant_contract_comment, \Auth::user()->id);
 
     if($isLegal != false){
       
@@ -1350,11 +1317,6 @@ class TenantContractEditController extends Controller
         }
         $legalCase->legalUsers()->attach(\Auth::user()->default_role,['user_id'=>\Auth::user()->id]);  
         $legalCase->save();
-      
-    }
-      
-      
-       
 
       }else{
 
@@ -1391,18 +1353,9 @@ class TenantContractEditController extends Controller
 
       event(new LegalApprove($legalCase,$plmusers));
 
-      foreach($plmusers as $plmuser){
-        $mobile = $plmuser->employee->employee_contact_no ?? $plmuser->employee->employee_secondary_no;
-
-        $msg = "New Legal Case has been Received !";
-        $params = 'optional data';
-        if(!empty($plmuser->email)){
-      Mail::to($plmuser->email)->send(new LegalEmail($legalCase,$plmuser)); //Email Notification
-    }else{
-       sendSms($mobile,$msg,$params); //SMS Notification
-     }
-
-   } 
+      // System template legal_case_received
+      LegalMessages::toUsers('legal_case_received', $plmusers, $legalCase->tenantContract);
+    }
  }
 
  session()->flash('success', 'Tenant Contract Status Changed Successfully');
@@ -1749,57 +1702,95 @@ public function tenantPopupAction(Request $request){
   public function tenantContractAddMunicipality(Request $request){
     $tenant_contract_id = $request->tenant_contract_id;
     $tenantContractInfo = TenantContract::where('id',$tenant_contract_id)->first();
-    return view('backoffice::TenantContract.tenant_contract_municipality_modal',compact('tenant_contract_id','tenantContractInfo'));
+    $municipality = (new MunicipalityRegistrationLedger())->modalData($tenantContractInfo);
+    return view('backoffice::TenantContract.tenant_contract_municipality_modal',compact('tenant_contract_id','tenantContractInfo','municipality'));
   }
 
   public function tenantContractAddMunicipalityStore(Request $request){
 
-    $this->validate($request, [        
-        'tenant_contract_muncipality_agr_no'=>'required',
-        'tenant_contract_registered_in'=>'required',
+    // No charge fields in the modal for contracts registered before the municipal tax vouchers
+    // went live, or on a building that is not taxable (Building master).
+    $existing = TenantContract::find($request->tenant_contract_id);
+    $ledger = new MunicipalityRegistrationLedger();
+    $noCharges = $existing && ($ledger->isLegacy($existing) || !$ledger->isTaxable($existing));
+
+    $this->validate($request, [
+        'tenant_contract_muncipality_agr_no'       => 'required',
+        'tenant_contract_registered_in'            => 'required',
+        'tenant_contract_registered_date'          => 'required|date',
+        'tenant_contract_municipality_tax_amt'     => ($noCharges ? 'nullable' : 'required') . '|numeric|min:0',
+        'tenant_contract_municipality_penalty_amt' => 'nullable|numeric|min:0',
         ]);
-		
-	$tenant_contract_id = $request->tenant_contract_id;
-	$tenant_contract_muncipality_agr_no = $request->tenant_contract_muncipality_agr_no;
-	$tenant_contract_registered_in = $request->tenant_contract_registered_in;
-	$tenant_contract_registered_date = $request->tenant_contract_registered_date;
-	$tenant_contract_note = $request->tenant_contract_note;
 
-	$tenant_contract_guarantee_cheque_details = $request->tenant_contract_guarantee_cheque_details;
-	$pdc_check = $request->pdc_check;
-	$deposit_check = $request->deposit_check;
+    $tenant_contract_id = $request->tenant_contract_id;
 
-  //upload Muncipality Agreement here.....
-
-  $agreement = null;
-
-  $documents = $request->file('tenant_document_file_name');
+    // Upload the municipality agreement; only overwrite the stored one when a new file is sent.
+    $agreement = null;
+    $documents = $request->file('tenant_document_file_name');
     if(!empty($documents)) {
       foreach($documents as $document){
-        $uniqueFileName = $document->getClientOriginalName();
-        $img_path =    Storage::putFile('public/Document', $document);
-        $agreement = $img_path;
+        if ($document) {
+          $agreement = Storage::putFile('public/Document', $document);
+        }
       }
     }
 
+    // Municipal tax / processing / penalty and their General Ledger vouchers are saved with the
+    // contract in one transaction; a posted voucher whose amount would change stops the save.
+    try {
+      DB::transaction(function () use ($request, $tenant_contract_id, $agreement) {
+        $contract = TenantContract::where('id', $tenant_contract_id)->lockForUpdate()->firstOrFail();
 
-	TenantContract::where('id',$tenant_contract_id)->update(['tenant_contract_muncipality_agr_no'=>$tenant_contract_muncipality_agr_no,'tenant_contract_registered_in'=>$tenant_contract_registered_in,'tenant_contract_registered_date'=>$tenant_contract_registered_date,'tenant_contract_note'=>$tenant_contract_note,'tenant_contract_is_reg_municipality'=>1,
-		'tenant_contract_guarantee_cheque_details'=>$tenant_contract_guarantee_cheque_details,
-		'pdc_check'=>$pdc_check,
-		'deposit_check'=>$deposit_check,'tenant_muncipality_agreement'=>$agreement
-	]);
+        $charges = (new MunicipalityRegistrationLedger())->sync(
+          $contract,
+          $request->tenant_contract_municipality_tax_amt,
+          $request->tenant_contract_municipality_penalty_amt,
+          $request->tenant_contract_registered_date,
+          \Auth::user()->id,
+          \Auth::user()->can('ledger_approval')
+        );
 
+        $fields = [
+          'tenant_contract_muncipality_agr_no'          => $request->tenant_contract_muncipality_agr_no,
+          'tenant_contract_registered_in'               => $request->tenant_contract_registered_in,
+          'tenant_contract_registered_date'             => $request->tenant_contract_registered_date,
+          'tenant_contract_note'                        => $request->tenant_contract_note,
+          'tenant_contract_is_reg_municipality'         => 1,
+          'tenant_contract_guarantee_cheque_details'    => $request->tenant_contract_guarantee_cheque_details,
+          'pdc_check'                                   => $request->pdc_check,
+          'deposit_check'                               => $request->deposit_check,
+        ];
+        if (empty($charges['legacy']) && empty($charges['not_taxable'])) {
+          $fields['tenant_contract_municipality_tax_amt']        = $charges['tax_amt'];
+          $fields['tenant_contract_municipality_processing_amt'] = $charges['processing_amt'];
+          $fields['tenant_contract_municipality_penalty_amt']    = $charges['penalty_amt'];
+          $fields['tenant_contract_municipality_gl_id']          = $charges['tax_gl_id'];
+          $fields['tenant_contract_municipality_penalty_gl_id']  = $charges['penalty_gl_id'];
+        }
+        if ($agreement !== null) {
+          $fields['tenant_muncipality_agreement'] = $agreement;
+        }
+        TenantContract::where('id', $contract->id)->update($fields);
+      });
+    } catch (MunicipalityLedgerException $e) {
+      if ($request->expectsJson()) {
+        return response()->json(['message' => $e->getMessage()], 422);
+      }
+      return redirect()->back()->withInput()->with('error', $e->getMessage());
+    }
 
-
-
-
+      // Summary screen saves the modal by AJAX and stays on its search results.
+      if ($request->expectsJson()) {
+        return response()->json(['message' => 'Tenant Contract Municipality Changed Successfully']);
+      }
       session()->flash('success', 'Tenant Contract Municipality Changed Successfully');
       return redirect()->route('tenant-contract.index');
     }
 	public function tenantContractAddMunicipalityview(Request $request){
     $tenant_contract_id = $request->tenant_contract_id;
     $tenantContractInfo = TenantContract::where('id',$tenant_contract_id)->first();
-    return view('backoffice::TenantContract.tenant_contract_municipality_modal_view',compact('tenant_contract_id','tenantContractInfo'));
+    $municipality = (new MunicipalityRegistrationLedger())->modalData($tenantContractInfo);
+    return view('backoffice::TenantContract.tenant_contract_municipality_modal_view',compact('tenant_contract_id','tenantContractInfo','municipality'));
   }
 
     public function tenantContractAddMunicipalityViewStore(Request $request){

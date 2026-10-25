@@ -14,6 +14,31 @@
 <!-- start widget -->
 <div class="state-overview">
   <div class="row">
+   @can('rent_revisal')
+   <div class="col-xl-4 col-md-4 col-12">
+     <a href="{{ route('rentRevisal.index', ['revisal' => 'due']) }}" class="rr-card-link" aria-label="Rent revisal due: open the list">
+     <div class="info-box rr-highlight {{ ($are['rentRevisalDueCount'] ?? 0) > 0 ? 'rr-due' : '' }}">
+       <span class="info-box-icon push-bottom"><i class="material-icons extra">trending_up</i></span>
+       <div class="info-box-content">
+         <span class="info-box-number">{{ $are['rentRevisalDueCount'] ?? 0 }} @if(($are['rentRevisalDueCount'] ?? 0) > 0)<span class="rr-badge">Action needed</span>@endif</span>
+         <span class="info-box-text">Rent revisal due</span>
+         <div class="progress"><div class="progress-bar width-60"></div></div>
+         <span class="progress-description">Contracts ending in 90-150 days</span>
+       </div>
+     </div>
+     </a>
+   </div>
+   <style>
+     .rr-card-link,.rr-card-link:hover{text-decoration:none;color:inherit;display:block}
+     .info-box.rr-highlight{background:linear-gradient(135deg,#F26522 0%,#D9480F 100%);color:#fff;border:3px solid #fff;box-shadow:0 0 0 3px #F26522,0 10px 24px rgba(242,101,34,.35)}
+     .info-box.rr-highlight .info-box-number,.info-box.rr-highlight .info-box-text,.info-box.rr-highlight .progress-description{color:#fff}
+     .info-box.rr-highlight .info-box-icon{background:rgba(255,255,255,.22)}
+     .rr-badge{display:inline-block;vertical-align:middle;margin-left:8px;padding:2px 9px;border-radius:999px;background:#fff;color:#C2410C;font-size:12px;font-weight:700;letter-spacing:.02em}
+     .info-box.rr-due{animation:rrPulse 2.2s ease-in-out infinite}
+     @keyframes rrPulse{0%,100%{box-shadow:0 0 0 3px #F26522,0 10px 24px rgba(242,101,34,.35)}50%{box-shadow:0 0 0 6px rgba(242,101,34,.55),0 12px 30px rgba(242,101,34,.5)}}
+     @media (prefers-reduced-motion: reduce){.info-box.rr-due{animation:none}}
+   </style>
+   @endcan
    <div class="col-xl-4 col-md-4 col-12">
      <div class="info-box bg-blue">
        <a class="link" href="">
@@ -130,7 +155,6 @@
                      <option selected value="30">30 Days</option> 
                      <option value="60">60 Days</option> 
                      <option value="90">90 Days</option> 
-                     <option value="120">120 Days</option> 
                    </select>
                  </div>
                  <!-- /.info-box-content -->
@@ -158,7 +182,8 @@
             </div>
             <!-- /.info-box -->
           </div>
-             
+
+
              <div class="col-xl-4 col-md-4 col-12">
               <div class="info-box bg-danger">
               <a href="{{route('tenant-contract.index',['under_penalty'=>30])}}">
@@ -296,35 +321,33 @@
       });
        /**********Total Receivables ends*********/
        /***********Contracts Expiring starts**************/
-       $('#expdays').on('change', function(e) {   
-         var expdays = $('#expdays').val();
-         var href1 =   "{{ route('tenant-contract.index')}}";
+       // The link follows the dropdown straight away (and again at click time); the count loads separately,
+       // so clicking before it arrives still opens the days shown. Only the latest count response is used.
+       var href1 =   "{{ route('tenantRenewal.index')}}";
+       var expReq = 0;
+       function expDays($from) {
+         var $sel = $from ? $from.closest('.info-box').find('select[name=expdays]') : $('#expdays');
+         return $sel.val() || 30;
+       }
+       function expRefresh() {
+         var mine = ++expReq, days = expDays();
+         $(".link1").attr('href', href1 + '?expdays=' + days);
          $.ajax({
            type: "GET",
-           url: "{!!URL::route('contractsExpiring')!!}",
-           data:'expdays='+ $('#expdays').val(),
+           url: "{!!URL::route('areDueForRenewalCount')!!}",
+           data: {expdays: days},
            success: function(data){
-            var result = $.parseJSON(data);
-            $('#expiring_contracts').text(result[0].count);
-            href1 = href1+'?expdays='+expdays;
-            $(".link1").attr('href', href1);
-          }
-        });
+             if (mine !== expReq) { return; }   // a newer choice is already loading
+             var result = $.parseJSON(data);
+             $('#expiring_contracts').text(result[0].count);
+           }
+         });
+       }
+       $('#expdays').on('change', expRefresh);
+       $(document).on('click', '.link1', function () {
+         $(this).attr('href', href1 + '?expdays=' + expDays($(this)));
        });
-       /***********Contracts Expiring ends**************/
-       var expdays = 30;
-       var href1 =   "{{ route('tenant-contract.index')}}";
-       $.ajax({
-         type: "GET",
-         url: "{!!URL::route('contractsExpiring')!!}",
-         data:'expdays='+ 30,
-         success: function(data){
-          var result = $.parseJSON(data);
-          $('#expiring_contracts').text(result[0].count);
-          href1 = href1+'?expdays='+expdays;
-          $(".link1").attr('href', href1);
-        }
-      });
+       expRefresh();
        /***********Contracts Expiring ends**************/      
         /***********Pending approvals from HOD starts**************/
        $('#renewal_days').on('change', function(e) {   

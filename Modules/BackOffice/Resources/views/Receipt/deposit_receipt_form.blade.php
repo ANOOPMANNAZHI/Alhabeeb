@@ -294,6 +294,7 @@
                                 </div>
                         </div>
                     </div>
+@include('backoffice::Receipt._landlord_deposit_field', ['receipt' => isset($depositReceiptInfo) ? $depositReceiptInfo : null])
                     <div class="col-sm-6">
                         <div class="form-group">
                              <label for="receipts_generation_amt">Amount <small class="textRed">*</small>:  </label>
