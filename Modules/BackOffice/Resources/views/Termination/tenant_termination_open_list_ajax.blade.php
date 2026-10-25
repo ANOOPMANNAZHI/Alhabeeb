@@ -36,8 +36,9 @@
                       <i class="fa fa-pencil "></i>
                     </a>
 
-                    <a href="#CancelEralyTermination" title="Cancel Early Termination" class="btn btn-tbl-edit btn-xs btn-danger" onclick="cancelTermination(<?php echo $tenantTermination->contract_id?>)">
-                      <i class="fa fa-refresh "></i>
+                    {{-- cancels straight away on the server, so it asks first; the old refresh icon looked like a reload button --}}
+                    <a href="#CancelEarlyTermination" title="Cancel early termination" aria-label="Cancel early termination of {{ $tenantTermination->tenant_contract_no }}" class="btn btn-tbl-edit btn-xs btn-danger" onclick="return cancelTermination({{ (int) $tenantTermination->contract_id }}, '{{ $tenantTermination->tenant_contract_no }}')">
+                      <i class="fa fa-times"></i>
                     </a>
 
                   @endcan

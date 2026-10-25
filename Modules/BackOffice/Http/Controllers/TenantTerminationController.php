@@ -346,14 +346,35 @@ class TenantTerminationController extends Controller
 
    public function cancelTermination(Request $request){
 
-    $contracts = TenantContract::where('id',$request->contract_id)->first();
+    // the button was only hidden for users without the permission; check it here as well
+    if (!\Auth::user()->can('tenant_early_termination')) {
+      return response()->json('You do not have permission to cancel an early termination.', 403);
+    }
+    // only a real contract whose termination is still premature (1) or rejected (4), the rows that show the button
+    $contractId = (int) $request->contract_id;
+    $contracts = $contractId > 0 ? TenantContract::where('id', $contractId)->first() : null;
+    $terminations = $contracts ? Termination::where('contract_id', $contractId)->whereIn('termination_type_status', [1, 4])->get() : collect();
+    if ($terminations->isEmpty()) {
+      return response()->json('This contract has no early termination to cancel.', 422);
+    }
 
-    $tenantTermination = Termination::where('contract_id',$request->contract_id)->update(['termination_type_status'=>0]);
+    DB::transaction(function () use ($contracts, $terminations, $contractId) {
+      // who cancelled what: the termination row is detached below (contract_id 0), so keep the link in the log
+      foreach ($terminations as $termination) {
+        activity('Cancel Early Termination')
+          ->performedOn($termination)
+          ->causedBy(\Auth::user()->id)
+          ->withProperties(['termination_id' => $termination->id, 'contract_id' => $contractId,
+            'tenant_contract_no' => $contracts->tenant_contract_no, 'termination_type_status' => $termination->termination_type_status,
+            'termination_date' => $termination->getOriginal('termination_date')])
+          ->log("Cancelled by :".\Auth::user()->username.", Contract :".$contracts->tenant_contract_no);
+      }
 
-    TenantContract::where('id',$request->contract_id)->update(['tenant_renewal_termination_status'=>0]);
-    Termination::where('contract_id',$request->contract_id)->update(['contract_id'=>0]);
-
-    $unitUpdate = Unit::where('id',$contracts->unit_id)->update(['unit_vaccant_status'=>1]);
+      Termination::where('contract_id', $contractId)->update(['termination_type_status'=>0, 'updated_by'=>\Auth::user()->id]);
+      TenantContract::where('id', $contractId)->update(['tenant_renewal_termination_status'=>0]);
+      Termination::where('contract_id', $contractId)->update(['contract_id'=>0]);
+      Unit::where('id', $contracts->unit_id)->update(['unit_vaccant_status'=>1]);
+    });
 
     return json_encode("Status Changed");
 
