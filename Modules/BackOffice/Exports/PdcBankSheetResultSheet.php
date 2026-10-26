@@ -41,7 +41,7 @@ class PdcBankSheetResultSheet extends DefaultValueBinder implements FromArray, W
         return $this->title;
     }
 
-    public function bindValue(Cell $cell, $value)
+    public function bindValue(Cell $cell, mixed $value): bool
     {
         if (is_string($value)) {
             $cell->setValueExplicit($value, DataType::TYPE_STRING);
