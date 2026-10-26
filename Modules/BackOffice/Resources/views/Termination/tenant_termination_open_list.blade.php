@@ -140,7 +140,10 @@ $("#show").on("hide.bs.collapse", function(){
 /**********************************************************************************/
 
 
-  function cancelTermination(id){
+  function cancelTermination(id, contractNo){
+    if (!confirm('Cancel the early termination of ' + contractNo + '?\n\nThe contract goes back to active and this cannot be undone.')) {
+      return false;
+    }
 
     $.ajax
         ({
@@ -150,10 +153,14 @@ $("#show").on("hide.bs.collapse", function(){
             cache: false,
             success: function(data)
             {
-               console.log(data);
                location.reload();
+            },
+            error: function(xhr)
+            {
+               alert(xhr.responseJSON ? xhr.responseJSON : 'The early termination could not be cancelled. Please try again.');
             }
         });
+    return false;
   }
 
 </script>

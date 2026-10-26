@@ -114,6 +114,12 @@ class PaymentHistoryV2Controller extends Controller
      * 3 posted. Cancelled ones and rejected ones (approval_status 4) are
      * left out. receipts_generation_type: 0 rent, 1 general, 2 deposit - see
      * ReceiptsGeneration::getReceiptsGenerationTypeNameAttribute().
+     *
+     * The receipt filters sit in the join, not the WHERE, so an approved
+     * contract with no receipt at all still comes back as one row with
+     * receipt_id NULL - it owes its whole value (e.g. TAG2201435, never paid,
+     * went to legal). Drafts / mid-approval contracts with no receipt stay
+     * out, as in Rent Receivable V2 (approved = work flow 108).
      */
     private function reportRows($buildingId, $unitId, $tenantId)
     {
@@ -127,6 +133,7 @@ class PaymentHistoryV2Controller extends Controller
                    tc.tenant_contract_duration,
                    tc.tenant_contract_value,
                    ter.termination_date,
+                   rg.id                               AS receipt_id,
                    rg.receipts_generation_type         AS receipt_type_code,
                    CASE rg.receipts_generation_type
                         WHEN 1 THEN 'General'
@@ -153,6 +160,9 @@ class PaymentHistoryV2Controller extends Controller
             LEFT JOIN units u             ON b.id  = u.building_id
             LEFT JOIN tenant_contracts tc ON u.id  = tc.unit_id
             LEFT JOIN receipts_generation rg ON tc.id = rg.tenant_contract_id
+                  AND rg.receipts_generation_status IN (0, 1, 3)
+                  AND rg.receipts_generation_approval_status <> 4
+                  AND rg.deleted_at IS NULL
             LEFT JOIN tenant t            ON t.id  = tc.tenant_id
             LEFT JOIN (SELECT contract_id, MAX(termination_date) AS termination_date
                        FROM termination WHERE work_flow_processes_code = '505'
@@ -160,9 +170,7 @@ class PaymentHistoryV2Controller extends Controller
             WHERE b.id  = ?
               AND u.id  = ?
               AND t.id  = ?
-              AND rg.receipts_generation_status IN (0, 1, 3)
-              AND rg.receipts_generation_approval_status <> 4
-              AND rg.deleted_at IS NULL
+              AND (rg.id IS NOT NULL OR tc.work_flow_processes_code = '108')
             ORDER BY tc.tenant_contract_no, rg.receipts_generation_receipt_date, rg.id
         ", [$buildingId, $unitId, $tenantId]);
     }
@@ -219,6 +227,11 @@ class PaymentHistoryV2Controller extends Controller
                     $groups[$key]['termination_date'] = $term;
                     $groups[$key]['rent_due'] = $rent['rent_due'];
                 }
+            }
+
+            // contract with no receipt: header + due only, no receipt line
+            if ($row->receipt_id === null) {
+                continue;
             }
 
             $groups[$key]['rows'][] = $row;

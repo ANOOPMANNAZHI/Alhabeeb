@@ -186,6 +186,9 @@
                 </span>
             </td>
         </tr>
+        @if(empty($group['rows']))
+        <tr><td colspan="10" style="color:#8a94a6; font-style:italic;">No receipts for this contract</td></tr>
+        @endif
         @foreach($group['rows'] as $i => $row)
         <tr @if($i % 2 == 1) class="zebra" @endif>
             <td>{{ $i + 1 }}</td>

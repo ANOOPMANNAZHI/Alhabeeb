@@ -50,6 +50,9 @@
         Contract No : {{ $group['contract_no'] }}@if($group['start_date']) &bull; {{ \Carbon\Carbon::parse($group['start_date'])->format('d/m/Y') }} to {{ $group['end_date'] ? \Carbon\Carbon::parse($group['end_date'])->format('d/m/Y') : '' }}@endif &bull; Rent : {{ $group['rent'] }} &bull; Contract Value : {{ $group['contract_value'] }}@if($group['termination_date']) &bull; Terminated : {{ \Carbon\Carbon::parse($group['termination_date'])->format('d/m/Y') }}@endif
       </td>
     </tr>
+    @if(empty($group['rows']))
+    <tr><td colspan="10" style="{{ $tdStyle }}color:#8A94A6;font-style:italic;">No receipts for this contract</td></tr>
+    @endif
     @foreach($group['rows'] as $i => $row)
     @php $rowStyle = $tdStyle . ($i % 2 == 1 ? $zebra : ''); $rowNum = $tdNum . ($i % 2 == 1 ? $zebra : ''); @endphp
     <tr>
