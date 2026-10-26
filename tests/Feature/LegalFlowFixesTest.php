@@ -178,14 +178,14 @@ class LegalFlowFixesTest extends TestCase
         $newRent = LegalSettlement::newRentSince($agreed, $c->id);
         $months = \Modules\BackOffice\Services\RentOutstanding::monthsBetween($agreed, date('Y-m-d'));
         $this->assertGreaterThan(0, $months);
-        $this->assertEquals($months * (float) $c->tenant_contract_rent, $newRent, '', 0.001);
+        $this->assertEqualsWithDelta($months * (float) $c->tenant_contract_rent, $newRent, 0.001, '');
 
         DB::table('receipts_generation')->insertGetId(['tenant_contract_id' => $c->id, 'receipts_generation_payment_method' => 1,
             'receipts_generation_receipt_no' => 'LGF-T-1', 'receipts_generation_receipt_date' => date('Y-m-d'),
             'receipts_generation_type' => 0, 'receipts_generation_amt' => $newRent + 100, 'receipts_generation_approval_status' => 3,
             'receipts_generation_status' => 3, 'receipts_generation_index' => 0, 'created_by' => 1, 'created_at' => now(), 'updated_at' => now()]);
         $d = LegalSettlement::collectedDetail((object) ['agreed_date' => $agreed], $c->id);
-        $this->assertEquals(100, $d['collected'], 'the running rent does not count, the 100 above it does', 0.001);
+        $this->assertEqualsWithDelta(100, $d['collected'], 0.001, 'the running rent does not count, the 100 above it does');
     }
 
     public function test_balance_written_off_becomes_a_waiver()
@@ -208,7 +208,7 @@ class LegalFlowFixesTest extends TestCase
         $waiver = DB::table('legal_waivers')->where('legal_id', $legal->id)->where('reason', 'like', 'Balance written off%')->first();
         if ($expected > 0) {
             $this->assertNotNull($waiver);
-            $this->assertEquals($expected, (float) $waiver->amount, '', 0.001);
+            $this->assertEqualsWithDelta($expected, (float) $waiver->amount, 0.001, '');
         } else {
             $this->assertNull($waiver, 'nothing owed, nothing written off');
         }
@@ -227,7 +227,7 @@ class LegalFlowFixesTest extends TestCase
             'note' => 'x', 'created_by' => 1, 'created_at' => now(), 'updated_at' => now()]);
         $owed = \Modules\Masters\Services\LegalCase::owed(Legal::find($id));
         $this->assertNotNull($owed['dues']);
-        $this->assertEquals((float) $owed['dues']['balance'], $owed['total'], 'dues already hold the rent: not added twice', 0.001);
+        $this->assertEqualsWithDelta((float) $owed['dues']['balance'], $owed['total'], 0.001, 'dues already hold the rent: not added twice');
         $this->as(User::find(1))->get(route('activeCasesShow', $id))->assertOk()->assertSee('Termination dues')
             ->assertSee('Rent outstanding')->assertDontSee('Overdue rent (estimate)');
     }

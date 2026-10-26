@@ -38,15 +38,15 @@ class BankSheetChequeZerosTest extends TestCase
     public function test_pdc_stored_with_leading_zeros_is_found_by_the_printed_number()
     {
         $id = $this->pdcStoredWithZeros('00777123', 1);
-        $this->assertStringContainsString($id, $this->candidates(['00777123']));          // rejected tab (posted PDCs count)
+        $this->assertContainsEquals($id, $this->candidates(['00777123']));          // rejected tab (posted PDCs count)
 
         $open = $this->pdcStoredWithZeros('00777124', 0);
-        $this->assertStringContainsString($open, $this->candidates(['00777124'], false)); // posting tabs (unposted only)
+        $this->assertContainsEquals($open, $this->candidates(['00777124'], false)); // posting tabs (unposted only)
     }
 
     public function test_pdc_stored_without_zeros_is_still_found()
     {
         $id = $this->pdcStoredWithZeros('777125', 1);
-        $this->assertStringContainsString($id, $this->candidates(['00777125']));
+        $this->assertContainsEquals($id, $this->candidates(['00777125']));
     }
 }

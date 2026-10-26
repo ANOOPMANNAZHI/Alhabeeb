@@ -253,7 +253,7 @@ class RentRevisalTest extends TestCase
         DB::table('tenant_renewal_forms')->where('tenant_contract_id', $c->id)->delete();
         TenantRentRevisal::create(['tenant_contract_id' => $c->id, 'current_rent' => $c->tenant_contract_rent, 'revised_rent' => 777.5, 'created_by' => 1]);
         $this->as(User::find(1))->post(route('renewalTemplatePdf'), ['tenant_contract_id' => $c->id])->assertStatus(200)->assertSee('777.500')
-            ->assertSee('Rent revised:')->assertSee('<strong>OMR 777.500</strong>')->assertDontSee('This form was saved with');
+            ->assertSee('Rent revised:')->assertSee('<strong>OMR 777.500</strong>', false)->assertDontSee('This form was saved with');
     }
 
     public function test_renewal_popup_has_no_revisal_note_for_a_draft_or_no_revisal()
@@ -315,8 +315,8 @@ class RentRevisalTest extends TestCase
         DB::table('tenant_renewal_forms')->insert(['tenant_contract_id' => $c->id, 'tenant_contract_rent' => 654.321, 'tenant_contract_start_date' => '2027-01-01',
             'tenant_contract_valid_to_date' => '2027-12-31', 'tenant_contract_payment_type' => 1, 'created_at' => now(), 'updated_at' => now()]);
         $res = $this->as(User::find(1))->post(route('renewalTemplatePdf'), ['tenant_contract_id' => $c->id]);
-        $res->assertStatus(200)->assertSee('name="tenant_contract_rent" value="654.321"')->assertDontSee('value="777.500"')
-            ->assertSee('<strong>OMR 777.500</strong>')->assertSee('This form was saved with OMR 654.321.');
+        $res->assertStatus(200)->assertSee('name="tenant_contract_rent" value="654.321"', false)->assertDontSee('value="777.500"', false)
+            ->assertSee('<strong>OMR 777.500</strong>', false)->assertSee('This form was saved with OMR 654.321.');
     }
 
     public function test_save_draft_does_not_email_and_list_shows_draft()

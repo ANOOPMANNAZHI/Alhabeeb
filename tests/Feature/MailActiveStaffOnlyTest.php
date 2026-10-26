@@ -39,10 +39,10 @@ class MailActiveStaffOnlyTest extends TestCase
         $ids = $this->people();
         $keys = array_keys(RecipientFinder::people('staff', []));
 
-        $this->assertStringContainsString('staff:' . $ids['active'], $keys);
-        $this->assertStringNotContainsString('staff:' . $ids['login_off'], $keys);
-        $this->assertStringNotContainsString('staff:' . $ids['employee_off'], $keys, 'active login but inactive employee');
-        $this->assertStringContainsString('staff:1', $keys, 'admin login (no employee record) stays');
+        $this->assertContainsEquals('staff:' . $ids['active'], $keys);
+        $this->assertNotContainsEquals('staff:' . $ids['login_off'], $keys);
+        $this->assertNotContainsEquals('staff:' . $ids['employee_off'], $keys, 'active login but inactive employee');
+        $this->assertContainsEquals('staff:1', $keys, 'admin login (no employee record) stays');
     }
 
     public function test_compose_cc_lookup_has_only_active_staff()
@@ -52,8 +52,8 @@ class MailActiveStaffOnlyTest extends TestCase
 
         $found = array_column($this->get(route('emailCcAutocomplete', ['search' => 'mailtest']))->assertOk()->json(), 'value');
 
-        $this->assertStringContainsString($ids['active'], $found);
-        $this->assertStringNotContainsString($ids['login_off'], $found);
-        $this->assertStringNotContainsString($ids['employee_off'], $found);
+        $this->assertContainsEquals($ids['active'], $found);
+        $this->assertNotContainsEquals($ids['login_off'], $found);
+        $this->assertNotContainsEquals($ids['employee_off'], $found);
     }
 }

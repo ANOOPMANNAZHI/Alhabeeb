@@ -245,7 +245,7 @@ class RentLedgerTest extends TestCase
         $c = $this->c(['eff' => '2025-05-22', 'start' => '2025-05-22', 'vto' => '2026-05-31', 'rent' => '170', 'value' => '2096.667']);
         $l = L::build($c, '2026-08-31', 0);
         $this->assertSame(2096.667, $l['due']);
-        $this->assertEquals(2096.667, array_sum($this->amounts($l)), '', 0.0005);
+        $this->assertEqualsWithDelta(2096.667, array_sum($this->amounts($l)), 0.0005, '');
     }
 
     public function test_thousands_commas_in_value_and_rent_are_ignored()
@@ -262,6 +262,6 @@ class RentLedgerTest extends TestCase
         $l = L::build($this->c(), '2026-08-31', -50);
         $this->assertSame(0.0, $l['received']);
         $this->assertSame($l['due'], $l['balance']);
-        $this->assertEquals($l['balance'], array_sum(array_column($l['lines'], 'unpaid')), '', 0.0005);
+        $this->assertEqualsWithDelta($l['balance'], array_sum(array_column($l['lines'], 'unpaid')), 0.0005, '');
     }
 }

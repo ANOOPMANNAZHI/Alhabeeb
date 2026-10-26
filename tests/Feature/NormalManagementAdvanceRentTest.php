@@ -73,6 +73,6 @@ class NormalManagementAdvanceRentTest extends TestCase
             }
         }
         $this->assertNotNull($row, 'incoming tenant row for unit 36 in April');
-        $this->assertStringContainsString(150.0, array_map(function ($v) { return is_numeric($v) ? (float) $v : null; }, $row));
+        $this->assertContainsEquals(150.0, array_map(function ($v) { return is_numeric($v) ? (float) $v : null; }, $row));
     }
 }

@@ -51,8 +51,8 @@ class RentDuesTest extends TestCase
             ->whereRaw('receipts_generation_receipt_date::date <= ?', [$upTo])->sum('receipts_generation_amt');
 
         $row = (new RentDues)->forDate(date('Y-m-d'), $upTo, ['building_name' => $c->building_name])[$c->id];
-        $this->assertEquals($expected, (float) $row->received, '', 0.0005);
-        $this->assertEquals(round($expected, 3), $row->ledger['received'], '', 0.0005);
+        $this->assertEqualsWithDelta($expected, (float) $row->received, 0.0005, '');
+        $this->assertEqualsWithDelta(round($expected, 3), $row->ledger['received'], 0.0005, '');
     }
 
     public function test_termination_dated_after_the_as_on_date_is_ignored()
@@ -100,7 +100,7 @@ class RentDuesTest extends TestCase
         }
         $expected = \Modules\BackOffice\Services\RentOutstanding::paidForContract($c->id);
         $row = (new RentDues)->forDate(date('Y-m-d'), date('Y-m-d'), ['building_name' => $c->building_name])[$c->id];
-        $this->assertEquals($expected, (float) $row->received, 'contract ' . $c->id, 0.0005);
+        $this->assertEqualsWithDelta($expected, (float) $row->received, 0.0005, 'contract ' . $c->id);
     }
 
     public function test_ledgers_keep_unpaid_lines_that_add_up_to_the_balance()
@@ -113,7 +113,7 @@ class RentDuesTest extends TestCase
                 $this->assertGreaterThan(0, $l['unpaid']);
                 $sum += $l['unpaid'];
             }
-            $this->assertEquals($d->ledger['balance'], $sum, 'contract ' . $d->id, 0.002);
+            $this->assertEqualsWithDelta($d->ledger['balance'], $sum, 0.002, 'contract ' . $d->id);
         }
     }
 }

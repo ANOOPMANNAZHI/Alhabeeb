@@ -95,6 +95,6 @@ class ForgotPasswordTemplateTest extends TestCase
     {
         $this->get(route('password.reset', ['token' => 'abc', 'email' => 'x.y@example.com']))
             ->assertStatus(200)
-            ->assertSee('value="x.y@example.com"');
+            ->assertSee('value="x.y@example.com"', false);
     }
 }

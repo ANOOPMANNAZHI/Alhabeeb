@@ -48,7 +48,7 @@ class TenantAgingReportTest extends TestCase
         $rows = TenantAgingCalculator::rows((new RentDues)->forDate(date('Y-m-d'), date('Y-m-d'), ['building_name' => $building]), date('Y-m-d'));
         $this->assertNotEmpty($rows);
         foreach ($rows as $r) {
-            $this->assertEquals($r->netamtdue, array_sum($r->aging), $r->contract_no, 0.002);
+            $this->assertEqualsWithDelta($r->netamtdue, array_sum($r->aging), 0.002, $r->contract_no);
         }
     }
 

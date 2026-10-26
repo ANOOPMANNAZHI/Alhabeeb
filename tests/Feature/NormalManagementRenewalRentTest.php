@@ -60,8 +60,8 @@ class NormalManagementRenewalRentTest extends TestCase
             }
         }
         $this->assertNotNull($row, 'S 713 row in the May sheet');
-        $this->assertStringContainsString(260.0, array_map(function ($v) { return is_numeric($v) ? (float) $v : null; }, $row));
-        $this->assertStringNotContainsString(130.0, array_map(function ($v) { return is_numeric($v) ? (float) $v : null; }, $row));
+        $this->assertContainsEquals(260.0, array_map(function ($v) { return is_numeric($v) ? (float) $v : null; }, $row));
+        $this->assertNotContainsEquals(130.0, array_map(function ($v) { return is_numeric($v) ? (float) $v : null; }, $row));
     }
 
     public function test_new_tenant_moving_into_an_empty_unit_mid_month_is_still_prorated()

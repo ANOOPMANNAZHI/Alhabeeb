@@ -157,7 +157,7 @@ class RecipientFinderTest extends TestCase
         $this->assertSame($one['name'], F::person('staff', $key)['name']);
         $this->assertNull(F::person('staff', 'staff:99999999'));
         $hits = F::search('staff', mb_substr($one['name'], 0, 3));
-        $this->assertStringContainsString($key, array_column($hits, 'key'));
+        $this->assertContainsEquals($key, array_column($hits, 'key'));
         $this->assertSame([], F::search('staff', '   '));
         $this->assertSame('tenant', F::templateAudience('tenant_past'));
         $this->expectException(\InvalidArgumentException::class);

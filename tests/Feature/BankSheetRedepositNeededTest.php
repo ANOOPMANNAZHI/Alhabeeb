@@ -64,7 +64,7 @@ class BankSheetRedepositNeededTest extends TestCase
         $this->assertSame([self::CONTRACT => 'TAG2503810'], $r['redeposit_contracts']);
         $this->assertStringContainsString('Bounced cheque deposited again - click Redeposit on TAG2503810', $r['reason']);
         $this->assertCount(1, $r['related'], 'the agreement once (Rent + VAT of one cheque)');
-        $this->assertStringContainsString($r['related'][0]->id, $bounced);
+        $this->assertContainsEquals($r['related'][0]->id, $bounced);
         $this->assertSame('Redeposit needed', BankSheetResultRows::rowStatus('redeposit_needed'));
     }
 

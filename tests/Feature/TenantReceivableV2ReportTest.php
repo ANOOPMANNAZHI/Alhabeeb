@@ -63,7 +63,7 @@ class TenantReceivableV2ReportTest extends TestCase
         }
         $this->assertCount($owing, $rows);
         foreach ($rows as $r) {
-            $this->assertEquals($r->totaldue - $r->amount_received, $r->netamtdue, $r->contract_no, 0.002);
+            $this->assertEqualsWithDelta($r->totaldue - $r->amount_received, $r->netamtdue, 0.002, $r->contract_no);
         }
     }
 

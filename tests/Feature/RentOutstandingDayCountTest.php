@@ -47,7 +47,7 @@ class RentOutstandingDayCountTest extends TestCase
         Artisan::call('rent-outstanding:apply-day-count', ['--contract' => 'TAG2602074', '--apply' => true]);
 
         // 15 days x 240 / 30 = 120, less what was paid
-        $this->assertEquals(round(120 - $paid, 3), (float) DB::table('tenant_contracts')->where('id', $c->id)->value('tenant_contract_os'), '', 0.0005);
+        $this->assertEqualsWithDelta(round(120 - $paid, 3), (float) DB::table('tenant_contracts')->where('id', $c->id)->value('tenant_contract_os'), 0.0005, '');
         $line = $this->duesLine($c->id);
         if ($line) {
             $this->assertLessThanOrEqual(120.0, (float) $line->amount);
