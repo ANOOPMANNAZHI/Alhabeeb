@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /** A rent revisal before renewal (one per contract): a draft can be edited; once sent it is locked. */
 class TenantRentRevisal extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     const DRAFT = 'draft';
     const SENT = 'sent';
 

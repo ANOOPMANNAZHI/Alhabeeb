@@ -76,7 +76,7 @@ class SystemTemplateDefaultsTest extends TestCase
             $known = array_keys(P::forTemplate($d['audience'], $key));
             foreach ([$d['email_subject'], $d['email_body'], $d['sms_body']] as $text) {
                 foreach (R::placeholdersIn($text) as $ph) {
-                    $this->assertStringContainsString($ph, $known, "$key uses unregistered {{$ph}}");
+                    $this->assertContains($ph, $known, "$key uses unregistered {{$ph}}");
                 }
             }
             if ($d['email_body'] !== null) {

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class MessageLog extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     const SENT = 'sent';
     const FAILED = 'failed';
     const SKIPPED_OFF = 'skipped_off';

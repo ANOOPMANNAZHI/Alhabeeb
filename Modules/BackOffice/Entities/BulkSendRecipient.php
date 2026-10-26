@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /** One person in a bulk send, with the placeholder values worked out when the send started. */
 class BulkSendRecipient extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     const PENDING = 'pending';
     const SENT = 'sent';
     const FAILED = 'failed';

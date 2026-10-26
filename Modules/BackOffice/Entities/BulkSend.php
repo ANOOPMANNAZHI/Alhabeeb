@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /** A bulk send (Mail -> Send). Texts are a frozen copy taken when the send started. */
 class BulkSend extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     const RUNNING = 'running';
     const PAUSED = 'paused';
     const CANCELLED = 'cancelled';

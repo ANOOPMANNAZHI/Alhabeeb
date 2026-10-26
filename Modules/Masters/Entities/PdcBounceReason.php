@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PdcBounceReason extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     protected $table = 'pdc_bounce_reasons';
     protected $guarded = [];
     protected $casts = ['is_active' => 'boolean', 'is_fallback' => 'boolean', 'sort_order' => 'integer'];

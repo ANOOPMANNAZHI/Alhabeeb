@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ReceivableFollowup extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     const KEPT = 'kept';
     const BROKEN = 'broken';
     const UPCOMING = 'upcoming';

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MessageTemplate extends Model
 {
+    use \App\Concerns\LegacyDateSerialization;
     use SoftDeletes;
 
     const KIND_SYSTEM = 'system';
