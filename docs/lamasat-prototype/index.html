@@ -243,9 +243,60 @@ table.t{width:100%;border-collapse:collapse;font-size:13.5px}
 .paper table{width:100%;border-collapse:collapse;margin-top:10px}
 .paper td,.paper th{border-bottom:1px solid #ececec;padding:6px;text-align:left}
 
+[hidden]{display:none!important}
 /* login */
-.login{min-height:100%;display:grid;place-items:center;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:radial-gradient(900px 500px at 85% 0%,var(--accent-soft),transparent 60%),radial-gradient(800px 500px at 0% 100%,var(--brand-soft),transparent 60%),var(--canvas)}
-.login .card{width:min(400px,100%);padding:28px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow-lg);border-radius:20px}
+.lg-wrap{min-height:100%;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);background:var(--bg)}
+.lg-art{position:relative;overflow:hidden;isolation:isolate;background:#11331F;color:#E6F1E9;display:flex;flex-direction:column;justify-content:space-between;gap:40px;padding-block:34px 40px;padding-left:max(44px,env(safe-area-inset-left,0px));padding-right:44px;margin-top:calc(-1 * env(safe-area-inset-top,0px));padding-top:calc(34px + env(safe-area-inset-top,0px))}
+.lg-art svg.art{position:absolute;inset:0;width:100%;height:100%;z-index:-1}
+.lg-art .brand{padding:0}
+.lg-art .brand b{color:#fff}
+.lg-art .brand span{color:#9EC2AB}
+.lg-art .brand .mk{background:#F2C46B}
+.lg-date{font-family:var(--f-mono);font-size:12px;color:#F2C46B;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
+.lg-copy h1{font-family:var(--f-head);font-size:clamp(36px,4.4vw,62px);line-height:1;letter-spacing:-.04em;font-weight:750;color:#fff;max-width:11ch}
+.lg-copy h1 em{font-style:normal;color:#F2C46B}
+.lg-copy p{color:#B9D2C1;max-width:42ch;font-size:15.5px;margin:18px 0 0}
+.lg-facts{display:flex;flex-wrap:wrap;gap:14px 34px;margin:28px 0 0;padding-top:18px;border-top:1px solid rgba(255,255,255,.14);font-size:13.5px}
+.lg-facts dt{color:#86AD95;font-size:11px;text-transform:uppercase;letter-spacing:.09em;font-weight:650}
+.lg-facts dd{margin:4px 0 0;color:#fff;font-variant-numeric:tabular-nums}
+.sway{animation:sway 8s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes sway{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+.lg-main{display:grid;place-items:center;padding-block:40px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));background:radial-gradient(600px 400px at 100% 0%,var(--accent-soft),transparent 70%),var(--bg)}
+.lg-form{width:min(430px,100%);display:flex;flex-direction:column;gap:16px}
+.lg-form h2{font-size:34px;font-weight:750;letter-spacing:-.035em;line-height:1.05}
+.lg-form>p{margin:-6px 0 4px;color:var(--muted)}
+.lg-tabs{width:100%}
+.lg-tabs button{flex:1}
+.ifield{position:relative;display:block}
+.ifield>svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.ifield input.i{padding-left:40px;height:48px;border-radius:12px;font-size:15px}
+.ifield .eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);cursor:pointer;padding:7px 10px;border-radius:9px;font-size:12.5px;font-weight:600}
+.ifield .eye:hover{background:var(--surface-2);color:var(--ink)}
+.ifield .cc{position:absolute;left:40px;top:50%;transform:translateY(-50%);font-weight:600;color:var(--muted);font-size:15px;pointer-events:none}
+.ifield input.i.has-cc{padding-left:78px;letter-spacing:.04em}
+.lg-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap}
+.lg-row label{display:inline-flex;gap:8px;align-items:center;cursor:pointer;color:var(--ink)}
+.lg-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--brand)}
+.lg-link{border:0;background:transparent;color:var(--brand);font-weight:600;cursor:pointer;padding:0;font-size:13px}
+.lg-link:hover{text-decoration:underline;text-underline-offset:3px}
+.lg-link:disabled{color:var(--muted);cursor:default;text-decoration:none}
+.caps{font-size:12.5px;color:var(--warn);font-weight:550;margin-top:-8px}
+.lg-submit{justify-content:center;height:50px;font-size:15.5px;border-radius:12px;width:100%}
+.spin{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.otp{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.otp input{height:54px;text-align:center;font-family:var(--f-head);font-size:22px;font-weight:700;border-radius:12px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);width:100%;min-width:0}
+.otp input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.lg-demo{border-top:1px dashed var(--line-2);padding-top:16px}
+.lg-acc{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:8px;margin-top:10px}
+.lg-chip{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:var(--ink);min-width:0;transition:border-color .12s,box-shadow .12s}
+.lg-chip:hover{border-color:var(--line-2)}
+.lg-chip.on{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.lg-chip>span:last-child{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.lg-chip b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-chip small{font-size:12px;color:var(--muted)}
+.lg-foot{margin:4px 0 0}
+@media (max-width:900px){.lg-wrap{grid-template-columns:1fr}.lg-art{padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));padding-bottom:28px;gap:26px}.lg-copy h1{font-size:36px}.lg-copy p{font-size:14.5px}}
 
 .matrix td{text-align:center}
 .matrix td:first-child{text-align:left}
@@ -524,7 +575,7 @@ let PERM={
  'Accounts':['patients','patient-history','clinic-billing','due-amounts','billing-report','tax-report','medicine-invoices','medicine-report','insurance-dashboard','insurance-status','packages-dashboard','packages','analytics','booking-reports'],
  'Administrator':'*'
 };
-let role='Administrator', signedIn=true, ctx={};
+let role='Administrator', signedIn=!!location.hash.slice(1), ctx={};
 const me=()=>ROLES[role].user;
 const can=k=>{if(PERM[role]==='*')return true;if(k==='record'){const R=RECORD[ctx.kind];return !R||PERM[role].includes(R.parent)||(ctx.kind==='booking'&&PERM[role].includes('patient-history'))||(ctx.kind==='clininv'&&PERM[role].includes('clinic-billing'))}return PERM[role].includes(k)};
 const canClinical=()=>['Practitioner','Administrator'].includes(role);
@@ -767,7 +818,7 @@ function modal(title,body,foot,mount){
 function closeLayer(){$('#layer').innerHTML=''}
 function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),4200)}
 function val(id){const e=document.getElementById(id);return e?e.value.trim():''}
-function errBox(id,msgs){const e=document.getElementById(id);if(!e)return;e.innerHTML=msgs.length?`<div class="banner bad"><b>Can’t save yet.</b><ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`:''}
+function errBox(id,msgs,title){const e=document.getElementById(id);if(!e)return;e.innerHTML=msgs.length?`<div class="banner bad"><b>${title||'Can’t save yet.'}</b><ul>${msgs.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`:''}
 
 /* ================= scheduling core ================= */
 const ACTIVE=b=>!['Cancelled','No-show'].includes(b.status);
@@ -1430,8 +1481,62 @@ VIEWS['record']=()=>{const R=RECORD[ctx.kind];
  return {html:`${backBtn(R.parent)}<div class="ph"><div><div class="rec-sub">${esc(R.label)}</div><h1>${c.title}</h1></div><div class="actions">${c.foot||''}</div></div><div class="card"><div class="card-b stack">${c.body}</div></div>`,mount:c.mount}};
 
 /* ================= login & account ================= */
-function loginView(){return `<div class="login"><form class="card" id="loginF" autocomplete="off"><div class="brand" style="padding:0"><span class="mk">${LEAF}</span><div><b>Lamasat</b><span class="muted">Ayurveda Clinic · Kochi</span></div></div><h2 style="font-size:24px">Welcome back</h2><label class="f">Staff role (prototype)<select class="i" id="lgRole">${Object.keys(ROLES).map(x=>`<option ${x===role?'selected':''}>${x}</option>`).join('')}</select></label><label class="f">Username<input class="i" id="lgU" value="${esc(ROLES[role].user.toLowerCase().replace(/[^a-z]+/g,'.'))}"></label><label class="f">Password<input class="i" id="lgP" type="password" value="prototype"></label><div id="lgErr"></div><button class="btn pri" type="submit">Sign in</button><p class="small muted" style="margin:0">You were signed out. Protected pages need you to sign in again on this device.</p></form></div>`}
-function wireLogin(){$('#lgRole').onchange=e=>{role=e.target.value;$('#lgU').value=ROLES[role].user.toLowerCase().replace(/[^a-z]+/g,'.')};$('#loginF').onsubmit=e=>{e.preventDefault();if(!val('lgP')){errBox('lgErr',['Enter your password.']);return}signedIn=true;NAV=[];toast(`Signed in as ${me()}`);if(!location.hash)location.hash='dashboard';render()}}
+const slug=n=>n.toLowerCase().replace(/^dr\.\s*/,'').replace(/[^a-z]+/g,'.').replace(/^\.|\.$/g,'');
+const IUSER=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`;
+const ILOCK=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>`;
+const IPHONE=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>`;
+function loginArt(){const leaf=(x,y,r,sc,fill,delay)=>`<g transform="translate(${x} ${y}) rotate(${r}) scale(${sc})"><g class="sway" style="animation-delay:${delay}s"><use href="#lgLeaf" fill="${fill}"/><path d="M0 -54V56" stroke="rgba(255,255,255,.16)" stroke-width="1.4" vector-effect="non-scaling-stroke"/></g></g>`;
+ return `<svg class="art" viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><radialGradient id="lgSun" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#F2C46B" stop-opacity=".55"/><stop offset=".55" stop-color="#E9A93A" stop-opacity=".14"/><stop offset="1" stop-color="#E9A93A" stop-opacity="0"/></radialGradient><linearGradient id="lgShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#11331F" stop-opacity=".85"/><stop offset=".55" stop-color="#11331F" stop-opacity=".35"/><stop offset="1" stop-color="#11331F" stop-opacity="0"/></linearGradient><path id="lgLeaf" d="M0-60C34-38 36 34 0 60C-36 34-34-38 0-60Z"/></defs>
+ <rect width="600" height="900" fill="#11331F"/><circle cx="470" cy="210" r="230" fill="url(#lgSun)"/>
+ ${[70,110,150,190].map((r,i)=>`<circle cx="470" cy="210" r="${r}" fill="none" stroke="rgba(242,196,107,${.16-i*.03})" stroke-width="1"/>`).join('')}
+ <g transform="translate(600 900) scale(-.85 .85) translate(0 -900)"><path d="M-20 930C60 780 120 700 250 640C330 603 380 560 420 470" fill="none" stroke="#2B6A47" stroke-width="3" stroke-linecap="round"/>
+ ${leaf(70,820,-50,1.7,'#1C5236',0)}${leaf(150,740,-20,1.45,'#24603F',1.2)}${leaf(110,690,-70,1.1,'#2D7550',.6)}${leaf(250,650,10,1.35,'#2A6B48',2)}${leaf(220,590,-35,1,'#3A8A5E',1.6)}${leaf(330,590,40,1.15,'#1F5A3B',.3)}${leaf(380,520,-5,.95,'#2F7A52',2.4)}${leaf(410,470,30,.8,'#F2C46B',1)}${leaf(20,900,-30,2.2,'#173F2A',.9)}${leaf(520,860,25,1.8,'#173F2A',1.8)}</g><rect width="600" height="900" fill="url(#lgShade)"/>
+ ${Array.from({length:14},(_,i)=>`<circle cx="${60+((i*97)%480)}" cy="${120+((i*173)%520)}" r="${1+(i%3)*.6}" fill="rgba(242,196,107,${.25+(i%4)*.1})"/>`).join('')}</svg>`}
+function loginView(){const t=new Date(TODAY+'T00:00:00Z');const dl=t.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
+ return `<div class="lg-wrap">
+ <aside class="lg-art">${loginArt()}<div class="brand"><span class="mk">${LEAF}</span><div><b>Lamasat</b><span>Ayurveda Clinic · Kochi</span></div></div>
+  <div class="lg-copy"><div class="lg-date">${dl}</div><h1>Every visit, from <em>front desk</em> to pharmacy.</h1><p>Bookings, consultations, dispensing, billing and home visits for the Lamasat team, in one place.</p>
+  <dl class="lg-facts"><div><dt>Clinic hours</dt><dd>Mon–Sat · 9 AM – 9 PM</dd></div><div><dt>Address</dt><dd>Panampilly Nagar, Kochi</dd></div><div><dt>IT support</dt><dd>+91 484 240 0099</dd></div></dl></div></aside>
+ <main class="lg-main"><form class="lg-form" id="loginF" novalidate autocomplete="off">
+  <h2>Welcome back</h2><p>Sign in with your staff account to open today’s clinic.</p>
+  <div class="seg lg-tabs" role="tablist"><button type="button" class="on" data-lt="pw" role="tab">Password</button><button type="button" data-lt="otp" role="tab">Mobile OTP</button></div>
+  <div id="lgPw" class="stack" style="gap:12px">
+   <label class="f">Username<span class="ifield">${IUSER}<input class="i" id="lgU" value="${esc(slug(ROLES[role].user))}" autocomplete="username"></span></label>
+   <label class="f">Password<span class="ifield">${ILOCK}<input class="i" id="lgP" type="password" value="prototype" autocomplete="current-password"><button type="button" class="eye" id="lgEye" aria-label="Show password">Show</button></span></label>
+   <div class="caps" id="lgCaps" hidden>Caps Lock is on.</div>
+   <div class="lg-row"><label><input type="checkbox" id="lgRem" checked> Keep me signed in on this device</label><button type="button" class="lg-link" id="lgForgot">Forgot password?</button></div>
+   <div id="lgHelp"></div>
+  </div>
+  <div id="lgOtp" class="stack" style="gap:12px" hidden>
+   <label class="f">Registered mobile number<span class="ifield">${IPHONE}<span class="cc">+91</span><input class="i has-cc" id="lgM" inputmode="numeric" maxlength="11" placeholder="98470 23441" autocomplete="tel-national"></span></label>
+   <div id="lgOtpBox" hidden><div class="f" style="margin-bottom:6px">Enter the 6-digit code sent by SMS</div><div class="otp">${Array.from({length:6},(_,i)=>`<input inputmode="numeric" maxlength="1" aria-label="Digit ${i+1}" data-o="${i}">`).join('')}</div>
+    <div class="lg-row" style="margin-top:8px"><span class="small muted">Prototype code: <b class="mono">246810</b></span><button type="button" class="lg-link" id="lgResend" disabled>Resend in 30s</button></div></div>
+  </div>
+  <div id="lgErr"></div>
+  <button class="btn pri lg-submit" type="submit" id="lgGo">Sign in</button>
+  <div class="lg-demo"><div class="small muted">Prototype demo accounts · pick one to fill the form</div><div class="lg-acc">${Object.keys(ROLES).map(r=>`<button type="button" class="lg-chip ${r===role?'on':''}" data-role="${r}">${av(ROLES[r].user)}<span><b>${esc(ROLES[r].user)}</b><small>${r}</small></span></button>`).join('')}</div></div>
+  <p class="small muted lg-foot">On a shared computer, untick “Keep me signed in”. After signing out, protected pages ask you to sign in again.</p>
+ </form></main></div>`}
+function wireLogin(){let mode='pw',sent=false,timer=null;const f=$('#loginF'),go=$('#lgGo');
+ const setMode=m=>{mode=m;$$('[data-lt]').forEach(b=>b.classList.toggle('on',b.dataset.lt===m));$('#lgPw').hidden=m!=='pw';$('#lgOtp').hidden=m!=='otp';errBox('lgErr',[]);go.textContent=m==='pw'?'Sign in':sent?'Verify and sign in':'Send OTP';(m==='pw'?$('#lgU'):$('#lgM')).focus()};
+ $$('[data-lt]').forEach(b=>b.onclick=()=>setMode(b.dataset.lt));
+ $$('[data-role]').forEach(b=>b.onclick=()=>{role=b.dataset.role;$$('[data-role]').forEach(x=>x.classList.toggle('on',x===b));$('#lgU').value=slug(ROLES[role].user);$('#lgP').value='prototype';const ph={'Reception':'98470 10001','Practitioner':'94471 10002','Pharmacy':'97450 10003','Accounts':'90370 10004','Administrator':'81290 10005'}[role];$('#lgM').value=ph;errBox('lgErr',[])});
+ $('#lgEye').onclick=()=>{const p=$('#lgP');const show=p.type==='password';p.type=show?'text':'password';$('#lgEye').textContent=show?'Hide':'Show';$('#lgEye').setAttribute('aria-label',show?'Hide password':'Show password');p.focus()};
+ const caps=e=>{if(e.getModifierState)$('#lgCaps').hidden=!e.getModifierState('CapsLock')};$('#lgP').addEventListener('keydown',caps);$('#lgP').addEventListener('keyup',caps);
+ $('#lgForgot').onclick=()=>{$('#lgHelp').innerHTML=`<div class="banner info small">Passwords are reset by the clinic administrator. Call <b>+91 484 240 0099</b> or ask at the front desk; you’ll get a temporary password to change on first sign-in.</div>`};
+ const boxes=$$('.otp input');
+ boxes.forEach((b,i)=>{b.oninput=()=>{b.value=b.value.replace(/\D/g,'').slice(-1);if(b.value&&i<5)boxes[i+1].focus();if(boxes.every(x=>x.value))f.requestSubmit()};
+  b.onkeydown=e=>{if(e.key==='Backspace'&&!b.value&&i>0){boxes[i-1].focus();boxes[i-1].value=''}if(e.key==='ArrowLeft'&&i>0)boxes[i-1].focus();if(e.key==='ArrowRight'&&i<5)boxes[i+1].focus()};
+  b.onpaste=e=>{const d=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);if(!d)return;e.preventDefault();d.split('').forEach((c,j)=>{if(boxes[j])boxes[j].value=c});(boxes[Math.min(d.length,5)]).focus();if(d.length===6)f.requestSubmit()}});
+ const startTimer=()=>{let n=30;const r=$('#lgResend');r.disabled=true;clearInterval(timer);timer=setInterval(()=>{n--;if(!document.body.contains(r))return clearInterval(timer);if(n<=0){clearInterval(timer);r.disabled=false;r.textContent='Resend code'}else r.textContent=`Resend in ${n}s`},1000)};
+ $('#lgResend').onclick=()=>{boxes.forEach(b=>b.value='');boxes[0].focus();toast('A new code was sent.');startTimer()};
+ const done=()=>{go.disabled=true;go.innerHTML='<span class="spin"></span> Signing in…';setTimeout(()=>{clearInterval(timer);signedIn=true;NAV=[];toast(`Signed in as ${me()}`);const h=location.hash.slice(1);if(!h||!can(h))location.hash=can('dashboard')?'dashboard':PERM[role][0];render()},650)};
+ f.onsubmit=e=>{e.preventDefault();
+  if(mode==='pw'){const u=val('lgU').toLowerCase(),pw=$('#lgP').value;const e2=[];if(!u)e2.push('Enter your username.');if(!pw)e2.push('Enter your password.');if(e2.length)return errBox('lgErr',e2);
+   const hit=Object.keys(ROLES).find(r=>slug(ROLES[r].user)===u);if(!hit)return errBox('lgErr',['That username is not registered. Pick a demo account below, or check the spelling.'],'Couldn’t sign you in.');
+   if(pw.length<4)return errBox('lgErr',['Username or password is incorrect. 4 attempts left before the account is locked for 15 minutes.'],'Couldn’t sign you in.');role=hit;return done()}
+  const mob=val('lgM').replace(/\s/g,'');if(!sent){if(!/^[6-9]\d{9}$/.test(mob))return errBox('lgErr',['Enter the 10-digit mobile number registered with the clinic.'],'Couldn’t sign you in.');sent=true;errBox('lgErr',[]);$('#lgOtpBox').hidden=false;$('#lgM').readOnly=true;go.textContent='Verify and sign in';boxes[0].focus();startTimer();toast(`Code sent to +91 ${val('lgM')}`);return}
+  const code=boxes.map(b=>b.value).join('');if(code.length<6)return errBox('lgErr',['Enter all 6 digits of the code.'],'Couldn’t sign you in.');if(code!=='246810'){boxes.forEach(b=>b.value='');boxes[0].focus();return errBox('lgErr',['That code is not right. Check the SMS and try again.'],'Couldn’t sign you in.')}done()}}
 
 /* ================= actions ================= */
 const ACT={
