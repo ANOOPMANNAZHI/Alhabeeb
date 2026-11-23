@@ -250,6 +250,46 @@ table.t{width:100%;border-collapse:collapse;font-size:13.5px}
 .matrix td{text-align:center}
 .matrix td:first-child{text-align:left}
 
+/* dashboards */
+:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181}}
+:root[data-theme="dark"]{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181}
+.kpis{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px}
+@media (max-width:1250px){.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 12px;display:flex;flex-direction:column;gap:6px;text-align:left;font:inherit;color:var(--ink);min-width:0;box-shadow:0 1px 2px rgba(20,24,21,.03);transition:transform .14s,box-shadow .14s,border-color .14s}
+button.kpi{cursor:pointer}
+button.kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--line-2)}
+.kpi.flag{background:linear-gradient(180deg,var(--accent-soft),var(--surface) 75%);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.kpi-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.kpi .k{font-size:12.5px;color:var(--muted);font-weight:550}
+.kpi .v{font-family:var(--f-head);font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .v small{font-size:15px;color:var(--muted);font-weight:600;letter-spacing:0}
+.kpi-bot{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;min-height:30px;flex-wrap:wrap}
+.kpi .s{flex:1 1 110px}
+.kpi .s{font-size:12px;color:var(--muted);line-height:1.35}
+.delta{font-size:11.5px;font-weight:650;padding:1px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.delta.good{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,var(--surface))}
+.delta.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 11%,var(--surface))}
+.spark{flex:none}
+svg.chart{width:100%;height:auto;display:block}
+svg.chart .grid{stroke:var(--line);stroke-width:1}
+svg.chart .ax{fill:var(--muted);font-size:11px;font-family:var(--f-body)}
+svg.chart .ax.lbl{fill:var(--ink);font-weight:600}
+svg.chart .hit{fill:transparent}
+svg.chart .hit:hover{fill:color-mix(in srgb,var(--ink) 5%,transparent)}
+svg.chart .bar-r:hover{opacity:.78}
+.segbar{display:flex;gap:2px;height:14px;border-radius:7px;overflow:hidden;background:var(--surface-2)}
+.segbar span{min-width:3px}
+.segbar span:hover{opacity:.8}
+.legend2{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px}
+.legend2 .lg{display:inline-flex;align-items:center;gap:7px;font-size:13px;border:0;background:transparent;padding:2px 0;color:var(--ink);font-family:inherit}
+button.lg{cursor:pointer}
+button.lg:hover{text-decoration:underline;text-underline-offset:3px}
+.lg i{width:10px;height:10px;border-radius:3px;flex:none}
+.lg b{font-variant-numeric:tabular-nums;font-weight:650}
+.lg .muted{font-size:12px}
+.feed .li{padding-block:9px}
+#tip{position:fixed;z-index:90;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12.5px;padding:6px 10px;border-radius:8px;box-shadow:var(--shadow-lg);max-width:300px;line-height:1.4}
 /* filter bar, back, record */
 .fbar{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
 .fbar label.f{flex:0 1 180px;min-width:140px}
@@ -331,7 +371,7 @@ const uid=(p,arr,start)=>{let n=start;arr.forEach(x=>{const k=parseInt(String(x.
 
 /* ================= seed data (fictional) ================= */
 const S={
- clinic:{name:'LAMASAT Ayurveda Clinic',address:'Way 2731, Al Qurum, Muscat',phone:'+968 2456 0000',cr:'CR 1234567',vatNo:'32AAAFL0000X1Z5'},
+ clinic:{name:'LAMASAT Ayurveda Clinic',address:'14/2 Panampilly Nagar, Kochi, Kerala 682036',phone:'+91 484 240 0000',cr:'KL-EKM-CE-2026-0145',vatNo:'32AAAFL0000X1Z5'},
  slotPresets:[600,780,960,1140],
  staff:[
   {id:'S1',name:'Dr. Meera Nair',role:'Practitioner',shift:[540,1260],brk:[840,900],c:'var(--brand)'},
@@ -350,16 +390,16 @@ const S={
   {id:'SV6',name:'Nasya',dur:30,rate:900,kind:'Therapist',room:'Therapy',home:false}
  ],
  patients:[
-  {id:'LMS-00101',name:'Aisha Al Balushi',phone:'9123 4410',dob:'1986-04-12',approx:false,gender:'F',since:'2025-03-02'},
-  {id:'LMS-00102',name:'Mohammed Al Harthy',phone:'9234 1187',dob:'1971-09-30',approx:false,gender:'M',since:'2025-06-18'},
-  {id:'LMS-00103',name:'Priya Raghavan',phone:'9845 2201',dob:'1992-01-05',approx:false,gender:'F',since:'2026-01-11'},
-  {id:'LMS-00104',name:'Khalid Al Rawahi',phone:'9900 3344',age:58,approx:true,gender:'M',since:'2026-02-20'},
-  {id:'LMS-00105',name:'Sara Thomas',phone:'9612 7788',dob:'1989-11-23',approx:false,gender:'F',since:'2026-04-01'},
-  {id:'LMS-00106',name:'Ahmed Al Lawati',phone:'9331 6020',dob:'1979-07-14',approx:false,gender:'M',since:'2026-05-09'},
-  {id:'LMS-00107',name:'Nadia Al Kindi',phone:'9478 1150',dob:'1995-03-28',approx:false,gender:'F',since:'2026-07-15'},
-  {id:'LMS-00108',name:'Rajesh Pillai',phone:'9567 9012',age:64,approx:true,gender:'M',since:'2026-08-03'},
-  {id:'LMS-00109',name:'Maryam Al Lawati',phone:'9331 6020',dob:'2009-10-02',approx:false,gender:'F',since:'2026-09-21',note:'Shares phone with father (LMS-00106)'},
-  {id:'LMS-00110',name:'Fatma Al Saidi',phone:'9188 4466',dob:'1968-12-19',approx:false,gender:'F',since:'2026-10-05'}
+  {id:'LMS-00101',name:'Aisha Al Balushi',phone:'98470 23441',dob:'1986-04-12',approx:false,gender:'F',since:'2025-03-02'},
+  {id:'LMS-00102',name:'Mohammed Al Harthy',phone:'94471 18702',dob:'1971-09-30',approx:false,gender:'M',since:'2025-06-18'},
+  {id:'LMS-00103',name:'Priya Raghavan',phone:'98950 22014',dob:'1992-01-05',approx:false,gender:'F',since:'2026-01-11'},
+  {id:'LMS-00104',name:'Khalid Al Rawahi',phone:'99460 33447',age:58,approx:true,gender:'M',since:'2026-02-20'},
+  {id:'LMS-00105',name:'Sara Thomas',phone:'96330 77881',dob:'1989-11-23',approx:false,gender:'F',since:'2026-04-01'},
+  {id:'LMS-00106',name:'Ahmed Al Lawati',phone:'93880 60205',dob:'1979-07-14',approx:false,gender:'M',since:'2026-05-09'},
+  {id:'LMS-00107',name:'Nadia Al Kindi',phone:'94790 11502',dob:'1995-03-28',approx:false,gender:'F',since:'2026-07-15'},
+  {id:'LMS-00108',name:'Rajesh Pillai',phone:'95670 90128',age:64,approx:true,gender:'M',since:'2026-08-03'},
+  {id:'LMS-00109',name:'Maryam Al Lawati',phone:'93880 60205',dob:'2009-10-02',approx:false,gender:'F',since:'2026-09-21',note:'Shares phone with father (LMS-00106)'},
+  {id:'LMS-00110',name:'Fatma Al Saidi',phone:'91880 44661',dob:'1968-12-19',approx:false,gender:'F',since:'2026-10-05'}
  ],
  bookings:[
   {id:'B-0960',pid:'LMS-00104',sid:'SV1',staff:'S1',date:'2026-10-28',start:600,dur:30,room:'Consult A',status:'Completed'},
@@ -419,7 +459,7 @@ const S={
  ],
  medInv:[
   {id:'MI-2041',date:'2026-11-18',pid:'LMS-00101',counter:'',cid:'C-0425',lines:[{mid:'M2',qty:1,rate:120,disc:0},{mid:'M1',qty:1,rate:240,disc:0}],vatRate:.05,payments:[{rid:'RC-5510',date:'2026-11-18',amount:378,method:'Card'}],status:'Paid'},
-  {id:'MI-2042',date:'2026-11-20',pid:'',counter:'Walk-in: Hamed S.',lines:[{mid:'M5',qty:2,rate:260,disc:20}],vatRate:.05,payments:[{rid:'RC-5514',date:'2026-11-20',amount:525,method:'Cash'}],status:'Paid'},
+  {id:'MI-2042',date:'2026-11-20',pid:'',counter:'Walk-in: Hameed K.',lines:[{mid:'M5',qty:2,rate:260,disc:20}],vatRate:.05,payments:[{rid:'RC-5514',date:'2026-11-20',amount:525,method:'Cash'}],status:'Paid'},
   {id:'MI-2043',date:'2026-11-21',pid:'LMS-00103',counter:'',cid:'',lines:[{mid:'M3',qty:1,rate:210,disc:0}],vatRate:.05,payments:[{rid:'RC-5517',date:'2026-11-21',amount:220.5,method:'Cash'}],status:'Reversed',reversal:{date:'2026-11-22',by:'Clinic Administrator',reason:'Patient already had a bottle at home; sealed bottle returned.',restock:true}},
   {id:'MI-2044',date:'2026-11-22',pid:'LMS-00104',counter:'',cid:'C-0410',lines:[{mid:'M3',qty:1,rate:210,disc:0},{mid:'M6',qty:1,rate:190,disc:0}],vatRate:.05,payments:[{rid:'RC-5519',date:'2026-11-22',amount:200,method:'Cash'}],status:'Partly paid'}
  ],
@@ -432,12 +472,12 @@ const S={
   {id:'CI-3108',date:'2026-11-20',pid:'LMS-00105',bids:['B-0995'],lines:[{desc:'Shirodhara',sid:'SV4',qty:1,rate:2500,disc:0,covered:'PP-4'}],payments:[]}
  ],
  insurance:[
-  {id:'INS-301',pid:'LMS-00102',insurer:'Gulf Shield Insurance',ref:'GS-PA-88213',link:'CI-3102',status:'Claim submitted',updated:'2026-11-12',owner:'Joseph Mathew',amount:16000,remarks:'Wellness rider; awaiting insurer acknowledgement.',history:[{date:'2026-11-05',to:'Pre-approval requested',by:'Joseph Mathew',reason:'Doctor letter sent'},{date:'2026-11-08',to:'Approved',by:'Joseph Mathew',reason:'Approval letter received by email'},{date:'2026-11-12',to:'Claim submitted',by:'Joseph Mathew',reason:'Invoice and approval uploaded to insurer portal'}]},
-  {id:'INS-302',pid:'LMS-00104',insurer:'Sahara Takaful',ref:'ST-77120',link:'CI-3098',status:'Query raised',updated:'2026-10-31',owner:'Joseph Mathew',amount:10500,remarks:'Insurer asks for diagnosis code.',history:[{date:'2026-10-28',to:'Claim submitted',by:'Joseph Mathew',reason:'Submitted with invoice'},{date:'2026-10-31',to:'Query raised',by:'Joseph Mathew',reason:'Email from insurer requesting diagnosis code'}]},
-  {id:'INS-303',pid:'LMS-00105',insurer:'Crescent Health',ref:'CH-5521',link:'B-1021',status:'Pre-approval requested',updated:'2026-11-21',owner:'Salma Al Hinai',amount:0,remarks:'Shirodhara sessions 4–7.',history:[{date:'2026-11-21',to:'Pre-approval requested',by:'Salma Al Hinai',reason:'Form faxed'}]},
-  {id:'INS-304',pid:'LMS-00110',insurer:'Gulf Shield Insurance',ref:'GS-PA-88400',link:'B-1009',status:'Approved',updated:'2026-11-22',owner:'Salma Al Hinai',amount:0,remarks:'Consultations covered 80%.',history:[{date:'2026-11-19',to:'Pre-approval requested',by:'Salma Al Hinai',reason:'Request emailed'},{date:'2026-11-22',to:'Approved',by:'Salma Al Hinai',reason:'Approval reference received'}]},
-  {id:'INS-305',pid:'LMS-00108',insurer:'Sahara Takaful',ref:'ST-76102',link:'',status:'Rejected',updated:'2026-09-14',owner:'Joseph Mathew',amount:0,remarks:'Massage therapies excluded under plan.',history:[{date:'2026-09-02',to:'Pre-approval requested',by:'Joseph Mathew',reason:''},{date:'2026-09-14',to:'Rejected',by:'Joseph Mathew',reason:'Exclusion clause 4.2'}]},
-  {id:'INS-306',pid:'LMS-00106',insurer:'Crescent Health',ref:'CH-4410',link:'CI-3104',status:'Settled',updated:'2026-11-20',owner:'Joseph Mathew',amount:0,remarks:'Partial reimbursement paid to patient.',history:[{date:'2026-11-16',to:'Claim submitted',by:'Joseph Mathew',reason:''},{date:'2026-11-20',to:'Settled',by:'Joseph Mathew',reason:'Settlement advice received'}]}
+  {id:'INS-301',pid:'LMS-00102',insurer:'Sahyadri Health Insurance',ref:'GS-PA-88213',link:'CI-3102',status:'Claim submitted',updated:'2026-11-12',owner:'Joseph Mathew',amount:16000,remarks:'Wellness rider; awaiting insurer acknowledgement.',history:[{date:'2026-11-05',to:'Pre-approval requested',by:'Joseph Mathew',reason:'Doctor letter sent'},{date:'2026-11-08',to:'Approved',by:'Joseph Mathew',reason:'Approval letter received by email'},{date:'2026-11-12',to:'Claim submitted',by:'Joseph Mathew',reason:'Invoice and approval uploaded to insurer portal'}]},
+  {id:'INS-302',pid:'LMS-00104',insurer:'Malabar Care Insurance',ref:'ST-77120',link:'CI-3098',status:'Query raised',updated:'2026-10-31',owner:'Joseph Mathew',amount:10500,remarks:'Insurer asks for diagnosis code.',history:[{date:'2026-10-28',to:'Claim submitted',by:'Joseph Mathew',reason:'Submitted with invoice'},{date:'2026-10-31',to:'Query raised',by:'Joseph Mathew',reason:'Email from insurer requesting diagnosis code'}]},
+  {id:'INS-303',pid:'LMS-00105',insurer:'Vembanad Health TPA',ref:'CH-5521',link:'B-1021',status:'Pre-approval requested',updated:'2026-11-21',owner:'Salma Al Hinai',amount:0,remarks:'Shirodhara sessions 4–7.',history:[{date:'2026-11-21',to:'Pre-approval requested',by:'Salma Al Hinai',reason:'Form faxed'}]},
+  {id:'INS-304',pid:'LMS-00110',insurer:'Sahyadri Health Insurance',ref:'GS-PA-88400',link:'B-1009',status:'Approved',updated:'2026-11-22',owner:'Salma Al Hinai',amount:0,remarks:'Consultations covered 80%.',history:[{date:'2026-11-19',to:'Pre-approval requested',by:'Salma Al Hinai',reason:'Request emailed'},{date:'2026-11-22',to:'Approved',by:'Salma Al Hinai',reason:'Approval reference received'}]},
+  {id:'INS-305',pid:'LMS-00108',insurer:'Malabar Care Insurance',ref:'ST-76102',link:'',status:'Rejected',updated:'2026-09-14',owner:'Joseph Mathew',amount:0,remarks:'Massage therapies excluded under plan.',history:[{date:'2026-09-02',to:'Pre-approval requested',by:'Joseph Mathew',reason:''},{date:'2026-09-14',to:'Rejected',by:'Joseph Mathew',reason:'Exclusion clause 4.2'}]},
+  {id:'INS-306',pid:'LMS-00106',insurer:'Vembanad Health TPA',ref:'CH-4410',link:'CI-3104',status:'Settled',updated:'2026-11-20',owner:'Joseph Mathew',amount:0,remarks:'Partial reimbursement paid to patient.',history:[{date:'2026-11-16',to:'Claim submitted',by:'Joseph Mathew',reason:''},{date:'2026-11-20',to:'Settled',by:'Joseph Mathew',reason:'Settlement advice received'}]}
  ],
  pkgs:[
   {id:'PK1',name:'Abhyanga 10 sessions',sids:['SV3'],sessions:10,price:16000,valid:90,active:true},
@@ -452,12 +492,12 @@ const S={
   {id:'PP-4',pkg:'PK4',pid:'LMS-00105',date:'2026-09-29',inv:'CI-3060',validTo:'2026-11-28',total:7,used:[{bid:'(archived)',date:'2026-10-06'},{bid:'(archived)',date:'2026-10-20'},{bid:'B-0995',date:'2026-11-20'}]}
  ],
  home:[
-  {id:'H-501',pid:'LMS-00110',addr:'Villa 14, Way 3412, Al Khuwair',area:'Al Khuwair',landmark:'Behind Zakher Mall',phone:'9188 4466',sid:'SV3',date:TODAY,start:660,dur:60,staff:'S5',status:'Scheduled',notes:'Bring own oil. Ground floor.',travel:200},
-  {id:'H-502',pid:'LMS-00107',addr:'Flat 22, Bldg 1180, Qurum Heights',area:'Qurum',landmark:'Opposite PDO gate',phone:'9478 1150',sid:'SV5',date:TODAY,start:900,dur:60,staff:'',status:'Unassigned',notes:'Lift available.',travel:200},
-  {id:'H-503',pid:'LMS-00104',addr:'House 7, Way 4501, Al Mawaleh South',area:'Al Mawaleh',landmark:'Near Oman Oil station',phone:'9900 3344',sid:'SV3',date:TODAY,start:1110,dur:60,staff:'S5',status:'Scheduled',notes:'Patient uses wheelchair.',travel:300},
-  {id:'H-499',pid:'LMS-00108',addr:'Villa 2, Way 2210, Madinat Sultan Qaboos',area:'MSQ',landmark:'',phone:'9567 9012',sid:'SV5',date:'2026-11-22',start:1020,dur:60,staff:'S4',status:'Completed',notes:'',travel:200},
-  {id:'H-498',pid:'LMS-00102',addr:'Villa 31, Way 1622, Al Azaiba',area:'Al Azaiba',landmark:'',phone:'9234 1187',sid:'SV3',date:'2026-11-22',start:600,dur:60,staff:'S5',status:'Cancelled',notes:'Cancelled by patient — travelling.',travel:200},
-  {id:'H-504',pid:'LMS-00102',addr:'Villa 31, Way 1622, Al Azaiba',area:'Al Azaiba',landmark:'',phone:'9234 1187',sid:'SV3',date:'2026-11-25',start:600,dur:60,staff:'',status:'Unassigned',notes:'',travel:200}
+  {id:'H-501',pid:'LMS-00110',addr:'TC 41/1520, Kadavanthra Road, Kadavanthra',area:'Kadavanthra',landmark:'Near Rajiv Gandhi Indoor Stadium',phone:'91880 44661',sid:'SV3',date:TODAY,start:660,dur:60,staff:'S5',status:'Scheduled',notes:'Bring own oil. Ground floor.',travel:200},
+  {id:'H-502',pid:'LMS-00107',addr:'Flat 7B, Skyline Apartments, Edappally',area:'Edappally',landmark:'Behind Lulu Mall',phone:'94790 11502',sid:'SV5',date:TODAY,start:900,dur:60,staff:'',status:'Unassigned',notes:'Lift available.',travel:200},
+  {id:'H-503',pid:'LMS-00104',addr:'Kizhakkemadom House, Seaport–Airport Road, Kakkanad',area:'Kakkanad',landmark:'Near Infopark Phase 1 gate',phone:'99460 33447',sid:'SV3',date:TODAY,start:1110,dur:60,staff:'S5',status:'Scheduled',notes:'Patient uses wheelchair.',travel:300},
+  {id:'H-499',pid:'LMS-00108',addr:'Sreevalsam, NH Bypass, Palarivattom',area:'Palarivattom',landmark:'',phone:'95670 90128',sid:'SV5',date:'2026-11-22',start:1020,dur:60,staff:'S4',status:'Completed',notes:'',travel:200},
+  {id:'H-498',pid:'LMS-00102',addr:'Door 12, Janatha Road, Vyttila',area:'Vyttila',landmark:'',phone:'94471 18702',sid:'SV3',date:'2026-11-22',start:600,dur:60,staff:'S5',status:'Cancelled',notes:'Cancelled by patient — travelling.',travel:200},
+  {id:'H-504',pid:'LMS-00102',addr:'Door 12, Janatha Road, Vyttila',area:'Vyttila',landmark:'',phone:'94471 18702',sid:'SV3',date:'2026-11-25',start:600,dur:60,staff:'',status:'Unassigned',notes:'',travel:200}
  ],
  audit:[
   {ts:'22/11/2026 09:05',user:'Clinic Administrator',action:'Invoice reversed',module:'Pharmacy',ref:'MI-2043',reason:'Sealed bottle returned'},
@@ -466,7 +506,7 @@ const S={
   {ts:'21/11/2026 08:15',user:'Clinic Administrator',action:'Rate changed: Shirodhara 2,300.00 → 2,500.00',module:'Settings',ref:'SV4',reason:'2027 price list'},
   {ts:'20/11/2026 17:20',user:'Salma Al Hinai',action:'Booking rescheduled 18:00 → 18:30',module:'Front Desk',ref:'B-0995',reason:'Patient stuck in traffic'}
  ],
- methods:['Cash','Card','Bank transfer','Insurance'],
+ methods:['Cash','UPI','Card','Bank transfer','Insurance'],
  numbering:{clinic:'CI-',med:'MI-',receipt:'RC-',next:{clinic:3110,med:2045,receipt:5520}},
  tax:{services:{label:'Exempt — healthcare services',rate:0},medicines:{label:'GST 5% — Ayurvedic medicines',rate:.05}}
 };
@@ -529,6 +569,82 @@ const PC={'Booked':'var(--info)','Arrived':'var(--warn)','In progress':'var(--vi
 const pill=s=>`<span class="pill" style="--c:${PC[s]||'var(--muted)'}">${esc(s)}</span>`;
 const BSTAT=['Booked','Arrived','In progress','Completed','Cancelled','No-show'];
 const INSSTAT=['Pre-approval requested','Approved','Claim submitted','Query raised','Rejected','Settled'];
+
+/* ================= generated sample history (fictional, deterministic) ================= */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296}}
+(function genHistory(){
+ const R=mulberry32(20261123),pick=a=>a[Math.floor(R()*a.length)],ri=(a,b)=>a+Math.floor(R()*(b-a+1));
+ const wpick=(items,w)=>{let x=R()*w.reduce((a,b)=>a+b,0);for(let i=0;i<items.length;i++){x-=w[i];if(x<0)return items[i]}return items[items.length-1]};
+ const FF=['Anjali','Deepa','Lakshmi','Meera','Divya','Kavya','Sreeja','Aparna','Reshma','Nisha','Mariam','Fathima','Neethu','Bindu','Shalini','Anitha','Sneha','Gayathri','Ammu','Jincy'];
+ const FM=['Arun','Vishnu','Rahul','Suresh','Ajith','Manoj','Nikhil','Gopal','Hari','Joseph','Thomas','Abdul','Sanjay','Kiran','Varghese','Midhun','Shyam','Ashraf','Jithin','Prakash'];
+ const LN=['Menon','Nair','Pillai','Kurian','Varghese','Krishnan','Panicker','Mathew','Iyer','Kumar','George','Haneef','Rahman','Das','Warrier','Joseph','Babu','Thampi','Chacko','Unnikrishnan'];
+ const pre=['98470','94471','97450','90370','81290','75590','99610','86060'];
+ for(let i=0;i<50;i++){const fem=R()<.55;S.patients.push({id:'LMS-00'+(111+i),name:`${fem?pick(FF):pick(FM)} ${pick(LN)}`,phone:`${pick(pre)} ${ri(10000,99999)}`,dob:`${ri(1952,2004)}-${String(ri(1,12)).padStart(2,'0')}-${String(ri(1,28)).padStart(2,'0')}`,approx:false,gender:fem?'F':'M',since:i%2?addDays('2026-08-24',ri(0,88)):addDays('2025-01-06',ri(0,580))})}
+ const pool=S.patients.map(x=>x.id);const MW=[['Cash',.26],['UPI',.44],['Card',.22],['Bank transfer',.08]];const meth=()=>wpick(MW.map(m=>m[0]),MW.map(m=>m[1]));
+ const hp=[];
+ for(let i=0;i<14;i++){const k=pick(S.pkgs);const pid=pick(pool.slice(10));const date=addDays('2026-08-24',ri(0,80));const id='PP-'+(5+i);
+  S.clinInv.push({id:'CI-'+(2501+i),date,pid,bids:[],pkgSale:id,lines:[{desc:'Package: '+k.name,sid:k.sids[0],qty:1,rate:k.price,disc:0}],payments:[{rid:'RC-'+(2501+i),date,amount:k.price,method:pick(['UPI','Card','Bank transfer'])}]});
+  const x={id,pkg:k.id,pid,date,inv:'CI-'+(2501+i),validTo:addDays(date,k.valid),total:k.sessions,used:[]};S.pp.push(x);hp.push(x)}
+ let bn=0,cn=0,mn=0,rn=0,hn=0;const areas=['Kadavanthra','Edappally','Vyttila','Kakkanad','Palarivattom','Fort Kochi','Thrippunithura','Aluva'];
+ for(let d='2026-08-24';d<='2026-11-22';d=addDays(d,1)){
+  if(dow(d)==='Sun')continue;const poolD=pool.filter(id=>P(id).since<=d);
+  const n=ri(6,9)+Math.round(dayDiff(d,'2026-08-24')/90*4)+(dow(d)==='Sat'?2:0);
+  for(let j=0;j<n;j++){
+   const sv=wpick(S.services,[.24,.2,.24,.12,.12,.08]);let pid=pick(poolD),pk=null;
+   if(['SV3','SV4','SV5'].includes(sv.id)&&R()<.4){const c=hp.filter(x=>x.date<=d&&x.validTo>=d&&x.used.length<x.total&&PKG(x.pkg).sids.includes(sv.id));if(c.length){pk=pick(c);pid=pk.pid}}
+   const st=pick(eligibleStaff(sv.id));const start=ri(Math.ceil(st.shift[0]/30),Math.floor((st.shift[1]-sv.dur)/30))*30;
+   const r=R();const status=r<.06?'Cancelled':r<.1?'No-show':'Completed';const id='B-'+(6001+bn++);
+   const b={id,pid,sid:sv.id,staff:st.id,date:d,start,dur:sv.dur,room:pick(S.rooms.filter(x=>x.type===sv.room)).id,status};
+   if(pk){b.pp=pk.id;if(status==='Completed')pk.used.push({bid:id,date:d})}
+   S.bookings.push(b);
+   if(status==='Completed'&&!pk){const full=R()<.97;const amt=full?sv.rate:Math.round(sv.rate/2/50)*50;S.clinInv.push({id:'CI-'+(1001+cn++),date:d,pid,bids:[id],lines:[{desc:sv.name,sid:sv.id,qty:1,rate:sv.rate,disc:0}],payments:[{rid:'RC-'+(1001+rn++),date:d,amount:amt,method:meth()}]})}
+  }
+  const meds=S.meds.filter(m=>m.active&&m.id!=='M7');
+  for(let j=ri(2,6);j>0;j--){const lines=[];for(let q=ri(1,2);q>0;q--){const m=pick(meds);if(!lines.some(l=>l.mid===m.id))lines.push({mid:m.id,qty:ri(1,3),rate:m.price,disc:0})}
+   const counter=R()<.25;const inv={id:'MI-'+(1001+mn++),date:d,pid:counter?'':pick(poolD),counter:counter?'Walk-in customer':'',cid:'',lines,vatRate:.05,payments:[],status:'Paid'};inv.payments.push({rid:'RC-'+(1001+rn++),date:d,amount:medTotals(inv).total,method:meth()});S.medInv.push(inv)}
+  for(let j=ri(0,2);j>0;j--){const pid=pick(poolD);const area=pick(areas);const sv=pick(S.services.filter(x=>x.home));S.home.push({id:'H-'+(101+hn++),pid,addr:`House ${ri(1,60)}/${ri(100,999)}, ${area}`,area,landmark:'',phone:P(pid).phone,sid:sv.id,date:d,start:pick([600,660,900,960,1020]),dur:60,staff:pick(['S5','S4','S3']),status:R()<.07?'Cancelled':'Completed',notes:'',travel:200})}
+ }
+ [['M2',2],['M1',1]].forEach(([mid,q],i)=>{const m=MED(mid);const inv={id:'MI-'+(1001+mn++),date:TODAY,pid:i?'LMS-00104':'',counter:i?'':'Walk-in customer',cid:'',lines:[{mid,qty:q,rate:m.price,disc:0}],vatRate:.05,payments:[],status:'Paid'};inv.payments.push({rid:'RC-'+(1001+rn++),date:TODAY,amount:medTotals(inv).total,method:'UPI'});S.medInv.push(inv)});
+ const insurers=['Sahyadri Health Insurance','Malabar Care Insurance','Vembanad Health TPA'];
+ for(let i=0;i<10;i++){const d0=addDays('2026-08-28',ri(0,55));const fin=R()<.7?'Settled':'Rejected';const d1=addDays(d0,ri(2,6));
+  const h=[{date:d0,to:'Pre-approval requested',by:'Joseph Mathew',reason:'Request sent with doctor’s note'},{date:d1,to:fin==='Rejected'?'Rejected':'Approved',by:'Joseph Mathew',reason:fin==='Rejected'?'Therapy not covered under policy':'Approval reference received'}];
+  if(fin==='Settled')h.push({date:addDays(d1,ri(1,4)),to:'Claim submitted',by:'Joseph Mathew',reason:'Claim filed on insurer portal'},{date:addDays(d1,ri(9,20)),to:'Settled',by:'Joseph Mathew',reason:'Settlement received'});
+  S.insurance.push({id:'INS-'+(201+i),pid:pick(pool),insurer:pick(insurers),ref:'CL-'+ri(10000,99999),link:'',status:fin,updated:h[h.length-1].date,owner:'Joseph Mathew',amount:0,remarks:'',history:h})}
+})();
+
+/* ================= chart helpers ================= */
+const r2=n=>Math.round(n*100)/100;
+const inr0=n=>'₹'+Math.round(n).toLocaleString('en-IN');
+const fmtK=n=>n>=1e7?(n/1e7).toFixed(1).replace(/\.0$/,'')+'Cr':n>=1e5?(n/1e5).toFixed(1).replace(/\.0$/,'')+'L':n>=1e3?(n/1e3).toFixed(1).replace(/\.0$/,'')+'k':String(Number.isInteger(n)?n:Math.round(n*10)/10);
+const daysBetween=(f,t)=>{const a=[];for(let d=f;d<=t;d=addDays(d,1))a.push(d);return a};
+const sumPay=(f,t)=>[...S.clinInv,...S.medInv].flatMap(i=>i.payments).filter(p=>p.date>=f&&p.date<=t).reduce((a,p)=>a+p.amount,0);
+function niceMax(v){if(v<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const m=v/p;return (m<=1?1:m<=2?2:m<=2.5?2.5:m<=5?5:10)*p}
+function spark(vals,c){const w=104,h=30,mx=Math.max(1,...vals),n=vals.length;const pts=vals.map((v,i)=>[n>1?2+i*(w-6)/(n-1):w/2,h-4-(v/mx)*(h-9)]);const d=pts.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');const l=pts[n-1];
+ return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><path d="${d} L${l[0].toFixed(1)} ${h} L${pts[0][0]} ${h}Z" fill="${c}" opacity=".12"/><path d="${d}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${l[0].toFixed(1)}" cy="${l[1].toFixed(1)}" r="3" fill="${c}" stroke="var(--surface)" stroke-width="2"/></svg>`}
+function kpi(o){let delta='';if(o.prev!=null){const d=o.prev?(o.cur-o.prev)/o.prev*100:(o.cur?100:0);const up=d>=0,flat=Math.abs(d)<0.5,good=o.good==='down'?!up:up;delta=`<span class="delta ${flat?'':good?'good':'bad'}" title="vs previous period">${flat?'±':up?'▲':'▼'} ${Math.abs(d).toFixed(0)}%</span>`}
+ const tag=o.go?'button':'div';return `<${tag} class="kpi ${o.flag?'flag':''}" ${o.go?`data-go="${o.go}" data-ctx='${esc(JSON.stringify(o.ctx||{}))}'`:''}><div class="kpi-top"><span class="k">${o.k}</span>${delta}</div><div class="v">${o.v}</div><div class="kpi-bot"><span class="s">${o.s||''}</span>${o.spark||''}</div></${tag}>`}
+function lineChart(labels,series,fmt){const W=1100,H=280,L=56,Rr=90,T=14,B=28,iw=W-L-Rr,ih=H-T-B,n=labels.length;const mx=niceMax(Math.max(1,...series.flatMap(x=>x.vals)));const X=i=>L+(n>1?i*iw/(n-1):iw/2),Y=v=>T+ih-(v/mx)*ih;fmt=fmt||fmtK;
+ let g='';for(let k=0;k<=4;k++){const v=mx*k/4;g+=`<line x1="${L}" x2="${W-Rr}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" class="ax">${fmtK(v)}</text>`}
+ const step=Math.max(1,Math.ceil(n/12));labels.forEach((l,i)=>{if(i%step===0)g+=`<text x="${X(i)}" y="${H-8}" text-anchor="middle" class="ax">${esc(l)}</text>`});
+ const ends=series.map(x=>({x,y:Y(x.vals[n-1])})).sort((a,b)=>a.y-b.y);for(let i=1;i<ends.length;i++)if(ends[i].y-ends[i-1].y<14)ends[i].y=ends[i-1].y+14;
+ const body=series.map((x,si)=>{const d=x.vals.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');return (si===0?`<path d="${d} L${X(n-1)} ${T+ih} L${X(0)} ${T+ih}Z" fill="${x.c}" opacity=".07"/>`:'')+`<path d="${d}" fill="none" stroke="${x.c}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${X(n-1)}" cy="${Y(x.vals[n-1])}" r="4" fill="${x.c}" stroke="var(--surface)" stroke-width="2"/>`}).join('')+ends.map(e=>`<text x="${X(n-1)+9}" y="${e.y+4}" class="ax lbl">${esc(e.x.name)}</text>`).join('');
+ const hits=labels.map((l,i)=>`<rect class="hit" x="${X(i)-iw/Math.max(1,n-1)/2}" y="${T}" width="${iw/Math.max(1,n-1)}" height="${ih}" data-tip="${esc(l+' — '+series.map(x=>x.name+' '+fmt(x.vals[i])).join(' · '))}"/>`).join('');
+ return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.map(x=>x.name).join(' and '))} over time">${g}${body}${hits}</svg>`}
+function barsV(labels,vals,c,tf,hi){const W=560,H=210,L=40,Rr=8,T=12,B=28,iw=W-L-Rr,ih=H-T-B,n=labels.length;const mx=niceMax(Math.max(1,...vals));const bw=Math.min(36,iw/n*.62);const X=i=>L+(i+.5)*iw/n,Y=v=>T+ih-(v/mx)*ih;
+ let g='';for(let k=0;k<=4;k++){const v=mx*k/4;g+=`<line x1="${L}" x2="${W-Rr}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" class="ax">${fmtK(v)}</text>`}
+ const step=Math.max(1,Math.ceil(n/10));
+ return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Bar chart">${g}${vals.map((v,i)=>{const h=Math.max(v?2:0,ih-(Y(v)-T));return `<rect class="bar-r" x="${X(i)-bw/2}" y="${T+ih-h}" width="${bw}" height="${h}" rx="4" fill="${hi===i?'var(--s2)':c}" data-tip="${esc(labels[i]+': '+(tf?tf(v):v))}"/>${i%step===0?`<text x="${X(i)}" y="${H-8}" text-anchor="middle" class="ax">${esc(labels[i])}</text>`:''}`}).join('')}</svg>`}
+function segBar(parts){const tot=parts.reduce((a,x)=>a+x.v,0)||1;return `<div class="segbar">${parts.filter(x=>x.v).map(x=>`<span style="flex:${x.v};background:${x.c}" data-tip="${esc(x.label)}: ${x.fmt?x.fmt(x.v):x.v} (${Math.round(x.v/tot*100)}%)"></span>`).join('')}</div><div class="legend2">${parts.map(x=>{const t=x.go?'button':'span';return `<${t} class="lg" ${x.go?`data-go="${x.go}" data-ctx='${esc(JSON.stringify(x.ctx||{}))}'`:''}><i style="background:${x.c}"></i>${esc(x.label)} <b>${x.fmt?x.fmt(x.v):x.v}</b><span class="muted">${Math.round(x.v/tot*100)}%</span></${t}>`}).join('')}</div>`}
+const hbarRow=(label,v,max,txt,c,tip)=>`<div class="hbar" data-tip="${esc(tip||label+': '+txt)}"><span>${esc(label)}</span><div class="bar"><i style="width:${max?Math.max(v?2:0,v/max*100):0}%;--c:${c||'var(--s1)'}"></i></div><b class="num">${txt}</b></div>`;
+function dashTop(d,day){const act=day.filter(b=>ACTIVE(b));const lw=S.bookings.filter(b=>b.date===addDays(d,-7)&&ACTIVE(b)).length;
+ const inClinic=day.filter(b=>['Arrived','In progress'].includes(b.status)).length;const done=day.filter(b=>b.status==='Completed').length;const lost=day.filter(b=>['Cancelled','No-show'].includes(b.status)).length;const lostLw=S.bookings.filter(b=>b.date===addDays(d,-7)&&['Cancelled','No-show'].includes(b.status)).length;
+ const d14=Array.from({length:14},(_,i)=>addDays(d,i-13));const col=d14.map(x=>r2(sumPay(x,x)));
+ const fu=S.followups.filter(f=>['Open','Reopened'].includes(f.status)&&f.due<=d).length;
+ const hours=Array.from({length:12},(_,i)=>9+i);const hv=hours.map(h=>act.filter(b=>Math.floor(b.start/60)===h).length);const nowH=10;
+ const util=S.staff.map(s=>{const shift=(s.shift[1]-s.shift[0])-(s.brk[1]-s.brk[0]);const used=act.filter(b=>b.staff===s.id).reduce((a,b)=>a+b.dur,0)+S.home.filter(h=>h.staff===s.id&&h.date===d&&h.status!=='Cancelled').reduce((a,h)=>a+h.dur+60,0);return {s,p:Math.min(100,Math.round(used/shift*100)),used}});
+ return `<div class="kpis" style="--n:6">${kpi({k:'Appointments',v:act.length,s:`${lw} on the same day last week`,cur:act.length,prev:lw,go:'booking-reports',ctx:{from:d,to:d}})}${kpi({k:'In clinic now',v:inClinic,s:'arrived or in session',flag:inClinic>0})}${kpi({k:'Completed',v:`${done}<small> / ${act.length}</small>`,s:'visits finished'})}${kpi({k:'Cancelled or no-show',v:lost,s:`${lostLw} same day last week`,cur:lost,prev:lostLw,good:'down'})}${kpi({k:d===TODAY?'Collected so far':'Collected',v:inr0(col[13]),s:'last 14 days',cur:col[13],prev:col[6],spark:spark(col,'var(--s1)'),go:'billing-report',ctx:{from:d,to:d,basis:'Payment date'}})}${kpi({k:'Follow-ups due',v:fu,s:'overdue or due today',go:'follow-ups',flag:fu>0})}</div>
+ <div class="grid g2"><div class="card"><div class="card-h"><h3>Appointments by hour</h3><span class="small muted">${dow(d)} ${fmtD(d)}</span></div><div class="card-b">${barsV(hours.map(h=>fmtT(h*60).replace(':00','')),hv,'var(--s1)',v=>v+' appointment'+(v===1?'':'s'),d===TODAY?nowH-9:-1)}${d===TODAY?'<div class="small muted">Current hour highlighted.</div>':''}</div></div>
+ <div class="card"><div class="card-h"><h3>Staff utilisation</h3><span class="small muted">booked time ÷ shift, incl. home visits</span></div><div class="card-b">${util.map(u=>hbarRow(u.s.name.replace('Dr. ',''),u.p,100,u.p+'%','var(--s1)',`${u.s.name}: ${Math.round(u.used/6)/10} h booked`)).join('')}</div></div></div>`}
 
 /* ================= routes ================= */
 const ROUTES=[
@@ -609,7 +725,7 @@ function render(){
  const groups=[];ROUTES.forEach(x=>{let g=groups.find(g=>g.m===x.m);if(!g)groups.push(g={m:x.m,items:[]});g.items.push(x)});
  root.innerHTML=`<div class="app">
   <aside class="side" aria-label="Main menu">
-   <div class="brand"><span class="mk">${LEAF}</span><div><b>Lamasat</b><span>Ayurveda Clinic · Qurum</span></div></div>
+   <div class="brand"><span class="mk">${LEAF}</span><div><b>Lamasat</b><span>Ayurveda Clinic · Kochi</span></div></div>
    <nav class="nav">${groups.map(g=>`<div class="nav-group"><div>${icon(g.m)}${esc(g.m)}</div>${g.items.map(x=>`<a href="#${x.k}" data-go="${x.k}" data-ctx="{}" data-nav class="${x.k===navK?'on':''} ${can(x.k)?'':'locked'}">${esc(x.t)}${can(x.k)?'':'<span class="lk" title="Not available for this role">no access</span>'}</a>`).join('')}</div>`).join('')}</nav>
    <div class="side-foot"><div class="who-me">${av(me())}<div><b>${esc(me())}</b>${esc(role)}</div></div><a data-act="changePw">Change password</a><a data-act="signOut">Sign out</a></div>
   </aside>
@@ -724,8 +840,8 @@ VIEWS['dashboard']=()=>{
  const arrived=day.filter(b=>b.status==='Arrived');
  const fus=S.followups.filter(f=>['Open','Reopened'].includes(f.status)&&f.due<=d);
  const homes=S.home.filter(h=>h.date===d&&h.status!=='Cancelled');
- const html=head(r,`${dow(d)} ${fmtD(d)} · ${day.filter(b=>ACTIVE(b)).length} appointments, ${arrived.length} waiting. Open a booking to change its status.`,`<button class="btn" data-act="dash" data-d="-1" aria-label="Previous day">‹</button><input type="date" class="i" id="dDate" value="${d}" style="width:auto"><button class="btn" data-act="dash" data-d="1" aria-label="Next day">›</button>${btnGo('new-booking','+ New booking',{nb:{date:d}},'pri')}`)+
- `<div class="filters"><div class="seg" role="tablist">${['',...BSTAT].map(s=>`<button class="${s===stf?'on':''}" data-act="dashStatus" data-s="${s}">${s||'All'}<span class="c">${s?cnt(s):base.length}</span></button>`).join('')}</div>
+ const html=head(r,`Good morning. ${dow(d)} ${fmtD(d)} at the Kochi clinic.`,`<button class="btn" data-act="dash" data-d="-1" aria-label="Previous day">‹</button><input type="date" class="i" id="dDate" value="${d}" style="width:auto"><button class="btn" data-act="dash" data-d="1" aria-label="Next day">›</button>${btnGo('new-booking','+ New booking',{nb:{date:d}},'pri')}`)+
+ `${dashTop(d,day)}<div class="filters"><div class="seg" role="tablist">${['',...BSTAT].map(s=>`<button class="${s===stf?'on':''}" data-act="dashStatus" data-s="${s}">${s||'All'}<span class="c">${s?cnt(s):base.length}</span></button>`).join('')}</div>
   </div>${fbar([fQ('q','Patient, phone or booking no.'),fSel('staff','Staff member',S.staff.map(s=>[s.id,s.name]),'All staff'),fSel('sid','Service',S.services.map(s=>[s.id,s.name]),'All services'),fSel('room','Room',S.rooms.map(x=>x.id),'All rooms')],rows.length,'appointments')}
  <div class="split"><div class="card"><div class="tw"><table class="t"><thead><tr><th>Time</th><th>Patient</th><th>Service</th><th>Staff · Room</th><th>Status</th><th></th></tr></thead><tbody>
  ${rows.length?rows.map(b=>{const s=SV(b.sid);let act='';
@@ -966,7 +1082,7 @@ VIEWS['medicine-billing']=()=>{
  const html=head(r,'Prepare a sale for a patient or a counter customer. The invoice and the stock movement are saved together.')+
  `<div class="split"><div class="stack">
  <div class="card"><div class="card-h"><h3>Customer</h3><div class="seg"><button class="${mb.who==='patient'?'on':''}" data-act="mbWho" data-w="patient">Patient</button><button class="${mb.who==='counter'?'on':''}" data-act="mbWho" data-w="counter">Counter customer</button></div></div><div class="card-b">
- ${mb.who==='patient'?`<label class="f">Patient<select class="i" id="mbP"><option value="">Select patient…</option>${S.patients.map(p=>`<option value="${p.id}" ${p.id===mb.pid?'selected':''}>${esc(p.name)} · ${p.id}</option>`).join('')}</select></label>`:`<label class="f">Customer name and phone<input class="i" id="mbC" value="${esc(mb.counter)}" placeholder="e.g. Walk-in: Hamed S., 9xxx xxxx"></label>`}
+ ${mb.who==='patient'?`<label class="f">Patient<select class="i" id="mbP"><option value="">Select patient…</option>${S.patients.map(p=>`<option value="${p.id}" ${p.id===mb.pid?'selected':''}>${esc(p.name)} · ${p.id}</option>`).join('')}</select></label>`:`<label class="f">Customer name and phone<input class="i" id="mbC" value="${esc(mb.counter)}" placeholder="e.g. Walk-in: Hameed K., 98xxx xxxxx"></label>`}
  ${rx?`<div class="banner info" style="margin-top:10px">Linked prescription <b>${rx.id}</b> from consultation ${rx.cid} (${fmtD(rx.date)}).</div>`:''}</div></div>
  <div class="card"><div class="card-h"><h3>Items</h3><button class="btn sm" data-act="mbAdd">+ Add line</button></div><div class="tw"><table class="t"><thead><tr><th>Medicine</th><th>Unit</th><th class="r">On hand</th><th>Qty</th><th class="r">Rate</th><th>Discount</th><th class="r">Amount</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
  ${errs.length?`<div class="banner bad"><b>Not enough stock.</b> Reduce the quantity or record the shortfall with the prescriber.<ul>${errs.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`:''}
@@ -1100,13 +1216,21 @@ VIEWS['tax-report']=()=>{
 
 /* 16 Insurance dashboard */
 VIEWS['insurance-dashboard']=()=>{
- const r=cur();const ins=S.insurance;const ageB=d=>{const n=dayDiff(TODAY,d);return n<=7?'0–7 days':n<=30?'8–30 days':'Over 30 days'};
- const open=ins.filter(x=>!['Settled','Rejected'].includes(x.status));
- const insurers=[...new Set(ins.map(x=>x.insurer))];
- const html=head(r,'Insurance cases that need attention. Each count opens the cases behind it. One case = one approval request.',btnGo('insurance-status','All cases',{},'pri'))+
- `<div class="tiles">${INSSTAT.map(s=>`<button class="tile ${s==='Query raised'&&ins.some(x=>x.status===s)?'flag':''}" data-go="insurance-status" data-ctx='${esc(JSON.stringify({st:s}))}'><span class="k">${s}</span><span class="v">${ins.filter(x=>x.status===s).length}</span></button>`).join('')}</div>
- <div class="grid g2"><div class="card"><div class="card-h"><h3>Open cases by insurer</h3></div><div class="tw"><table class="t"><thead><tr><th>Insurer</th><th class="r">Open</th><th class="r">Claimed outstanding</th></tr></thead><tbody>${insurers.map(n=>{const o=open.filter(x=>x.insurer===n);return `<tr class="click" data-go="insurance-status" data-ctx='${esc(JSON.stringify({ins:n}))}'><td>${esc(n)}</td><td class="r">${o.length}</td><td class="r">${money(o.reduce((a,x)=>a+x.amount,0))}</td></tr>`}).join('')}</tbody></table></div></div>
- <div class="card"><div class="card-h"><h3>Open cases by time since last update</h3></div><div class="card-b">${['0–7 days','8–30 days','Over 30 days'].map(a=>{const n=open.filter(x=>ageB(x.updated)===a).length;return `<div class="hbar"><span>${a}</span><div class="bar"><i style="width:${open.length?n/open.length*100:0}%;--c:${a==='Over 30 days'?'var(--bad)':a==='8–30 days'?'var(--warn)':'var(--ok)'}"></i></div><b class="num">${n}</b></div>`}).join('')}</div></div></div>`;
+ const r=cur();const ins=S.insurance;const open=ins.filter(x=>!['Settled','Rejected'].includes(x.status));
+ const decided=ins.filter(x=>x.history.some(h=>['Approved','Rejected'].includes(h.to)));const appr=decided.filter(x=>x.history.some(h=>h.to==='Approved')).length;
+ const avgOpen=open.length?Math.round(open.reduce((a,x)=>a+dayDiff(TODAY,x.history[0].date),0)/open.length):0;
+ const toDecide=decided.map(x=>dayDiff(x.history.find(h=>['Approved','Rejected'].includes(h.to)).date,x.history[0].date));const avgDec=toDecide.length?(toDecide.reduce((a,b)=>a+b,0)/toDecide.length).toFixed(1):'—';
+ const claimed=open.reduce((a,x)=>a+x.amount,0);const insurers=[...new Set(ins.map(x=>x.insurer))];
+ const ageB=d=>{const n=dayDiff(TODAY,d);return n<=7?'0–7 days':n<=30?'8–30 days':'Over 30 days'};
+ const feed=ins.flatMap(x=>x.history.map(h=>({...h,x}))).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+ const months=['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11'];const opened=months.map(m=>ins.filter(x=>x.history[0].date.startsWith(m)).length);
+ const html=head(r,'Insurance cases that need attention. Every number opens the cases behind it. One case is one approval request.',btnGo('insurance-status','All cases',{},'pri'))+
+ `<div class="kpis" style="--n:4">${kpi({k:'Open cases',v:open.length,s:`${ins.filter(x=>x.status==='Query raised').length} waiting on a query`,go:'insurance-status',ctx:{},flag:ins.some(x=>x.status==='Query raised')})}${kpi({k:'Claimed, not yet settled',v:inr0(claimed),s:'across open cases',go:'insurance-status',ctx:{st:'Claim submitted'}})}${kpi({k:'Approval rate',v:decided.length?Math.round(appr/decided.length*100)+'%':'—',s:`${appr} approved of ${decided.length} decided`})}${kpi({k:'Days to decision',v:avgDec,s:`average · open cases are ${avgOpen} days old`})}</div>
+ <div class="card"><div class="card-h"><h3>Case pipeline</h3><span class="small muted">current status of all ${ins.length} cases</span></div><div class="card-b">${segBar(INSSTAT.map(s=>({label:s,v:ins.filter(x=>x.status===s).length,c:PC[s],go:'insurance-status',ctx:{st:s}})))}</div></div>
+ <div class="grid g2"><div class="card"><div class="card-h"><h3>Open cases by insurer</h3></div><div class="card-b">${insurers.map(n=>{const o=open.filter(x=>x.insurer===n);return hbarRow(n,o.length,Math.max(1,...insurers.map(m=>open.filter(x=>x.insurer===m).length)),String(o.length),'var(--s1)',`${n}: ${o.length} open · ${inr0(o.reduce((a,x)=>a+x.amount,0))} claimed`)}).join('')}</div></div>
+ <div class="card"><div class="card-h"><h3>Open cases by time since last update</h3></div><div class="card-b">${['0–7 days','8–30 days','Over 30 days'].map(a=>{const n=open.filter(x=>ageB(x.updated)===a).length;return hbarRow(a,n,Math.max(1,open.length),String(n),a==='Over 30 days'?'var(--bad)':a==='8–30 days'?'var(--warn)':'var(--ok)')}).join('')}<div class="small muted">Cases untouched for over 30 days need a call to the insurer.</div></div></div></div>
+ <div class="grid g2"><div class="card"><div class="card-h"><h3>Cases opened per month</h3></div><div class="card-b">${barsV(months.map(m=>MONTHS[Number(m.slice(5))-1].slice(0,3)),opened,'var(--s1)',v=>v+' cases')}</div></div>
+ <div class="card"><div class="card-h"><h3>Recent activity</h3>${link('audit-log','Audit log',{m:'Insurance'})}</div><div class="list feed">${feed.map(f=>`<div class="li"><div class="pt">${av(pname(f.x.pid))}<div class="who"><b>${esc(pname(f.x.pid))} → ${esc(f.to)}</b><small>${fmtD(f.date)} · ${esc(f.x.insurer)} · ${esc(f.by)}</small></div></div><button class="btn sm" data-act="openIns" data-id="${f.x.id}">Open</button></div>`).join('')}</div></div></div>`;
  return {html};
 };
 /* 17 Insurance status */
@@ -1131,13 +1255,20 @@ function openIns(id){const x=S.insurance.find(i=>i.id===id);
 const ppState=x=>x.used.length>=x.total?'Exhausted':x.validTo<TODAY?'Expired':dayDiff(x.validTo,TODAY)<=14?'Expiring':'Active';
 VIEWS['packages-dashboard']=()=>{
  const r=cur();const f=ctx.f||'';
- const act=S.pp.filter(x=>['Active','Expiring'].includes(ppState(x)));
+ const act=S.pp.filter(x=>['Active','Expiring'].includes(ppState(x)));const unused=act.reduce((a,x)=>a+x.total-x.used.length,0);const liab=act.reduce((a,x)=>a+(x.total-x.used.length)*PKG(x.pkg).price/x.total,0);
+ const used=S.pp.flatMap(x=>x.used.map(u=>({...u,x})));const m0='2026-11-01';const uM=used.filter(u=>u.date>=m0).length,uP=used.filter(u=>u.date>='2026-10-01'&&u.date<='2026-10-23').length;
+ const sales=(a,b)=>S.clinInv.filter(i=>i.pkgSale&&i.date>=a&&i.date<=b).reduce((s,i)=>s+clinTotals(i).total,0);const sM=sales(m0,TODAY),sP=sales('2026-10-01','2026-10-23');
+ const weeks=Array.from({length:10},(_,i)=>addDays('2026-11-23',-7*(10-i)));const wk=weeks.map(w=>used.filter(u=>u.date>=w&&u.date<=addDays(w,6)).length);
+ const exp=S.pp.filter(x=>ppState(x)==='Expiring').sort((a,b)=>a.validTo.localeCompare(b.validTo));
  const list=S.pp.filter(x=>(!f||ppState(x)===f||(f==='Active'&&ppState(x)==='Expiring'))&&mq(ctx.q,pname(x.pid),x.id,x.pid)&&(!ctx.pk||x.pkg===ctx.pk));
- const html=head(r,'Patient packages that need action. A repeat purchase is counted as its own package.',btnGo('packages','Sell package',{sell:true},'pri'))+
- `<div class="tiles"><button class="tile" data-act="ppF" data-f="Active"><span class="k">Active packages</span><span class="v">${act.length}</span></button><button class="tile" data-act="ppF" data-f="Active"><span class="k">Unused sessions</span><span class="v">${act.reduce((a,x)=>a+x.total-x.used.length,0)}</span><span class="s">across active packages</span></button><button class="tile" data-act="ppF" data-f="Exhausted"><span class="k">Exhausted</span><span class="v">${S.pp.filter(x=>ppState(x)==='Exhausted').length}</span></button><button class="tile flag" data-act="ppF" data-f="Expiring"><span class="k">Expiring within 14 days</span><span class="v">${S.pp.filter(x=>ppState(x)==='Expiring').length}</span><span class="s">with sessions left</span></button></div>
+ const html=head(r,'Prepaid packages: what is sold, what is being used, and what is about to lapse.',btnGo('packages','Sell package',{sell:true},'pri'))+
+ `<div class="kpis" style="--n:5">${kpi({k:'Active packages',v:act.length,s:`${S.pp.length} sold in total`,go:'packages-dashboard',ctx:{f:'Active'}})}${kpi({k:'Unused sessions',v:unused,s:`worth ${inr0(liab)} at package rates`})}${kpi({k:'Sessions used this month',v:uM,s:'vs 1–23 Oct',cur:uM,prev:uP,spark:spark(wk,'var(--s1)')})}${kpi({k:'Package sales this month',v:inr0(sM),s:'vs 1–23 Oct',cur:sM,prev:sP,go:'packages',ctx:{from:m0}})}${kpi({k:'Expiring in 14 days',v:exp.length,s:'with sessions left',flag:exp.length>0,go:'packages-dashboard',ctx:{f:'Expiring'}})}</div>
+ <div class="grid g2"><div class="card"><div class="card-h"><h3>Sessions used per week</h3><span class="small muted">week starting</span></div><div class="card-b">${barsV(weeks.map(w=>fmtD(w).slice(0,5)),wk,'var(--s1)',v=>v+' sessions')}</div></div>
+ <div class="card"><div class="card-h"><h3>Sessions left by package type</h3></div><div class="card-b">${(()=>{const rows=S.pkgs.map(k=>({k,left:act.filter(x=>x.pkg===k.id).reduce((a,x)=>a+x.total-x.used.length,0),n:act.filter(x=>x.pkg===k.id).length}));const mx=Math.max(1,...rows.map(x=>x.left));return rows.map(x=>hbarRow(x.k.name,x.left,mx,String(x.left),'var(--s1)',`${x.k.name}: ${x.left} sessions left on ${x.n} active packages`)).join('')})()}</div></div></div>
+ ${exp.length?`<div class="card"><div class="card-h"><h3>About to expire</h3><span class="small muted">call these patients to book their remaining sessions</span></div><div class="list">${exp.map(x=>`<div class="li"><div class="pt">${av(pname(x.pid))}<div class="who"><b>${esc(pname(x.pid))}</b><small>${esc(PKG(x.pkg).name)} · ${x.total-x.used.length} sessions left · expires ${fmtD(x.validTo)} (${dayDiff(x.validTo,TODAY)} days)</small></div></div><div class="actions">${btnGo('new-booking','Book session',{nb:{pid:x.pid,sid:PKG(x.pkg).sids[0]}},'sm pri')}<button class="btn sm" data-act="openPP" data-id="${x.id}">Open</button></div></div>`).join('')}</div></div>`:''}
  ${fbar([fQ('q','Patient or package no.'),fSel('f','Status',['Active','Expiring','Exhausted','Expired'],'All statuses'),fSel('pk','Package',S.pkgs.map(k=>[k.id,k.name]),'All packages')],list.length,'packages')}
  <div class="card"><div class="tw"><table class="t"><thead><tr><th>Package</th><th>Patient</th><th>Purchased</th><th>Valid to</th><th>Sessions used</th><th class="r">Balance</th><th>Status</th></tr></thead><tbody>
- ${list.map(x=>`<tr class="click" data-act="openPP" data-id="${x.id}"><td><b>${esc(PKG(x.pkg).name)}</b><div class="small mono muted">${x.id}</div></td><td>${esc(pname(x.pid))}</td><td>${fmtD(x.date)}</td><td>${fmtD(x.validTo)}</td><td><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="flex:1"><i style="width:${x.used.length/x.total*100}%"></i></div><span class="small num">${x.used.length}/${x.total}</span></div></td><td class="r"><b>${x.total-x.used.length}</b></td><td>${pill(ppState(x))}</td></tr>`).join('')}
+ ${list.map(x=>`<tr class="click" data-act="openPP" data-id="${x.id}"><td><b>${esc(PKG(x.pkg).name)}</b><div class="small mono muted">${x.id}</div></td><td>${ptCell(x.pid)}</td><td>${fmtD(x.date)}</td><td>${fmtD(x.validTo)}</td><td><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="flex:1"><i style="width:${x.used.length/x.total*100}%"></i></div><span class="small num">${x.used.length}/${x.total}</span></div></td><td class="r"><b>${x.total-x.used.length}</b></td><td>${pill(ppState(x))}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No packages match.</td></tr>'}
  </tbody></table></div></div>`;
  return {html};
 };
@@ -1181,7 +1312,7 @@ function openHome(id){const h=S.home.find(x=>x.id===id);
 function staffOptionsFor(h,sel){return S.staff.filter(s=>s.role==='Therapist'||SV(h.sid).kind==='Practitioner'&&s.role==='Practitioner').map(s=>{const c=conflicts({staff:s.id,date:h.date,start:h.start-30,dur:h.dur+60,exclude:h.id});return `<option value="${s.id}" ${s.id===sel?'selected':''}>${esc(s.name)}${c.length?' — clash':' — free'}</option>`}).join('')}
 function homeEdit(id,pid){const h=id?S.home.find(x=>x.id===id):{id:'',pid:pid||'',addr:'',area:'',landmark:'',phone:'',sid:'SV3',date:TODAY,start:1020,dur:60,staff:'',status:'Unassigned',notes:'',travel:200};
  drawer(id?`Edit home visit <span class="mono">${h.id}</span>`:'New home visit',`<div class="grid g2"><label class="f">Patient *<select class="i" id="hvP"><option value="">Select…</option>${S.patients.map(p=>`<option value="${p.id}" ${p.id===h.pid?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label><label class="f">Contact number *<input class="i" id="hvPh" value="${esc(h.phone)}"></label></div>
- <label class="f">Service address *<input class="i" id="hvA" value="${esc(h.addr)}" placeholder="Villa / flat, way, area"></label>
+ <label class="f">Service address *<input class="i" id="hvA" value="${esc(h.addr)}" placeholder="House / flat, street, locality"></label>
  <div class="grid g2"><label class="f">Area *<input class="i" id="hvAr" value="${esc(h.area)}"></label><label class="f">Landmark / directions<input class="i" id="hvL" value="${esc(h.landmark)}"></label></div>
  <div class="grid g2"><label class="f">Service<select class="i" id="hvS">${S.services.filter(s=>s.home).map(s=>`<option value="${s.id}" ${s.id===h.sid?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label><label class="f">Expected duration (min)<input type="number" class="i" id="hvDu" value="${h.dur}"></label></div>
  <div class="grid g2"><label class="f">Date<input type="date" class="i" id="hvD" value="${h.date}"></label><label class="f">Time<input type="time" class="i" id="hvT" value="${hhmm(h.start)}" step="300"></label></div>
@@ -1191,48 +1322,64 @@ function homeEdit(id,pid){const h=id?S.home.find(x=>x.id===id):{id:'',pid:pid||'
 
 /* 21 Home dashboard */
 VIEWS['home-dashboard']=()=>{
- const r=cur();const d=ctx.date||TODAY;const day=S.home.filter(h=>h.date===d).sort((a,b)=>a.start-b.start);const c=s=>day.filter(h=>h.status===s).length;const rowsF=day.filter(h=>(!ctx.stf||(ctx.stf==='none'?!h.staff:h.staff===ctx.stf))&&(!ctx.area||h.area===ctx.area)&&(!ctx.st||h.status===ctx.st)&&mq(ctx.q,pname(h.pid),h.area,h.id));
- const html=head(r,`Dispatch list for ${dow(d)} ${fmtD(d)}.`,`<input type="date" class="i" id="hdD" value="${d}" style="width:auto"><button class="btn pri" data-act="homeEdit">+ New home visit</button>`)+
- `<div class="tiles"><div class="tile"><span class="k">Today’s visits</span><span class="v">${day.length}</span></div><div class="tile ${c('Unassigned')?'flag':''}"><span class="k">Unassigned</span><span class="v">${c('Unassigned')}</span></div><div class="tile"><span class="k">Scheduled</span><span class="v">${c('Scheduled')}</span></div><div class="tile"><span class="k">Completed</span><span class="v">${c('Completed')}</span></div><div class="tile"><span class="k">Cancelled</span><span class="v">${c('Cancelled')}</span></div></div>
- ${fbar([fQ('q','Patient, area or visit no.'),fSel('stf','Assigned to',[['none','Unassigned'],...S.staff.filter(s=>s.role==='Therapist').map(s=>[s.id,s.name])],'Anyone'),fSel('area','Area',[...new Set(S.home.map(h=>h.area))].sort(),'All areas'),fSel('st','Status',['Unassigned','Scheduled','Completed','Cancelled'],'Any status')],rowsF.length,'visits')}<div class="card"><div class="tw"><table class="t"><thead><tr><th>Time</th><th>Area</th><th>Patient</th><th>Service</th><th>Assigned</th><th>Status</th><th></th></tr></thead><tbody>
- ${rowsF.length?rowsF.map(h=>`<tr><td class="mono">${fmtT(h.start)}</td><td><b>${esc(h.area)}</b><div class="small muted">${esc(h.landmark)}</div></td><td>${esc(pname(h.pid))}</td><td>${esc(SV(h.sid).name)}</td><td>${h.staff?esc(ST(h.staff).name):'<span style="color:var(--warn);font-weight:600">Unassigned</span>'}</td><td>${pill(h.status)}</td><td style="white-space:nowrap;text-align:right">${['Unassigned','Scheduled'].includes(h.status)?`<button class="btn sm ${h.staff?'':'pri'}" data-act="homeAssign" data-id="${h.id}">${h.staff?'Reassign':'Assign'}</button> `:''}<button class="btn sm" data-act="openHome" data-id="${h.id}">Open</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty">No home visits on this day.</td></tr>'}
+ const r=cur();const d=ctx.date||TODAY;const day=S.home.filter(h=>h.date===d).sort((a,b)=>a.start-b.start);const c=s=>day.filter(h=>h.status===s).length;
+ const rowsF=day.filter(h=>(!ctx.stf||(ctx.stf==='none'?!h.staff:h.staff===ctx.stf))&&(!ctx.area||h.area===ctx.area)&&(!ctx.st||h.status===ctx.st)&&mq(ctx.q,pname(h.pid),h.area,h.id));
+ const d14=Array.from({length:14},(_,i)=>addDays(d,i-13));const per=d14.map(x=>S.home.filter(h=>h.date===x&&h.status!=='Cancelled').length);
+ const f30=addDays(d,-29);const last30=S.home.filter(h=>h.date>=f30&&h.date<=d&&h.status!=='Cancelled');const areas=[...new Set(last30.map(h=>h.area))].map(a=>({a,n:last30.filter(h=>h.area===a).length})).sort((x,y)=>y.n-x.n).slice(0,7);
+ const ther=S.staff.filter(s=>s.role==='Therapist');const T0=540,T1=1320,span=T1-T0,pct=m=>((m-T0)/span*100).toFixed(2)+'%',w=(a,b)=>((b-a)/span*100).toFixed(2)+'%';
+ const html=head(r,`Dispatch for ${dow(d)} ${fmtD(d)}. Assign visits, check therapist routes and follow up incomplete visits.`,`<input type="date" class="i" id="hdD" value="${d}" style="width:auto"><button class="btn pri" data-act="homeEdit">+ New home visit</button>`)+
+ `<div class="kpis" style="--n:5">${kpi({k:'Visits today',v:day.filter(h=>h.status!=='Cancelled').length,s:'last 14 days',spark:spark(per,'var(--s1)'),cur:per[13],prev:per[6]})}${kpi({k:'Unassigned',v:c('Unassigned'),s:'need a therapist',flag:c('Unassigned')>0})}${kpi({k:'Scheduled',v:c('Scheduled'),s:'assigned, not yet done'})}${kpi({k:'Completed',v:c('Completed'),s:'today'})}${kpi({k:'Travel charges',v:inr0(day.filter(h=>h.status!=='Cancelled').reduce((a,h)=>a+h.travel,0)),s:'billable today'})}</div>
+ <div class="card"><div class="card-h"><h3>Therapist routes</h3><div class="legend"><span><i style="--c:var(--accent)"></i>Home visit + 30 min travel each way</span><span><i style="--c:var(--info)"></i>Clinic booking</span></div></div><div class="tw"><div class="sched"><div class="hours"><div></div><div>${Array.from({length:13},(_,i)=>`<span>${fmtT(T0+i*60).replace(':00','')}</span>`).join('')}</div></div>
+ ${ther.map(s=>`<div class="sched-row"><div class="pt" style="padding:8px 16px">${av(s.name)}<div class="who"><b>${esc(s.name)}</b><small>${S.home.filter(h=>h.staff===s.id&&h.date===d&&h.status!=='Cancelled').length} home visits</small></div></div><div class="lane" style="cursor:default"><div class="off" style="left:0;width:${w(T0,s.shift[0])}"></div><div class="off" style="left:${pct(s.shift[1])};width:${w(s.shift[1],T1)}"></div>
+ ${S.bookings.filter(b=>b.staff===s.id&&b.date===d&&ACTIVE(b)).map(b=>`<div class="blk" style="--c:var(--info);left:${pct(b.start)};width:${w(b.start,b.start+b.dur)}" data-act="openBk" data-id="${b.id}" data-tip="${esc('Clinic · '+pname(b.pid)+' · '+fmtT(b.start))}">Clinic</div>`).join('')}
+ ${S.home.filter(h=>h.staff===s.id&&h.date===d&&h.status!=='Cancelled').map(h=>`<div class="blk" style="--c:var(--accent);left:${pct(h.start-30)};width:${w(h.start-30,h.start+h.dur+30)}" data-act="openHome" data-id="${h.id}" data-tip="${esc(h.area+' · '+pname(h.pid)+' · '+fmtT(h.start))}">${esc(h.area)}</div>`).join('')}</div></div>`).join('')}</div></div></div>
+ <div class="grid g2"><div class="card"><div class="card-h"><h3>Home visits per day</h3><span class="small muted">last 14 days</span></div><div class="card-b">${barsV(d14.map(x=>fmtD(x).slice(0,5)),per,'var(--s1)',v=>v+' visits',13)}</div></div>
+ <div class="card"><div class="card-h"><h3>Busiest areas</h3><span class="small muted">last 30 days</span></div><div class="card-b">${areas.map(x=>hbarRow(x.a,x.n,areas[0]?areas[0].n:1,String(x.n))).join('')||'<div class="empty">No visits.</div>'}</div></div></div>
+ ${fbar([fQ('q','Patient, area or visit no.'),fSel('stf','Assigned to',[['none','Unassigned'],...ther.map(s=>[s.id,s.name])],'Anyone'),fSel('area','Area',[...new Set(S.home.map(h=>h.area))].sort(),'All areas'),fSel('st','Status',['Unassigned','Scheduled','Completed','Cancelled'],'Any status')],rowsF.length,'visits')}
+ <div class="card"><div class="card-h"><h3>Dispatch list</h3></div><div class="tw"><table class="t"><thead><tr><th>Time</th><th>Area</th><th>Patient</th><th>Service</th><th>Assigned</th><th>Status</th><th></th></tr></thead><tbody>
+ ${rowsF.length?rowsF.map(h=>`<tr><td class="mono">${fmtT(h.start)}</td><td><b>${esc(h.area)}</b><div class="small muted">${esc(h.landmark)}</div></td><td>${ptCell(h.pid,`<span class="mono">${esc(h.phone)}</span>`)}</td><td>${esc(SV(h.sid).name)}</td><td>${h.staff?esc(ST(h.staff).name):'<span style="color:var(--warn);font-weight:600">Unassigned</span>'}</td><td>${pill(h.status)}</td><td style="white-space:nowrap;text-align:right">${['Unassigned','Scheduled'].includes(h.status)?`<button class="btn sm ${h.staff?'':'pri'}" data-act="homeAssign" data-id="${h.id}">${h.staff?'Reassign':'Assign'}</button> `:''}<button class="btn sm" data-act="openHome" data-id="${h.id}">Open</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty">No home visits match.</td></tr>'}
  </tbody></table></div></div>`;
  return {html,mount(){$('#hdD').onchange=e=>{ctx.date=e.target.value;rerender()}}};
 };
 
 /* 22 Analytics */
 VIEWS['analytics']=()=>{
- const r=cur();const per=ctx.per||'This month';const from=per==='Today'?TODAY:per==='Last 7 days'?addDays(TODAY,-6):'2026-11-01';const to=TODAY;const inP=d=>d>=from&&d<=to;
- const bk=S.bookings.filter(b=>inP(b.date));const comp=bk.filter(b=>b.status==='Completed').length+S.home.filter(h=>inP(h.date)&&h.status==='Completed').length;
- const pats=[...new Set(bk.filter(b=>b.status==='Completed').map(b=>b.pid))];const ret=pats.filter(p=>S.bookings.some(b=>b.pid===p&&b.status==='Completed'&&b.date<from)).length;
- const inv=r3(S.clinInv.filter(i=>inP(i.date)).reduce((a,i)=>a+clinTotals(i).total,0)+S.medInv.filter(i=>inP(i.date)).reduce((a,i)=>a+medTotals(i).total,0));
- const cash=r3([...S.clinInv,...S.medInv].flatMap(i=>i.payments).filter(p=>inP(p.date)).reduce((a,p)=>a+p.amount,0));
- const medNet=r3(S.medInv.filter(i=>inP(i.date)).reduce((a,i)=>a+medTotals(i).sub,0)-S.medInv.filter(i=>i.reversal&&inP(i.reversal.date)).reduce((a,i)=>a+medTotals(i).sub,0));
- const red=S.pp.flatMap(x=>x.used).filter(u=>inP(u.date)).length;const sold=S.pp.filter(x=>inP(x.date)).length;
- const hv=S.home.filter(h=>inP(h.date));
- const max=Math.max(1,...BSTAT.map(s=>bk.filter(b=>b.status===s).length));
- const days=[];for(let d=from;d<=to;d=addDays(d,1))days.push(d);
- const dayInv=days.map(d=>r3(S.clinInv.filter(i=>i.date===d).reduce((a,i)=>a+clinTotals(i).total,0)+S.medInv.filter(i=>i.date===d).reduce((a,i)=>a+medTotals(i).total,0)));
- const dayCash=days.map(d=>r3([...S.clinInv,...S.medInv].flatMap(i=>i.payments).filter(p=>p.date===d).reduce((a,p)=>a+p.amount,0)));
- const vmax=Math.max(1,...dayInv,...dayCash);const W=Math.max(days.length*28,300),H=160;const bw=Math.max(4,(W-40)/days.length/2-3);
- const st10=Math.pow(10,Math.floor(Math.log10(vmax)));const nice=Math.ceil(vmax/st10)*st10;
- const chart=`<svg viewBox="0 0 ${W} ${H+30}" width="100%" style="min-width:${Math.min(W,600)}px;max-width:100%" role="img" aria-label="Invoiced versus collected per day">${[0,.5,1].map(f=>`<line x1="34" x2="${W}" y1="${H-f*H*0.9}" y2="${H-f*H*0.9}" stroke="var(--line)"/><text x="30" y="${H-f*H*0.9+4}" text-anchor="end" font-size="10" fill="var(--muted)">${Math.round(nice*f)}</text>`).join('')}
- ${days.map((d,i)=>{const x=40+i*((W-40)/days.length);const h1=dayInv[i]/nice*H*0.9,h2=dayCash[i]/nice*H*0.9;return `<rect x="${x}" y="${H-h1}" width="${bw}" height="${h1}" fill="var(--brand)" rx="2"><title>${fmtD(d)} invoiced ${money(dayInv[i])}</title></rect><rect x="${x+bw+2}" y="${H-h2}" width="${bw}" height="${h2}" fill="var(--accent)" rx="2"><title>${fmtD(d)} collected ${money(dayCash[i])}</title></rect>${days.length<=10||i%3===0?`<text x="${x+bw}" y="${H+16}" text-anchor="middle" font-size="10" fill="var(--muted)">${d.slice(8)}</text>`:''}`}).join('')}</svg>`;
- const html=head(r,`Management view for ${fmtD(from)} – ${fmtD(to)}. Each measure states how the date is applied and opens its records.`)+
- `<div class="filters"><div class="seg">${['Today','Last 7 days','This month'].map(p=>`<button class="${p===per?'on':''}" data-act="anPer" data-p="${p}">${p}</button>`).join('')}</div></div>
- <div class="tiles">
-  <button class="tile" data-go="booking-reports" data-ctx='${esc(JSON.stringify({from,to}))}'><span class="k">Bookings</span><span class="v">${bk.length}</span><span class="s">by appointment date</span></button>
-  <button class="tile" data-go="booking-reports" data-ctx='${esc(JSON.stringify({from,to,st:'Completed'}))}'><span class="k">Completed visits</span><span class="v">${comp}</span><span class="s">clinic + home · each package session counts</span></button>
-  <button class="tile" data-go="patients" data-ctx="{}"><span class="k">Returning patients</span><span class="v">${ret}<span class="small muted" style="font-size:13px"> / ${pats.length}</span></span><span class="s">seen before this period</span></button>
-  <button class="tile" data-go="billing-report" data-ctx='${esc(JSON.stringify({from,to}))}'><span class="k">Invoiced (incl. GST)</span><span class="v" style="font-size:18px">${INR(inv)}</span><span class="s">by invoice date · package sale once</span></button>
-  <button class="tile" data-go="billing-report" data-ctx='${esc(JSON.stringify({from,to,basis:'Payment date'}))}'><span class="k">Cash collected</span><span class="v" style="font-size:18px">${INR(cash)}</span><span class="s">by receipt date</span></button>
-  <button class="tile" data-go="medicine-report" data-ctx='${esc(JSON.stringify({from,to}))}'><span class="k">Medicine net sales</span><span class="v" style="font-size:18px">${INR(medNet)}</span><span class="s">excl. GST · returns on processing date</span></button>
-  <button class="tile" data-go="packages-dashboard" data-ctx="{}"><span class="k">Package sessions used</span><span class="v">${red}</span><span class="s">${sold} package${sold===1?'':'s'} sold in period</span></button>
-  <button class="tile" data-go="home-service" data-ctx="{}"><span class="k">Home visits</span><span class="v">${hv.length}</span><span class="s">${hv.filter(h=>h.status==='Completed').length} completed</span></button>
+ const r=cur();const per=ctx.per||'Last 30 days';const n=per==='Last 7 days'?7:per==='Last 90 days'?90:30;const to=ctx.asOf||TODAY;const from=addDays(to,-(n-1)),pf=addDays(from,-n),pt=addDays(from,-1);
+ const M=(f,t)=>{const inP=d=>d>=f&&d<=t;const bk=S.bookings.filter(b=>inP(b.date));const comp=bk.filter(b=>b.status==='Completed');const hv=S.home.filter(h=>inP(h.date)&&h.status==='Completed');
+  const pats=[...new Set(comp.map(b=>b.pid))];const ret=pats.filter(p=>S.bookings.some(b=>b.pid===p&&b.status==='Completed'&&b.date<f)).length;
+  const inv=S.clinInv.filter(i=>inP(i.date)).reduce((a,i)=>a+clinTotals(i).total,0)+S.medInv.filter(i=>inP(i.date)).reduce((a,i)=>a+medTotals(i).total,0);
+  const med=S.medInv.filter(i=>inP(i.date)).reduce((a,i)=>a+medTotals(i).sub,0)-S.medInv.filter(i=>i.reversal&&inP(i.reversal.date)).reduce((a,i)=>a+medTotals(i).sub,0);
+  return {bk,comp,hv,pats,ret,inv,cash:sumPay(f,t),med,red:S.pp.flatMap(x=>x.used).filter(u=>inP(u.date)).length,newP:S.patients.filter(p=>inP(p.since)).length,visits:comp.length+hv.length}};
+ const c=M(from,to),p=M(pf,pt);
+ const days=daysBetween(from,to);const wkly=n>31;const buckets=wkly?Array.from({length:Math.ceil(n/7)},(_,i)=>days.slice(i*7,i*7+7)):days.filter(d=>dow(d)!=='Sun').map(d=>[d]);
+ const lab=buckets.map(b=>fmtD(b[0]).slice(0,5));const sumB=fn=>buckets.map(b=>b.reduce((a,d)=>a+fn(d),0));
+ const sInv=sumB(d=>S.clinInv.filter(i=>i.date===d).reduce((a,i)=>a+clinTotals(i).total,0)+S.medInv.filter(i=>i.date===d).reduce((a,i)=>a+medTotals(i).total,0));
+ const sCash=sumB(d=>sumPay(d,d));const sBk=sumB(d=>S.bookings.filter(b=>b.date===d).length);const sVis=sumB(d=>S.bookings.filter(b=>b.date===d&&b.status==='Completed').length+S.home.filter(h=>h.date===d&&h.status==='Completed').length);
+ const sMed=sumB(d=>S.medInv.filter(i=>i.date===d).reduce((a,i)=>a+medTotals(i).sub,0));const sRed=sumB(d=>S.pp.flatMap(x=>x.used).filter(u=>u.date===d).length);const sNew=sumB(d=>S.patients.filter(x=>x.since===d).length);
+ const pays=[...S.clinInv,...S.medInv].flatMap(i=>i.payments).filter(x=>x.date>=from&&x.date<=to);const MC=['var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)'];
+ const svc=S.services.map(sv=>({sv,n:c.comp.filter(b=>b.sid===sv.id).length})).sort((a,b)=>b.n-a.n);
+ const staffRows=S.staff.map(st=>{const mine=c.bk.filter(b=>b.staff===st.id);const done=mine.filter(b=>b.status==='Completed');const ns=mine.filter(b=>b.status==='No-show').length;const rev=done.filter(b=>!b.pp).reduce((a,b)=>a+SV(b.sid).rate,0);const hv=c.hv.filter(h=>h.staff===st.id).length;return {st,done:done.length+hv,rev,ns,rate:mine.length?ns/mine.length*100:0}});
+ const mx=Math.max(1,...staffRows.map(x=>x.rev));
+ const medAgg={};S.medInv.filter(i=>i.date>=from&&i.date<=to&&i.status!=='Reversed').forEach(i=>i.lines.forEach(l=>{const a=medAgg[l.mid]=medAgg[l.mid]||{q:0,v:0};a.q+=l.qty;a.v+=lineNet(l)}));const topMed=Object.entries(medAgg).sort((a,b)=>b[1].v-a[1].v).slice(0,5);
+ const html=head(r,`${fmtD(from)} – ${fmtD(to)}, compared with the ${n} days before. Every figure opens the records behind it.`)+
+ `<div class="filters"><div class="seg">${['Last 7 days','Last 30 days','Last 90 days'].map(x=>`<button class="${x===per?'on':''}" data-act="anPer" data-p="${x}">${x}</button>`).join('')}</div><span class="small muted">Trend lines are ${wkly?'weekly':'daily, clinic days only (closed Sundays)'}.</span></div>
+ <div class="kpis" style="--n:4">
+  ${kpi({k:'Bookings',v:c.bk.length,s:'by appointment date',cur:c.bk.length,prev:p.bk.length,spark:spark(sBk,'var(--s1)'),go:'booking-reports',ctx:{from,to}})}
+  ${kpi({k:'Completed visits',v:c.visits,s:'clinic + home · each package session',cur:c.visits,prev:p.visits,spark:spark(sVis,'var(--s1)'),go:'booking-reports',ctx:{from,to,st:'Completed'}})}
+  ${kpi({k:'New patients',v:c.newP,s:'registered in period',cur:c.newP,prev:p.newP,spark:spark(sNew,'var(--s1)'),go:'patients',ctx:{from,to}})}
+  ${kpi({k:'Returning patients',v:(c.pats.length?Math.round(c.ret/c.pats.length*100):0)+'%',s:`${c.ret} of ${c.pats.length} seen before`,cur:c.pats.length?c.ret/c.pats.length:0,prev:p.pats.length?p.ret/p.pats.length:0})}
+  ${kpi({k:'Invoiced (incl. GST)',v:inr0(c.inv),s:'by invoice date · package sale once',cur:c.inv,prev:p.inv,spark:spark(sInv,'var(--s1)'),go:'billing-report',ctx:{from,to}})}
+  ${kpi({k:'Cash collected',v:inr0(c.cash),s:'by receipt date',cur:c.cash,prev:p.cash,spark:spark(sCash,'var(--s1)'),go:'billing-report',ctx:{from,to,basis:'Payment date'}})}
+  ${kpi({k:'Medicine net sales',v:inr0(c.med),s:'excl. GST · returns on processing date',cur:c.med,prev:p.med,spark:spark(sMed,'var(--s1)'),go:'medicine-report',ctx:{from,to}})}
+  ${kpi({k:'Package sessions used',v:c.red,s:'redemptions in period',cur:c.red,prev:p.red,spark:spark(sRed,'var(--s1)'),go:'packages-dashboard',ctx:{}})}
  </div>
- <div class="grid g2"><div class="card"><div class="card-h"><h3>Bookings by status</h3></div><div class="card-b">${BSTAT.map(s=>{const n=bk.filter(b=>b.status===s).length;return `<div class="hbar"><span>${s}</span><div class="bar"><i style="width:${n/max*100}%;--c:${PC[s]}"></i></div><b class="num">${n}</b></div>`}).join('')}</div></div>
- <div class="card"><div class="card-h"><h3>Invoiced vs collected per day</h3><div class="legend"><span><i style="--c:var(--brand)"></i>Invoiced</span><span><i style="--c:var(--accent)"></i>Collected</span></div></div><div class="card-b tw">${chart}</div></div></div>
- <div class="banner info small"><b>Counting rule shown:</b> a prepaid package is one sale in “Invoiced” and each delivered session in “Completed visits”. Invoice totals and cash collections are separate measures.</div>`;
+ <div class="card"><div class="card-h"><h3>Invoiced vs collected</h3><div class="legend"><span><i style="--c:var(--s1)"></i>Invoiced</span><span><i style="--c:var(--s2)"></i>Collected</span></div></div><div class="card-b">${lineChart(lab,[{name:'Invoiced',vals:sInv,c:'var(--s1)'},{name:'Collected',vals:sCash,c:'var(--s2)'}],inr0)}</div></div>
+ <div class="grid g2"><div class="card"><div class="card-h"><h3>Bookings by status</h3><span class="small muted">${c.bk.length} bookings</span></div><div class="card-b">${segBar(BSTAT.map(s=>({label:s,v:c.bk.filter(b=>b.status===s).length,c:PC[s],go:'booking-reports',ctx:{from,to,st:s}})))}</div></div>
+ <div class="card"><div class="card-h"><h3>How patients paid</h3><span class="small muted">${pays.length} receipts</span></div><div class="card-b">${segBar(S.methods.map((m,i)=>({label:m,v:r2(pays.filter(x=>x.method===m).reduce((a,x)=>a+x.amount,0)),c:MC[i],fmt:inr0})).filter(x=>x.v))}</div></div></div>
+ <div class="grid g2"><div class="card"><div class="card-h"><h3>Completed visits by service</h3></div><div class="card-b">${svc.map(x=>hbarRow(x.sv.name,x.n,svc[0].n||1,String(x.n))).join('')}</div></div>
+ <div class="card"><div class="card-h"><h3>Top medicines</h3>${link('medicine-report','Medicine report',{from,to})}</div><div class="tw"><table class="t"><thead><tr><th>Medicine</th><th class="r">Qty</th><th class="r">Net sales</th></tr></thead><tbody>${topMed.map(([k,v])=>`<tr><td>${esc(MED(k).name)}</td><td class="r">${v.q}</td><td class="r">${inr0(v.v)}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No sales.</td></tr>'}</tbody></table></div></div></div>
+ <div class="card"><div class="card-h"><h3>Practitioners and therapists</h3><span class="small muted">service revenue excludes package-covered sessions</span></div><div class="tw"><table class="t"><thead><tr><th>Staff</th><th class="r">Visits completed</th><th>Service revenue</th><th class="r">No-show rate</th></tr></thead><tbody>${staffRows.map(x=>`<tr class="click" data-go="booking-reports" data-ctx='${esc(JSON.stringify({from,to,staff:x.st.id}))}'><td><div class="pt">${av(x.st.name)}<div class="who"><b>${esc(x.st.name)}</b><small>${x.st.role}</small></div></div></td><td class="r">${x.done}</td><td style="min-width:200px"><div style="display:flex;gap:10px;align-items:center"><div class="bar" style="flex:1"><i style="width:${x.rev/mx*100}%;--c:var(--s1)"></i></div><span class="num small">${inr0(x.rev)}</span></div></td><td class="r"><span style="color:${x.rate>8?'var(--bad)':'inherit'}">${x.rate.toFixed(1)}%</span></td></tr>`).join('')}</tbody></table></div></div>
+ <div class="banner info small"><b>Counting rules shown:</b> a prepaid package counts once in “Invoiced” when sold and each delivered session counts in “Completed visits”. Invoice totals and cash collections are separate measures. Arrows compare with the previous ${n} days.</div>`;
  return {html};
 };
 
@@ -1263,7 +1410,7 @@ VIEWS['audit-log']=()=>{
 VIEWS['app-settings']=()=>{
  const r=cur();const tab=ctx.tab||'Services & rates';const tabs=['Clinic details','Working hours','Time slots','Services & rates','Invoice & tax','Payment methods','Staff access'];
  let body='';
- if(tab==='Clinic details')body=`<div class="card card-b grid g2">${[['name','Clinic name'],['address','Address'],['phone','Phone'],['cr','Commercial registration'],['vatNo','GSTIN']].map(([k,l])=>`<label class="f">${l}<input class="i" data-cl="${k}" value="${esc(S.clinic[k])}"></label>`).join('')}<div style="grid-column:1/-1"><button class="btn pri" data-act="setClinic">Save clinic details</button></div></div>`;
+ if(tab==='Clinic details')body=`<div class="card card-b grid g2">${[['name','Clinic name'],['address','Address'],['phone','Phone'],['cr','Clinic registration no.'],['vatNo','GSTIN']].map(([k,l])=>`<label class="f">${l}<input class="i" data-cl="${k}" value="${esc(S.clinic[k])}"></label>`).join('')}<div style="grid-column:1/-1"><button class="btn pri" data-act="setClinic">Save clinic details</button></div></div>`;
  if(tab==='Working hours')body=`<div class="card"><div class="tw"><table class="t"><thead><tr><th>Staff</th><th>Role</th><th>Shift start</th><th>Shift end</th><th>Break start</th><th>Break end</th></tr></thead><tbody>${S.staff.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${s.role}</td>${[['shift',0],['shift',1],['brk',0],['brk',1]].map(([k,i])=>`<td><input type="time" class="i" style="width:120px" data-wh="${s.id}|${k}|${i}" value="${hhmm(s[k][i])}" step="900"></td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="card-b"><button class="btn pri" data-act="setHours">Save working hours</button> <span class="small muted">Existing appointments outside new hours are flagged before saving.</span></div></div>`;
  if(tab==='Time slots')body=`<div class="card card-b stack"><p class="muted" style="margin:0">Preset start times offered on New Booking. Staff can still choose a custom time.</p><div class="slots">${S.slotPresets.map(m=>`<span class="slot"><b>${fmtT(m)}</b><button class="btn sm ghost" data-act="slotDel" data-m="${m}">Remove</button></span>`).join('')}</div><div class="filters"><label class="f">Add preset<input type="time" class="i" id="slotNew" step="900"></label><button class="btn" data-act="slotAdd">Add</button></div></div>`;
  if(tab==='Services & rates')body=`<div class="card"><div class="tw"><table class="t"><thead><tr><th>Service</th><th>Performed by</th><th>Room</th><th>Home visit</th><th class="r">Duration</th><th class="r">Rate (₹)</th><th></th></tr></thead><tbody>${S.services.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${s.kind}</td><td>${s.room}</td><td>${s.home?'Yes':'No'}</td><td class="r">${s.dur} min</td><td class="r"><input class="i" type="number" step="50" min="0" style="width:110px;text-align:right" id="rate_${s.id}" value="${s.rate}"></td><td><button class="btn sm" data-act="setRate" data-id="${s.id}">Save</button></td></tr>`).join('')}</tbody></table></div><div class="card-b small muted">A new rate applies to bills issued from now on. Issued invoices keep the amount billed.</div></div>`;
@@ -1283,7 +1430,7 @@ VIEWS['record']=()=>{const R=RECORD[ctx.kind];
  return {html:`${backBtn(R.parent)}<div class="ph"><div><div class="rec-sub">${esc(R.label)}</div><h1>${c.title}</h1></div><div class="actions">${c.foot||''}</div></div><div class="card"><div class="card-b stack">${c.body}</div></div>`,mount:c.mount}};
 
 /* ================= login & account ================= */
-function loginView(){return `<div class="login"><form class="card" id="loginF" autocomplete="off"><div class="brand" style="padding:0"><span class="mk">${LEAF}</span><div><b>Lamasat</b><span class="muted">Ayurveda Clinic · Qurum</span></div></div><h2 style="font-size:24px">Welcome back</h2><label class="f">Staff role (prototype)<select class="i" id="lgRole">${Object.keys(ROLES).map(x=>`<option ${x===role?'selected':''}>${x}</option>`).join('')}</select></label><label class="f">Username<input class="i" id="lgU" value="${esc(ROLES[role].user.toLowerCase().replace(/[^a-z]+/g,'.'))}"></label><label class="f">Password<input class="i" id="lgP" type="password" value="prototype"></label><div id="lgErr"></div><button class="btn pri" type="submit">Sign in</button><p class="small muted" style="margin:0">You were signed out. Protected pages need you to sign in again on this device.</p></form></div>`}
+function loginView(){return `<div class="login"><form class="card" id="loginF" autocomplete="off"><div class="brand" style="padding:0"><span class="mk">${LEAF}</span><div><b>Lamasat</b><span class="muted">Ayurveda Clinic · Kochi</span></div></div><h2 style="font-size:24px">Welcome back</h2><label class="f">Staff role (prototype)<select class="i" id="lgRole">${Object.keys(ROLES).map(x=>`<option ${x===role?'selected':''}>${x}</option>`).join('')}</select></label><label class="f">Username<input class="i" id="lgU" value="${esc(ROLES[role].user.toLowerCase().replace(/[^a-z]+/g,'.'))}"></label><label class="f">Password<input class="i" id="lgP" type="password" value="prototype"></label><div id="lgErr"></div><button class="btn pri" type="submit">Sign in</button><p class="small muted" style="margin:0">You were signed out. Protected pages need you to sign in again on this device.</p></form></div>`}
 function wireLogin(){$('#lgRole').onchange=e=>{role=e.target.value;$('#lgU').value=ROLES[role].user.toLowerCase().replace(/[^a-z]+/g,'.')};$('#loginF').onsubmit=e=>{e.preventDefault();if(!val('lgP')){errBox('lgErr',['Enter your password.']);return}signedIn=true;NAV=[];toast(`Signed in as ${me()}`);if(!location.hash)location.hash='dashboard';render()}}
 
 /* ================= actions ================= */
@@ -1321,11 +1468,11 @@ const ACT={
   if(nb.fu){const f=S.followups.find(x=>x.id===nb.fu);f.status='Booked';f.booking=id;f.attempts.push({ts:nowStamp(),by:me(),outcome:'Return visit booked',note:id})}
   toast(`Booked ${pname(nb.pid)} · ${fmtD(nb.date)} ${fmtT(nb.start)} with ${ST(nb.staff).name} (${id}).`);go('dashboard',{date:nb.date},{noPush:true})},
  /* patients */
- regPatient(){const q=ctx.q||'';const isPhone=/^\d[\d\s]*$/.test(q);drawer('Register patient',`<div class="grid g2"><label class="f">Full name *<input class="i" id="rpN" value="${isPhone?'':esc(q)}"></label><label class="f">Mobile number *<input class="i" id="rpPh" value="${isPhone?esc(q):''}" placeholder="9xxx xxxx"></label></div>
+ regPatient(){const q=ctx.q||'';const isPhone=/^\d[\d\s]*$/.test(q);drawer('Register patient',`<div class="grid g2"><label class="f">Full name *<input class="i" id="rpN" value="${isPhone?'':esc(q)}"></label><label class="f">Mobile number *<input class="i" id="rpPh" value="${isPhone?esc(q):''}" placeholder="98xxx xxxxx"></label></div>
   <div class="grid g2"><label class="f">Date of birth<input type="date" class="i" id="rpDob"></label><label class="f">Or approximate age (years)<input type="number" class="i" id="rpAge" min="0" max="120"></label></div>
   <div class="grid g2"><label class="f">Gender<select class="i" id="rpG"><option value="F">Female</option><option value="M">Male</option></select></label><label class="f">Patient ID<input class="i mono" value="${uid('LMS-00',S.patients,111)}" readonly></label></div>
   <label class="f">Note<input class="i" id="rpNote" placeholder="e.g. Shares phone with spouse"></label><div id="rpErr"></div><div id="rpDup"></div>`,`<button class="btn pri" data-act="rpSave">Save patient</button>`)},
- rpSave(a){const n=val('rpN'),ph=val('rpPh'),dob=val('rpDob'),ag=val('rpAge');const e=[];if(!n)e.push('Enter the full name.');if(!/^\d{4}\s?\d{4}$/.test(ph))e.push('Enter an 8-digit mobile number.');if(!dob&&!ag)e.push('Enter a date of birth or an approximate age.');if(e.length)return errBox('rpErr',e);errBox('rpErr',[]);
+ rpSave(a){const n=val('rpN'),ph=val('rpPh'),dob=val('rpDob'),ag=val('rpAge');const e=[];if(!n)e.push('Enter the full name.');if(!/^[6-9]\d{4}\s?\d{5}$/.test(ph))e.push('Enter a 10-digit mobile number starting with 6, 7, 8 or 9.');if(!dob&&!ag)e.push('Enter a date of birth or an approximate age.');if(e.length)return errBox('rpErr',e);errBox('rpErr',[]);
   const norm=s=>s.toLowerCase().replace(/\s/g,'');const parts=n.toLowerCase().split(/\s+/);
   const dups=S.patients.filter(p=>norm(p.phone)===norm(ph)||(parts.length>1&&p.name.toLowerCase().includes(parts[0])&&p.name.toLowerCase().includes(parts[parts.length-1])));
   if(dups.length&&!a.dataset.force){$('#rpDup').innerHTML=`<div class="banner info"><b>Possible existing profile${dups.length>1?'s':''}.</b> Check before saving. Family members may share a phone number.<div class="list" style="margin-top:8px">${dups.map(p=>`<div class="li" style="padding:6px 0"><span><b>${esc(p.name)}</b> <span class="mono small">${p.id} · ${esc(p.phone)} · ${age(p)}</span></span>${btnGo('patient-history','Open',{pid:p.id},'sm')}</div>`).join('')}</div><button class="btn pri sm" data-act="rpSave" data-force="1" style="margin-top:8px">Save as a separate profile</button></div>`;return}
@@ -1453,6 +1600,10 @@ const ACT={
  slotAdd(){const v=val('slotNew');if(!v)return;const m=toMin(v);if(!S.slotPresets.includes(m))S.slotPresets.push(m);S.slotPresets.sort((a,b)=>a-b);audit('Preset slot added','Settings',fmtT(m),'');rerender()}
 };
 
+/* chart tooltips */
+const TIP=document.createElement('div');TIP.id='tip';TIP.hidden=true;TIP.setAttribute('role','tooltip');document.body.appendChild(TIP);
+document.addEventListener('mouseover',e=>{const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){TIP.hidden=true;return}TIP.textContent=t.getAttribute('data-tip');TIP.hidden=false});
+document.addEventListener('mousemove',e=>{if(!TIP.hidden){TIP.style.left=Math.max(8,Math.min(e.clientX+14,innerWidth-TIP.offsetWidth-8))+'px';TIP.style.top=Math.min(e.clientY+16,innerHeight-TIP.offsetHeight-8)+'px'}});
 /* ================= date picker & searchable select ================= */
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const ICAL=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>`;
